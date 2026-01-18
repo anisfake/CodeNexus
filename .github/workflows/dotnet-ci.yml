@@ -1,0 +1,36 @@
+name: CodeNexus CI
+
+# Kích hoạt khi có Push hoặc PR vào main/develop
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Chạy trên máy ảo Linux
+
+    steps:
+    # 1. Tải code về máy ảo
+    - uses: actions/checkout@v4
+
+    # 2. Cài đặt .NET 8
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # 3. Restore (Tải thư viện)
+    # Đường dẫn: src/CodeNexus.API/...
+    - name: Restore dependencies
+      run: dotnet restore src/CodeNexus.API/CodeNexus.API.csproj
+
+    # 4. Build (Biên dịch code xem có lỗi cú pháp không)
+    - name: Build
+      run: dotnet build src/CodeNexus.API/CodeNexus.API.csproj --no-restore --configuration Release
+
+    # 5. Test (Chạy Unit Test)
+    # Chưa tạo project Test thì tạm thời comment dòng dưới lại bằng dấu #
+    # - name: Test
+    #   run: dotnet test tests/ --no-build --verbosity normal
