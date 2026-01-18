@@ -5,5 +5,7 @@
     <Project Path="src/CodeNexus.Domain/CodeNexus.Domain.csproj" />
     <Project Path="src/CodeNexus.Infrastructure/CodeNexus.Infrastructure.csproj" />
   </Folder>
-  <Folder Name="/tests/" />
+  <Folder Name="/tests/">
+    <Project Path="CodeNexus.UnitTests/CodeNexus.UnitTests.csproj" Id="5a07c8c1-67cd-461f-962b-b7cb61ad7fc7" />
+  </Folder>
 </Solution>
