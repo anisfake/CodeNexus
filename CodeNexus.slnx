@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="CodeNexus.API/CodeNexus.API.csproj" />
+    <Project Path="CodeNexus.Application/CodeNexus.Application.csproj" />
+    <Project Path="CodeNexus.Domain/CodeNexus.Domain.csproj" />
+    <Project Path="CodeNexus.Infrastructure/CodeNexus.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+</Solution>
