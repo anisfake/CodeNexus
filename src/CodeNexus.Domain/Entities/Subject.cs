@@ -9,8 +9,7 @@ namespace CodeNexus.Domain.Entities
     public class Subject
     {
         public Guid SubjectId { get; set; }
-        
-        // Mentor who created this subject
+
         public Guid CreatedByUserId { get; set; }
         public virtual User CreatedByUser { get; set; } = null!;
 

@@ -1,4 +1,5 @@
-﻿using CodeNexus.Domain.Entities;
+﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -10,49 +11,51 @@ using System.Threading.Tasks;
 
 namespace CodeNexus.Infrastructure.Persistence
 {
-    public class AppDbContext : DbContext
+    public class AppDbContext : DbContext, IAppDbContext
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
 
-        public DbSet<Role> Roles { get; set; }
-        public DbSet<User> Users { get; set; }
-        public DbSet<UserProfile> UserProfiles { get; set; }
-        public DbSet<AuditLog> AuditLogs { get; set; }
-        public DbSet<Notification> Notifications { get; set; }
-        public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<Role> Roles => Set<Role>();
+        public DbSet<User> Users => Set<User>();
+        public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+        public DbSet<Notification> Notifications => Set<Notification>();
+        public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-        public DbSet<Subject> Subjects { get; set; }
-        public DbSet<Goals> Goals { get; set; }
-        public DbSet<LearningPath> LearningPaths { get; set; }
-        public DbSet<Chapter> Chapters { get; set; }
-        public DbSet<Lesson> Lessons { get; set; }
+        public DbSet<Subject> Subjects => Set<Subject>();
+        public DbSet<Goals> Goals => Set<Goals>();
+        public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
+        public DbSet<Chapter> Chapters => Set<Chapter>();
+        public DbSet<Lesson> Lessons => Set<Lesson>();
 
-        public DbSet<Tasks> Tasks { get; set; }
-        public DbSet<TaskGoals> TaskGoals { get; set; }
-        public DbSet<FocusSession> FocusSessions { get; set; }
-        public DbSet<FocusGoals> FocusGoals { get; set; }
-        public DbSet<DailyCheckins> DailyCheckins { get; set; }
+        public DbSet<Tasks> Tasks => Set<Tasks>();
+        public DbSet<TaskGoals> TaskGoals => Set<TaskGoals>();
+        public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
+        public DbSet<FocusGoals> FocusGoals => Set<FocusGoals>();
+        public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
 
-        public DbSet<Note> Notes { get; set; }
-        public DbSet<Tag> Tags { get; set; }
-        public DbSet<NoteTags> NoteTags { get; set; }
+        public DbSet<Note> Notes => Set<Note>();
+        public DbSet<Tag> Tags => Set<Tag>();
+        public DbSet<NoteTags> NoteTags => Set<NoteTags>();
 
-        public DbSet<Resource> Resources { get; set; }
-        public DbSet<AISummary> AISummaries { get; set; }
-        public DbSet<AIInteraction> AIInteractions { get; set; }
-        public DbSet<ChatMessages> ChatMessages { get; set; }
+        public DbSet<Resource> Resources => Set<Resource>();
+        public DbSet<AISummary> AISummaries => Set<AISummary>();
+        public DbSet<AIInteraction> AIInteractions => Set<AIInteraction>();
+        public DbSet<ChatMessages> ChatMessages => Set<ChatMessages>();
 
-        public DbSet<Quiz> Quizzes { get; set; }
-        public DbSet<Questions> Questions { get; set; }
-        public DbSet<QuizAttempt> QuizAttempts { get; set; }
+        public DbSet<Quiz> Quizzes => Set<Quiz>();
+        public DbSet<Questions> Questions => Set<Questions>();
+        public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
+        public DbSet<OtpVerification> OtpVerification => Set<OtpVerification>();
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => await base.SaveChangesAsync(cancellationToken);
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Configure Primary Keys
             modelBuilder.Entity<User>().HasKey(e => e.UserId);
             modelBuilder.Entity<Role>().HasKey(e => e.RoleId);
             modelBuilder.Entity<UserProfile>().HasKey(e => e.ProfileId);
@@ -77,8 +80,8 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
+            modelBuilder.Entity<OtpVerification>().HasKey(e => e.Id);
 
-            // Auto-generate Guid for all Guid primary keys
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
                 var primaryKey = entityType.FindPrimaryKey();
@@ -155,14 +158,14 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(p => p.User)
                       .WithMany(u => u.LearningPaths)
                       .HasForeignKey(p => p.UserId)
-                      .OnDelete(DeleteBehavior.NoAction); // Avoid cascade cycle
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<Subject>()
                 .HasOne(s => s.CreatedByUser)
                 .WithMany(u => u.Subjects)
                 .HasForeignKey(s => s.CreatedByUserId)
-                .OnDelete(DeleteBehavior.NoAction); // Mentor created, don't cascade
+                .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<Resource>(entity =>
             {
@@ -174,7 +177,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(r => r.User)
                       .WithMany(u => u.Resources)
                       .HasForeignKey(r => r.UserId)
-                      .OnDelete(DeleteBehavior.NoAction); // User uploaded, don't cascade
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<Chapter>()
@@ -216,7 +219,6 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Decimal precision
             modelBuilder.Entity<Questions>()
                 .Property(q => q.Points)
                 .HasPrecision(5, 2);
@@ -228,6 +230,11 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<QuizAttempt>()
                 .Property(q => q.Score)
                 .HasPrecision(5, 2);
+
+            modelBuilder.Entity<OtpVerification>(entity =>
+            {
+                entity.HasIndex(o => o.Email).IsUnique();
+            });
         }
     }
 }
