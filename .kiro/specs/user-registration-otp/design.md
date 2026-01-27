@@ -2,36 +2,42 @@
 
 ## Overview
 
-Hệ thống đăng ký người dùng với xác thực OTP qua email. Flow chính gồm 3 bước: submit registration → verify OTP → create account. Sử dụng Gmail SMTP để gửi email và lưu OTP đã hash trong database.
+Hệ thống đăng ký người dùng với xác thực OTP qua email. Thiết kế theo Clean Architecture template của Jason Taylor - sử dụng `IApplicationDbContext` trực tiếp thay vì Repository pattern, kết hợp với CQRS pattern (Commands/Queries) qua MediatR.
 
 ## Architecture
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant API as API Controller
-    participant AS as AuthService
-    participant ES as EmailService
-    participant DB as Database
+    participant API as AuthController
+    participant M as MediatR
+    participant CH as CommandHandler
+    participant DB as IApplicationDbContext
+    participant ES as IEmailService
 
     U->>API: POST /api/auth/register
-    API->>AS: ValidateAndInitiateRegistration()
-    AS->>DB: Check email/username uniqueness
-    AS->>AS: Generate OTP (6 digits)
-    AS->>AS: Hash OTP
-    AS->>DB: Save OtpVerification record
-    AS->>ES: SendOtpEmail()
-    ES-->>U: Email with OTP
-    API-->>U: 200 OK (OTP sent)
+    API->>M: Send(RegisterCommand)
+    M->>CH: Handle(RegisterCommand)
+    CH->>DB: Check email/username uniqueness
+    CH->>CH: Generate & Hash OTP
+    CH->>DB: Add OtpVerification
+    CH->>DB: SaveChangesAsync()
+    CH->>ES: SendOtpEmailAsync()
+    CH-->>M: Result.Success()
+    M-->>API: Result
+    API-->>U: 200 OK
 
     U->>API: POST /api/auth/verify-otp
-    API->>AS: VerifyOtpAndCreateUser()
-    AS->>DB: Get OtpVerification by email
-    AS->>AS: Verify OTP hash
-    AS->>AS: Check expiration
-    AS->>DB: Create User
-    AS->>DB: Delete OtpVerification
-    API-->>U: 201 Created (User created)
+    API->>M: Send(VerifyOtpCommand)
+    M->>CH: Handle(VerifyOtpCommand)
+    CH->>DB: Get OtpVerification
+    CH->>CH: Verify OTP & Expiration
+    CH->>DB: Add User
+    CH->>DB: Remove OtpVerification
+    CH->>DB: SaveChangesAsync()
+    CH-->>M: Result<UserDto>
+    M-->>API: Result
+    API-->>U: 201 Created
 ```
 
 ## Components and Interfaces
@@ -43,51 +49,76 @@ sequenceDiagram
 public class OtpVerification
 {
     public Guid Id { get; set; }
-    public string Email { get; set; }
-    public string Username { get; set; }
-    public string PasswordHash { get; set; }
-    public string OtpHash { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string OtpHash { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public int AttemptCount { get; set; }
     public int ResendCount { get; set; }
     public DateTime? LastResendAt { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
 }
 ```
 
 ### Application Layer (CodeNexus.Application)
 
 ```csharp
-// Interfaces/IAuthService.cs
-public interface IAuthService
+// Common/Interfaces/IApplicationDbContext.cs
+public interface IApplicationDbContext
 {
-    Task<Result> InitiateRegistrationAsync(RegisterRequest request);
-    Task<Result<UserResponse>> VerifyOtpAsync(VerifyOtpRequest request);
-    Task<Result> ResendOtpAsync(ResendOtpRequest request);
+    DbSet<User> Users { get; }
+    DbSet<OtpVerification> OtpVerifications { get; }
+    DbSet<Role> Roles { get; }
+    // ... other DbSets
+    
+    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
 
-// Interfaces/IEmailService.cs
+// Common/Interfaces/IEmailService.cs
 public interface IEmailService
 {
-    Task SendOtpEmailAsync(string email, string otp);
+    Task SendOtpEmailAsync(string email, string otp, CancellationToken cancellationToken = default);
 }
 
-// DTOs/RegisterRequest.cs
-public record RegisterRequest(string Email, string Username, string Password);
+// Features/Auth/Commands/Register/RegisterCommand.cs
+public record RegisterCommand(string Email, string Username, string Password) : IRequest<Result>;
 
-// DTOs/VerifyOtpRequest.cs
-public record VerifyOtpRequest(string Email, string Otp);
+// Features/Auth/Commands/Register/RegisterCommandHandler.cs
+public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly IEmailService _emailService;
+    // ...
+}
 
-// DTOs/ResendOtpRequest.cs
-public record ResendOtpRequest(string Email);
+// Features/Auth/Commands/Register/RegisterCommandValidator.cs
+public class RegisterCommandValidator : AbstractValidator<RegisterCommand>
+{
+    // FluentValidation rules
+}
+
+// Features/Auth/Commands/VerifyOtp/VerifyOtpCommand.cs
+public record VerifyOtpCommand(string Email, string Otp) : IRequest<Result<UserDto>>;
+
+// Features/Auth/Commands/ResendOtp/ResendOtpCommand.cs
+public record ResendOtpCommand(string Email) : IRequest<Result>;
 ```
 
 ### Infrastructure Layer (CodeNexus.Infrastructure)
 
 ```csharp
-// Services/AuthService.cs - Implementation of IAuthService
+// Persistence/AppDbContext.cs - Implements IApplicationDbContext
+public class AppDbContext : DbContext, IApplicationDbContext
+{
+    // DbSets...
+}
+
 // Services/EmailService.cs - Gmail SMTP implementation
-// Repositories/OtpVerificationRepository.cs
+public class EmailService : IEmailService
+{
+    // Implementation
+}
 ```
 
 ### API Layer (CodeNexus.API)
@@ -98,14 +129,19 @@ public record ResendOtpRequest(string Email);
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private readonly ISender _sender;
+
     [HttpPost("register")]
-    public async Task<IActionResult> Register(RegisterRequest request);
+    public async Task<IActionResult> Register(RegisterCommand command)
+        => (await _sender.Send(command)).ToActionResult();
 
     [HttpPost("verify-otp")]
-    public async Task<IActionResult> VerifyOtp(VerifyOtpRequest request);
+    public async Task<IActionResult> VerifyOtp(VerifyOtpCommand command)
+        => (await _sender.Send(command)).ToActionResult();
 
     [HttpPost("resend-otp")]
-    public async Task<IActionResult> ResendOtp(ResendOtpRequest request);
+    public async Task<IActionResult> ResendOtp(ResendOtpCommand command)
+        => (await _sender.Send(command)).ToActionResult();
 }
 ```
 
@@ -183,27 +219,16 @@ public class AuthController : ControllerBase
 ## Testing Strategy
 
 ### Unit Tests
-- Email format validation
-- Password complexity validation
+- FluentValidation rules for RegisterCommand
 - OTP generation (6 digits)
 - OTP hashing and verification
 - Expiration time calculation
 - Rate limiting logic
 
 ### Property-Based Tests (using FsCheck)
-- Property 1: Invalid email rejection
-- Property 2: Password complexity validation
-- Property 3: OTP format (6 digits)
-- Property 4: OTP hash security
-- Property 5: Expiration time correctness
-- Property 6: Valid OTP creates user
-- Property 7: Invalid OTP rejection
-- Property 8: OTP cleanup
-- Property 9: Previous OTP invalidation
+- Property 1-9 as defined above
 
 ### Integration Tests
-- Full registration flow
+- Full registration flow with in-memory database
 - OTP verification flow
 - Resend OTP flow
-- Rate limiting behavior
-- Email sending (with mock SMTP)
