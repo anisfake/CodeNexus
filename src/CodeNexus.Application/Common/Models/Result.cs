@@ -1,8 +1,5 @@
-namespace CodeNexus.Application.Common;
+namespace CodeNexus.Application.Common.Models;
 
-/// <summary>
-/// Represents the result of an operation that can succeed or fail
-/// </summary>
 public class Result
 {
     public bool IsSuccess { get; }
@@ -19,13 +16,9 @@ public class Result
 
     public static Result Success() => new(true, null, null);
 
-    public static Result Failure(string errorCode, string errorMessage) 
+    public static Result Failure(string errorCode, string errorMessage)
         => new(false, errorCode, errorMessage);
 }
-
-/// <summary>
-/// Represents the result of an operation that returns a value on success
-/// </summary>
 public class Result<T> : Result
 {
     public T? Value { get; }
@@ -38,6 +31,6 @@ public class Result<T> : Result
 
     public static Result<T> Success(T value) => new(true, value, null, null);
 
-    public new static Result<T> Failure(string errorCode, string errorMessage) 
+    public new static Result<T> Failure(string errorCode, string errorMessage)
         => new(false, default, errorCode, errorMessage);
 }
