@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # Kiro specs (internal development documents)
 .kiro/specs/
+
+# Local development settings (contains secrets)
+**/appsettings.Development.json

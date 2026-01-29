@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\CodeNexus.Application\CodeNexus.Application.csproj" />
     <ProjectReference Include="..\..\src\CodeNexus.Domain\CodeNexus.Domain.csproj" />
+    <ProjectReference Include="..\..\src\CodeNexus.Infrastructure\CodeNexus.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
