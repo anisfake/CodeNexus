@@ -1,6 +1,8 @@
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
 using CodeNexus.Application.Features.Auth.Commands.Register;
 using CodeNexus.Application.Features.Auth.Commands.ResendOtp;
+using CodeNexus.Application.Features.Auth.Commands.ResetPassword;
 using CodeNexus.Application.Features.Auth.Commands.VerifyOtp;
 using CodeNexus.Application.Features.Auth.DTOs;
 using MediatR;
@@ -43,6 +45,26 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResendOtp([FromBody] ResendOtpCommand command)
+    {
+        var result = await _sender.Send(command);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("forgot-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command)
+    {
+        var result = await _sender.Send(command);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("reset-password")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command)
     {
         var result = await _sender.Send(command);
         return ToActionResult(result);

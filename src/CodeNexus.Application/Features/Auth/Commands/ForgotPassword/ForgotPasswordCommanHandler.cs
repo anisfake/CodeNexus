@@ -1,55 +1,46 @@
+﻿using CodeNexus.Application.Common.Constants;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using CodeNexus.Application.Common.Constants;
 
-namespace CodeNexus.Application.Features.Auth.Commands.Register;
+namespace CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
 
-public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
+public class ForgotPasswordCommanHandler : IRequestHandler<ForgotPasswordCommand, Result>
 {
     private readonly IApplicationDbContext _context;
-    private readonly IEmailService _emailService;
     private readonly IOTPService _otpService;
+    private readonly IEmailService _emailService;
     private const int OtpExpirationMinutes = 5;
+    private const int MinResendIntervalMinutes = 1;
 
-    public RegisterCommandHandler(
-        IApplicationDbContext context,
-        IEmailService emailService, IOTPService otpService)
+    public ForgotPasswordCommanHandler(IApplicationDbContext context, IOTPService otpService, IEmailService emailService)
     {
         _context = context;
-        _emailService = emailService;
         _otpService = otpService;
+        _emailService = emailService;
     }
 
-    public async Task<Result> Handle(RegisterCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(ForgotPasswordCommand request, CancellationToken cancellationToken)
     {
-        var emailExists = await _context.Users
-            .AnyAsync(u => u.Email == request.Email, cancellationToken);
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
 
-        if (emailExists)
+        if (user == null)
         {
-            return Result.Failure("EMAIL_EXISTS", "Email already registered");
+            return Result.Failure("USER_NOT_FOUND", "User not found!");
         }
-
-        var usernameExists = await _context.Users
-            .AnyAsync(u => u.Username == request.Username, cancellationToken);
-
-        if (usernameExists)
-        {
-            return Result.Failure("USERNAME_EXISTS", "Username already taken");
-        }
-
-        var existingOtp = await _context.OtpVerification
-            .FirstOrDefaultAsync(o => o.Email == request.Email, cancellationToken);
 
         var now = DateTime.Now;
+
+        var existingOtp = await _context.OtpVerification
+            .Where(o => o.Email == request.Email && o.Purpose == OtpPurpose.ResetPassword)
+            .FirstOrDefaultAsync(cancellationToken);
 
         if (existingOtp != null)
         {
             if (existingOtp.LastResendAt.HasValue &&
-                now - existingOtp.LastResendAt.Value < TimeSpan.FromMinutes(1))
+                now - existingOtp.LastResendAt.Value < TimeSpan.FromMinutes(MinResendIntervalMinutes))
             {
                 return Result.Failure("OTP_RATE_LIMITED", "Please wait 1 minute before requesting a new OTP");
             }
@@ -60,26 +51,24 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
         var otp = _otpService.GenerateOtp();
         var otpHash = _otpService.HashOtp(otp);
 
-        var passwordHash = _otpService.HashPassword(request.Password);
         var otpVerification = new OtpVerification
         {
             Id = Guid.NewGuid(),
             Email = request.Email,
-            Username = request.Username,
-            PasswordHash = passwordHash,
+            Username = string.Empty,
+            PasswordHash = string.Empty,
             OtpHash = otpHash,
             CreatedAt = now,
             ExpiresAt = now.AddMinutes(OtpExpirationMinutes),
             AttemptCount = 0,
             ResendCount = 0,
             LastResendAt = now,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Purpose = OtpPurpose.Register
+            FirstName = string.Empty,
+            LastName = string.Empty,
+            Purpose = OtpPurpose.ResetPassword
         };
 
         _context.OtpVerification.Add(otpVerification);
-
         await _context.SaveChangesAsync(cancellationToken);
 
         await _emailService.SendOtpEmailAsync(request.Email, otp, cancellationToken);

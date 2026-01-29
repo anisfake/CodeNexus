@@ -14,6 +14,7 @@ namespace CodeNexus.Domain.Entities
         public DateTime ExpiresAt { get; set; }
         public int AttemptCount { get; set; }
         public int ResendCount { get; set; }
+        public string Purpose { get; set; } = "register";
         public DateTime? LastResendAt { get; set; }
         public DateTime CreatedAt { get; set; }
     }

@@ -35,7 +35,7 @@ public class ResendOtpCommandHandler : IRequestHandler<ResendOtpCommand, Result>
         }
 
         if (existingOtp.LastResendAt.HasValue &&
-            DateTime.UtcNow - existingOtp.LastResendAt.Value < TimeSpan.FromMinutes(MinResendIntervalMinutes))
+            DateTime.Now - existingOtp.LastResendAt.Value < TimeSpan.FromMinutes(MinResendIntervalMinutes))
         {
             return Result.Failure("OTP_RATE_LIMITED", "Please wait 1 minute before requesting a new OTP");
         }
@@ -48,7 +48,7 @@ public class ResendOtpCommandHandler : IRequestHandler<ResendOtpCommand, Result>
         var newOtp = _otpService.GenerateOtp();
         var newOtpHash = _otpService.HashOtp(newOtp);
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         existingOtp.OtpHash = newOtpHash;
         existingOtp.ExpiresAt = now.AddMinutes(OtpExpirationMinutes);
         existingOtp.AttemptCount = 0;
