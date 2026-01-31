@@ -367,3 +367,10 @@ FodyWeavers.xsd
 
 # Local development settings (contains secrets)
 **/appsettings.Development.json
+
+
+# Copilot instructions (local only)
+.github/copilot-instructions.md
+
+# SQL files
+*.sql
