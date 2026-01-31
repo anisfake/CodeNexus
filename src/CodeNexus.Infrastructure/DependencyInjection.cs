@@ -23,6 +23,8 @@ public static class DependencyInjection
         services.AddScoped<IOTPService, OTPService>();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<ITokenService, TokenService>();
+        services.Configure<GoogleAuthSettings>(configuration.GetSection(GoogleAuthSettings.SectionName));
+        services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
         return services;
     }

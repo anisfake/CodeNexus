@@ -1,5 +1,7 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
+using CodeNexus.Application.Features.Auth.Commands.Login;
+using CodeNexus.Application.Features.Auth.Commands.LoginWithGoogle;
 using CodeNexus.Application.Features.Auth.Commands.Register;
 using CodeNexus.Application.Features.Auth.Commands.ResendOtp;
 using CodeNexus.Application.Features.Auth.Commands.ResetPassword;
@@ -28,6 +30,18 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterCommand command)
     {
         var result = await _sender.Send(command);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("login-google")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> LoginGoogle([FromBody] LoginWithGoogleCommand command)
+    {
+        var result = await _sender.Send(command);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
         return ToActionResult(result);
     }
 
@@ -67,6 +81,18 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command)
     {
         var result = await _sender.Send(command);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Login([FromBody] LoginCommand command)
+    {
+        var result = await _sender.Send(command);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
         return ToActionResult(result);
     }
 
