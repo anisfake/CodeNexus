@@ -1,9 +1,11 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Entities;
 using CodeNexus.Infrastructure.Settings;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace CodeNexus.Infrastructure.Services;
@@ -15,6 +17,38 @@ public class TokenService : ITokenService
     public TokenService(IOptions<JwtSettings> settings)
     {
         _settings = settings.Value;
+    }
+
+    public string GenerateAccessToken(User user)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Name, user.Username)
+        };
+
+        if (user.RoleId.HasValue)
+            claims.Add(new Claim("roleId", user.RoleId.Value.ToString()));
+
+        var token = new JwtSecurityToken(
+            issuer: _settings.Issuer,
+            audience: _settings.Audience,
+            claims: claims,
+            expires: DateTime.Now.AddMinutes(_settings.AccessTokenExpirationMinutes),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
     }
 
     public string GenerateResetPasswordToken(string email)

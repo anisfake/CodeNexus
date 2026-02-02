@@ -25,17 +25,18 @@ public class ForgotPasswordCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenUserNotFound_ReturnsSuccessToPreventEnumeration()
+    public async Task Handle_WhenUserNotFound_ReturnsFailure()
     {
-        // Arrange - Security: should return success even if user not found
+        // Arrange
         var command = new ForgotPasswordCommand("notfound@test.com");
         SetupUsersDbSet(new List<User>());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert - Returns success to prevent email enumeration
-        result.IsSuccess.Should().BeTrue();
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("USER_NOT_FOUND");
         _emailServiceMock.Verify(x => x.SendOtpEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

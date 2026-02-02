@@ -1,0 +1,59 @@
+using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Auth.DTOs;
+using CodeNexus.Domain.Entities;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace CodeNexus.Application.Features.Auth.Commands.Login;
+
+public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginResponse>>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly IPasswordService _passwordService;
+    private readonly ITokenService _tokenService;
+
+    public LoginCommandHandler(IApplicationDbContext context, IPasswordService passwordService, ITokenService tokenService)
+    {
+        _context = context;
+        _passwordService = passwordService;
+        _tokenService = tokenService;
+    }
+
+    public async Task<Result<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
+    {
+        var identifier = request.Identifier.Trim();
+
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == identifier || u.Username == identifier, cancellationToken);
+
+        if (user == null)
+            return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
+
+        if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
+            return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
+
+        var accessToken = _tokenService.GenerateAccessToken(user);
+
+        var refreshTokenValue = _tokenService.GenerateRefreshToken();
+        _context.RefreshTokens.Add(new RefreshToken
+        {
+            TokenId = Guid.NewGuid(),
+            UserId = user.UserId,
+            Token = refreshTokenValue,
+            CreatedAt = DateTime.Now,
+            ExpiresAt = DateTime.Now.AddDays(7)
+        });
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Result<LoginResponse>.Success(new LoginResponse(
+            accessToken,
+            refreshTokenValue,
+            user.UserId,
+            user.Email,
+            user.Username
+        ));
+    }
+}
+ 

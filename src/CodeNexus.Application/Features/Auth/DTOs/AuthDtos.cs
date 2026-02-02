@@ -7,6 +7,14 @@ public record UserDto(
     DateTime CreatedAt
 );
 
+public record LoginResponse(
+    string AccessToken,
+    string RefreshToken,
+    Guid UserId,
+    string Email,
+    string Username
+);
+
 public class VerifyOtpResponse
 {
     public string Purpose { get; set; } = string.Empty;
