@@ -45,7 +45,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
                 PasswordHash = string.Empty,
                 FirstName = googleUser.GivenName,
                 LastName = googleUser.FamilyName,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTime.Now,
                 Status = "Active"
             };
 
