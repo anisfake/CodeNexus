@@ -14,5 +14,7 @@ namespace CodeNexus.Application.Common.Interfaces
         string? ValidateResetPasswordToken(string token);
 
         string GenerateAccessToken(User user);
+
+        string GenerateRefreshToken();
     }
 }

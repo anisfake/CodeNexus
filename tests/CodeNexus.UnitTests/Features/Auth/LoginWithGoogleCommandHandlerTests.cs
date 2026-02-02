@@ -48,11 +48,16 @@ public class LoginWithGoogleCommandHandlerTests
         var user = new User { UserId = Guid.NewGuid(), Email = "user@gmail.com", Username = "user" };
         SetupUsersDbSet(new List<User> { user });
 
+        var refreshTokens = new List<RefreshToken>();
+        SetupRefreshTokensDbSet(refreshTokens);
+
         _googleAuthMock
             .Setup(x => x.ValidateIdTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new GoogleUserInfo(user.Email, "A", "LE", "A LE"));
 
         _tokenServiceMock.Setup(x => x.GenerateAccessToken(It.Is<User>(u => u.UserId == user.UserId))).Returns("jwt");
+        _tokenServiceMock.Setup(x => x.GenerateRefreshToken()).Returns("rt");
+        _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         // Act
         var result = await _handler.Handle(new LoginWithGoogleCommand("ok"), CancellationToken.None);
@@ -61,8 +66,13 @@ public class LoginWithGoogleCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value.AccessToken.Should().Be("jwt");
+        result.Value.RefreshToken.Should().Be("rt");
         result.Value.Email.Should().Be(user.Email);
         result.Value.Username.Should().Be(user.Username);
+
+        refreshTokens.Should().HaveCount(1);
+        refreshTokens[0].UserId.Should().Be(user.UserId);
+        refreshTokens[0].Token.Should().Be("rt");
     }
 
     [Fact]
@@ -72,11 +82,15 @@ public class LoginWithGoogleCommandHandlerTests
         var users = new List<User>();
         SetupUsersDbSet(users);
 
+        var refreshTokens = new List<RefreshToken>();
+        SetupRefreshTokensDbSet(refreshTokens);
+
         _googleAuthMock
             .Setup(x => x.ValidateIdTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new GoogleUserInfo("new@gmail.com", "New", "User", "New User"));
 
         _tokenServiceMock.Setup(x => x.GenerateAccessToken(It.IsAny<User>())).Returns("jwt");
+        _tokenServiceMock.Setup(x => x.GenerateRefreshToken()).Returns("rt");
         _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         _contextMock.Setup(x => x.Users.Add(It.IsAny<User>())).Callback<User>(u => users.Add(u));
@@ -90,6 +104,11 @@ public class LoginWithGoogleCommandHandlerTests
         users.Should().HaveCount(1);
         users[0].Email.Should().Be("new@gmail.com");
         result.Value.AccessToken.Should().Be("jwt");
+        result.Value.RefreshToken.Should().Be("rt");
+
+        refreshTokens.Should().HaveCount(1);
+        refreshTokens[0].UserId.Should().Be(users[0].UserId);
+        refreshTokens[0].Token.Should().Be("rt");
     }
 
     private void SetupUsersDbSet(List<User> users)
@@ -105,5 +124,20 @@ public class LoginWithGoogleCommandHandlerTests
 
         dbSetMock.Setup(x => x.Add(It.IsAny<User>()));
         _contextMock.Setup(x => x.Users).Returns(dbSetMock.Object);
+    }
+
+    private void SetupRefreshTokensDbSet(List<RefreshToken> refreshTokens)
+    {
+        var queryable = new TestAsyncEnumerable<RefreshToken>(refreshTokens);
+        var dbSetMock = new Mock<DbSet<RefreshToken>>();
+        dbSetMock.As<IQueryable<RefreshToken>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<RefreshToken>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<RefreshToken>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<RefreshToken>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<RefreshToken>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+
+        dbSetMock.Setup(x => x.Add(It.IsAny<RefreshToken>())).Callback<RefreshToken>(rt => refreshTokens.Add(rt));
+        _contextMock.Setup(x => x.RefreshTokens).Returns(dbSetMock.Object);
     }
 }

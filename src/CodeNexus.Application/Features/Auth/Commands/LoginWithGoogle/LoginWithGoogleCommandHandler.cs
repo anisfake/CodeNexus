@@ -55,8 +55,21 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
 
         var accessToken = _tokenService.GenerateAccessToken(user);
 
+        var refreshTokenValue = _tokenService.GenerateRefreshToken();
+        _context.RefreshTokens.Add(new RefreshToken
+        {
+            TokenId = Guid.NewGuid(),
+            UserId = user.UserId,
+            Token = refreshTokenValue,
+            CreatedAt = DateTime.Now,
+            ExpiresAt = DateTime.Now.AddDays(7)
+        });
+
+        await _context.SaveChangesAsync(cancellationToken);
+
         return Result<LoginResponse>.Success(new LoginResponse(
             accessToken,
+            refreshTokenValue,
             user.UserId,
             user.Email,
             user.Username

@@ -9,6 +9,7 @@ public record UserDto(
 
 public record LoginResponse(
     string AccessToken,
+    string RefreshToken,
     Guid UserId,
     string Email,
     string Username

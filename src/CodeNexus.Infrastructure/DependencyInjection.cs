@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IOTPService, OTPService>();
+        services.AddScoped<IPasswordService, PasswordService>(); 
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<ITokenService, TokenService>();
         services.Configure<GoogleAuthSettings>(configuration.GetSection(GoogleAuthSettings.SectionName));
