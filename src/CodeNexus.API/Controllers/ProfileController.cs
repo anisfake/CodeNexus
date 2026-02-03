@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Profile.Commands.ChangePassword;
+using CodeNexus.Application.Features.Profile.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,7 +21,7 @@ public class ProfileController : ControllerBase
     }
 
     [HttpPost("change-password")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
@@ -33,10 +34,8 @@ public class ProfileController : ControllerBase
         var result = await _sender.Send(command);
 
         if (result.IsSuccess)
-            return Ok(new { Message = "Password changed successfully" });
+            return Ok(new ChangePasswordResponse("Password changed successfully"));
 
         return BadRequest(new { result.ErrorCode, result.ErrorMessage });
     }
 }
-
-public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
