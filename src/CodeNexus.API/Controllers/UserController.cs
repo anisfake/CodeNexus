@@ -1,6 +1,6 @@
 using CodeNexus.Application.Common.Models;
-using CodeNexus.Application.Features.Profile.Commands.ChangePassword;
-using CodeNexus.Application.Features.Profile.DTOs;
+using CodeNexus.Application.Features.Users.Commands.ChangePassword;
+using CodeNexus.Application.Features.Users.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,11 +11,11 @@ namespace CodeNexus.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ProfileController : ControllerBase
+public class UserController : ControllerBase
 {
     private readonly ISender _sender;
 
-    public ProfileController(ISender sender)
+    public UserController(ISender sender)
     {
         _sender = sender;
     }

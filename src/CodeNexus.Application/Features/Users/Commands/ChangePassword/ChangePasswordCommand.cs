@@ -1,7 +1,7 @@
 using CodeNexus.Application.Common.Models;
 using MediatR;
 
-namespace CodeNexus.Application.Features.Profile.Commands.ChangePassword;
+namespace CodeNexus.Application.Features.Users.Commands.ChangePassword;
 
 public record ChangePasswordCommand(
     Guid UserId,

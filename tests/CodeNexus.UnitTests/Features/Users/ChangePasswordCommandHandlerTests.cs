@@ -1,12 +1,12 @@
 using CodeNexus.Application.Common.Interfaces;
-using CodeNexus.Application.Features.Profile.Commands.ChangePassword;
+using CodeNexus.Application.Features.Users.Commands.ChangePassword;
 using CodeNexus.Domain.Entities;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 
-namespace CodeNexus.UnitTests.Features.Profile;
+namespace CodeNexus.UnitTests.Features.Users;
 
 public class ChangePasswordCommandHandlerTests
 {
@@ -160,7 +160,7 @@ public class ChangePasswordCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("INVALID_CURRENT_PASSWORD");
-        user.PasswordHash.Should().Be("hashedOldPassword"); // Password should not change
+        user.PasswordHash.Should().Be("hashedOldPassword");
         _contextMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 

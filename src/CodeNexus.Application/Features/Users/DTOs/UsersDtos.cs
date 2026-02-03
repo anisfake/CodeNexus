@@ -1,4 +1,4 @@
-namespace CodeNexus.Application.Features.Profile.DTOs;
+namespace CodeNexus.Application.Features.Users.DTOs;
 
 public record ChangePasswordRequest(
     string CurrentPassword,

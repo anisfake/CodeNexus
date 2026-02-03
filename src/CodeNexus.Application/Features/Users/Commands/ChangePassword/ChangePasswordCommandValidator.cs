@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace CodeNexus.Application.Features.Profile.Commands.ChangePassword;
+namespace CodeNexus.Application.Features.Users.Commands.ChangePassword;
 
 public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCommand>
 {

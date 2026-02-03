@@ -1,8 +1,8 @@
-using CodeNexus.Application.Features.Profile.Commands.ChangePassword;
+using CodeNexus.Application.Features.Users.Commands.ChangePassword;
 using FluentAssertions;
 using FluentValidation.TestHelper;
 
-namespace CodeNexus.UnitTests.Features.Profile;
+namespace CodeNexus.UnitTests.Features.Users;
 
 public class ChangePasswordCommandValidatorTests
 {
@@ -153,11 +153,11 @@ public class ChangePasswordCommandValidatorTests
     }
 
     [Theory]
-    [InlineData("Pass1")] // Too short
-    [InlineData("password123")] // No uppercase
-    [InlineData("PASSWORD123")] // No lowercase
-    [InlineData("PasswordABC")] // No number
-    [InlineData("short1A")] // Too short
+    [InlineData("Pass1")]
+    [InlineData("password123")]
+    [InlineData("PASSWORD123")]
+    [InlineData("PasswordABC")]
+    [InlineData("short1A")]
     public void Validate_WhenNewPasswordInvalid_ShouldHaveValidationError(string invalidPassword)
     {
         // Arrange

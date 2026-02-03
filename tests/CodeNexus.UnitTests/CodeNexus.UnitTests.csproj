@@ -31,4 +31,9 @@
     <Using Include="Xunit" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Profile\" />
+    <Folder Include="Features\User\" />
+  </ItemGroup>
+
 </Project>

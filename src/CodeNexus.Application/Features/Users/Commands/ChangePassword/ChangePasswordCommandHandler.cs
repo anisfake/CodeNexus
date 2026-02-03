@@ -3,7 +3,7 @@ using CodeNexus.Application.Common.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace CodeNexus.Application.Features.Profile.Commands.ChangePassword;
+namespace CodeNexus.Application.Features.Users.Commands.ChangePassword;
 
 public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, Result>
 {
