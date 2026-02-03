@@ -12,7 +12,9 @@ public record LoginResponse(
     string RefreshToken,
     Guid UserId,
     string Email,
-    string Username
+    string Username,
+    Guid? RoleId,
+    string? RoleName
 );
 
 public class VerifyOtpResponse
