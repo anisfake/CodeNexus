@@ -103,22 +103,21 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
         await _context.UserProfiles.AddAsync(userProfile, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
-        return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse
-        {
-            Purpose = OtpPurpose.Register,
-            Message = "Registration successful"
-        });
+        return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(
+             OtpPurpose.Register,
+             null,
+             "Registration successful"
+        ));
     }
 
     private Result<VerifyOtpResponse> HandleResetPassword(OtpVerification otpVerification)
     {
         var resetToken = _tokenService.GenerateResetPasswordToken(otpVerification.Email);
 
-        return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse
-        {
-            Purpose = OtpPurpose.ResetPassword,
-            ResetToken = resetToken,
-            Message = "OTP verified. Use reset token to change password"
-        });
+        return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(
+            OtpPurpose.ResetPassword,
+            resetToken,
+            "OTP verified. Use reset token to change password"
+        ));
     }
 }

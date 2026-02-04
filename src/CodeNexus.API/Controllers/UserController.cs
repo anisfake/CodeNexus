@@ -2,6 +2,7 @@ using CloudinaryDotNet.Actions;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.Commands.ChangePassword;
+using CodeNexus.Application.Features.Users.Commands.UpdateProfile;
 using CodeNexus.Application.Features.Users.Commands.UploadAvatar;
 using CodeNexus.Application.Features.Users.DTOs;
 using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
@@ -61,6 +62,29 @@ public class UserController : ControllerBase
 
         if (result.IsSuccess)
             return Ok(new ChangePasswordResponse("Upload avatar successfully"));
+
+        return ToActionResult(result);
+    }
+
+    [HttpPatch("update-profile")]
+    [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    {
+        var command = new UpdateProfileCommand(
+            request.FirstName,
+            request.LastName,
+            request.Bio,
+            request.DateOfBirth,
+            request.Phone,
+            request.Address
+        );
+
+        var result = await _sender.Send(command);
+
+        if (result.IsSuccess)
+            return Ok(new ChangePasswordResponse("Update profile successfully"));
 
         return ToActionResult(result);
     }

@@ -21,3 +21,11 @@ public record UserProfileRespone(
     string? Address
 );
 
+public record UpdateProfileRequest(
+    string? FirstName,
+    string? LastName,
+    string? Bio,
+    DateTime? DateOfBirth,
+    string? Phone,
+    string? Address
+);

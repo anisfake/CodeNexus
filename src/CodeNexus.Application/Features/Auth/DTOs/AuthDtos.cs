@@ -38,9 +38,8 @@ public record LoginResponse(
     string? RoleName
 );
 
-public class VerifyOtpResponse
-{
-    public string Purpose { get; set; } = string.Empty;
-    public string? ResetToken { get; set; }
-    public string? Message { get; set; }
-}
+public record VerifyOtpResponse(
+    string Purpose,
+    string? ResetToken,
+    string? Message
+);

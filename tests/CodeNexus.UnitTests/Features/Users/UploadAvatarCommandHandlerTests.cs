@@ -113,14 +113,14 @@ public class UploadAvatarCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithExistingAvatar_ReplacesOldAvatar()
+    public async Task Handle_WithExistingAvatar_DeletesOldAndUploadsNew()
     {
         // Arrange
         var userId = NewId.NextGuid();
         var imageStream = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
         var fileName = "avatar.jpg";
-        var oldAvatarUrl = "https://cloudinary.com/user_avatar/old123.jpg";
-        var newAvatarUrl = "https://cloudinary.com/user_avatar/new456.jpg";
+        var oldAvatarUrl = "https://res.cloudinary.com/cloud/image/upload/v123/user_avatar/old123.jpg";
+        var newAvatarUrl = "https://res.cloudinary.com/cloud/image/upload/v456/user_avatar/new456.jpg";
 
         var userProfile = new UserProfile
         {
@@ -133,6 +133,8 @@ public class UploadAvatarCommandHandlerTests
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.UserProfiles).Returns(new[] { userProfile }.AsQueryable().BuildMockDbSet().Object);
+        _mockCloudinaryService.Setup(x => x.DeleteImageAsync("user_avatar/old123"))
+            .ReturnsAsync(true);
         _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"))
             .ReturnsAsync(newAvatarUrl);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -144,7 +146,8 @@ public class UploadAvatarCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(newAvatarUrl, result.Value);
         Assert.Equal(newAvatarUrl, userProfile.AvatarUrl);
-        Assert.NotEqual(oldAvatarUrl, userProfile.AvatarUrl);
+        _mockCloudinaryService.Verify(x => x.DeleteImageAsync("user_avatar/old123"), Times.Once);
+        _mockCloudinaryService.Verify(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"), Times.Once);
     }
 
     [Fact]
