@@ -36,7 +36,7 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+    if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
 
     steps:
     # 1. Tải code về máy ảo
@@ -48,11 +48,15 @@ jobs:
       with:
         dotnet-version: 8.0.x
 
-    # 3. Publish ứng dụng
+    # 3. Restore dependencies
+    - name: Restore dependencies
+      run: dotnet restore
+
+    # 4. Publish ứng dụng
     - name: Publish
       run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
 
-    # 4. Deploy lên SmarterASP.Net qua FTP
+    # 5. Deploy lên SmarterASP.Net qua FTP
     - name: Deploy to SmarterASP.Net
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
