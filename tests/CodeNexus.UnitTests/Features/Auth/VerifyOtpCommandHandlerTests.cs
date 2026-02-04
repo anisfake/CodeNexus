@@ -126,8 +126,11 @@ public class VerifyOtpCommandHandlerTests
             OtpHash = "hashedOtp",
             Purpose = OtpPurpose.Register
         };
+        var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
         SetupOtpDbSet(new List<OtpVerification> { otp });
         SetupUsersDbSet(new List<User>());
+        SetupUserProfilesDbSet(new List<UserProfile>());
+        SetupRolesDbSet(new List<Role> { studentRole });
         _otpServiceMock.Setup(x => x.VerifyOtp("123456", "hashedOtp")).Returns(true);
         _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -182,8 +185,11 @@ public class VerifyOtpCommandHandlerTests
             Purpose = OtpPurpose.Register
         };
         var existingUser = new User { Email = "test@test.com", Username = "testuser" };
+        var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
         SetupOtpDbSet(new List<OtpVerification> { otp });
         SetupUsersDbSet(new List<User> { existingUser });
+        SetupUserProfilesDbSet(new List<UserProfile>());
+        SetupRolesDbSet(new List<Role> { studentRole });
         _otpServiceMock.Setup(x => x.VerifyOtp("123456", "hashedOtp")).Returns(true);
 
         // Act
@@ -220,5 +226,32 @@ public class VerifyOtpCommandHandlerTests
             .Returns(queryable.GetAsyncEnumerator());
         dbSetMock.Setup(x => x.Add(It.IsAny<User>()));
         _contextMock.Setup(x => x.Users).Returns(dbSetMock.Object);
+    }
+
+    private void SetupRolesDbSet(List<Role> roles)
+    {
+        var queryable = new TestAsyncEnumerable<Role>(roles);
+        var dbSetMock = new Mock<DbSet<Role>>();
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<Role>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _contextMock.Setup(x => x.Roles).Returns(dbSetMock.Object);
+    }
+
+    private void SetupUserProfilesDbSet(List<UserProfile> profiles)
+    {
+        var queryable = new TestAsyncEnumerable<UserProfile>(profiles);
+        var dbSetMock = new Mock<DbSet<UserProfile>>();
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<UserProfile>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        dbSetMock.Setup(x => x.Add(It.IsAny<UserProfile>()));
+        _contextMock.Setup(x => x.UserProfiles).Returns(dbSetMock.Object);
     }
 }
