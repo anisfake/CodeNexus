@@ -1,77 +1,60 @@
 name: CodeNexus CI/CD
 
-# Kích hoạt khi có Push hoặc PR vào master/develop, hoặc trigger thủ công
 on:
   push:
     branches: [ "master", "develop" ]
   pull_request:
     branches: [ "master", "develop" ]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'develop'
-        type: choice
-        options:
-          - develop
-          - master
 
 jobs:
+  # JOB 1: BUILD & TEST & PUBLISH
   build:
-    runs-on: ubuntu-latest # Chạy trên máy ảo Linux
+    runs-on: ubuntu-latest
 
     steps:
-    # 1. Tải code về máy ảo
     - uses: actions/checkout@v4
 
-    # 2. Cài đặt .NET 8
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
 
-    # 3. Restore (Tải thư viện)
     - name: Restore dependencies
       run: dotnet restore
 
-    # 4. Build (Biên dịch code xem có lỗi cú pháp không)
     - name: Build
       run: dotnet build --no-restore --configuration Release
 
-    # 5. Run Unit Tests
     - name: Run Unit Tests
       run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --configuration Release --verbosity normal
 
+    - name: Publish API
+      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: web-deploy-package
+        path: ./publish/
+        retention-days: 1
+
+  # JOB 2: DEPLOY 
   deploy:
     needs: build
     runs-on: ubuntu-latest
     if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
 
     steps:
-    # 1. Tải code về máy ảo
-    - uses: actions/checkout@v4
-
-    # 2. Cài đặt .NET 8
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - name: Download Artifact
+      uses: actions/download-artifact@v4
       with:
-        dotnet-version: 8.0.x
+        name: web-deploy-package
+        path: ./publish/
 
-    # 3. Restore dependencies
-    - name: Restore dependencies
-      run: dotnet restore
-
-    # 4. Publish ứng dụng
-    - name: Publish
-      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
-
-    # 5. Create app_offline.htm to stop the app
     - name: Create app_offline.htm
-      run: |
-        echo "<html><head><title>Updating...</title></head><body><h1>System is updating...</h1></body></html>" > app_offline.htm
+      run: echo "<html><head><title>Updating...</title></head><body><h1>System is updating...</h1></body></html>" > app_offline.htm
 
-    # 6. Upload app_offline.htm to stop app
     - name: Stop App (Upload app_offline.htm)
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
@@ -84,7 +67,9 @@ jobs:
           app_offline.htm
       continue-on-error: true
 
-    # 7. Deploy lên SmarterASP.Net qua FTP
+    - name: Wait for app to stop
+      run: sleep 10
+
     - name: Deploy to SmarterASP.Net
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
@@ -101,8 +86,12 @@ jobs:
           **/bin/**
           **/obj/**
 
-    # 8. Remove app_offline.htm to start app
+    - name: Wait before restart
+      run: sleep 5
+
     - name: Start App (Remove app_offline.htm)
-      run: |
-        lftp -c "open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }}; rm /codenexus/app_offline.htm" || echo "app_offline.htm removal skipped"
+      run: lftp -c "open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }}; rm /codenexus/app_offline.htm" || echo "app_offline.htm removal skipped"
       continue-on-error: true
+
+    - name: Wait for app to start
+      run: sleep 5
