@@ -25,6 +25,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         var identifier = request.Identifier.Trim();
 
         var user = await _context.Users
+            .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Email == identifier || u.Username == identifier, cancellationToken);
 
         if (user == null)
@@ -52,7 +53,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             refreshTokenValue,
             user.UserId,
             user.Email,
-            user.Username
+            user.Username,
+            user.RoleId,
+            user.Role?.RoleName
         ));
     }
 }

@@ -30,6 +30,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             return Result<LoginResponse>.Failure("INVALID_GOOGLE_TOKEN", "Invalid Google token");
 
         var user = await _context.Users
+            .Include(u => u.Role)
             .FirstOrDefaultAsync(u => u.Email == googleUser.Email, cancellationToken);
 
         if (user == null)
@@ -72,7 +73,9 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             refreshTokenValue,
             user.UserId,
             user.Email,
-            user.Username
+            user.Username,
+            user.RoleId,
+            user.Role?.RoleName
         ));
     }
 
