@@ -27,8 +27,9 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Register([FromBody] RegisterCommand command)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
+        var command = new RegisterCommand(request.Email, request.Username, request.FirstName, request.LastName, request.Password);
         var result = await _sender.Send(command);
         return ToActionResult(result);
     }
@@ -48,8 +49,9 @@ public class AuthController : ControllerBase
     [HttpPost("verify-otp")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpCommand command)
+    public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
     {
+        var command = new VerifyOtpCommand(request.Email, request.Otp);
         var result = await _sender.Send(command);
         return ToActionResult(result);
     }
@@ -58,8 +60,9 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> ResendOtp([FromBody] ResendOtpCommand command)
+    public async Task<IActionResult> ResendOtp([FromBody] ResendOtpRequest request)
     {
+        var command = new ResendOtpCommand(request.Email);
         var result = await _sender.Send(command);
         return ToActionResult(result);
     }
@@ -68,8 +71,9 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordCommand command)
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
+        var command = new ForgotPasswordCommand(request.Email);
         var result = await _sender.Send(command);
         return ToActionResult(result);
     }
@@ -78,8 +82,9 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordCommand command)
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
+        var command = new ResetPasswordCommand(request.ResetToken, request.NewPassword);
         var result = await _sender.Send(command);
         return ToActionResult(result);
     }
@@ -95,7 +100,6 @@ public class AuthController : ControllerBase
 
         return ToActionResult(result);
     }
-
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)

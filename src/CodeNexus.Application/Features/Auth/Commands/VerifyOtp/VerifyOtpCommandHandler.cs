@@ -73,7 +73,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
         var existingUser = await _context.Users
             .AnyAsync(u => u.Email == otpVerification.Email || u.Username == otpVerification.Username, cancellationToken);
 
-        var studentRole = await _context.Roles
+        var defaultRole = await _context.Roles
             .FirstOrDefaultAsync(r => r.RoleName.Equals("Student"), cancellationToken);
 
         if (existingUser)
@@ -89,10 +89,19 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
             LastName = otpVerification.LastName,
             CreatedAt = DateTime.Now,
             Status = "Active",
-            RoleId = studentRole?.RoleId
+            RoleId = defaultRole?.RoleId
         };
 
-        _context.Users.Add(user);
+        await _context.Users.AddAsync(user, cancellationToken);
+
+        var userProfile = new UserProfile
+        {
+            ProfileId = NewId.NextGuid(),
+            UserId = user.UserId
+        };
+
+        await _context.UserProfiles.AddAsync(userProfile, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
 
         return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse
         {

@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore.Query;
 using System.Linq.Expressions;
+using Moq;
+using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.UnitTests.Helpers;
 
@@ -82,5 +84,36 @@ public class TestAsyncEnumerator<T> : IAsyncEnumerator<T>
     {
         _inner.Dispose();
         return ValueTask.CompletedTask;
+    }
+}
+
+public static class MockDbSetExtensions
+{
+    public static Mock<DbSet<T>> BuildMockDbSet<T>(this IEnumerable<T> data) where T : class
+    {
+        var queryableData = data.AsQueryable();
+        var mockDbSet = new Mock<DbSet<T>>();
+
+        mockDbSet.As<IAsyncEnumerable<T>>()
+            .Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(new TestAsyncEnumerator<T>(queryableData.GetEnumerator()));
+
+        mockDbSet.As<IQueryable<T>>()
+            .Setup(m => m.Provider)
+            .Returns(new TestAsyncQueryProvider<T>(queryableData.Provider));
+
+        mockDbSet.As<IQueryable<T>>()
+            .Setup(m => m.Expression)
+            .Returns(queryableData.Expression);
+
+        mockDbSet.As<IQueryable<T>>()
+            .Setup(m => m.ElementType)
+            .Returns(queryableData.ElementType);
+
+        mockDbSet.As<IQueryable<T>>()
+            .Setup(m => m.GetEnumerator())
+            .Returns(queryableData.GetEnumerator());
+
+        return mockDbSet;
     }
 }

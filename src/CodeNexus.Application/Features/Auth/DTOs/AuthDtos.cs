@@ -1,5 +1,26 @@
 namespace CodeNexus.Application.Features.Auth.DTOs;
 
+public record RegisterRequest(
+    string Email,
+    string Username,
+    string FirstName,
+    string LastName,
+    string Password
+);
+public record VerifyOtpRequest(
+    string Email,
+    string Otp
+);
+public record ResendOtpRequest(
+    string Email
+);
+public record ForgotPasswordRequest(
+    string Email
+);
+public record ResetPasswordRequest(
+    string ResetToken,
+    string NewPassword
+);
 public record UserDto(
     Guid UserId,
     string Email,

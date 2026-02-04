@@ -2,36 +2,77 @@
 using CloudinaryDotNet.Actions;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Infrastructure.Settings;
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace CodeNexus.Infrastructure.Services
+namespace CodeNexus.Infrastructure.Services;
+
+public class CloudinaryService : ICloudinaryService
 {
-    public class CloudinaryService : ICloudinaryService
+    private readonly Cloudinary _cloudinary;
+
+    public CloudinaryService(IOptions<CloudinarySettings> options)
     {
-        private readonly CloudinarySettings _setting;
-        public CloudinaryService(IOptions<CloudinarySettings> setting)
+        var settings = options.Value;
+
+        if (string.IsNullOrEmpty(settings?.CloudName) || 
+            string.IsNullOrEmpty(settings?.ApiKey) || 
+            string.IsNullOrEmpty(settings?.ApiSecret))
         {
-            _setting = setting.Value;
+            throw new InvalidOperationException("Cloudinary settings are not properly configured in appsettings.json");
         }
-        public async Task<string> UploadImagesAsync(Stream imageStream, string fileName, string folder)
+
+        var account = new Account(
+            settings.CloudName,
+            settings.ApiKey,
+            settings.ApiSecret
+        );
+        _cloudinary = new Cloudinary(account);
+    }
+
+    public async Task<string> UploadImageAsync(Stream imageStream, string fileName, string folder)
+    {
+        try
         {
-            var uploadParams = new ImageUploadParams
+            var uploadParams = new ImageUploadParams()
             {
                 File = new FileDescription(fileName, imageStream),
-                PublicId = $"{Guid.NewGuid()}",
-                Folder = folder
+                Folder = folder,
+                PublicId = Guid.NewGuid().ToString()
             };
 
-            var uploadResult = "await _setting.UploadAsync(uploadParams)";
+            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-            return "sd"; //uploadResult.SecureUrl.ToString();
+            if (uploadResult.Error != null)
+            {
+                throw new InvalidOperationException($"Upload failed: {uploadResult.Error.Message}");
+            }
 
+            return uploadResult.SecureUrl.ToString();
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
+    }
+
+    public async Task<bool> DeleteImageAsync(string publicId)
+    {
+        try
+        {
+            var deleteParams = new DeletionParams(publicId);
+            var result = await _cloudinary.DestroyAsync(deleteParams);
+
+            if (result.Error != null)
+            {
+                return false;
+            }
+
+            return result.Result == "ok";
+        }
+        catch (Exception ex)
+        {
+            throw;
         }
     }
 }
