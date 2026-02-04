@@ -30,6 +30,8 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.Configure<GoogleAuthSettings>(configuration.GetSection(GoogleAuthSettings.SectionName));
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
 
         var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
         services.AddAuthentication(options =>

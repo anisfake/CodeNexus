@@ -12,22 +12,28 @@ public class ChangePasswordCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _contextMock;
     private readonly Mock<IPasswordService> _passwordServiceMock;
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly ChangePasswordCommandHandler _handler;
 
     public ChangePasswordCommandHandlerTests()
     {
         _contextMock = new Mock<IApplicationDbContext>();
         _passwordServiceMock = new Mock<IPasswordService>();
-        _handler = new ChangePasswordCommandHandler(_contextMock.Object, _passwordServiceMock.Object);
+        _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _handler = new ChangePasswordCommandHandler(
+            _contextMock.Object,
+            _passwordServiceMock.Object,
+            _currentUserServiceMock.Object);
     }
 
     [Fact]
     public async Task Handle_WhenUserNotFound_ReturnsFailure()
     {
         // Arrange
-        SetupUsersDbSet(new List<User>());
         var userId = Guid.NewGuid();
-        var command = new ChangePasswordCommand(userId, "CurrentPass123", "NewPass456");
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUsersDbSet(new List<User>());
+        var command = new ChangePasswordCommand("CurrentPass123", "NewPass456");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -43,6 +49,7 @@ public class ChangePasswordCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         var user = new User
         {
             UserId = userId,
@@ -55,7 +62,7 @@ public class ChangePasswordCommandHandlerTests
         _passwordServiceMock.Setup(x => x.VerifyPassword("WrongPassword", "hashedOldPassword"))
             .Returns(false);
 
-        var command = new ChangePasswordCommand(userId, "WrongPassword", "NewPass456");
+        var command = new ChangePasswordCommand("WrongPassword", "NewPass456");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -72,6 +79,7 @@ public class ChangePasswordCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         var user = new User
         {
             UserId = userId,
@@ -88,7 +96,7 @@ public class ChangePasswordCommandHandlerTests
         _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        var command = new ChangePasswordCommand(userId, "CurrentPass123", "NewPass456");
+        var command = new ChangePasswordCommand("CurrentPass123", "NewPass456");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -106,6 +114,7 @@ public class ChangePasswordCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         var originalPasswordHash = "hashedOldPassword";
         var newPasswordHash = "hashedNewPassword";
         var user = new User
@@ -124,7 +133,7 @@ public class ChangePasswordCommandHandlerTests
         _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
-        var command = new ChangePasswordCommand(userId, "CurrentPass123", "NewPass456");
+        var command = new ChangePasswordCommand("CurrentPass123", "NewPass456");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -140,6 +149,7 @@ public class ChangePasswordCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         var user = new User
         {
             UserId = userId,
@@ -152,7 +162,7 @@ public class ChangePasswordCommandHandlerTests
         _passwordServiceMock.Setup(x => x.VerifyPassword("CurrentPass123", "hashedOldPassword"))
             .Returns(false);
 
-        var command = new ChangePasswordCommand(userId, "CurrentPass123", "NewPass456");
+        var command = new ChangePasswordCommand("CurrentPass123", "NewPass456");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

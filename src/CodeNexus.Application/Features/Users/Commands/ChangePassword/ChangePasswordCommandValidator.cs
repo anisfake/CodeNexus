@@ -8,11 +8,6 @@ public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCo
 
     public ChangePasswordCommandValidator()
     {
-        RuleFor(x => x.UserId)
-            .NotEmpty()
-            .WithMessage("User ID is required")
-            .WithErrorCode("INVALID_USER_ID");
-
         RuleFor(x => x.CurrentPassword)
             .NotEmpty()
             .WithMessage("Current password is required")

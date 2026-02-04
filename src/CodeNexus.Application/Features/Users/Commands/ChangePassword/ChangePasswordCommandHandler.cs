@@ -9,17 +9,26 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 {
     private readonly IApplicationDbContext _context;
     private readonly IPasswordService _passwordService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public ChangePasswordCommandHandler(IApplicationDbContext context, IPasswordService passwordService)
+    public ChangePasswordCommandHandler(
+        IApplicationDbContext context,
+        IPasswordService passwordService,
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _passwordService = passwordService;
+        _currentUserService = currentUserService;
     }
 
     public async Task<Result> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
     {
+        var userId = _currentUserService.GetUserId();
+        if (userId == null)
+            return Result.Failure("UNAUTHORIZED", "User is not authenticated");
+
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.UserId == request.UserId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.UserId == userId.Value, cancellationToken);
 
         if (user == null)
             return Result.Failure("USER_NOT_FOUND", "User not found");
