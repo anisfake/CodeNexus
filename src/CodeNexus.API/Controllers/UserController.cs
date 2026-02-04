@@ -1,3 +1,5 @@
+using CloudinaryDotNet.Actions;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.Commands.ChangePassword;
 using CodeNexus.Application.Features.Users.DTOs;
@@ -14,10 +16,12 @@ namespace CodeNexus.API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly IApplicationDbContext _context;
 
-    public UserController(ISender sender)
+    public UserController(ISender sender, IApplicationDbContext context)
     {
         _sender = sender;
+        _context = context;
     }
 
     [HttpPost("change-password")]

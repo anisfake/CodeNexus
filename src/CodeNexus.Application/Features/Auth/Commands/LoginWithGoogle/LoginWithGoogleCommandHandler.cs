@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.DTOs;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,7 +41,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
 
             user = new User
             {
-                UserId = Guid.NewGuid(),
+                UserId = NewId.NextGuid(),
                 Email = googleUser.Email,
                 Username = finalUsername,
                 PasswordHash = string.Empty,

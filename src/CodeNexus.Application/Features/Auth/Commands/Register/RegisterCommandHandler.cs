@@ -4,6 +4,7 @@ using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using CodeNexus.Application.Common.Constants;
+using MassTransit;
 
 namespace CodeNexus.Application.Features.Auth.Commands.Register;
 
@@ -63,7 +64,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
         var passwordHash = _otpService.HashPassword(request.Password);
         var otpVerification = new OtpVerification
         {
-            Id = Guid.NewGuid(),
+            Id = NewId.NextGuid(),
             Email = request.Email,
             Username = request.Username,
             PasswordHash = passwordHash,

@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.DTOs;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,7 +40,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         var refreshTokenValue = _tokenService.GenerateRefreshToken();
         _context.RefreshTokens.Add(new RefreshToken
         {
-            TokenId = Guid.NewGuid(),
+            TokenId = NewId.NextGuid(),
             UserId = user.UserId,
             Token = refreshTokenValue,
             CreatedAt = DateTime.Now,
@@ -59,4 +60,3 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         ));
     }
 }
- 

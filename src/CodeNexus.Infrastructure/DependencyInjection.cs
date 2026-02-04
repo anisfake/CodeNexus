@@ -1,3 +1,4 @@
+using CloudinaryDotNet;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Infrastructure.Persistence;
 using CodeNexus.Infrastructure.Services;
@@ -24,7 +25,7 @@ public static class DependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IOTPService, OTPService>();
-        services.AddScoped<IPasswordService, PasswordService>(); 
+        services.AddScoped<IPasswordService, PasswordService>();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<ITokenService, TokenService>();
         services.Configure<GoogleAuthSettings>(configuration.GetSection(GoogleAuthSettings.SectionName));
@@ -49,6 +50,14 @@ public static class DependencyInjection
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings?.SecretKey ?? string.Empty))
             };
         });
+
+
+        var account = new Account(
+                configuration["CloudinarySettings:CloudName"],
+                configuration["CloudinarySettings:ApiKey"],
+                configuration["CloudinarySettings:ApiSecret"]
+            );
+        services.AddScoped<ICloudinaryService, CloudinaryService>();
 
         return services;
     }

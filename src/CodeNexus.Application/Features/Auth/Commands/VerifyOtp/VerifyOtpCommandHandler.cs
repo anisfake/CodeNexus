@@ -3,6 +3,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.DTOs;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -72,19 +73,23 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
         var existingUser = await _context.Users
             .AnyAsync(u => u.Email == otpVerification.Email || u.Username == otpVerification.Username, cancellationToken);
 
+        var studentRole = await _context.Roles
+            .FirstOrDefaultAsync(r => r.RoleName.Equals("Student"), cancellationToken);
+
         if (existingUser)
             return Result<VerifyOtpResponse>.Failure("USER_EXISTS", "User already exists");
 
         var user = new User
         {
-            UserId = Guid.NewGuid(),
+            UserId = NewId.NextGuid(),
             Email = otpVerification.Email,
             Username = otpVerification.Username,
             PasswordHash = otpVerification.PasswordHash,
             FirstName = otpVerification.FirstName,
             LastName = otpVerification.LastName,
-            CreatedAt = DateTime.UtcNow,
-            Status = "Active"
+            CreatedAt = DateTime.Now,
+            Status = "Active",
+            RoleId = studentRole?.RoleId
         };
 
         _context.Users.Add(user);

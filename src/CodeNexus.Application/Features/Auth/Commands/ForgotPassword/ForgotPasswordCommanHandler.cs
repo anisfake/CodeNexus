@@ -2,6 +2,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -53,7 +54,7 @@ public class ForgotPasswordCommanHandler : IRequestHandler<ForgotPasswordCommand
 
         var otpVerification = new OtpVerification
         {
-            Id = Guid.NewGuid(),
+            Id = NewId.NextGuid(),
             Email = request.Email,
             Username = string.Empty,
             PasswordHash = string.Empty,
