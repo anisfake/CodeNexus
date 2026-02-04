@@ -14,24 +14,10 @@ public class ChangePasswordCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_WhenUserIdIsEmpty_ShouldHaveValidationError()
-    {
-        // Arrange
-        var command = new ChangePasswordCommand(Guid.Empty, "CurrentPass123", "NewPass456");
-
-        // Act
-        var result = _validator.TestValidate(command);
-
-        // Assert
-        result.ShouldHaveValidationErrorFor(x => x.UserId)
-            .WithErrorCode("INVALID_USER_ID");
-    }
-
-    [Fact]
     public void Validate_WhenCurrentPasswordIsEmpty_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "", "NewPass456");
+        var command = new ChangePasswordCommand("", "NewPass456");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -45,7 +31,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordIsEmpty_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", "");
+        var command = new ChangePasswordCommand("CurrentPass123", "");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -59,7 +45,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordTooShort_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", "Short1");
+        var command = new ChangePasswordCommand("CurrentPass123", "Short1");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -73,7 +59,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordNoUppercase_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", "newpass123");
+        var command = new ChangePasswordCommand("CurrentPass123", "newpass123");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -87,7 +73,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordNoLowercase_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", "NEWPASS123");
+        var command = new ChangePasswordCommand("CurrentPass123", "NEWPASS123");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -101,7 +87,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordNoNumber_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", "NewPassword");
+        var command = new ChangePasswordCommand("CurrentPass123", "NewPassword");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -115,7 +101,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordSameAsCurrentPassword_ShouldHaveValidationError()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "SamePass123", "SamePass123");
+        var command = new ChangePasswordCommand("SamePass123", "SamePass123");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -130,7 +116,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenAllFieldsValid_ShouldNotHaveValidationErrors()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", "NewPass456");
+        var command = new ChangePasswordCommand("CurrentPass123", "NewPass456");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -143,7 +129,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordMeetsAllRequirements_ShouldPass()
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "OldPassword1", "NewPassword123");
+        var command = new ChangePasswordCommand("OldPassword1", "NewPassword123");
 
         // Act
         var result = _validator.TestValidate(command);
@@ -161,7 +147,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordInvalid_ShouldHaveValidationError(string invalidPassword)
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", invalidPassword);
+        var command = new ChangePasswordCommand("CurrentPass123", invalidPassword);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -179,7 +165,7 @@ public class ChangePasswordCommandValidatorTests
     public void Validate_WhenNewPasswordValid_ShouldNotHaveValidationError(string validPassword)
     {
         // Arrange
-        var command = new ChangePasswordCommand(Guid.NewGuid(), "CurrentPass123", validPassword);
+        var command = new ChangePasswordCommand("CurrentPass123", validPassword);
 
         // Act
         var result = _validator.TestValidate(command);
