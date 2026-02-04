@@ -22,14 +22,13 @@ jobs:
         dotnet-version: 8.0.x
 
     # 3. Restore (Tải thư viện)
-    # Đường dẫn: src/CodeNexus.API/...
     - name: Restore dependencies
-      run: dotnet restore src/CodeNexus.API/CodeNexus.API.csproj
+      run: dotnet restore
 
     # 4. Build (Biên dịch code xem có lỗi cú pháp không)
     - name: Build
-      run: dotnet build src/CodeNexus.API/CodeNexus.API.csproj --no-restore --configuration Release
+      run: dotnet build --no-restore --configuration Release
 
     # 5. Run Unit Tests
     - name: Run Unit Tests
-      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --no-build --verbosity normal --logger "console;verbosity=detailed"
+      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --configuration Release --verbosity normal
