@@ -1,11 +1,21 @@
 name: CodeNexus CI/CD
 
-# Kích hoạt khi có Push hoặc PR vào master/develop
+# Kích hoạt khi có Push hoặc PR vào master/develop, hoặc trigger thủ công
 on:
   push:
     branches: [ "master", "develop" ]
   pull_request:
     branches: [ "master", "develop" ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'develop'
+        type: choice
+        options:
+          - develop
+          - master
 
 jobs:
   build:
