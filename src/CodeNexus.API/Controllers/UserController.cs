@@ -1,10 +1,10 @@
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.Commands.ChangePassword;
 using CodeNexus.Application.Features.Users.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace CodeNexus.API.Controllers;
 
@@ -14,10 +14,12 @@ namespace CodeNexus.API.Controllers;
 public class UserController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly ICurrentUserService _currentUserService;
 
-    public UserController(ISender sender)
+    public UserController(ISender sender, ICurrentUserService currentUserService)
     {
         _sender = sender;
+        _currentUserService = currentUserService;
     }
 
     [HttpPost("change-password")]
@@ -26,11 +28,11 @@ public class UserController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+        var userId = _currentUserService.GetUserId();
+        if (userId == null)
             return Unauthorized(new { ErrorCode = "UNAUTHORIZED", ErrorMessage = "User is not authenticated" });
 
-        var command = new ChangePasswordCommand(userId, request.CurrentPassword, request.NewPassword);
+        var command = new ChangePasswordCommand(userId.Value, request.CurrentPassword, request.NewPassword);
         var result = await _sender.Send(command);
 
         if (result.IsSuccess)
