@@ -30,7 +30,6 @@ jobs:
     - name: Build
       run: dotnet build src/CodeNexus.API/CodeNexus.API.csproj --no-restore --configuration Release
 
-    # 5. Test (Chạy Unit Test)
-    # Chưa tạo project Test thì tạm thời comment dòng dưới lại bằng dấu #
-    # - name: Test
-    #   run: dotnet test tests/ --no-build --verbosity normal
+    # 5. Run Unit Tests
+    - name: Run Unit Tests
+      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --no-build --verbosity normal --logger "console;verbosity=detailed"

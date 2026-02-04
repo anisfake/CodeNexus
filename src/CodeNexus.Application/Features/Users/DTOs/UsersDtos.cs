@@ -16,7 +16,8 @@ public record UserProfileRespone(
     string Bio,
     string Username,
     string? AvatarUrl,
-    string? DateOfBirth,
+    DateTime? DateOfBirth,
     string? Phone,
     string? Address
 );
+
