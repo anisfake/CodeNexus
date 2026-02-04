@@ -2,47 +2,86 @@
 using CodeNexus.Application.Common.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace CodeNexus.Application.Features.Users.Commands.UploadAvatar
+namespace CodeNexus.Application.Features.Users.Commands.UploadAvatar;
+
+public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, Result<string>>
 {
-    public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, Result<string>>
+    private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICloudinaryService _cloudinaryService;
+
+    public UploadAvatarCommandHandler(IApplicationDbContext context, ICloudinaryService cloudinaryService,
+        ICurrentUserService currentUserService)
     {
-        private readonly IApplicationDbContext _context;
-        private readonly ICurrentUserService _currentUserService;
-        private readonly ICloudinaryService _cloudinaryService;
-        public UploadAvatarCommandHandler(IApplicationDbContext context, ICloudinaryService cloudinaryService,
-            ICurrentUserService currentUserService)
+        _context = context;
+        _currentUserService = currentUserService;
+        _cloudinaryService = cloudinaryService;
+    }
+
+    public async Task<Result<string>> Handle(UploadAvatarCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.GetUserId();
+
+        var userProfile = await _context.UserProfiles.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+
+        if (userProfile == null)
         {
-            _context = context;
-            _currentUserService = currentUserService;
-            _cloudinaryService = cloudinaryService;
+            return Result<string>.Failure("USER_NOT_FOUND", "user not found");
         }
-        public async Task<Result<string>> Handle(UploadAvatarCommand request, CancellationToken cancellationToken)
+
+        if (!string.IsNullOrEmpty(userProfile.AvatarUrl))
         {
-            var userId = _currentUserService.GetUserId();
-
-            var userProfile = await _context.UserProfiles.FirstOrDefaultAsync(x => x.UserId == userId);
-
-            if (userProfile == null)
+            var oldPublicId = ExtractPublicIdFromUrl(userProfile.AvatarUrl);
+            if (!string.IsNullOrEmpty(oldPublicId))
             {
-                return Result<string>.Failure("USER_NOT_FOUND", "user not found");
+                await _cloudinaryService.DeleteImageAsync(oldPublicId);
+            }
+        }
+
+        var uploadResult = await _cloudinaryService.UploadImageAsync(request.imageStream, request.fileName, "user_avatar");
+
+        if (uploadResult != null)
+        {
+            userProfile.AvatarUrl = uploadResult;
+            await _context.SaveChangesAsync(cancellationToken);
+            return Result<string>.Success(uploadResult);
+        }
+
+        return Result<string>.Failure("UPLOAD_AVATAR_FAILED", "upload avatar failed");
+    }
+
+    private string ExtractPublicIdFromUrl(string cloudinaryUrl)
+    {
+        try
+        {
+            // Cloudinary URL format: https://res.cloudinary.com/{cloud}/image/upload/{version}/{public_id}.{ext}
+            var uri = new Uri(cloudinaryUrl);
+            var path = uri.AbsolutePath;
+
+            // Extract public_id from path
+            var parts = path.Split('/');
+            if (parts.Length >= 2)
+            {
+                // Get last part and remove extension
+                var lastPart = parts[^1];
+                var publicId = System.IO.Path.GetFileNameWithoutExtension(lastPart);
+
+                // Get folder if exists (e.g., user_avatar/abc123)
+                if (parts.Length >= 3)
+                {
+                    var folder = parts[^2];
+                    return $"{folder}/{publicId}";
+                }
+
+                return publicId;
             }
 
-            var uploadResult = await _cloudinaryService.UploadImageAsync(request.imageStream, request.fileName, "user_avatar");
-
-            if (uploadResult != null)
-            {
-                userProfile.AvatarUrl = uploadResult;
-                await _context.SaveChangesAsync(cancellationToken);
-                return Result<string>.Success(uploadResult);
-            }
-
-            return Result<string>.Failure("UPLOAD_AVATAR_FAILED", "upload avatar failed");
+            return string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
         }
     }
 }
