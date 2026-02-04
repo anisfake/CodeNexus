@@ -76,8 +76,9 @@ jobs:
         local-dir: ./publish/
         server-dir: /
         state-name: .ftp-deploy-sync-state.json
-        dangerous-delete-include: |
-          *.dll
-          *.pdb
-          *.json
-          appsettings.*.json
+        exclude: |
+          **/.git*
+          **/node_modules/**
+          **/.env
+          **/bin/**
+          **/obj/**
