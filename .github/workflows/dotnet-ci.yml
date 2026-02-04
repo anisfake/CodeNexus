@@ -1,4 +1,4 @@
-name: CodeNexus CI
+name: CodeNexus CI/CD
 
 # Kích hoạt khi có Push hoặc PR vào master/develop
 on:
@@ -32,3 +32,38 @@ jobs:
     # 5. Run Unit Tests
     - name: Run Unit Tests
       run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --configuration Release --verbosity normal
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+
+    steps:
+    # 1. Tải code về máy ảo
+    - uses: actions/checkout@v4
+
+    # 2. Cài đặt .NET 8
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    # 3. Publish ứng dụng
+    - name: Publish
+      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
+
+    # 4. Deploy lên SmarterASP.Net qua FTP
+    - name: Deploy to SmarterASP.Net
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./publish/
+        server-dir: /
+        state-name: .ftp-deploy-sync-state.json
+        dangerous-delete-include: |
+          *.dll
+          *.pdb
+          *.json
+          appsettings.*.json
