@@ -66,7 +66,25 @@ jobs:
     - name: Publish
       run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
 
-    # 5. Deploy lên SmarterASP.Net qua FTP
+    # 5. Create app_offline.htm to stop the app
+    - name: Create app_offline.htm
+      run: |
+        echo "<html><head><title>Updating...</title></head><body><h1>System is updating...</h1></body></html>" > app_offline.htm
+
+    # 6. Upload app_offline.htm to stop app
+    - name: Stop App (Upload app_offline.htm)
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./
+        server-dir: /codenexus/
+        files: |
+          app_offline.htm
+      continue-on-error: true
+
+    # 7. Deploy lên SmarterASP.Net qua FTP
     - name: Deploy to SmarterASP.Net
       uses: SamKirkland/FTP-Deploy-Action@v4.3.5
       with:
@@ -82,3 +100,9 @@ jobs:
           **/.env
           **/bin/**
           **/obj/**
+
+    # 8. Remove app_offline.htm to start app
+    - name: Start App (Remove app_offline.htm)
+      run: |
+        lftp -c "open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }}; rm /codenexus/app_offline.htm" || echo "app_offline.htm removal skipped"
+      continue-on-error: true
