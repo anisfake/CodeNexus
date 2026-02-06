@@ -6,6 +6,7 @@ using CodeNexus.Application.Features.Users.Commands.UpdateProfile;
 using CodeNexus.Application.Features.Users.Commands.UploadAvatar;
 using CodeNexus.Application.Features.Users.DTOs;
 using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
+using MassTransit;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,7 @@ public class UserController : ControllerBase
 {
     private readonly ISender _sender;
 
-    public UserController(ISender sender, IApplicationDbContext context)
+    public UserController(ISender sender)
     {
         _sender = sender;
     }

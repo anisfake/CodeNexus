@@ -1,5 +1,6 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,7 +24,7 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
     {
         var userId = _currentUserService.GetUserId();
 
-        var userProfile = await _context.UserProfiles.FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
+        var userProfile = await _context.UserProfiles.Include(x => x.User).FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
 
         if (userProfile == null)
         {
@@ -39,7 +40,7 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
             }
         }
 
-        var uploadResult = await _cloudinaryService.UploadImageAsync(request.imageStream, request.fileName, "user_avatar");
+        var uploadResult = await _cloudinaryService.UploadImageAsync(request.imageStream, request.fileName, $"avatars/{userProfile.User.Username}");
 
         if (uploadResult != null)
         {
@@ -55,19 +56,15 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
     {
         try
         {
-            // Cloudinary URL format: https://res.cloudinary.com/{cloud}/image/upload/{version}/{public_id}.{ext}
             var uri = new Uri(cloudinaryUrl);
             var path = uri.AbsolutePath;
 
-            // Extract public_id from path
             var parts = path.Split('/');
             if (parts.Length >= 2)
             {
-                // Get last part and remove extension
                 var lastPart = parts[^1];
                 var publicId = System.IO.Path.GetFileNameWithoutExtension(lastPart);
 
-                // Get folder if exists (e.g., user_avatar/abc123)
                 if (parts.Length >= 3)
                 {
                     var folder = parts[^2];
