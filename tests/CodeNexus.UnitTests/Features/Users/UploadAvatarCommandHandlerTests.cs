@@ -33,18 +33,27 @@ public class UploadAvatarCommandHandlerTests
         var fileName = "avatar.jpg";
         var uploadedUrl = "https://cloudinary.com/user_avatar/abc123.jpg";
 
+        var user = new User
+        {
+            UserId = userId,
+            Username = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "hash"
+        };
+
         var userProfile = new UserProfile
         {
             ProfileId = NewId.NextGuid(),
             UserId = userId,
-            AvatarUrl = null
+            AvatarUrl = null,
+            User = user
         };
 
         var command = new UploadAvatarCommand(imageStream, fileName);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.UserProfiles).Returns(new[] { userProfile }.AsQueryable().BuildMockDbSet().Object);
-        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"))
+        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, $"avatars/{user.Username}"))
             .ReturnsAsync(uploadedUrl);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -55,7 +64,7 @@ public class UploadAvatarCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(uploadedUrl, result.Value);
         Assert.Equal(uploadedUrl, userProfile.AvatarUrl);
-        _mockCloudinaryService.Verify(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"), Times.Once);
+        _mockCloudinaryService.Verify(x => x.UploadImageAsync(imageStream, fileName, $"avatars/{user.Username}"), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -89,18 +98,27 @@ public class UploadAvatarCommandHandlerTests
         var imageStream = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
         var fileName = "avatar.jpg";
 
+        var user = new User
+        {
+            UserId = userId,
+            Username = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "hash"
+        };
+
         var userProfile = new UserProfile
         {
             ProfileId = NewId.NextGuid(),
             UserId = userId,
-            AvatarUrl = null
+            AvatarUrl = null,
+            User = user
         };
 
         var command = new UploadAvatarCommand(imageStream, fileName);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.UserProfiles).Returns(new[] { userProfile }.AsQueryable().BuildMockDbSet().Object);
-        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"))
+        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, $"avatars/{user.Username}"))
             .ReturnsAsync((string)null);
 
         // Act
@@ -119,23 +137,32 @@ public class UploadAvatarCommandHandlerTests
         var userId = NewId.NextGuid();
         var imageStream = new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
         var fileName = "avatar.jpg";
-        var oldAvatarUrl = "https://res.cloudinary.com/cloud/image/upload/v123/user_avatar/old123.jpg";
-        var newAvatarUrl = "https://res.cloudinary.com/cloud/image/upload/v456/user_avatar/new456.jpg";
+        var oldAvatarUrl = "https://res.cloudinary.com/cloud/image/upload/v123/avatars/testuser/old123.jpg";
+        var newAvatarUrl = "https://res.cloudinary.com/cloud/image/upload/v456/avatars/testuser/new456.jpg";
+
+        var user = new User
+        {
+            UserId = userId,
+            Username = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "hash"
+        };
 
         var userProfile = new UserProfile
         {
             ProfileId = NewId.NextGuid(),
             UserId = userId,
-            AvatarUrl = oldAvatarUrl
+            AvatarUrl = oldAvatarUrl,
+            User = user
         };
 
         var command = new UploadAvatarCommand(imageStream, fileName);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.UserProfiles).Returns(new[] { userProfile }.AsQueryable().BuildMockDbSet().Object);
-        _mockCloudinaryService.Setup(x => x.DeleteImageAsync("user_avatar/old123"))
+        _mockCloudinaryService.Setup(x => x.DeleteImageAsync(It.IsAny<string>()))
             .ReturnsAsync(true);
-        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"))
+        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, $"avatars/{user.Username}"))
             .ReturnsAsync(newAvatarUrl);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -146,8 +173,8 @@ public class UploadAvatarCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(newAvatarUrl, result.Value);
         Assert.Equal(newAvatarUrl, userProfile.AvatarUrl);
-        _mockCloudinaryService.Verify(x => x.DeleteImageAsync("user_avatar/old123"), Times.Once);
-        _mockCloudinaryService.Verify(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"), Times.Once);
+        _mockCloudinaryService.Verify(x => x.DeleteImageAsync(It.IsAny<string>()), Times.Once);
+        _mockCloudinaryService.Verify(x => x.UploadImageAsync(imageStream, fileName, $"avatars/{user.Username}"), Times.Once);
     }
 
     [Fact]
@@ -159,18 +186,27 @@ public class UploadAvatarCommandHandlerTests
         var fileName = string.Empty;
         var uploadedUrl = "https://cloudinary.com/user_avatar/abc123.jpg";
 
+        var user = new User
+        {
+            UserId = userId,
+            Username = "testuser",
+            Email = "test@example.com",
+            PasswordHash = "hash"
+        };
+
         var userProfile = new UserProfile
         {
             ProfileId = NewId.NextGuid(),
             UserId = userId,
-            AvatarUrl = null
+            AvatarUrl = null,
+            User = user
         };
 
         var command = new UploadAvatarCommand(imageStream, fileName);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.UserProfiles).Returns(new[] { userProfile }.AsQueryable().BuildMockDbSet().Object);
-        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, "user_avatar"))
+        _mockCloudinaryService.Setup(x => x.UploadImageAsync(imageStream, fileName, $"avatars/{user.Username}"))
             .ReturnsAsync(uploadedUrl);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
