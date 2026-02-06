@@ -17,9 +17,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<Chapter> Chapters { get; }
         public DbSet<Lesson> Lessons { get; }
         public DbSet<Tasks> Tasks { get; }
-        public DbSet<TaskGoals> TaskGoals { get; }
         public DbSet<FocusSession> FocusSessions { get; }
-        public DbSet<FocusGoals> FocusGoals { get; }
         public DbSet<DailyCheckins> DailyCheckins { get; }
         public DbSet<Note> Notes { get; }
         public DbSet<Tag> Tags { get; }

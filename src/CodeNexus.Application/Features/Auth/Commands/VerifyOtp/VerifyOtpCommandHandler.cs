@@ -88,7 +88,6 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
             FirstName = otpVerification.FirstName,
             LastName = otpVerification.LastName,
             CreatedAt = DateTime.Now,
-            Status = "Active",
             RoleId = defaultRole?.RoleId
         };
 

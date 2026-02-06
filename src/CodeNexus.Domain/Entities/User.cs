@@ -16,11 +16,9 @@ namespace CodeNexus.Domain.Entities
         public string? LastName { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? LastLogin { get; set; }
-        public string? Status { get; set; }
-
+        public string? Status { get; set; } = "Active";
         public Guid? RoleId { get; set; }
         public virtual Role? Role { get; set; }
-
         public virtual UserProfile? UserProfile { get; set; }
         public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
         public virtual ICollection<Subject> Subjects { get; set; } = new List<Subject>(); // Subjects created by Mentor

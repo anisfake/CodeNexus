@@ -23,28 +23,21 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
-
         public DbSet<Tasks> Tasks => Set<Tasks>();
-        public DbSet<TaskGoals> TaskGoals => Set<TaskGoals>();
         public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
-        public DbSet<FocusGoals> FocusGoals => Set<FocusGoals>();
         public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
-
         public DbSet<Note> Notes => Set<Note>();
         public DbSet<Tag> Tags => Set<Tag>();
         public DbSet<NoteTags> NoteTags => Set<NoteTags>();
-
         public DbSet<Resource> Resources => Set<Resource>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
         public DbSet<AIInteraction> AIInteractions => Set<AIInteraction>();
         public DbSet<ChatMessages> ChatMessages => Set<ChatMessages>();
-
         public DbSet<Quiz> Quizzes => Set<Quiz>();
         public DbSet<Questions> Questions => Set<Questions>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
@@ -68,7 +61,6 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Lesson>().HasKey(e => e.LessonId);
             modelBuilder.Entity<Tasks>().HasKey(e => e.TaskId);
             modelBuilder.Entity<FocusSession>().HasKey(e => e.SessionId);
-            modelBuilder.Entity<FocusGoals>().HasKey(e => e.FocusGoalId);
             modelBuilder.Entity<DailyCheckins>().HasKey(e => e.CheckinId);
             modelBuilder.Entity<Note>().HasKey(e => e.NoteId);
             modelBuilder.Entity<Tag>().HasKey(e => e.TagId);
@@ -121,21 +113,17 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasForeignKey(nt => nt.TagId);
             });
 
-            modelBuilder.Entity<TaskGoals>(entity =>
+            modelBuilder.Entity<Tasks>(entity =>
             {
-                entity.HasKey(tg => tg.TaskGoalId);
-                entity.HasOne(tg => tg.Task)
-                      .WithOne(t => t.TaskGoal)
-                      .HasForeignKey<TaskGoals>(tg => tg.TaskId)
+                entity.HasOne(t => t.Chapter)
+                      .WithMany(c => c.Tasks)
+                      .HasForeignKey(t => t.ChapterId)
                       .OnDelete(DeleteBehavior.Cascade);
-            });
 
-            modelBuilder.Entity<FocusGoals>(entity =>
-            {
-                entity.HasOne(fg => fg.FocusSession)
-                      .WithOne(fs => fs.FocusGoal)
-                      .HasForeignKey<FocusGoals>(fg => fg.SessionId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(t => t.LearningPath)
+                      .WithMany(lp => lp.Tasks)
+                      .HasForeignKey(t => t.PathId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<DailyCheckins>(entity =>
@@ -191,19 +179,6 @@ namespace CodeNexus.Infrastructure.Persistence
                 .WithMany(c => c.Lessons)
                 .HasForeignKey(l => l.ChapterId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<Tasks>(entity =>
-            {
-                entity.HasOne(t => t.Chapter)
-                      .WithMany(c => c.Tasks)
-                      .HasForeignKey(t => t.ChapterId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(t => t.LearningPath)
-                      .WithMany(lp => lp.Tasks)
-                      .HasForeignKey(t => t.PathId)
-                      .OnDelete(DeleteBehavior.NoAction);
-            });
 
             modelBuilder.Entity<AISummary>()
                .HasOne(s => s.Resource)
