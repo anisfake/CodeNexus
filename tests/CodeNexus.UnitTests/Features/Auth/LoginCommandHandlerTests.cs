@@ -1,7 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Auth.Commands.Login;
 using CodeNexus.Domain.Entities;
-using CodeNexus.Application.Common.Interfaces; // Added for IPasswordService
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -29,6 +28,7 @@ public class LoginCommandHandlerTests
     {
         // Arrange
         SetupUsersDbSet(new List<User>());
+        SetupTokenBlacklistDbSet(new List<TokenBlacklist>());
         var command = new LoginCommand("missing@test.com", "Password123");
 
         // Act
@@ -45,6 +45,7 @@ public class LoginCommandHandlerTests
         // Arrange
         var user = new User { UserId = Guid.NewGuid(), Email = "test@test.com", Username = "test", PasswordHash = "hash" };
         SetupUsersDbSet(new List<User> { user });
+        SetupTokenBlacklistDbSet(new List<TokenBlacklist>());
         _passwordServiceMock.Setup(x => x.VerifyPassword("Password123", "hash")).Returns(false);
 
         var command = new LoginCommand("test@test.com", "Password123");
@@ -63,6 +64,7 @@ public class LoginCommandHandlerTests
         // Arrange
         var user = new User { UserId = Guid.NewGuid(), Email = "test@test.com", Username = "test", PasswordHash = "hash" };
         SetupUsersDbSet(new List<User> { user });
+        SetupTokenBlacklistDbSet(new List<TokenBlacklist>());
 
         var refreshTokens = new List<RefreshToken>();
         SetupRefreshTokensDbSet(refreshTokens);
@@ -118,5 +120,19 @@ public class LoginCommandHandlerTests
 
         dbSetMock.Setup(x => x.Add(It.IsAny<RefreshToken>())).Callback<RefreshToken>(rt => refreshTokens.Add(rt));
         _contextMock.Setup(x => x.RefreshTokens).Returns(dbSetMock.Object);
+    }
+
+    private void SetupTokenBlacklistDbSet(List<TokenBlacklist> tokens)
+    {
+        var queryable = new TestAsyncEnumerable<TokenBlacklist>(tokens);
+        var dbSetMock = new Mock<DbSet<TokenBlacklist>>();
+        dbSetMock.As<IQueryable<TokenBlacklist>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<TokenBlacklist>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<TokenBlacklist>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<TokenBlacklist>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<TokenBlacklist>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+
+        _contextMock.Setup(x => x.TokenBlacklist).Returns(dbSetMock.Object);
     }
 }
