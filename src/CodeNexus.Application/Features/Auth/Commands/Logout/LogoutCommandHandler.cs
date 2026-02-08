@@ -27,7 +27,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
     {
         Guid? userId = _currentUserService.GetUserId();
 
-        if (!userId.HasValue)
+        if (!userId.HasValue || userId.Value == Guid.Empty)
             return Result.Failure("UNAUTHORIZED", "User not authenticated");
 
         Guid userIdValue = userId.Value;

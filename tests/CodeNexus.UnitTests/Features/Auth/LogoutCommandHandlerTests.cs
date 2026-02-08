@@ -30,7 +30,7 @@ public class LogoutCommandHandlerTests
     public async Task Handle_WhenUserNotAuthenticated_ReturnsFailure()
     {
         // Arrange
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)null);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(Guid.Empty);
         var command = new LogoutCommand();
 
         // Act
@@ -51,7 +51,7 @@ public class LogoutCommandHandlerTests
         var expiresAt = DateTime.Now.AddHours(1);
         var accessToken = "valid.jwt.token";
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         _tokenServiceMock.Setup(x => x.ExtractTokenInfo(accessToken))
             .Returns((tokenId, expiresAt));
 
@@ -87,7 +87,7 @@ public class LogoutCommandHandlerTests
         var expiresAt = DateTime.Now.AddHours(1);
         var accessToken = "valid.jwt.token";
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         _tokenServiceMock.Setup(x => x.ExtractTokenInfo(accessToken))
             .Returns((tokenId, expiresAt));
 
@@ -121,7 +121,7 @@ public class LogoutCommandHandlerTests
         var userId = Guid.NewGuid();
         var accessToken = "invalid.token";
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         _tokenServiceMock.Setup(x => x.ExtractTokenInfo(accessToken))
             .Returns(((string?)null, (DateTime?)null));
 
@@ -157,7 +157,7 @@ public class LogoutCommandHandlerTests
             RevokedAt = null
         };
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         SetupTokenBlacklistDbSet(new List<TokenBlacklist>());
         SetupRefreshTokensDbSet(new List<RefreshToken> { refreshToken });
 
@@ -209,7 +209,7 @@ public class LogoutCommandHandlerTests
             RevokedAt = DateTime.Now.AddHours(-1)
         };
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         SetupTokenBlacklistDbSet(new List<TokenBlacklist>());
         SetupRefreshTokensDbSet(new List<RefreshToken> { refreshToken1, refreshToken2, revokedToken });
 
@@ -249,7 +249,7 @@ public class LogoutCommandHandlerTests
             RevokedAt = null
         };
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         _tokenServiceMock.Setup(x => x.ExtractTokenInfo(accessToken))
             .Returns((tokenId, expiresAt));
 
@@ -293,7 +293,7 @@ public class LogoutCommandHandlerTests
             RevokedAt = null
         };
 
-        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns((Guid?)userId);
+        _currentUserServiceMock.Setup(x => x.GetUserId()).Returns(userId);
         SetupTokenBlacklistDbSet(new List<TokenBlacklist>());
         SetupRefreshTokensDbSet(new List<RefreshToken> { refreshToken });
 
