@@ -1,5 +1,6 @@
 ﻿using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Resources.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -13,10 +14,15 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
     {
         public int PageNumber { get; init; } = 1;
         public int PageSize { get; init; } = 10;
-        public string? Type { get; init; }
+        public ResourceType? Type { get; init; }
         public Guid? SubjectId { get; init; }
         public string? SearchTerm { get; init; }
-        public string SortBy { get; init; } = "CreatedAt";
+        public ResourceSortBy SortBy { get; init; }
         public bool SortDescending { get; init; } = true;
+    }
+    public enum ResourceSortBy
+    {
+        UploadedAt,
+        Title
     }
 }

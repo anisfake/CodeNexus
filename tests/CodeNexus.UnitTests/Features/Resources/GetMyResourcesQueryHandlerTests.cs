@@ -3,6 +3,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Resources.DTOs;
 using CodeNexus.Application.Features.Resources.Queries.GetMyResources;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using MassTransit;
@@ -41,7 +42,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "C# Basics",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/csharp-basics.pdf",
                     Description = "Introduction to C#",
                     FilePath = "/resources/csharp-basics.pdf",
@@ -54,7 +55,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Advanced C#",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/advanced-csharp.pdf",
                     Description = "Advanced C# concepts",
                     FilePath = "/resources/advanced-csharp.pdf",
@@ -67,7 +68,6 @@ namespace CodeNexus.UnitTests.Features.Resources
             {
                 PageNumber = 1,
                 PageSize = 10,
-                SortBy = "CreatedAt",
                 SortDescending = true
             };
 
@@ -106,7 +106,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "C# Basics",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/csharp.pdf",
                     Description = "Learn C#",
                     FilePath = "/resources/csharp.pdf",
@@ -119,7 +119,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Java Basics",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/java.pdf",
                     Description = "Learn Java",
                     FilePath = "/resources/java.pdf",
@@ -167,7 +167,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId1,
                     Title = "C# Guide",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/csharp.pdf",
                     Description = "C# guide",
                     FilePath = "/resources/csharp.pdf",
@@ -180,7 +180,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId2,
                     Title = "Java Guide",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/java.pdf",
                     Description = "Java guide",
                     FilePath = "/resources/java.pdf",
@@ -225,7 +225,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "PDF Guide",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/guide.pdf",
                     Description = "PDF guide",
                     FilePath = "/resources/guide.pdf",
@@ -238,7 +238,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Video Tutorial",
-                    Type = "video",
+                    Type = ResourceType.Document,
                     URL = "https://example.com/tutorial.mp4",
                     Description = "Video tutorial",
                     FilePath = "/resources/tutorial.mp4",
@@ -251,7 +251,7 @@ namespace CodeNexus.UnitTests.Features.Resources
             {
                 PageNumber = 1,
                 PageSize = 10,
-                Type = "pdf"
+                Type = "File"
             };
 
             _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
@@ -262,7 +262,7 @@ namespace CodeNexus.UnitTests.Features.Resources
 
             // Assert
             result.Items.Should().HaveCount(1);
-            result.Items[0].Type.Should().Be("pdf");
+            result.Items[0].Type.Should().Be("File");
         }
 
         [Fact]
@@ -280,7 +280,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                 UserId = userId,
                 SubjectId = subjectId,
                 Title = $"Resource {i}",
-                Type = "pdf",
+                Type = ResourceType.File,
                 URL = $"https://example.com/resource{i}.pdf",
                 Description = $"Resource {i} description",
                 FilePath = $"/resources/resource{i}.pdf",
@@ -327,7 +327,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Zebra Guide",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/zebra.pdf",
                     Description = "Zebra",
                     FilePath = "/resources/zebra.pdf",
@@ -340,7 +340,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Apple Guide",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/apple.pdf",
                     Description = "Apple",
                     FilePath = "/resources/apple.pdf",
@@ -353,7 +353,6 @@ namespace CodeNexus.UnitTests.Features.Resources
             {
                 PageNumber = 1,
                 PageSize = 10,
-                SortBy = "title",
                 SortDescending = false
             };
 
@@ -412,7 +411,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "C# Advanced Patterns",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/patterns.pdf",
                     Description = "Advanced design patterns in C#",
                     FilePath = "/resources/patterns.pdf",
@@ -425,7 +424,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "C# Basics Video",
-                    Type = "video",
+                    Type = ResourceType.Document,
                     URL = "https://example.com/basics.mp4",
                     Description = "Basic C# concepts",
                     FilePath = "/resources/basics.mp4",
@@ -439,7 +438,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                 PageNumber = 1,
                 PageSize = 10,
                 SubjectId = subjectId,
-                Type = "pdf",
+                Type = "File",
                 SearchTerm = "Advanced"
             };
 
@@ -452,7 +451,7 @@ namespace CodeNexus.UnitTests.Features.Resources
             // Assert
             result.Items.Should().HaveCount(1);
             result.Items[0].Title.Should().Be("C# Advanced Patterns");
-            result.Items[0].Type.Should().Be("pdf");
+            result.Items[0].Type.Should().Be("File");
         }
 
         [Fact]
@@ -472,7 +471,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Resource 1",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/resource1.pdf",
                     Description = "Contains important information",
                     FilePath = "/resources/resource1.pdf",
@@ -485,7 +484,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "Resource 2",
-                    Type = "pdf",
+                    Type = ResourceType.File,
                     URL = "https://example.com/resource2.pdf",
                     Description = "Basic overview",
                     FilePath = "/resources/resource2.pdf",

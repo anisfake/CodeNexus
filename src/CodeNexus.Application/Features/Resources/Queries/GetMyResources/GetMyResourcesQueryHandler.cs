@@ -40,7 +40,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
             }
 
             // filter type
-            if (!string.IsNullOrEmpty(request.Type))
+            if (request.Type != null)
             {
                 query = query.Where(r => r.Type.Equals(request.Type));
             }
@@ -57,9 +57,9 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
             var totalCount = await query.CountAsync(cancellationToken);
 
             // sort
-            query = request.SortBy?.ToLower() switch
+            query = request.SortBy switch
             {
-                "title" => request.SortDescending
+                ResourceSortBy.Title => request.SortDescending
                     ? query.OrderByDescending(r => r.Title)
                     : query.OrderBy(r => r.Title),
                 _ => request.SortDescending

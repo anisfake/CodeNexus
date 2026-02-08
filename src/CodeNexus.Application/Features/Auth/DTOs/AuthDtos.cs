@@ -1,3 +1,5 @@
+using CodeNexus.Domain.Enums;
+
 namespace CodeNexus.Application.Features.Auth.DTOs;
 
 public record RegisterRequest(
@@ -39,7 +41,7 @@ public record LoginResponse(
 );
 
 public record VerifyOtpResponse(
-    string Purpose,
+    OtpPurpose Purpose,
     string? ResetToken,
     string? Message
 );

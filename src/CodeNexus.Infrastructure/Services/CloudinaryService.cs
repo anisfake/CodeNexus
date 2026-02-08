@@ -15,8 +15,8 @@ public class CloudinaryService : ICloudinaryService
     {
         var settings = options.Value;
 
-        if (string.IsNullOrEmpty(settings?.CloudName) || 
-            string.IsNullOrEmpty(settings?.ApiKey) || 
+        if (string.IsNullOrEmpty(settings?.CloudName) ||
+            string.IsNullOrEmpty(settings?.ApiKey) ||
             string.IsNullOrEmpty(settings?.ApiSecret))
         {
             throw new InvalidOperationException("Cloudinary settings are not properly configured in appsettings.json");
@@ -69,6 +69,34 @@ public class CloudinaryService : ICloudinaryService
             }
 
             return result.Result == "ok";
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
+    }
+
+    public async Task<string> UploadFileAsync(Stream file, string fileName, string folder)
+    {
+        try
+        {
+            var uploadParams = new RawUploadParams()
+            {
+                File = new FileDescription(fileName, file),
+                Folder = folder,
+                UseFilename = true,
+                UniqueFilename = false,
+                PublicId = Path.GetFileNameWithoutExtension(fileName)
+            };
+
+            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+            if (uploadResult.Error != null)
+            {
+                throw new InvalidOperationException($"Upload failed: {uploadResult.Error.Message}");
+            }
+
+            return uploadResult.SecureUrl.ToString();
         }
         catch (Exception ex)
         {

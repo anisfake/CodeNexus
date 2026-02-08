@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CodeNexus.Domain.Enums;
+using System;
 
 namespace CodeNexus.Domain.Entities
 {
@@ -14,7 +15,7 @@ namespace CodeNexus.Domain.Entities
         public DateTime ExpiresAt { get; set; }
         public int AttemptCount { get; set; }
         public int ResendCount { get; set; }
-        public string Purpose { get; set; } = "register";
+        public OtpPurpose Purpose { get; set; } = OtpPurpose.Register;
         public DateTime? LastResendAt { get; set; }
         public DateTime CreatedAt { get; set; }
     }

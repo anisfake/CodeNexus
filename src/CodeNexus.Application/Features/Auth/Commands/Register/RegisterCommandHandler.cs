@@ -3,8 +3,8 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using CodeNexus.Application.Common.Constants;
 using MassTransit;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Auth.Commands.Register;
 

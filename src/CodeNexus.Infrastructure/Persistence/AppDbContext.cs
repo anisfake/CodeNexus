@@ -115,6 +115,12 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<Tasks>(entity =>
             {
+                entity.Property(t => t.Priority)
+                      .HasConversion<string>();
+
+                entity.Property(t => t.Status)
+                      .HasConversion<string>();
+
                 entity.HasOne(t => t.Chapter)
                       .WithMany(c => c.Tasks)
                       .HasForeignKey(t => t.ChapterId)
@@ -157,6 +163,9 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<Resource>(entity =>
             {
+                entity.Property(r => r.Type)
+                      .HasConversion<string>();
+
                 entity.HasOne(r => r.Subject)
                       .WithMany(s => s.Resources)
                       .HasForeignKey(r => r.SubjectId)
@@ -194,21 +203,38 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<Questions>()
-                .Property(q => q.Points)
-                .HasPrecision(5, 2);
+            modelBuilder.Entity<Questions>(entity =>
+            {
+                entity.Property(q => q.Points)
+                      .HasPrecision(5, 2);
+
+                entity.Property(q => q.Type)
+                      .HasConversion<string>();
+            });
 
             modelBuilder.Entity<Quiz>()
                 .Property(q => q.PassingScore)
                 .HasPrecision(5, 2);
 
-            modelBuilder.Entity<QuizAttempt>()
-                .Property(q => q.Score)
-                .HasPrecision(5, 2);
+            modelBuilder.Entity<QuizAttempt>(entity =>
+            {
+                entity.Property(q => q.Score)
+                      .HasPrecision(5, 2);
+
+                entity.Property(qa => qa.Status)
+                      .HasConversion<string>();
+            });
+
+            modelBuilder.Entity<Notification>()
+                .Property(n => n.Type)
+                .HasConversion<string>();
 
             modelBuilder.Entity<OtpVerification>(entity =>
             {
                 entity.HasIndex(o => o.Email).IsUnique();
+
+                entity.Property(o => o.Purpose)
+                      .HasConversion<string>();
             });
         }
     }

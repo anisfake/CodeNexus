@@ -1,4 +1,4 @@
-using CodeNexus.Application.Common.Constants;
+using CodeNexus.Domain.Enums;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.DTOs;
@@ -74,7 +74,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
             .AnyAsync(u => u.Email == otpVerification.Email || u.Username == otpVerification.Username, cancellationToken);
 
         var defaultRole = await _context.Roles
-            .FirstOrDefaultAsync(r => r.RoleName.Equals("Mentor"), cancellationToken);
+            .FirstOrDefaultAsync(r => r.RoleName.Equals("Student"), cancellationToken);
 
         if (existingUser)
             return Result<VerifyOtpResponse>.Failure("USER_EXISTS", "User already exists");

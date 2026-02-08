@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Domain.Entities
 {
@@ -16,8 +12,8 @@ namespace CodeNexus.Domain.Entities
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTime? DueDate { get; set; }
-        public string? Priority { get; set; }
-        public string Status { get; set; } = "Pending";
+        public TaskPriority? Priority { get; set; }
+        public TaskStatus_ Status { get; set; } = TaskStatus_.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? CompletedAt { get; set; }
         public DateTime? GoalDeadline { get; set; }

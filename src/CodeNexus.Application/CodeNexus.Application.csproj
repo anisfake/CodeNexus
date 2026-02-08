@@ -19,8 +19,4 @@
     <ProjectReference Include="..\CodeNexus.Domain\CodeNexus.Domain.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Features\Resources\Commands\" />
-  </ItemGroup>
-
 </Project>

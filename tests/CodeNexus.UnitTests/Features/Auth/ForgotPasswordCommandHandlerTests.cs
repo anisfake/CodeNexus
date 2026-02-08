@@ -1,7 +1,7 @@
-using CodeNexus.Application.Common.Constants;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;

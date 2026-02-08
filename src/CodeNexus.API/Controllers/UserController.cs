@@ -41,7 +41,6 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("profile")]
-    [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Profile()
     {
@@ -52,7 +51,6 @@ public class UserController : ControllerBase
     }
 
     [HttpPost("upload-avatar")]
-    [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> UploadAvatar(IFormFile file)
@@ -62,13 +60,12 @@ public class UserController : ControllerBase
         var result = await _sender.Send(command);
 
         if (result.IsSuccess)
-            return Ok(new ChangePasswordResponse("Upload avatar successfully"));
+            return Ok("Upload avatar successfully");
 
         return ToActionResult(result);
     }
 
     [HttpPatch("update-profile")]
-    [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
@@ -85,7 +82,7 @@ public class UserController : ControllerBase
         var result = await _sender.Send(command);
 
         if (result.IsSuccess)
-            return Ok(new ChangePasswordResponse("Update profile successfully"));
+            return Ok("Update profile successfully");
 
         return ToActionResult(result);
     }

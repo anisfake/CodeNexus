@@ -28,7 +28,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             return Result.Failure("UNAUTHORIZED", "User is not authenticated");
 
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.UserId == userId.Value, cancellationToken);
+            .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
 
         if (user == null)
             return Result.Failure("USER_NOT_FOUND", "User not found");
