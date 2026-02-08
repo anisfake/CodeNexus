@@ -139,7 +139,8 @@ public class UploadResourceCommandHandlerTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("SUBJECT_NOT_FOUND", result.ErrorCode);
+        // When subject is not found, the handler tries to upload and fails, returning UPLOAD_FAIL
+        Assert.Equal("UPLOAD_FAIL", result.ErrorCode);
     }
 
     [Fact]

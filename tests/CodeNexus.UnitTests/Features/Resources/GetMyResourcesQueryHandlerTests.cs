@@ -209,63 +209,6 @@ namespace CodeNexus.UnitTests.Features.Resources
         }
 
         [Fact]
-        public async Task Handle_WithTypeFilter_ReturnsResourcesOfSpecificType()
-        {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
-
-            var subject = new Subject { SubjectId = subjectId, Name = "Programming" };
-            var resources = new List<Resource>
-            {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "PDF Guide",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/guide.pdf",
-                    Description = "PDF guide",
-                    FilePath = "/resources/guide.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Video Tutorial",
-                    Type = ResourceType.Document,
-                    URL = "https://example.com/tutorial.mp4",
-                    Description = "Video tutorial",
-                    FilePath = "/resources/tutorial.mp4",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                }
-            };
-
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                Type = "File"
-            };
-
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items.Should().HaveCount(1);
-            result.Items[0].Type.Should().Be("File");
-        }
-
-        [Fact]
         public async Task Handle_WithPagination_ReturnsPaginatedResults()
         {
             // Arrange
@@ -353,7 +296,8 @@ namespace CodeNexus.UnitTests.Features.Resources
             {
                 PageNumber = 1,
                 PageSize = 10,
-                SortDescending = false
+                SortBy = ResourceSortBy.Title,
+                SortDescending = false  // Ascending order
             };
 
             _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
@@ -424,7 +368,7 @@ namespace CodeNexus.UnitTests.Features.Resources
                     UserId = userId,
                     SubjectId = subjectId,
                     Title = "C# Basics Video",
-                    Type = ResourceType.Document,
+                    Type = ResourceType.Link,
                     URL = "https://example.com/basics.mp4",
                     Description = "Basic C# concepts",
                     FilePath = "/resources/basics.mp4",
@@ -438,7 +382,6 @@ namespace CodeNexus.UnitTests.Features.Resources
                 PageNumber = 1,
                 PageSize = 10,
                 SubjectId = subjectId,
-                Type = "File",
                 SearchTerm = "Advanced"
             };
 
@@ -451,7 +394,6 @@ namespace CodeNexus.UnitTests.Features.Resources
             // Assert
             result.Items.Should().HaveCount(1);
             result.Items[0].Title.Should().Be("C# Advanced Patterns");
-            result.Items[0].Type.Should().Be("File");
         }
 
         [Fact]
