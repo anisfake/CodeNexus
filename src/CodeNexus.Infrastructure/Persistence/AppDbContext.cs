@@ -42,6 +42,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<Questions> Questions => Set<Questions>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
         public DbSet<OtpVerification> OtpVerification => Set<OtpVerification>();
+        public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => await base.SaveChangesAsync(cancellationToken);
 
@@ -73,6 +74,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
             modelBuilder.Entity<OtpVerification>().HasKey(e => e.Id);
+            modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {

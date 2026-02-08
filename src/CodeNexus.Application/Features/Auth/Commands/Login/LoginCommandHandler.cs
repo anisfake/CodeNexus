@@ -35,6 +35,17 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
             return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
 
+        var now = DateTime.Now;
+
+        var expiredBlacklistedTokens = await _context.TokenBlacklist
+            .Where(t => t.ExpiresAt <= now)
+            .ToListAsync(cancellationToken);
+
+        if (expiredBlacklistedTokens.Any())
+        {
+            _context.TokenBlacklist.RemoveRange(expiredBlacklistedTokens);
+        }
+
         var accessToken = _tokenService.GenerateAccessToken(user);
 
         var refreshTokenValue = _tokenService.GenerateRefreshToken();
@@ -43,8 +54,8 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             TokenId = NewId.NextGuid(),
             UserId = user.UserId,
             Token = refreshTokenValue,
-            CreatedAt = DateTime.Now,
-            ExpiresAt = DateTime.Now.AddDays(7)
+            CreatedAt = now,
+            ExpiresAt = now.AddDays(7)
         });
 
         await _context.SaveChangesAsync(cancellationToken);

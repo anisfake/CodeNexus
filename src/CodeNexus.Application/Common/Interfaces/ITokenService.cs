@@ -16,5 +16,7 @@ namespace CodeNexus.Application.Common.Interfaces
         string GenerateAccessToken(User user);
 
         string GenerateRefreshToken();
+
+        (string? TokenId, DateTime? ExpiresAt) ExtractTokenInfo(string token);
     }
 }

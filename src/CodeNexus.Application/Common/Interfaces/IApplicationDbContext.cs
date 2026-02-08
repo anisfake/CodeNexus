@@ -30,6 +30,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<Questions> Questions { get; }
         public DbSet<QuizAttempt> QuizAttempts { get; }
         public DbSet<OtpVerification> OtpVerification { get; }
+        public DbSet<TokenBlacklist> TokenBlacklist { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }
