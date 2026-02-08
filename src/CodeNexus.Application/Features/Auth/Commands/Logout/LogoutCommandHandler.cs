@@ -25,14 +25,18 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
 
     public async Task<Result> Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
-        var userId = _currentUserService.GetUserId();
+        Guid? userId = _currentUserService.GetUserId();
 
         if (!userId.HasValue)
             return Result.Failure("UNAUTHORIZED", "User not authenticated");
 
+        Guid userIdValue = userId.Value;
+
         if (!string.IsNullOrWhiteSpace(request.AccessToken))
         {
-            var (tokenId, expiresAt) = _tokenService.ExtractTokenInfo(request.AccessToken);
+            var tokenInfo = _tokenService.ExtractTokenInfo(request.AccessToken);
+            string? tokenId = tokenInfo.Item1;
+            DateTime? expiresAt = tokenInfo.Item2;
 
             if (!string.IsNullOrEmpty(tokenId) && expiresAt.HasValue)
             {
@@ -58,7 +62,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
         if (!string.IsNullOrWhiteSpace(request.RefreshToken))
         {
             var refreshToken = await _context.RefreshTokens
-                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken && rt.UserId == userId.Value, cancellationToken);
+                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken && rt.UserId == userIdValue, cancellationToken);
 
             if (refreshToken != null)
             {
@@ -68,7 +72,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
         else
         {
             var activeTokens = await _context.RefreshTokens
-                .Where(rt => rt.UserId == userId.Value && rt.RevokedAt == null)
+                .Where(rt => rt.UserId == userIdValue && rt.RevokedAt == null)
                 .ToListAsync(cancellationToken);
 
             foreach (var token in activeTokens)
