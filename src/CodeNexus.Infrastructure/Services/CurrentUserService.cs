@@ -13,13 +13,15 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public Guid? GetUserId()
+    public Guid GetUserId()
     {
         var userIdClaim = _httpContextAccessor.HttpContext?.User
             .FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-            return null;
+        {
+            throw new UnauthorizedAccessException("User is not authenticated");
+        }
 
         return userId;
     }

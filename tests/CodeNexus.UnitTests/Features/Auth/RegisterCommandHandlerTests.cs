@@ -1,4 +1,3 @@
-using CodeNexus.Application.Common.Constants;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Auth.Commands.Register;
 using CodeNexus.Domain.Entities;

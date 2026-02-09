@@ -1,10 +1,10 @@
-﻿using CodeNexus.Application.Common.Constants;
-using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
 

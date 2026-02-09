@@ -11,15 +11,15 @@ namespace CodeNexus.Application.Features.Users.Commands.UploadAvatar
     {
         public UploadAvatarCommandValidator()
         {
-            RuleFor(RuleFor => RuleFor.imageStream)
+            RuleFor(RuleFor => RuleFor.ImageStream)
                 .NotNull().WithMessage("Image stream cannot be null.")
                 .Must(stream => stream.Length > 0).WithMessage("Image stream cannot be empty.");
 
-            RuleFor(RuleFor => RuleFor.fileName)
+            RuleFor(RuleFor => RuleFor.FileName)
                 .NotEmpty().WithMessage("File name cannot be empty.")
                 .MaximumLength(255).WithMessage("File name cannot exceed 255 characters.");
 
-            RuleFor(RuleFor => RuleFor.fileName)
+            RuleFor(RuleFor => RuleFor.FileName)
                 .Must(fileName =>
                 {
                     var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };

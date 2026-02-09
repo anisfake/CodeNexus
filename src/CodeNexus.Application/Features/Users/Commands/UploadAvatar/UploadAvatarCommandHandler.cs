@@ -40,7 +40,7 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
             }
         }
 
-        var uploadResult = await _cloudinaryService.UploadImageAsync(request.imageStream, request.fileName, $"avatars/{userProfile.User.Username}");
+        var uploadResult = await _cloudinaryService.UploadImageAsync(request.ImageStream, request.FileName, $"avatars/{userProfile.User.Username}");
 
         if (uploadResult != null)
         {
