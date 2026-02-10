@@ -1,0 +1,77 @@
+using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Dashboard.DTOs;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+namespace CodeNexus.Application.Features.Dashboard.Queries.GetStudentDashboardStats;
+
+public class GetStudentDashboardStatsQueryHandler
+    : IRequestHandler<GetStudentDashboardStatsQuery, Result<StudentDashboardStatsResponse>>
+{
+    private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
+
+    public GetStudentDashboardStatsQueryHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService)
+    {
+        _context = context;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<Result<StudentDashboardStatsResponse>> Handle(
+        GetStudentDashboardStatsQuery request,
+        CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.GetUserId();
+
+        var user = await _context.Users
+            .AsNoTracking()
+            .AnyAsync(u => u.UserId == userId, cancellationToken);
+
+        if (!user)
+            return Result<StudentDashboardStatsResponse>.Failure("USER_NOT_FOUND", "User not found.");
+
+        var chapters = await _context.Chapters
+            .AsNoTracking()
+            .Where(c => c.LearningPath.UserId == userId)
+            .Select(c => new
+            {
+                c.ChapterId,
+                c.IsCompleted,
+                LessonCount = c.Lessons.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        var totalChapters = chapters.Count;
+        var completedChapters = chapters.Count(c => c.IsCompleted);
+        var totalLessons = chapters.Sum(c => c.LessonCount);
+        var completedLessons = chapters.Where(c => c.IsCompleted).Sum(c => c.LessonCount);
+
+        var totalLearningPaths = await _context.LearningPaths
+            .AsNoTracking()
+            .CountAsync(lp => lp.UserId == userId, cancellationToken);
+
+        var totalQuizAttempts = await _context.QuizAttempts
+            .AsNoTracking()
+            .CountAsync(qa => qa.UserId == userId, cancellationToken);
+
+        var totalStudyMinutes = await _context.FocusSessions
+            .AsNoTracking()
+            .Where(fs => fs.Task.LearningPath.UserId == userId)
+            .SumAsync(fs => fs.Duration, cancellationToken);
+
+        var response = new StudentDashboardStatsResponse(
+            TotalLessons: totalLessons,
+            CompletedLessons: completedLessons,
+            TotalChapters: totalChapters,
+            CompletedChapters: completedChapters,
+            TotalLearningPaths: totalLearningPaths,
+            TotalQuizAttempts: totalQuizAttempts,
+            TotalStudyMinutes: totalStudyMinutes
+        );
+
+        return Result<StudentDashboardStatsResponse>.Success(response);
+    }
+}
