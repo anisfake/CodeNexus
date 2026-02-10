@@ -153,7 +153,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     learningPath.Title,
                     learningPath.Description,
                     skeleton.Chapters.Count,
-                    learningPath.CreatedAt
+                    learningPath.CreatedAt,
+                    true
                 )
             );
         }

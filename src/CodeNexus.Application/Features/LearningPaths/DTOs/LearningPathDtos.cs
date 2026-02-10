@@ -30,5 +30,6 @@ public record CreateLearningPathResponse(
     string Title,
     string Description,
     int ChapterCount,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    bool IsContentGenerating = true
 );
