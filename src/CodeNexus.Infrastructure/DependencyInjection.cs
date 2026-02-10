@@ -56,6 +56,11 @@ public static class DependencyInjection
         services.Configure<CloudinarySettings>(configuration.GetSection(CloudinarySettings.SectionName));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
 
+        services.Configure<GroqSettings>(configuration.GetSection(GroqSettings.SectionName));
+        services.AddHttpClient<GroqService>();
+        services.AddScoped<IAIGeneratorService, GroqService>();
+
+
         return services;
     }
 }
