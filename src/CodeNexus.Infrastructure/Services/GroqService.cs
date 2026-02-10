@@ -38,10 +38,10 @@ namespace CodeNexus.Infrastructure.Services
             {
                 var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                 var result = JsonSerializer.Deserialize<T>(jsonContent, options);
-                
+
                 if (result == null)
                     throw new InvalidOperationException($"Failed to deserialize to {typeof(T).Name}");
-                
+
                 return result;
             }
             catch (JsonException ex)
@@ -113,7 +113,6 @@ namespace CodeNexus.Infrastructure.Services
 
             response = response.Trim();
 
-            // Try markdown code blocks
             if (response.Contains("```json"))
             {
                 var start = response.IndexOf("```json") + 7;
@@ -130,13 +129,11 @@ namespace CodeNexus.Infrastructure.Services
                     return response.Substring(start, end - start).Trim();
             }
 
-            // Try direct JSON object
             var jsonStart = response.IndexOf('{');
             var jsonEnd = response.LastIndexOf('}');
             if (jsonStart >= 0 && jsonEnd > jsonStart)
                 return response.Substring(jsonStart, jsonEnd - jsonStart + 1).Trim();
 
-            // Try JSON array
             var arrayStart = response.IndexOf('[');
             var arrayEnd = response.LastIndexOf(']');
             if (arrayStart >= 0 && arrayEnd > arrayStart)

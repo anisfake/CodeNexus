@@ -4,8 +4,4 @@ using MediatR;
 
 namespace CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
 
-public record GenerateLearningPathSkeletonCommand : IRequest<Result<CreateLearningPathResponse>>
-{
-    public Guid SubjectId { get; init; }
-    public Guid GoalId { get; init; }
-}
+public record GenerateLearningPathSkeletonCommand(Guid SubjectId, Guid GoalId) : IRequest<Result<CreateLearningPathResponse>>;

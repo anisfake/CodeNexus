@@ -76,6 +76,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 Title = skeleton.Title,
                 Description = skeleton.Description,
                 Status = "Active",
+                StartDate = DateTime.Now,
+                EndDate = DateTime.Now.AddDays(goal.DurationDays),
                 CreatedAt = DateTime.Now,
                 CreatedByType = true
             };

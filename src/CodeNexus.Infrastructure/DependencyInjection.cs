@@ -60,6 +60,7 @@ public static class DependencyInjection
         services.AddHttpClient<GroqService>();
         services.AddScoped<IAIGeneratorService, GroqService>();
 
+
         return services;
     }
 }
