@@ -2,12 +2,14 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
 using CodeNexus.Application.Features.Auth.Commands.Login;
 using CodeNexus.Application.Features.Auth.Commands.LoginWithGoogle;
+using CodeNexus.Application.Features.Auth.Commands.Logout;
 using CodeNexus.Application.Features.Auth.Commands.Register;
 using CodeNexus.Application.Features.Auth.Commands.ResendOtp;
 using CodeNexus.Application.Features.Auth.Commands.ResetPassword;
 using CodeNexus.Application.Features.Auth.Commands.VerifyOtp;
 using CodeNexus.Application.Features.Auth.DTOs;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CodeNexus.API.Controllers;
@@ -100,6 +102,19 @@ public class AuthController : ControllerBase
 
         return ToActionResult(result);
     }
+
+    [Authorize]
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
+    {
+        var command = new LogoutCommand(request?.AccessToken, request?.RefreshToken);
+        var result = await _sender.Send(command);
+        return ToActionResult(result);
+    }
+
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)

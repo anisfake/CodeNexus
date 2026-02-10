@@ -45,3 +45,8 @@ public record VerifyOtpResponse(
     string? ResetToken,
     string? Message
 );
+
+public record LogoutRequest(
+    string? AccessToken = null,
+    string? RefreshToken = null
+);

@@ -26,6 +26,7 @@ public class TokenService : ITokenService
 
         var claims = new List<Claim>
         {
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
             new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
@@ -103,6 +104,27 @@ public class TokenService : ITokenService
         catch
         {
             return null;
+        }
+    }
+
+    public (string? TokenId, DateTime? ExpiresAt) ExtractTokenInfo(string token)
+    {
+        try
+        {
+            var handler = new JwtSecurityTokenHandler();
+
+            if (!handler.CanReadToken(token))
+                return (null, null);
+
+            var jwtToken = handler.ReadJwtToken(token);
+            var jti = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+            var exp = jwtToken.ValidTo;
+
+            return (jti, exp);
+        }
+        catch
+        {
+            return (null, null);
         }
     }
 }

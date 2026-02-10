@@ -19,4 +19,9 @@
     <ProjectReference Include="..\CodeNexus.Domain\CodeNexus.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Features\Resources\Commands\" />
+    <Folder Include="Features\Users\Queries\GetMyStatistics\" />
+  </ItemGroup>
+
 </Project>

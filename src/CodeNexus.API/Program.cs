@@ -1,3 +1,4 @@
+using CodeNexus.API.Middleware;
 using CodeNexus.Application;
 using CodeNexus.Infrastructure;
 using Microsoft.OpenApi.Models;
