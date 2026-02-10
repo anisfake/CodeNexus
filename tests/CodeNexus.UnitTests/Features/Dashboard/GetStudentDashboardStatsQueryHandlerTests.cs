@@ -51,6 +51,7 @@ public class GetStudentDashboardStatsQueryHandlerTests
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().AsQueryable().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().AsQueryable().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.FocusSessions).Returns(new List<FocusSession>().AsQueryable().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DailyCheckins).Returns(new List<DailyCheckins>().AsQueryable().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(new GetStudentDashboardStatsQuery(), CancellationToken.None);
@@ -65,6 +66,7 @@ public class GetStudentDashboardStatsQueryHandlerTests
         result.Value.TotalLearningPaths.Should().Be(0);
         result.Value.TotalQuizAttempts.Should().Be(0);
         result.Value.TotalStudyMinutes.Should().Be(0);
+        result.Value.CurrentStreak.Should().Be(0);
     }
 
     [Fact]
@@ -180,6 +182,18 @@ public class GetStudentDashboardStatsQueryHandlerTests
         _mockContext.Setup(x => x.FocusSessions).Returns(
             focusSessions.AsQueryable().BuildMockDbSet().Object);
 
+        var today = DateTime.Today;
+        var dailyCheckins = new List<DailyCheckins>
+        {
+            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[0].SessionId, FocusSession = focusSessions[0], CheckinDate = today },
+            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[1].SessionId, FocusSession = focusSessions[1], CheckinDate = today.AddDays(-1) },
+            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[0].SessionId, FocusSession = focusSessions[0], CheckinDate = today.AddDays(-2) },
+            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[2].SessionId, FocusSession = focusSessions[2], CheckinDate = today }
+        };
+
+        _mockContext.Setup(x => x.DailyCheckins).Returns(
+            dailyCheckins.AsQueryable().BuildMockDbSet().Object);
+
         // Act
         var result = await _handler.Handle(new GetStudentDashboardStatsQuery(), CancellationToken.None);
 
@@ -193,5 +207,27 @@ public class GetStudentDashboardStatsQueryHandlerTests
         result.Value.TotalLearningPaths.Should().Be(1);
         result.Value.TotalQuizAttempts.Should().Be(1);
         result.Value.TotalStudyMinutes.Should().Be(75);
+        result.Value.CurrentStreak.Should().Be(3);
+    }
+
+    [Theory]
+    [InlineData(new[] { 0, -1, -2 }, 3)]
+    [InlineData(new[] { -1, -2, -3 }, 3)]
+    [InlineData(new[] { -2, -3 }, 0)]
+    [InlineData(new int[0], 0)]
+    [InlineData(new[] { 0 }, 1)]
+    [InlineData(new[] { 0, -2 }, 1)]
+    [InlineData(new[] { -1 }, 1)]
+    public void CalculateStreak_VariousScenarios_ReturnsExpectedStreak(int[] dayOffsets, int expectedStreak)
+    {
+        // Arrange
+        var today = DateTime.Today;
+        var dates = dayOffsets.Select(d => today.AddDays(d)).ToList();
+
+        // Act
+        var streak = GetStudentDashboardStatsQueryHandler.CalculateStreak(dates, today);
+
+        // Assert
+        streak.Should().Be(expectedStreak);
     }
 }

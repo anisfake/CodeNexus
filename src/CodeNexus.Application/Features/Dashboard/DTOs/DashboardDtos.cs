@@ -7,5 +7,6 @@ public record StudentDashboardStatsResponse(
     int CompletedChapters,
     int TotalLearningPaths,
     int TotalQuizAttempts,
-    int TotalStudyMinutes
+    int TotalStudyMinutes,
+    int CurrentStreak
 );

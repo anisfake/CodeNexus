@@ -62,6 +62,16 @@ public class GetStudentDashboardStatsQueryHandler
             .Where(fs => fs.Task.LearningPath.UserId == userId)
             .SumAsync(fs => fs.Duration, cancellationToken);
 
+        var checkinDates = await _context.DailyCheckins
+            .AsNoTracking()
+            .Where(dc => dc.FocusSession.Task.LearningPath.UserId == userId)
+            .Select(dc => dc.CheckinDate.Date)
+            .Distinct()
+            .OrderByDescending(d => d)
+            .ToListAsync(cancellationToken);
+
+        var currentStreak = CalculateStreak(checkinDates, DateTime.Today);
+
         var response = new StudentDashboardStatsResponse(
             TotalLessons: totalLessons,
             CompletedLessons: completedLessons,
@@ -69,9 +79,38 @@ public class GetStudentDashboardStatsQueryHandler
             CompletedChapters: completedChapters,
             TotalLearningPaths: totalLearningPaths,
             TotalQuizAttempts: totalQuizAttempts,
-            TotalStudyMinutes: totalStudyMinutes
+            TotalStudyMinutes: totalStudyMinutes,
+            CurrentStreak: currentStreak
         );
 
         return Result<StudentDashboardStatsResponse>.Success(response);
+    }
+
+    public static int CalculateStreak(List<DateTime> sortedDatesDesc, DateTime today)
+    {
+        if (sortedDatesDesc.Count == 0)
+            return 0;
+
+        var latest = sortedDatesDesc[0];
+        if (latest != today && latest != today.AddDays(-1))
+            return 0;
+
+        var streak = 0;
+        var expectedDate = latest;
+
+        foreach (var date in sortedDatesDesc)
+        {
+            if (date == expectedDate)
+            {
+                streak++;
+                expectedDate = expectedDate.AddDays(-1);
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        return streak;
     }
 }
