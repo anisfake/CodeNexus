@@ -38,6 +38,7 @@ public class LearningPathController : ControllerBase
         var result = await _mediator.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
         return ToActionResult(result);
     }
+
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)

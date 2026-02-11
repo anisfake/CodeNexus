@@ -60,6 +60,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<LessonHub>("/hubs/lesson");
+app.MapHub<ChapterHub>("/hubs/chapter");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
