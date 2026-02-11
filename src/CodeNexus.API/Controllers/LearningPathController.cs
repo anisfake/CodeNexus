@@ -38,7 +38,7 @@ public class LearningPathController : ControllerBase
     [HttpPost("lessons/{lessonId:guid}/generate-content")]
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
+        var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
         return ToActionResult(result);
     }
     private IActionResult ToActionResult(Result result)
