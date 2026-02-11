@@ -2,8 +2,12 @@ using CodeNexus.API.Middleware;
 using CodeNexus.Application;
 using CodeNexus.Infrastructure;
 using Microsoft.OpenApi.Models;
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);

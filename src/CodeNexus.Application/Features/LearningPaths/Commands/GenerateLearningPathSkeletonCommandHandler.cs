@@ -27,6 +27,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
     public async Task<Result<CreateLearningPathResponse>> Handle(GenerateLearningPathSkeletonCommand request, CancellationToken cancellationToken)
     {
+
+
+
         try
         {
             var userId = _currentUserService.GetUserId();
@@ -84,14 +87,13 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
             await _context.LearningPaths.AddAsync(learningPath, cancellationToken);
 
-            foreach (var chapterDto in skeleton.Chapters)
+            foreach (var chapterDto in skeleton.Chapters ?? new List<ChapterDto>())
             {
                 var chapter = new Chapter
                 {
                     ChapterId = NewId.NextGuid(),
                     PathId = learningPath.PathId,
                     Title = chapterDto.Title,
-                    Content = chapterDto.Description,
                     OrderIndex = chapterDto.OrderIndex,
                     IsCompleted = false,
                     CreatedAt = DateTime.Now
@@ -99,21 +101,21 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
                 await _context.Chapters.AddAsync(chapter, cancellationToken);
 
-                foreach (var lessonDto in chapterDto.Lessons)
+                foreach (var lessonDto in chapterDto.Lessons ?? new List<LessonDto>())
                 {
                     var lesson = new Lesson
                     {
                         LessonId = NewId.NextGuid(),
                         ChapterId = chapter.ChapterId,
                         Title = lessonDto.Title,
-                        Content = lessonDto.Description ?? string.Empty,
-                        OrderIndex = chapterDto.Lessons.IndexOf(lessonDto),
+                        Content = string.Empty,
+                        OrderIndex = chapterDto.Lessons?.IndexOf(lessonDto) ?? 0,
                         CreatedAt = DateTime.Now
                     };
 
                     await _context.Lessons.AddAsync(lesson, cancellationToken);
 
-                    foreach (var quizDto in lessonDto.Quizzes)
+                    foreach (var quizDto in lessonDto.Quizzes ?? new List<QuizDto>())
                     {
                         var quiz = new Quiz
                         {
@@ -128,7 +130,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     }
                 }
 
-                foreach (var taskDto in chapterDto.Tasks)
+                foreach (var taskDto in chapterDto.Tasks ?? new List<TaskDto>())
                 {
                     var task = new Tasks
                     {
@@ -136,7 +138,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                         ChapterId = chapter.ChapterId,
                         PathId = learningPath.PathId,
                         Title = taskDto.Title,
-                        Description = taskDto.Description,
                         Status = Domain.Enums.TaskStatus_.Pending,
                         CreatedAt = DateTime.Now
                     };
@@ -152,7 +153,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     learningPath.PathId,
                     learningPath.Title,
                     learningPath.Description,
-                    skeleton.Chapters.Count,
+                    skeleton?.Chapters?.Count,
                     learningPath.CreatedAt,
                     true
                 )

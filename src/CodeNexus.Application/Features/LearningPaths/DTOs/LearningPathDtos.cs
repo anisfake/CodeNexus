@@ -29,7 +29,7 @@ public record CreateLearningPathResponse(
     Guid PathId,
     string Title,
     string Description,
-    int ChapterCount,
+    int? ChapterCount,
     DateTime CreatedAt,
     bool IsContentGenerating = true
 );
