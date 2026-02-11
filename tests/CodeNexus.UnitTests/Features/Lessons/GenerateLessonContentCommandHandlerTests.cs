@@ -93,12 +93,13 @@ public class GenerateLessonContentCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.LessonId.Should().Be(lesson.LessonId);
         result.Value.Content.Should().Be("Full generated lesson content...");
+        result.Value.IsAlreadySaved.Should().BeTrue();
         _mockAIGeneratorService.Verify(
             x => x.GenerateContentAsync(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
-    public async Task Handle_NoContentYet_GeneratesSavesAndReturns()
+    public async Task Handle_NoContentYet_GeneratesWithoutSaving()
     {
         // Arrange
         var userId = NewId.NextGuid();
@@ -115,19 +116,15 @@ public class GenerateLessonContentCommandHandlerTests
             new[] { lesson }.BuildMockDbSet().Object);
         _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>()))
             .ReturnsAsync(generatedContent);
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value!.LessonId.Should().Be(lesson.LessonId);
-        result.Value.Content.Should().Be(generatedContent);
-        lesson.Content.Should().Be(generatedContent);
-        lesson.UpdatedAt.Should().NotBeNull();
-        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+        result.Value!.Content.Should().Be(generatedContent);
+        result.Value.IsAlreadySaved.Should().BeFalse();
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -174,8 +171,6 @@ public class GenerateLessonContentCommandHandlerTests
             new[] { lesson }.BuildMockDbSet().Object);
         _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>()))
             .ReturnsAsync(generatedContent);
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -183,6 +178,7 @@ public class GenerateLessonContentCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value!.Content.Should().Be(generatedContent);
+        result.Value.IsAlreadySaved.Should().BeFalse();
         _mockAIGeneratorService.Verify(
             x => x.GenerateContentAsync(It.IsAny<string>()), Times.Once);
     }

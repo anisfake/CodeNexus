@@ -27,27 +27,26 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
     {
         var userId = _currentUserService.GetUserId();
 
-        var lesson = await _context.Lessons
+		var lesson = await _context.Lessons
             .Include(l => l.Chapter)
-                .ThenInclude(c => c.LearningPath)
-                    .ThenInclude(lp => lp.Subject)
-            .Include(l => l.Chapter)
-                .ThenInclude(c => c.LearningPath)
-                    .ThenInclude(lp => lp.Chapters)
-                        .ThenInclude(c => c.Lessons)
-            .FirstOrDefaultAsync(l => l.LessonId == request.LessonId, cancellationToken);
-
-        if (lesson == null)
+	            .ThenInclude(c => c.LearningPath)
+		            .ThenInclude(lp => lp.Subject)
+            .Include(l => l.Chapter)                         
+	            .ThenInclude(c => c.LearningPath)
+		            .ThenInclude(lp => lp.Chapters)
+			            .ThenInclude(c => c.Lessons)
+			.FirstOrDefaultAsync(l => l.LessonId == request.LessonId, cancellationToken);
+		if (lesson == null)
             return Result<LessonContentDto>.Failure("LESSON_NOT_FOUND", "Lesson not found");
 
         if (lesson.Chapter.LearningPath.UserId != userId)
             return Result<LessonContentDto>.Failure("UNAUTHORIZED", "You do not have access to this lesson");
 
-        // UpdatedAt is null after skeleton creation, set only when content is generated
+        // UpdatedAt is null after skeleton creation, set only when content is confirmed
         if (lesson.UpdatedAt != null)
         {
             return Result<LessonContentDto>.Success(
-                new LessonContentDto(lesson.LessonId, lesson.Title, lesson.Content));
+                new LessonContentDto(lesson.LessonId, lesson.Title, lesson.Content, IsAlreadySaved: true));
         }
 
         try
@@ -55,13 +54,8 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
             var prompt = BuildPrompt(lesson, lesson.Chapter, lesson.Chapter.LearningPath);
             var content = await _aiGeneratorService.GenerateContentAsync(prompt);
 
-            lesson.Content = content;
-            lesson.UpdatedAt = DateTime.Now;
-
-            await _context.SaveChangesAsync(cancellationToken);
-
             return Result<LessonContentDto>.Success(
-                new LessonContentDto(lesson.LessonId, lesson.Title, content));
+                new LessonContentDto(lesson.LessonId, lesson.Title, content, IsAlreadySaved: false));
         }
         catch (Exception ex)
         {
