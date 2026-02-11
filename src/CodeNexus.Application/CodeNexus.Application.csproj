@@ -20,6 +20,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\Lessons\Commands\ConfirmLessonContent\" />
     <Folder Include="Features\Resources\Commands\" />
     <Folder Include="Features\Users\Queries\GetMyStatistics\" />
   </ItemGroup>

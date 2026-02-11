@@ -1,4 +1,3 @@
-using CodeNexus.Application.Features.Lessons.Commands.ConfirmLessonContent;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -25,25 +24,6 @@ public class LessonHub : Hub
         if (result.IsSuccess)
         {
             await Clients.Caller.SendAsync("ReceiveLessonContent", result.Value);
-        }
-        else
-        {
-            await Clients.Caller.SendAsync("LessonContentError", new
-            {
-                LessonId = lessonId,
-                result.ErrorCode,
-                result.ErrorMessage
-            });
-        }
-    }
-
-    public async Task ConfirmLessonContent(Guid lessonId, string content)
-    {
-        var result = await _sender.Send(new ConfirmLessonContentCommand(lessonId, content));
-
-        if (result.IsSuccess)
-        {
-            await Clients.Caller.SendAsync("LessonContentConfirmed", new { lessonId });
         }
         else
         {

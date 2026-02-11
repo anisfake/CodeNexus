@@ -1,7 +1,5 @@
-using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
-using CodeNexus.Application.Features.Lessons.Commands.ConfirmLessonContent;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -38,13 +36,6 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
         var result = await _mediator.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
-        return ToActionResult(result);
-    }
-
-    [HttpPost("lessons/{lessonId:guid}/confirm-content")]
-    public async Task<IActionResult> ConfirmLessonContent(Guid lessonId, [FromBody] ConfirmLessonContentRequest request, CancellationToken cancellationToken)
-    {
-        var result = await _mediator.Send(new ConfirmLessonContentCommand(lessonId, request.Content), cancellationToken);
         return ToActionResult(result);
     }
     private IActionResult ToActionResult(Result result)

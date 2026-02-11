@@ -28,13 +28,10 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
         var userId = _currentUserService.GetUserId();
 
 		var lesson = await _context.Lessons
-            .Include(l => l.Chapter)
-	            .ThenInclude(c => c.LearningPath)
-		            .ThenInclude(lp => lp.Subject)
-            .Include(l => l.Chapter)                         
-	            .ThenInclude(c => c.LearningPath)
-		            .ThenInclude(lp => lp.Chapters)
-			            .ThenInclude(c => c.Lessons)
+                .Include(l => l.Chapter.LearningPath.Subject)
+                .Include(l => l.Chapter.LearningPath.Chapters)
+	                .ThenInclude(c => c.Lessons)
+
 			.FirstOrDefaultAsync(l => l.LessonId == request.LessonId, cancellationToken);
 		if (lesson == null)
             return Result<LessonContentDto>.Failure("LESSON_NOT_FOUND", "Lesson not found");
@@ -46,7 +43,7 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
         if (lesson.UpdatedAt != null)
         {
             return Result<LessonContentDto>.Success(
-                new LessonContentDto(lesson.LessonId, lesson.Title, lesson.Content, IsAlreadySaved: true));
+                new LessonContentDto(lesson.LessonId, lesson.Title, lesson.Content));
         }
 
         try
@@ -54,8 +51,13 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
             var prompt = BuildPrompt(lesson, lesson.Chapter, lesson.Chapter.LearningPath);
             var content = await _aiGeneratorService.GenerateContentAsync(prompt);
 
+            lesson.Content = content;
+            lesson.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
             return Result<LessonContentDto>.Success(
-                new LessonContentDto(lesson.LessonId, lesson.Title, content, IsAlreadySaved: false));
+                new LessonContentDto(lesson.LessonId, lesson.Title, content));
         }
         catch (Exception ex)
         {
