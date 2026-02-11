@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,13 @@ public class LearningPathController : ControllerBase
             return BadRequest(new { errorCode = result.ErrorCode, errorMessage = result.ErrorMessage });
         }
 
+        return ToActionResult(result);
+    }
+
+    [HttpPost("lessons/{lessonId:guid}/generate-content")]
+    public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
+    {
+        var result = await _mediator.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
         return ToActionResult(result);
     }
     private IActionResult ToActionResult(Result result)

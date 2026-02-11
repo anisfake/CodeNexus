@@ -9,5 +9,6 @@ namespace CodeNexus.Application.Common.Interfaces
     public interface IAIGeneratorService
     {
         Task<T> GenerateStructureAsync<T>(string prompt);
+        Task<string> GenerateContentAsync(string prompt);
     }
 }

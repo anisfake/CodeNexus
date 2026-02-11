@@ -1,3 +1,4 @@
+using CodeNexus.API.Hubs;
 using CodeNexus.API.Middleware;
 using CodeNexus.Application;
 using CodeNexus.Infrastructure;
@@ -7,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+builder.Services.AddSignalR();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -56,6 +59,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<LessonHub>("/hubs/lesson");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
