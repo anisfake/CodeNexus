@@ -12,7 +12,7 @@ using System.Threading;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/learningpaths")]
 [Authorize]
 public class LearningPathController : ControllerBase
 {
@@ -22,7 +22,7 @@ public class LearningPathController : ControllerBase
         _sender = sender;
     }
 
-    [HttpPost("generate-skeleton")]
+    [HttpPost("")]
     public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonCommand command, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(command, cancellationToken);
@@ -35,7 +35,7 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost("lessons/{lessonId:guid}/generate-content")]
+    [HttpPost("lessons/{lessonId:guid}/content")]
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);

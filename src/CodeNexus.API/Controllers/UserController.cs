@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/users")]
 [Authorize]
 public class UserController : ControllerBase
 {
@@ -25,7 +25,7 @@ public class UserController : ControllerBase
         _sender = sender;
     }
 
-    [HttpPost("change-password")]
+    [HttpPut("change-password")]
     [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -40,7 +40,7 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpGet("profile")]
+    [HttpGet("me")]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Profile()
     {
@@ -50,7 +50,7 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost("upload-avatar")]
+    [HttpPost("/api/users/me/avatar")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> UploadAvatar(IFormFile file)
@@ -65,7 +65,7 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPatch("update-profile")]
+    [HttpPut("/api/users/me")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)

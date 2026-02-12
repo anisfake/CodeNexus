@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/dashboard")]
 [Authorize]
 public class DashboardController : ControllerBase
 {

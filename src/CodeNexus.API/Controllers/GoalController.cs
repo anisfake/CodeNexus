@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/goals")]
 [Authorize]
 public class GoalController : ControllerBase
 {
