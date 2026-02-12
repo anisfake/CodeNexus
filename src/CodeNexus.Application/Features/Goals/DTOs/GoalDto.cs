@@ -9,3 +9,14 @@ public record GoalDto(
     DateTime? CompletedAt,
     DateTime CreatedAt
 );
+public record CreateGoalResponeDto(
+    string Title,
+    string? Description,
+    int DurationDays
+);
+
+public record CreateGoalRequest(
+    string Title,
+    string? Description,
+    int DurationDays
+);

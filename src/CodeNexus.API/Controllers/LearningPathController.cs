@@ -1,7 +1,7 @@
 using Azure.Core;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
-using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;

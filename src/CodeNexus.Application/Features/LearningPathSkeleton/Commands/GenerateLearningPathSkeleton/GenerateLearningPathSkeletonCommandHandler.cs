@@ -1,13 +1,16 @@
-using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
-using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
-using MediatR;
 using MassTransit;
-using Microsoft.EntityFrameworkCore;
+using MediatR;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
 public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<GenerateLearningPathSkeletonCommand, Result<CreateLearningPathResponse>>
 {
@@ -282,5 +285,3 @@ Return ONLY valid JSON (no markdown, no extra text):
 }}";
     }
 }
-
-

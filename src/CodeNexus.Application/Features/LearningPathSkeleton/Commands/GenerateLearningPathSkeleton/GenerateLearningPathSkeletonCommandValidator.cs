@@ -1,6 +1,11 @@
-using FluentValidation;
+﻿using FluentValidation;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
-namespace CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
 public class GenerateLearningPathSkeletonCommandValidator : AbstractValidator<GenerateLearningPathSkeletonCommand>
 {
