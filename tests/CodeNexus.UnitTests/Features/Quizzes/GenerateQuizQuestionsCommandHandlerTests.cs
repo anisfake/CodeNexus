@@ -116,7 +116,7 @@ public class GenerateQuizQuestionsCommandHandlerTests
                 QuestionId = NewId.NextGuid(),
                 QuizId = quiz.QuizId,
                 QuestionText = "What is a variable?",
-                Type = QuestionType.MultipleChoice,
+                Type = QuestionType.SingleChoice,
                 Options = "A container||A function||A loop||A class",
                 CorrectAnswer = "A container",
                 Points = 1,
@@ -151,12 +151,24 @@ public class GenerateQuizQuestionsCommandHandlerTests
 
         var generated = new GeneratedQuestionsDto(new List<GeneratedQuestionDto>
         {
-            new("What is a variable?", QuestionType.MultipleChoice,
-                new List<string> { "A container", "A function", "A loop", "A class" },
-                "A container", 1),
             new("Python is a compiled language.", QuestionType.TrueFalse,
                 new List<string> { "True", "False" },
-                "False", 1)
+                "False", 1),
+            new("Which are valid Python data types?", QuestionType.MultipleChoice,
+                new List<string> { "int", "float", "char", "str" },
+                "int, float, str", 2),
+            new("What keyword defines a function?", QuestionType.SingleChoice,
+                new List<string> { "func", "def", "function", "define" },
+                "def", 1),
+            new("Match each type with its example:", QuestionType.Matching,
+                new List<string> { "int::42", "str::hello", "float::3.14", "bool::True" },
+                "int::42,str::hello,float::3.14,bool::True", 2),
+            new("The keyword ___ is used to create a loop over a sequence.", QuestionType.FillInTheBlank,
+                new List<string>(),
+                "for", 1),
+            new("Arrange steps to create a function:", QuestionType.Ordering,
+                new List<string> { "Call the function", "Define with def", "Write body", "Add parameters", "Return a value" },
+                "Define with def,Add parameters,Write body,Return a value,Call the function", 3)
         });
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
