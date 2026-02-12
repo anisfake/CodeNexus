@@ -28,9 +28,15 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
         var userId = _currentUserService.GetUserId();
 
 		var lesson = await _context.Lessons
-                .Include(l => l.Chapter.LearningPath.Subject)
-                .Include(l => l.Chapter.LearningPath.Chapters)
-	                .ThenInclude(c => c.Lessons)
+				.Include(l => l.Chapter)
+	            .ThenInclude(c => c.LearningPath)
+		            .ThenInclude(lp => lp.Subject)
+
+				.Include(l => l.Chapter)
+	            .ThenInclude(c => c.LearningPath)
+		            .ThenInclude(lp => lp.Chapters)
+			            .ThenInclude(c => c.Lessons)
+
 
 			.FirstOrDefaultAsync(l => l.LessonId == request.LessonId, cancellationToken);
 		if (lesson == null)

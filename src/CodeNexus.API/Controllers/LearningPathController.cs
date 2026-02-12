@@ -41,6 +41,7 @@ public class LearningPathController : ControllerBase
         var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
         return ToActionResult(result);
     }
+
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)
@@ -67,3 +68,4 @@ public class LearningPathController : ControllerBase
         };
     }
 }
+

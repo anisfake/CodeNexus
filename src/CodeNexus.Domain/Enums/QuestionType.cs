@@ -8,7 +8,11 @@ namespace CodeNexus.Domain.Enums
 {
     public enum QuestionType
     {
-        MultipleChoice = 0,
-        TrueFalse = 1
+        TrueFalse = 0,
+        MultipleChoice = 1,
+        SingleChoice = 2,
+        Matching = 3,
+        FillInTheBlank = 4,
+        Ordering = 5
     }
 }
