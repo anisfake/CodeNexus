@@ -30,9 +30,6 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
         var chapter = await _context.Chapters
                 .Include(c => c.LearningPath)
                     .ThenInclude(lp => lp.Subject)
-                .Include(c => c.LearningPath)
-                    .ThenInclude(lp => lp.Chapters)
-                    .ThenInclude(ch => ch.Lessons)
                 .Include(c => c.Lessons)
             .FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId, cancellationToken);
 
@@ -72,46 +69,16 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
     {
         var subject = learningPath.Subject.Name;
 
-        var outlineLines = new List<string>();
-        foreach (var ch in learningPath.Chapters.OrderBy(c => c.OrderIndex))
-        {
-            var chMarker = ch.ChapterId == chapter.ChapterId ? " ? current chapter" : "";
-            outlineLines.Add($"Chapter {ch.OrderIndex + 1}: {ch.Title}{chMarker}");
+        var lessonTitles = chapter.Lessons
+            .OrderBy(l => l.OrderIndex)
+            .Select(l => l.Title);
+        var lessons = string.Join(", ", lessonTitles);
 
-            foreach (var ls in ch.Lessons.OrderBy(l => l.OrderIndex))
-            {
-                outlineLines.Add($"  {ls.OrderIndex + 1}. {ls.Title}");
-            }
-        }
+        return $@"Given a programming chapter titled ""{chapter.Title}"" in a {subject} learning path (""{learningPath.Title}""), which contains the following lessons: {lessons}.
 
-        var outline = string.Join("\n", outlineLines);
-
-        return $@"You are a senior {subject} developer and programming instructor.
-Write a concise chapter description/overview in Markdown.
-
-=== CONTEXT ===
-Language: {subject}
-Learning Path: {learningPath.Title}
-
-Full outline:
-{outline}
-
-Current chapter brief: {chapter.Content}
-
-=== STRUCTURE ===
-1. ## Chapter Overview (3-5 sentences summarizing what this chapter covers and why it matters)
-2. ## What You Will Learn (bullet list of key learning objectives)
-3. ## Prerequisites (what the learner should know before starting, or ""None"" if first chapter)
-4. ## Lessons in This Chapter (brief 1-sentence description for each lesson listed above)
-
-=== RULES ===
-- ## for sections, ### for subsections
-- Do NOT start with the chapter title as heading
-- Keep it concise and motivating for self-learners
-- Focus on the ""why"" — explain why these topics matter in real-world {subject} development
-- Write in the same language as the chapter title
-- This is an overview/description, NOT a full lesson — keep it short and focused
-
-Markdown only.";
+Write a single short sentence (max 20 words) that describes the main goal/outcome of this chapter. 
+The sentence should summarize what the learner will be able to do after completing this chapter.
+Write in the same language as the chapter title.
+Return ONLY the sentence, no quotes, no markdown, no extra text.";
     }
 }
