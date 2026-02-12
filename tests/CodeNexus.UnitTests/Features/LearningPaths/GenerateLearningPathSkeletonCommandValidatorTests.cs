@@ -1,4 +1,4 @@
-using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using FluentValidation.TestHelper;
 using Xunit;
 
