@@ -57,7 +57,7 @@ jobs:
         $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
         & $msdeploy -verb:sync `
           -source:contentPath='${{ github.workspace }}\publish\' `
-          -dest:contentPath='D:\home\site\wwwroot',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
+          -dest:contentPath='codenexus-001-site1',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
           -allowUntrusted `
           -verbose
       shell: powershell
