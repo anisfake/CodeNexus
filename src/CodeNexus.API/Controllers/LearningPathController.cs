@@ -1,30 +1,34 @@
+using Azure.Core;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Threading;
 
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/learningpaths")]
 [Authorize]
 public class LearningPathController : ControllerBase
 {
-    private readonly IMediator _mediator;
-
-    public LearningPathController(IMediator mediator)
+    private readonly ISender _sender;
+    public LearningPathController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
-    [HttpPost("generate-skeleton")]
+    [HttpPost("")]
     public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonCommand command, CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(command, cancellationToken);
+        var result = await _sender.Send(command, cancellationToken);
 
         if (!result.IsSuccess)
         {
@@ -34,10 +38,10 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost("lessons/{lessonId:guid}/generate-content")]
+    [HttpPost("lessons/{lessonId:guid}/content")]
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
-        var result = await _mediator.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
+        var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
         return ToActionResult(result);
     }
 

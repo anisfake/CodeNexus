@@ -1,3 +1,6 @@
+using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Goals.Commands.CreateGoal;
+using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Application.Features.Goals.Queries.GetGoals;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -6,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/goals")]
 [Authorize]
 public class GoalController : ControllerBase
 {
@@ -22,9 +25,40 @@ public class GoalController : ControllerBase
     {
         var result = await _sender.Send(new GetGoalsQuery(), cancellationToken);
 
+        return ToActionResult(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateGoal(CreateGoalRequest request, CancellationToken cancellationToken)
+    {
+        var command = new CreateGoalCommand(request.Title, request.Description, request.DurationDays);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    private IActionResult ToActionResult(Result result)
+    {
+        if (result.IsSuccess)
+            return Ok(result);
+
+        return result.ErrorCode switch
+        {
+            "EMAIL_EXISTS" or "USERNAME_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
+            _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
+        };
+    }
+
+    private IActionResult ToActionResult<T>(Result<T> result)
+    {
         if (result.IsSuccess)
             return Ok(result.Value);
 
-        return BadRequest(new { result.ErrorCode, result.ErrorMessage });
+        return result.ErrorCode switch
+        {
+            "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
+            "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
+            _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
+        };
     }
 }

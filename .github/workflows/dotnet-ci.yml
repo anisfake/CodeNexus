@@ -42,7 +42,7 @@ jobs:
   # JOB 2: DEPLOY 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
 
     steps:
@@ -52,46 +52,15 @@ jobs:
         name: web-deploy-package
         path: ./publish/
 
-    - name: Create app_offline.htm
-      run: echo "<html><head><title>Updating...</title></head><body><h1>System is updating...</h1></body></html>" > app_offline.htm
-
-    - name: Stop App (Upload app_offline.htm)
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./
-        server-dir: /codenexus/
-        files: |
-          app_offline.htm
-      continue-on-error: true
-
-    - name: Wait for app to stop
-      run: sleep 10
-
-    - name: Deploy to SmarterASP.Net
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-      with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        local-dir: ./publish/
-        server-dir: /codenexus/
-        state-name: .ftp-deploy-sync-state.json
-        exclude: |
-          **/.git*
-          **/node_modules/**
-          **/.env
-          **/bin/**
-          **/obj/**
-
-    - name: Wait before restart
-      run: sleep 5
-
-    - name: Start App (Remove app_offline.htm)
-      run: lftp -c "open -u ${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }} ${{ secrets.FTP_SERVER }}; rm /codenexus/app_offline.htm" || echo "app_offline.htm removal skipped"
-      continue-on-error: true
-
-    - name: Wait for app to start
-      run: sleep 5
+    - name: Deploy with WebDeploy
+      run: |
+        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+        & $msdeploy -verb:sync `
+          -source:contentPath='${{ github.workspace }}\publish' `
+          -dest:contentPath='codenexus-001-site1',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
+          -enableRule:AppOffline `
+          -retryAttempts:5 `
+          -retryInterval:5000 `
+          -allowUntrusted `
+          -verbose
+      shell: powershell

@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/subjects")]
 [Authorize]
 public class SubjectController : ControllerBase
 {

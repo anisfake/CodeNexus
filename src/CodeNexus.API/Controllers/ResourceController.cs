@@ -15,7 +15,7 @@ using CodeNexus.Application.Features.Resources.Queries.GetMyResources;
 
 namespace CodeNexus.API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/resources")]
     [ApiController]
     [Authorize]
     public class ResourceController : ControllerBase
@@ -27,7 +27,7 @@ namespace CodeNexus.API.Controllers
             _sender = sender;
         }
 
-        [HttpPost("upload-resource")]
+        [HttpPost("")]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> UploadResource([FromForm] UploadResourceRequest request)
@@ -48,7 +48,7 @@ namespace CodeNexus.API.Controllers
             return ToActionResult(result);
         }
 
-        [HttpPost("mine")]
+        [HttpGet("/api/users/me/resources")]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> GetMyResource([FromForm] GetMyResourceRequest request)

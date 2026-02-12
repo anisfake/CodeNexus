@@ -1,5 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
-using CodeNexus.Application.Features.LearningPaths.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
 using Moq;
