@@ -22,6 +22,7 @@
   <ItemGroup>
     <Folder Include="Features\Lessons\Commands\ConfirmLessonContent\" />
     <Folder Include="Features\Resources\Commands\" />
+    <Folder Include="Features\Subjects\Queries\GetMySubjects\" />
     <Folder Include="Features\Users\Queries\GetMyStatistics\" />
   </ItemGroup>
 

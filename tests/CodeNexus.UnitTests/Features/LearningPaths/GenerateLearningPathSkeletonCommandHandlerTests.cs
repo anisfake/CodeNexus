@@ -63,7 +63,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(subject);
         _mockContext.Setup(x => x.Goals.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Goals)null);
+            .ReturnsAsync((CodeNexus.Domain.Entities.Goals)null);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -83,7 +83,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
-        var goal = new Goals { GoalId = goalId, Title = "Master C#", DurationDays = 60, UserId = userId };
+        var goal = new CodeNexus.Domain.Entities.Goals { GoalId = goalId, Title = "Master C#", DurationDays = 60, UserId = userId };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
