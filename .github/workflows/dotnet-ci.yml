@@ -52,9 +52,12 @@ jobs:
         name: web-deploy-package
         path: ./publish/
 
-    - name: Deploy to Azure App Service
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: 'codenexus'
-        publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
-        package: ./publish/
+    - name: Deploy with WebDeploy (msdeploy.exe)
+      run: |
+        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+        & $msdeploy -verb:sync `
+          -source:contentPath='${{ github.workspace }}\publish\' `
+          -dest:contentPath='D:\home\site\wwwroot',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
+          -allowUntrusted `
+          -verbose
+      shell: powershell
