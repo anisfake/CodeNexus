@@ -1,8 +1,10 @@
 using Azure.Core;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
+using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,6 +41,20 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("chapters/{chapterId:guid}/generate-content")]
+    public async Task<IActionResult> GenerateChapterContent(Guid chapterId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GenerateChapterContentCommand(chapterId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("quizzes/{quizId:guid}/generate-questions")]
+    public async Task<IActionResult> GenerateQuizQuestions(Guid quizId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GenerateQuizQuestionsCommand(quizId), cancellationToken);
         return ToActionResult(result);
     }
 

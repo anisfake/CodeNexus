@@ -28,7 +28,7 @@ namespace CodeNexus.Infrastructure.Services
             if (string.IsNullOrWhiteSpace(prompt))
                 throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-            var responseText = await CallGroqApiAsync(prompt);
+            var responseText = await CallGroqApiAsync(prompt, jsonMode: true);
             var jsonContent = ExtractJsonFromResponse(responseText);
 
             if (string.IsNullOrWhiteSpace(jsonContent))
@@ -55,20 +55,34 @@ namespace CodeNexus.Infrastructure.Services
             if (string.IsNullOrWhiteSpace(prompt))
                 throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-            return await CallGroqApiAsync(prompt);
+            return await CallGroqApiAsync(prompt, jsonMode: false);
         }
 
-        private async Task<string> CallGroqApiAsync(string prompt)
+        private async Task<string> CallGroqApiAsync(string prompt, bool jsonMode = false)
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_settings.RequestTimeoutSeconds));
 
-            var requestBody = new
+            var messages = new List<object>();
+
+            if (jsonMode)
             {
-                model = _settings.Model,
-                messages = new[] { new { role = "user", content = prompt } },
-                max_tokens = _settings.MaxTokens,
-                temperature = _settings.Temperature
+                messages.Add(new { role = "system", content = "You are a helpful assistant. You must respond with valid JSON only. No markdown, no extra text." });
+            }
+
+            messages.Add(new { role = "user", content = prompt });
+
+            var requestBody = new Dictionary<string, object>
+            {
+                ["model"] = _settings.Model,
+                ["messages"] = messages,
+                ["max_tokens"] = _settings.MaxTokens,
+                ["temperature"] = _settings.Temperature
             };
+
+            if (jsonMode)
+            {
+                requestBody["response_format"] = new { type = "json_object" };
+            }
 
             var jsonContent = new StringContent(
                 JsonSerializer.Serialize(requestBody),
