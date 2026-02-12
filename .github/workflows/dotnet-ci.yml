@@ -52,15 +52,67 @@ jobs:
         name: web-deploy-package
         path: ./publish/
 
+    - name: Stop App (Create app_offline.htm)
+      run: |
+        $offlineContent = @"
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Maintenance in Progress</title>
+            <style>
+                body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f0f0f0; }
+                h1 { color: #333; }
+                p { color: #666; }
+            </style>
+        </head>
+        <body>
+            <h1>System Maintenance</h1>
+            <p>We're updating the system. Please try again in a few minutes.</p>
+        </body>
+        </html>
+        "@
+        
+        $offlineContent | Out-File -FilePath "${{ github.workspace }}\app_offline.htm" -Encoding UTF8
+        Write-Host "app_offline.htm created"
+      shell: powershell
+
+    - name: Upload app_offline.htm to stop app
+      run: |
+        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+        & $msdeploy -verb:sync `
+          -source:contentPath='${{ github.workspace }}\app_offline.htm' `
+          -dest:contentPath='codenexus-001-site1',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
+          -allowUntrusted `
+          -verbose
+      shell: powershell
+      continue-on-error: true
+
+    - name: Wait for app to stop
+      run: Start-Sleep -Seconds 5
+      shell: powershell
+
     - name: Deploy with WebDeploy
       run: |
         $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
         & $msdeploy -verb:sync `
           -source:contentPath='${{ github.workspace }}\publish' `
           -dest:contentPath='codenexus-001-site1',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
-          -enableRule:AppOffline `
           -retryAttempts:5 `
           -retryInterval:5000 `
           -allowUntrusted `
           -verbose
+      shell: powershell
+
+    - name: Remove app_offline.htm to restart app
+      run: |
+        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+        & $msdeploy -verb:delete `
+          -dest:contentPath='app_offline.htm',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
+          -allowUntrusted `
+          -verbose
+      shell: powershell
+      continue-on-error: true
+
+    - name: Wait for app to start
+      run: Start-Sleep -Seconds 5
       shell: powershell
