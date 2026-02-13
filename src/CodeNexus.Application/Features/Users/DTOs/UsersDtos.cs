@@ -11,9 +11,9 @@ public record ChangePasswordResponse(
 
 public record UserProfileRespone(
     string Email,
-    string FirstName,
-    string LastName,
-    string Bio,
+    string? FirstName,
+    string? LastName,
+    string? Bio,
     string Username,
     string? AvatarUrl,
     DateTime? DateOfBirth,

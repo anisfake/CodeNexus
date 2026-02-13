@@ -241,47 +241,47 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
         return $@"Generate a learning path in JSON format.
 
-Subject: {subjectName}
-Goal: {goalTitle}
+                Subject: {subjectName}
+                Goal: {goalTitle}
 
-Structure Requirements:
-- Exactly {chapterCount} chapters
-- Each chapter must have {lessonsPerChapter} to 5 lessons (minimum {lessonsPerChapter}, maximum 5)
-- Each chapter must have {tasksPerChapter} to 3 tasks (minimum {tasksPerChapter}, maximum 3)
-- {quizzDescription}
-- Only include quizzes for lessons that need them (not all lessons need quizzes)
-- Each quiz belongs to exactly one lesson
-- Provide only titles and descriptions, no content
+            Structure Requirements:
+                - Exactly {chapterCount} chapters
+                - Each chapter must have {lessonsPerChapter} to 5 lessons (minimum {lessonsPerChapter}, maximum 5)
+                - Each chapter must have {tasksPerChapter} to 3 tasks (minimum {tasksPerChapter}, maximum 3)
+                - {quizzDescription}
+                - Only include quizzes for lessons that need them (not all lessons need quizzes)
+                - Each quiz belongs to exactly one lesson
+                - Provide only titles and descriptions, no content
 
-Return ONLY valid JSON (no markdown, no extra text):
-{{
-  ""title"": ""Learning Path Title"",
-  ""description"": ""Brief description of the learning path"",
-  ""chapters"": [
-    {{
-      ""title"": ""Chapter Title"",
-      ""description"": ""Chapter description"",
-      ""orderIndex"": 0,
-      ""lessons"": [
-        {{
-          ""title"": ""Lesson Title"",
-          ""description"": ""Lesson description"",
-          ""quizzes"": [
-            {{
-              ""title"": ""Quiz Title"",
-              ""description"": ""Quiz description""
-            }}
-          ]
+                Return ONLY valid JSON (no markdown, no extra text):
+                {{
+                    ""title"": ""Learning Path Title"",
+                    ""description"": ""Brief description of the learning path"",
+                    ""chapters"": [
+                    {{
+                        ""title"": ""Chapter Title"",
+                        ""description"": ""Chapter description"",
+                        ""orderIndex"": 0,
+                        ""lessons"": [
+                        {{
+                            ""title"": ""Lesson Title"",
+                            ""description"": ""Lesson description"",
+                            ""quizzes"": [
+                            {{
+                                ""title"": ""Quiz Title"",
+                                ""description"": ""Quiz description""
+                            }}
+                        ]
+                    }}
+                  ],
+                    ""tasks"": [
+                    {{
+                        ""title"": ""Task Title"",
+                        ""description"": ""Task description""
+                }}
+            ]
         }}
-      ],
-      ""tasks"": [
-        {{
-          ""title"": ""Task Title"",
-          ""description"": ""Task description""
-        }}
-      ]
-    }}
-  ]
+    ]
 }}";
     }
 }

@@ -81,9 +81,6 @@ public class UserController : ControllerBase
 
         var result = await _sender.Send(command);
 
-        if (result.IsSuccess)
-            return Ok("Update profile successfully");
-
         return ToActionResult(result);
     }
     private IActionResult ToActionResult(Result result)

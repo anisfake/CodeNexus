@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -8,6 +8,15 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Features\Profile\**" />
+    <Compile Remove="Features\User\**" />
+    <EmbeddedResource Remove="Features\Profile\**" />
+    <EmbeddedResource Remove="Features\User\**" />
+    <None Remove="Features\Profile\**" />
+    <None Remove="Features\User\**" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.0" />
@@ -29,11 +38,6 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Features\Profile\" />
-    <Folder Include="Features\User\" />
   </ItemGroup>
 
 </Project>

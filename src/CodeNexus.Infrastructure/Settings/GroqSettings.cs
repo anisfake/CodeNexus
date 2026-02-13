@@ -10,7 +10,7 @@ namespace CodeNexus.Infrastructure.Settings
     {
         public const string SectionName = "GroqSettings";
         public string ApiKey { get; set; } = string.Empty;
-        public string Model { get; set; } = "openai/gpt-oss-120b";
+        public string Model { get; set; } = string.Empty;
         public int MaxTokens { get; set; } = 8192;
         public float Temperature { get; set; } = 0.3f;
         public int MaxRetries { get; set; } = 3;
