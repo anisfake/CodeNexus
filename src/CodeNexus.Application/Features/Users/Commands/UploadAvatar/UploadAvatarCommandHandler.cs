@@ -59,19 +59,21 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
             var uri = new Uri(cloudinaryUrl);
             var path = uri.AbsolutePath;
 
-            var parts = path.Split('/');
-            if (parts.Length >= 2)
-            {
-                var lastPart = parts[^1];
-                var publicId = System.IO.Path.GetFileNameWithoutExtension(lastPart);
+            var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-                if (parts.Length >= 3)
+            var uploadIndex = Array.IndexOf(parts, "upload");
+
+            if (uploadIndex >= 0 && uploadIndex + 2 < parts.Length)
+            {
+                var remainingParts = parts.Skip(uploadIndex + 2).ToList();
+
+                if (remainingParts.Count > 0)
                 {
-                    var folder = parts[^2];
-                    return $"{folder}/{publicId}";
+                    var lastPart = remainingParts[^1];
+                    remainingParts[^1] = System.IO.Path.GetFileNameWithoutExtension(lastPart);
                 }
 
-                return publicId;
+                return string.Join("/", remainingParts);
             }
 
             return string.Empty;
