@@ -7,12 +7,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
+    <Compile Remove="Features\Users\Queries\GetMyStatistics\**" />
+    <EmbeddedResource Remove="Features\Users\Queries\GetMyStatistics\**" />
+    <None Remove="Features\Users\Queries\GetMyStatistics\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="FluentValidation" Version="12.1.1" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageReference Include="MediatR" Version="14.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="NewId" Version="4.0.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,7 +29,6 @@
     <Folder Include="Features\Lessons\Commands\ConfirmLessonContent\" />
     <Folder Include="Features\Resources\Commands\" />
     <Folder Include="Features\Subjects\Queries\GetMySubjects\" />
-    <Folder Include="Features\Users\Queries\GetMyStatistics\" />
   </ItemGroup>
 
 </Project>

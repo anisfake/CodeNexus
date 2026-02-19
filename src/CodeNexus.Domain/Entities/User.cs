@@ -26,7 +26,7 @@ namespace CodeNexus.Domain.Entities
         public virtual ICollection<Resource> Resources { get; set; } = new List<Resource>(); // Resources uploaded by User
         public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
         public virtual ICollection<AuditLog> AuditLogs { get; set; } = new List<AuditLog>();
-        public virtual ICollection<ChatMessages> ChatMessages { get; set; } = new List<ChatMessages>();
+        public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
         public virtual ICollection<Goals> Goals { get; set; } = new List<Goals>();
     }

@@ -1,10 +1,8 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
-using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using MassTransit;
-using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Auth.Commands.Register;
 
@@ -12,16 +10,19 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
 {
     private readonly IApplicationDbContext _context;
     private readonly IEmailService _emailService;
-    private readonly IOTPService _otpService;
-    private const int OtpExpirationMinutes = 5;
+    private readonly IOTPCacheService _otpCacheService;
+    private readonly IPasswordService _passwordService;
 
     public RegisterCommandHandler(
         IApplicationDbContext context,
-        IEmailService emailService, IOTPService otpService)
+        IEmailService emailService,
+        IOTPCacheService otpCacheService,
+        IPasswordService passwordService)
     {
         _context = context;
         _emailService = emailService;
-        _otpService = otpService;
+        _otpCacheService = otpCacheService;
+        _passwordService = passwordService;
     }
 
     public async Task<Result> Handle(RegisterCommand request, CancellationToken cancellationToken)
@@ -42,47 +43,21 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result>
             return Result.Failure("USERNAME_EXISTS", "Username already taken");
         }
 
-        var existingOtp = await _context.OtpVerification
-            .FirstOrDefaultAsync(o => o.Email == request.Email, cancellationToken);
+        var passwordHash = _passwordService.HashPassword(request.Password);
+        var registrationData = $"{request.Username}|{passwordHash}|{request.FirstName}|{request.LastName}";
 
-        var now = DateTime.Now;
+        var result = await _otpCacheService.GenerateAndStoreOtpAsync(
+            request.Email, 
+            OtpPurpose.Register, 
+            registrationData, 
+            cancellationToken);
 
-        if (existingOtp != null)
+        if (!result.IsSuccess)
         {
-            if (existingOtp.LastResendAt.HasValue &&
-                now - existingOtp.LastResendAt.Value < TimeSpan.FromMinutes(1))
-            {
-                return Result.Failure("OTP_RATE_LIMITED", "Please wait 1 minute before requesting a new OTP");
-            }
-
-            _context.OtpVerification.Remove(existingOtp);
+            return result;
         }
 
-        var otp = _otpService.GenerateOtp();
-        var otpHash = _otpService.HashOtp(otp);
-
-        var passwordHash = _otpService.HashPassword(request.Password);
-        var otpVerification = new OtpVerification
-        {
-            Id = NewId.NextGuid(),
-            Email = request.Email,
-            Username = request.Username,
-            PasswordHash = passwordHash,
-            OtpHash = otpHash,
-            CreatedAt = now,
-            ExpiresAt = now.AddMinutes(OtpExpirationMinutes),
-            AttemptCount = 0,
-            ResendCount = 0,
-            LastResendAt = now,
-            FirstName = request.FirstName,
-            LastName = request.LastName,
-            Purpose = OtpPurpose.Register
-        };
-
-        _context.OtpVerification.Add(otpVerification);
-
-        await _context.SaveChangesAsync(cancellationToken);
-
+        var otp = _otpCacheService.GetLastGeneratedOtp();
         await _emailService.SendOtpEmailAsync(request.Email, otp, cancellationToken);
 
         return Result.Success();

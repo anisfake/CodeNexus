@@ -36,13 +36,13 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<NoteTags> NoteTags => Set<NoteTags>();
         public DbSet<Resource> Resources => Set<Resource>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
-        public DbSet<AIInteraction> AIInteractions => Set<AIInteraction>();
-        public DbSet<ChatMessages> ChatMessages => Set<ChatMessages>();
+        public DbSet<Conversation> Conversations => Set<Conversation>();
+        public DbSet<Message> Messages => Set<Message>();
         public DbSet<Quiz> Quizzes => Set<Quiz>();
         public DbSet<Questions> Questions => Set<Questions>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
-        public DbSet<OtpVerification> OtpVerification => Set<OtpVerification>();
         public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
+        public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => await base.SaveChangesAsync(cancellationToken);
 
@@ -67,14 +67,14 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Tag>().HasKey(e => e.TagId);
             modelBuilder.Entity<Resource>().HasKey(e => e.ResourceId);
             modelBuilder.Entity<AISummary>().HasKey(e => e.SummaryId);
-            modelBuilder.Entity<AIInteraction>().HasKey(e => e.InteractionId);
-            modelBuilder.Entity<ChatMessages>().HasKey(e => e.MessageId);
             modelBuilder.Entity<Quiz>().HasKey(e => e.QuizId);
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
-            modelBuilder.Entity<OtpVerification>().HasKey(e => e.Id);
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
+            modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ProviderName);
+            modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
+            modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -231,12 +231,44 @@ namespace CodeNexus.Infrastructure.Persistence
                 .Property(n => n.Type)
                 .HasConversion<string>();
 
-            modelBuilder.Entity<OtpVerification>(entity =>
+            modelBuilder.Entity<AIProviderConfig>(entity =>
             {
-                entity.HasIndex(o => o.Email).IsUnique();
+                entity.HasKey(e => e.ProviderName);
 
-                entity.Property(o => o.Purpose)
-                      .HasConversion<string>();
+                entity.HasMany(e => e.Conversations)
+                      .WithOne(c => c.Provider)
+                      .HasForeignKey(c => c.ProviderName)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Conversation>(entity =>
+            {
+                entity.HasKey(e => e.ConversationId);
+
+                entity.HasOne(c => c.User)
+                      .WithMany(u => u.Conversations)
+                      .HasForeignKey(c => c.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(c => c.Provider)
+                      .WithMany(p => p.Conversations)
+                      .HasForeignKey(c => c.ProviderName)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(c => c.Messages)
+                      .WithOne(m => m.Conversation)
+                      .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Message>(entity =>
+            {
+                entity.HasKey(e => e.MessageId);
+
+                entity.HasOne(m => m.Conversation)
+                      .WithMany(c => c.Messages)
+                      .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

@@ -2,9 +2,11 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Goals.Commands.CreateGoal;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.UnitTests.Helpers;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 using Moq;
 using Xunit;
+using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.UnitTests.Features.Goals;
 
@@ -29,6 +31,7 @@ public class CreateGoalCommandHandlerTests
         var command = new CreateGoalCommand("Learn C#", "Master C# programming", 60);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -54,6 +57,7 @@ public class CreateGoalCommandHandlerTests
         var command = new CreateGoalCommand("Learn Python", null, 30);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -79,6 +83,7 @@ public class CreateGoalCommandHandlerTests
         var command = new CreateGoalCommand("Learn Java", "Master Java", 45);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -102,6 +107,7 @@ public class CreateGoalCommandHandlerTests
         var command = new CreateGoalCommand("Learn TypeScript", "Master TypeScript", 90);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -114,5 +120,18 @@ public class CreateGoalCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(90, result.Value.DurationDays);
+    }
+
+    private void SetupGoalsDbSet(List<GoalEntity> goals)
+    {
+        var queryable = new TestAsyncEnumerable<GoalEntity>(goals);
+        var dbSetMock = new Mock<DbSet<GoalEntity>>();
+        dbSetMock.As<IQueryable<GoalEntity>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<GoalEntity>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<GoalEntity>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<GoalEntity>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<GoalEntity>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.Goals).Returns(dbSetMock.Object);
     }
 }

@@ -118,7 +118,7 @@ public class AuthController : ControllerBase
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)
-            return Ok();
+            return Ok(new { message = "Operation completed successfully" });
 
         return result.ErrorCode switch
         {

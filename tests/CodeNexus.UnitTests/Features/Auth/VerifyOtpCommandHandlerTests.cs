@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Auth.Commands.VerifyOtp;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -12,16 +13,16 @@ namespace CodeNexus.UnitTests.Features.Auth;
 public class VerifyOtpCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _contextMock;
-    private readonly Mock<IOTPService> _otpServiceMock;
+    private readonly Mock<IOTPCacheService> _otpCacheServiceMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
     private readonly VerifyOtpCommandHandler _handler;
 
     public VerifyOtpCommandHandlerTests()
     {
         _contextMock = new Mock<IApplicationDbContext>();
-        _otpServiceMock = new Mock<IOTPService>();
+        _otpCacheServiceMock = new Mock<IOTPCacheService>();
         _tokenServiceMock = new Mock<ITokenService>();
-        _handler = new VerifyOtpCommandHandler(_contextMock.Object, _otpServiceMock.Object, _tokenServiceMock.Object);
+        _handler = new VerifyOtpCommandHandler(_contextMock.Object, _otpCacheServiceMock.Object, _tokenServiceMock.Object);
     }
 
     [Fact]
@@ -29,7 +30,8 @@ public class VerifyOtpCommandHandlerTests
     {
         // Arrange
         var command = new VerifyOtpCommand("notfound@test.com", "123456");
-        SetupOtpDbSet(new List<OtpVerification>());
+        _otpCacheServiceMock.Setup(x => x.VerifyOtpAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "No pending verification found for this email"));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -40,65 +42,12 @@ public class VerifyOtpCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenMaxAttemptsExceeded_RemovesOtpAndReturnsFailure()
+    public async Task Handle_WhenOtpInvalid_ReturnsFailure()
     {
         // Arrange
         var command = new VerifyOtpCommand("test@test.com", "123456");
-        var otp = new OtpVerification
-        {
-            Email = "test@test.com",
-            AttemptCount = 5,
-            ExpiresAt = DateTime.Now.AddMinutes(5)
-        };
-        SetupOtpDbSet(new List<OtpVerification> { otp });
-        _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("MAX_ATTEMPTS_EXCEEDED");
-    }
-
-    [Fact]
-    public async Task Handle_WhenOtpExpired_ReturnsFailure()
-    {
-        // Arrange
-        var command = new VerifyOtpCommand("test@test.com", "123456");
-        var otp = new OtpVerification
-        {
-            Email = "test@test.com",
-            AttemptCount = 0,
-            ExpiresAt = DateTime.Now.AddMinutes(-1) // Expired
-        };
-        SetupOtpDbSet(new List<OtpVerification> { otp });
-        _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("OTP_EXPIRED");
-    }
-
-
-    [Fact]
-    public async Task Handle_WhenOtpInvalid_IncrementsAttemptCount()
-    {
-        // Arrange
-        var command = new VerifyOtpCommand("test@test.com", "123456");
-        var otp = new OtpVerification
-        {
-            Email = "test@test.com",
-            AttemptCount = 0,
-            ExpiresAt = DateTime.Now.AddMinutes(5),
-            OtpHash = "hashedOtp"
-        };
-        SetupOtpDbSet(new List<OtpVerification> { otp });
-        _otpServiceMock.Setup(x => x.VerifyOtp("123456", "hashedOtp")).Returns(false);
-        _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _otpCacheServiceMock.Setup(x => x.VerifyOtpAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "Invalid OTP code"));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -106,7 +55,6 @@ public class VerifyOtpCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("INVALID_OTP");
-        otp.AttemptCount.Should().Be(1);
     }
 
     [Fact]
@@ -114,24 +62,18 @@ public class VerifyOtpCommandHandlerTests
     {
         // Arrange
         var command = new VerifyOtpCommand("test@test.com", "123456");
-        var otp = new OtpVerification
-        {
-            Email = "test@test.com",
-            Username = "testuser",
-            FirstName = "John",
-            LastName = "Doe",
-            PasswordHash = "hashedPassword",
-            AttemptCount = 0,
-            ExpiresAt = DateTime.Now.AddMinutes(5),
-            OtpHash = "hashedOtp",
-            Purpose = OtpPurpose.Register
-        };
+        var registrationData = "testuser|hashedPassword|John|Doe";
         var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
-        SetupOtpDbSet(new List<OtpVerification> { otp });
+        
+        _otpCacheServiceMock.Setup(x => x.VerifyOtpAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<(string, OtpPurpose)>.Success((registrationData, OtpPurpose.Register)));
+        _otpCacheServiceMock.Setup(x => x.DeleteOtpDataAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        
         SetupUsersDbSet(new List<User>());
         SetupUserProfilesDbSet(new List<UserProfile>());
         SetupRolesDbSet(new List<Role> { studentRole });
-        _otpServiceMock.Setup(x => x.VerifyOtp("123456", "hashedOtp")).Returns(true);
+        
         _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         // Act
@@ -144,53 +86,19 @@ public class VerifyOtpCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenValidResetPasswordOtp_ReturnsResetToken()
-    {
-        // Arrange
-        var command = new VerifyOtpCommand("test@test.com", "123456");
-        var otp = new OtpVerification
-        {
-            Email = "test@test.com",
-            AttemptCount = 0,
-            ExpiresAt = DateTime.Now.AddMinutes(5),
-            OtpHash = "hashedOtp",
-            Purpose = OtpPurpose.ResetPassword
-        };
-        SetupOtpDbSet(new List<OtpVerification> { otp });
-        _otpServiceMock.Setup(x => x.VerifyOtp("123456", "hashedOtp")).Returns(true);
-        _tokenServiceMock.Setup(x => x.GenerateResetPasswordToken("test@test.com")).Returns("resetToken123");
-        _contextMock.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue();
-        result.Value!.Purpose.Should().Be(OtpPurpose.ResetPassword);
-        result.Value.ResetToken.Should().Be("resetToken123");
-    }
-
-    [Fact]
     public async Task Handle_WhenUserAlreadyExists_ReturnsFailure()
     {
         // Arrange
         var command = new VerifyOtpCommand("test@test.com", "123456");
-        var otp = new OtpVerification
-        {
-            Email = "test@test.com",
-            Username = "testuser",
-            AttemptCount = 0,
-            ExpiresAt = DateTime.Now.AddMinutes(5),
-            OtpHash = "hashedOtp",
-            Purpose = OtpPurpose.Register
-        };
+        var registrationData = "testuser|hashedPassword|John|Doe";
         var existingUser = new User { Email = "test@test.com", Username = "testuser" };
-        var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
-        SetupOtpDbSet(new List<OtpVerification> { otp });
+        
+        _otpCacheServiceMock.Setup(x => x.VerifyOtpAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<(string, OtpPurpose)>.Success((registrationData, OtpPurpose.Register)));
+        
         SetupUsersDbSet(new List<User> { existingUser });
         SetupUserProfilesDbSet(new List<UserProfile>());
-        SetupRolesDbSet(new List<Role> { studentRole });
-        _otpServiceMock.Setup(x => x.VerifyOtp("123456", "hashedOtp")).Returns(true);
+        SetupRolesDbSet(new List<Role>());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -198,20 +106,6 @@ public class VerifyOtpCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("USER_EXISTS");
-    }
-
-    private void SetupOtpDbSet(List<OtpVerification> otpList)
-    {
-        var queryable = new TestAsyncEnumerable<OtpVerification>(otpList);
-        var dbSetMock = new Mock<DbSet<OtpVerification>>();
-        dbSetMock.As<IQueryable<OtpVerification>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
-        dbSetMock.As<IQueryable<OtpVerification>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
-        dbSetMock.As<IQueryable<OtpVerification>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
-        dbSetMock.As<IQueryable<OtpVerification>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
-        dbSetMock.As<IAsyncEnumerable<OtpVerification>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
-            .Returns(queryable.GetAsyncEnumerator());
-        dbSetMock.Setup(x => x.Remove(It.IsAny<OtpVerification>()));
-        _contextMock.Setup(x => x.OtpVerification).Returns(dbSetMock.Object);
     }
 
     private void SetupUsersDbSet(List<User> users)

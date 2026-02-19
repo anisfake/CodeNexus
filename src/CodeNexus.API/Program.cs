@@ -1,10 +1,11 @@
+using Azure.Identity;
+using Azure.Security.KeyVault.Secrets;
 using CodeNexus.API.Hubs;
 using CodeNexus.API.Middleware;
 using CodeNexus.Application;
 using CodeNexus.Infrastructure;
+using CodeNexus.Infrastructure.Persistence;
 using Microsoft.OpenApi.Models;
-using Azure.Identity;
-using Azure.Security.KeyVault.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 

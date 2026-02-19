@@ -12,81 +12,79 @@ namespace CodeNexus.Application.Features.Auth.Commands.VerifyOtp;
 public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<VerifyOtpResponse>>
 {
     private readonly IApplicationDbContext _context;
-    private readonly IOTPService _otpService;
+    private readonly IOTPCacheService _otpCacheService;
     private readonly ITokenService _tokenService;
-    private const int MaxAttempts = 5;
 
-    public VerifyOtpCommandHandler(IApplicationDbContext context, IOTPService otpService, ITokenService tokenService)
+    public VerifyOtpCommandHandler(
+        IApplicationDbContext context,
+        IOTPCacheService otpCacheService,
+        ITokenService tokenService)
     {
         _context = context;
-        _otpService = otpService;
+        _otpCacheService = otpCacheService;
         _tokenService = tokenService;
     }
 
     public async Task<Result<VerifyOtpResponse>> Handle(VerifyOtpCommand request, CancellationToken cancellationToken)
     {
-        var otpVerification = await _context.OtpVerification
-            .FirstOrDefaultAsync(o => o.Email == request.Email, cancellationToken);
+        var verifyResult = await _otpCacheService.VerifyOtpAsync(request.Email, request.Otp, cancellationToken);
 
-        if (otpVerification == null)
-            return Result<VerifyOtpResponse>.Failure("INVALID_OTP", "No pending verification found for this email");
-
-        if (otpVerification.AttemptCount >= MaxAttempts)
+        if (!verifyResult.IsSuccess)
         {
-            _context.OtpVerification.Remove(otpVerification);
-            await _context.SaveChangesAsync(cancellationToken);
-            return Result<VerifyOtpResponse>.Failure("MAX_ATTEMPTS_EXCEEDED", "Too many failed attempts. Please request a new OTP");
+            return Result<VerifyOtpResponse>.Failure(verifyResult.ErrorCode, verifyResult.ErrorMessage);
         }
 
-        if (DateTime.Now > otpVerification.ExpiresAt)
-        {
-            _context.OtpVerification.Remove(otpVerification);
-            await _context.SaveChangesAsync(cancellationToken);
-            return Result<VerifyOtpResponse>.Failure("OTP_EXPIRED", "OTP has expired. Please request a new one");
-        }
+        var (data, purpose) = verifyResult.Value;
 
-        if (!_otpService.VerifyOtp(request.Otp, otpVerification.OtpHash))
+        Result<VerifyOtpResponse> response = purpose switch
         {
-            otpVerification.AttemptCount++;
-            await _context.SaveChangesAsync(cancellationToken);
-            return Result<VerifyOtpResponse>.Failure("INVALID_OTP", "Invalid OTP code");
-        }
-
-        var response = otpVerification.Purpose switch
-        {
-            OtpPurpose.Register => await HandleRegister(otpVerification, cancellationToken),
-            OtpPurpose.ResetPassword => HandleResetPassword(otpVerification),
+            OtpPurpose.Register => await HandleRegister(request.Email, data, cancellationToken),
+            OtpPurpose.ResetPassword => await HandleResetPassword(request.Email, cancellationToken),
             _ => Result<VerifyOtpResponse>.Failure("INVALID_PURPOSE", "Invalid OTP purpose")
         };
 
         if (!response.IsSuccess)
             return response;
 
-        _context.OtpVerification.Remove(otpVerification);
-        await _context.SaveChangesAsync(cancellationToken);
+        await _otpCacheService.DeleteOtpDataAsync(request.Email, cancellationToken);
 
         return response;
     }
 
-    private async Task<Result<VerifyOtpResponse>> HandleRegister(OtpVerification otpVerification, CancellationToken cancellationToken)
+    private async Task<Result<VerifyOtpResponse>> HandleRegister(
+        string email,
+        string registrationData,
+        CancellationToken cancellationToken)
     {
-        var existingUser = await _context.Users
-            .AnyAsync(u => u.Email == otpVerification.Email || u.Username == otpVerification.Username, cancellationToken);
+        var parts = registrationData.Split('|');
 
-        var defaultRole = await _context.Roles
-            .FirstOrDefaultAsync(r => r.RoleName.Equals("Student"), cancellationToken);
+        if (parts.Length != 4)
+        {
+            return Result<VerifyOtpResponse>.Failure("INVALID_PURPOSE", "Invalid registration data");
+        }
+
+        var username = parts[0];
+        var passwordHash = parts[1];
+        var firstName = parts[2];
+        var lastName = parts[3];
+
+        var existingUser = await _context.Users
+            .AnyAsync(u => u.Email == email || u.Username == username, cancellationToken);
 
         if (existingUser)
             return Result<VerifyOtpResponse>.Failure("USER_EXISTS", "User already exists");
 
+        var defaultRole = await _context.Roles
+            .FirstOrDefaultAsync(r => r.RoleName.Equals("Student"), cancellationToken);
+
         var user = new User
         {
             UserId = NewId.NextGuid(),
-            Email = otpVerification.Email,
-            Username = otpVerification.Username,
-            PasswordHash = otpVerification.PasswordHash,
-            FirstName = otpVerification.FirstName,
-            LastName = otpVerification.LastName,
+            Email = email,
+            Username = username,
+            PasswordHash = passwordHash,
+            FirstName = firstName,
+            LastName = lastName,
             CreatedAt = DateTime.Now,
             RoleId = defaultRole?.RoleId
         };
@@ -103,20 +101,30 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(
-             OtpPurpose.Register,
-             null,
-             "Registration successful"
+            OtpPurpose.Register,
+            null,
+            "Registration successful"
         ));
     }
 
-    private Result<VerifyOtpResponse> HandleResetPassword(OtpVerification otpVerification)
+    private async Task<Result<VerifyOtpResponse>> HandleResetPassword(
+        string email,
+        CancellationToken cancellationToken)
     {
-        var resetToken = _tokenService.GenerateResetPasswordToken(otpVerification.Email);
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
+
+        if (user == null)
+        {
+            return Result<VerifyOtpResponse>.Failure("USER_NOT_FOUND", "User not found");
+        }
+
+        var resetToken = _tokenService.GenerateResetPasswordToken(email);
 
         return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(
             OtpPurpose.ResetPassword,
             resetToken,
-            "OTP verified. Use reset token to change password"
+            "OTP verified successfully"
         ));
     }
 }

@@ -24,12 +24,12 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<NoteTags> NoteTags { get; }
         public DbSet<Resource> Resources { get; }
         public DbSet<AISummary> AISummaries { get; }
-        public DbSet<AIInteraction> AIInteractions { get; }
-        public DbSet<ChatMessages> ChatMessages { get; }
+        public DbSet<Conversation> Conversations { get; }
+        public DbSet<Message> Messages { get; }
+        public DbSet<AIProviderConfig> AIProviderConfigs { get; }
         public DbSet<Quiz> Quizzes { get; }
         public DbSet<Questions> Questions { get; }
         public DbSet<QuizAttempt> QuizAttempts { get; }
-        public DbSet<OtpVerification> OtpVerification { get; }
         public DbSet<TokenBlacklist> TokenBlacklist { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
