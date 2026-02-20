@@ -26,7 +26,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
         var userId = _currentUserService.GetUserId();
 
         var existingGoal = _context.Goals.FirstOrDefault(g => g.UserId == userId
-        && g.Title.ToLowerInvariant().Equals(request.Title.ToLowerInvariant()));
+        && g.Title.ToLower().Equals(request.Title.ToLower()));
 
         var goal = new Domain.Entities.Goals
         {
