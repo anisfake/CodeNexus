@@ -20,3 +20,11 @@ public record CreateGoalRequest(
     string? Description,
     int DurationDays
 );
+
+public record UpdateGoalRequest(
+    string Title,
+    string? Description,
+    int DurationDays,
+    bool IsCompleted,
+    DateTime? CompleteAt
+);

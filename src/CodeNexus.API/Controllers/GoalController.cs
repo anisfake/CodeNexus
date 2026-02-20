@@ -1,5 +1,7 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.Commands.CreateGoal;
+using CodeNexus.Application.Features.Goals.Commands.DeleteGoal;
+using CodeNexus.Application.Features.Goals.Commands.UpdateGoal;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Application.Features.Goals.Queries.GetGoals;
 using MediatR;
@@ -33,6 +35,25 @@ public class GoalController : ControllerBase
     {
         var command = new CreateGoalCommand(request.Title, request.Description, request.DurationDays);
         var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{goalId}")]
+    public async Task<IActionResult> UpdateGoal(Guid goalId, UpdateGoalRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateGoalCommand(goalId, request.Title, request.Description, request.CompleteAt, request.DurationDays, request.IsCompleted);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpDelete("{goalId}")]
+    public async Task<IActionResult> DeleteGoal(Guid goalId, CancellationToken cancellationToken)
+    {
+        var command = new DeleteGoalCommand(goalId);
+
+        var result = await _sender.Send(command, cancellationToken);
+
         return ToActionResult(result);
     }
 
