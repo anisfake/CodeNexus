@@ -2,6 +2,7 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -30,6 +31,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
 
         var goal = new Domain.Entities.Goals
         {
+            GoalId = NewId.NextGuid(),
             Title = request.Title,
             Description = request.Description,
             UserId = userId,
