@@ -27,7 +27,7 @@ namespace CodeNexus.API.Controllers
             _sender = sender;
         }
 
-        [HttpPost("")]
+        [HttpPost]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> UploadResource([FromForm] UploadResourceRequest request)
@@ -51,7 +51,7 @@ namespace CodeNexus.API.Controllers
         [HttpGet("/api/users/me/resources")]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        public async Task<IActionResult> GetMyResource([FromForm] GetMyResourceRequest request)
+        public async Task<IActionResult> GetMyResource([FromQuery] GetMyResourceRequest request)
         {
             var query = new GetMyResourcesQuery
             {

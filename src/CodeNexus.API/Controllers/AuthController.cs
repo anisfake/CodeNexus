@@ -49,7 +49,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("verify-otp")]
-    [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(AuthUserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequest request)
     {

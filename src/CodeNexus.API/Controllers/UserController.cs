@@ -6,16 +6,17 @@ using CodeNexus.Application.Features.Users.Commands.UpdateProfile;
 using CodeNexus.Application.Features.Users.Commands.UploadAvatar;
 using CodeNexus.Application.Features.Users.DTOs;
 using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
+using CodeNexus.Application.Features.Users.Queries.GetAllUsers;
 using MassTransit;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using CodeNexus.Application.Features.Users.Queries.GetUserById;
 
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize]
 public class UserController : ControllerBase
 {
     private readonly ISender _sender;
@@ -26,6 +27,7 @@ public class UserController : ControllerBase
     }
 
     [HttpPut("change-password")]
+    [Authorize]
     [ProducesResponseType(typeof(ChangePasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -41,12 +43,49 @@ public class UserController : ControllerBase
     }
 
     [HttpGet("me")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Profile()
     {
         var query = new GetMyProfileQuery();
         var result = await _sender.Send(query);
 
+        return ToActionResult(result);
+    }
+
+    [HttpGet]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(PaginationDto<UserRespone>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAllUsers(
+        [FromQuery] GetAllUsersRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetAllUsersQuery
+        {
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize,
+            Role = request.Role,
+            SearchTerm = request.SearchTerm,
+            SortBy = request.SortBy,
+            SortDescending = request.SortDescending
+        };
+
+        var result = await _sender.Send(query, cancellationToken);
+        return Ok(result);
+    }
+
+    [HttpGet("{userId}")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(UserRespone), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetUserById(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetUserByIdQuery(userId);
+        var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }
 
@@ -104,6 +143,7 @@ public class UserController : ControllerBase
         return result.ErrorCode switch
         {
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

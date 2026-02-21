@@ -1,3 +1,5 @@
+using CodeNexus.Application.Features.Users.Queries.GetAllUsers;
+
 namespace CodeNexus.Application.Features.Users.DTOs;
 
 public record ChangePasswordRequest(
@@ -28,4 +30,27 @@ public record UpdateProfileRequest(
     DateTime? DateOfBirth,
     string? Phone,
     string? Address
+);
+
+public record UserRespone(
+    Guid UserId,
+    string Username,
+    string Email,
+    string? FirstName,
+    string? LastName,
+    string? AvatarUrl,
+    string? Bio,
+    string? Phone,
+    string? Address,
+    DateTime? DateOfBirth,
+    string? RoleName,
+    DateTime CreatedAt
+);
+public record GetAllUsersRequest(
+    int PageNumber = 1,
+    int PageSize = 10,
+    string? Role = null,
+    string? SearchTerm = null,
+    UserSortBy SortBy = UserSortBy.CreatedAt,
+    bool SortDescending = true
 );

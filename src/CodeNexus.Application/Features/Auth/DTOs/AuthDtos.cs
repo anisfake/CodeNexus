@@ -23,7 +23,8 @@ public record ResetPasswordRequest(
     string ResetToken,
     string NewPassword
 );
-public record UserDto(
+
+public record AuthUserDto(
     Guid UserId,
     string Email,
     string Username,
