@@ -17,6 +17,19 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         string ProviderName,
         bool IsEnabled
     );
+
+    public record UpdateAIConfigRequest(
+        string? ApiKey,
+        Dictionary<string, object>? ConfigJson,
+        bool? IsEnabled
+    );
+
+    public record UpdateAIConfigResponse(
+        string Message,
+        string ProviderName,
+        bool IsEnabled
+    );
+
     public record AIConfigResponse(
         string ProviderName,
         bool IsEnabled,

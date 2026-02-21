@@ -1,6 +1,8 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig;
+using CodeNexus.Application.Features.AIConfigs.Commands.UpdateAIConfig;
+using CodeNexus.Application.Features.AIConfigs.Commands.DeleteAIConfig;
 using CodeNexus.Application.Features.AIConfigs.DTOs;
 using CodeNexus.Application.Features.AIConfigs.Queries.GetAllAIConfigs;
 using MediatR;
@@ -37,6 +39,53 @@ namespace CodeNexus.API.Controllers
             var result = await _sender.Send(command, cancellationToken);
 
             return Ok(result);
+        }
+
+        [HttpPut("{providerName}")]
+        public async Task<IActionResult> UpdateAIConfig(
+            string providerName,
+            UpdateAIConfigRequest request,
+            CancellationToken cancellationToken)
+        {
+            var command = new UpdateAIConfigCommand(
+                providerName,
+                request.ApiKey,
+                request.ConfigJson,
+                request.IsEnabled
+            );
+
+            var result = await _sender.Send(command, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return result.ErrorCode switch
+                {
+                    "PROVIDER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                    _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
+                };
+            }
+
+            return Ok(result.Value);
+        }
+
+        [HttpDelete("{providerName}")]
+        public async Task<IActionResult> DeleteAIConfig(
+            string providerName,
+            CancellationToken cancellationToken)
+        {
+            var command = new DeleteAIConfigCommand(providerName);
+            var result = await _sender.Send(command, cancellationToken);
+
+            if (!result.IsSuccess)
+            {
+                return result.ErrorCode switch
+                {
+                    "PROVIDER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                    _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
+                };
+            }
+
+            return Ok(new { Message = result.Value });
         }
     }
 }
