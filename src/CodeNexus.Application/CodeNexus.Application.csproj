@@ -7,8 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Features\Lessons\Commands\ConfirmLessonContent\**" />
+    <Compile Remove="Features\Subjects\Queries\GetMySubjects\**" />
     <Compile Remove="Features\Users\Queries\GetMyStatistics\**" />
+    <EmbeddedResource Remove="Features\Lessons\Commands\ConfirmLessonContent\**" />
+    <EmbeddedResource Remove="Features\Subjects\Queries\GetMySubjects\**" />
     <EmbeddedResource Remove="Features\Users\Queries\GetMyStatistics\**" />
+    <None Remove="Features\Lessons\Commands\ConfirmLessonContent\**" />
+    <None Remove="Features\Subjects\Queries\GetMySubjects\**" />
     <None Remove="Features\Users\Queries\GetMyStatistics\**" />
   </ItemGroup>
 
@@ -26,9 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Features\Lessons\Commands\ConfirmLessonContent\" />
     <Folder Include="Features\Resources\Commands\" />
-    <Folder Include="Features\Subjects\Queries\GetMySubjects\" />
   </ItemGroup>
 
 </Project>
