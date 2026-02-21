@@ -18,6 +18,7 @@ namespace CodeNexus.Domain.Entities
         public ResourceType Type { get; set; }
         public string? URL { get; set; }
         public string? FilePath { get; set; }
+        public string? OriginalFileName { get; set; }
         public string? Description { get; set; }
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 

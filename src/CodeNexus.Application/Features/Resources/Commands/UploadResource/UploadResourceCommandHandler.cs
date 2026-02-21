@@ -52,6 +52,7 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
                 }
 
                 resource.FilePath = uploadResult;
+                resource.OriginalFileName = request.FileName;
             }
             else if (request.Type == ResourceType.Link && !string.IsNullOrEmpty(request.Url))
             {
@@ -71,7 +72,8 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
                     resource.Type,
                     resource.URL,
                     resource.Description,
-                    resource.FilePath
+                    resource.FilePath,
+                    resource.OriginalFileName
                 )
             );
         }

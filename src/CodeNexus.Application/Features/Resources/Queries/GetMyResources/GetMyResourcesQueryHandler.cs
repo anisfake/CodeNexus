@@ -78,6 +78,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                     r.URL,
                     r.Description,
                     r.FilePath,
+                    r.OriginalFileName,
                     r.Subject.Name,
                     r.SubjectId
                 ))

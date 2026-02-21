@@ -14,6 +14,7 @@ namespace CodeNexus.Application.Features.Resources.DTOs
         string? Url,
         string? Description,
         string? FilePath,
+        string? OriginalFileName,
         string SubjectName,
         Guid SubjectId
     );
@@ -23,7 +24,8 @@ namespace CodeNexus.Application.Features.Resources.DTOs
         ResourceType Type,
         string? Url,
         string? Description,
-        string? FilePath
+        string? FilePath,
+        string? OriginalFileName
     );
 
     public record GetMyResourceRequest(

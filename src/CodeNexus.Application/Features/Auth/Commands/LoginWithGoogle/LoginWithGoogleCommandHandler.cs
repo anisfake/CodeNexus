@@ -60,7 +60,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
         var refreshTokenValue = _tokenService.GenerateRefreshToken();
         _context.RefreshTokens.Add(new RefreshToken
         {
-            TokenId = Guid.NewGuid(),
+            TokenId = NewId.NextGuid(),
             UserId = user.UserId,
             Token = refreshTokenValue,
             CreatedAt = DateTime.Now,

@@ -1,5 +1,7 @@
 ﻿using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Resources.Commands.UploadResource;
+using CodeNexus.Application.Features.Resources.Commands.UpdateResource;
+using CodeNexus.Application.Features.Resources.Commands.DeleteResource;
 using CodeNexus.Application.Features.Resources.DTOs;
 using CodeNexus.Application.Features.Users.Commands.ChangePassword;
 using CodeNexus.Application.Features.Users.DTOs;
@@ -66,6 +68,40 @@ namespace CodeNexus.API.Controllers
             var result = await _sender.Send(query);
 
             return Ok(result);
+        }
+
+        [HttpPut("{resourceId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateResource(Guid resourceId, [FromForm] UpdateResourceRequest request)
+        {
+            using var stream = request.File?.OpenReadStream();
+            var command = new UpdateResourceCommand(
+                resourceId,
+                request.Title,
+                request.Description,
+                request.Url,
+                stream,
+                request.File?.FileName
+            );
+            var result = await _sender.Send(command);
+
+            return ToActionResult(result);
+        }
+
+        [HttpDelete("{resourceId}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteResource(Guid resourceId)
+        {
+            var command = new DeleteResourceCommand(resourceId);
+            var result = await _sender.Send(command);
+
+            return ToActionResult(result);
         }
 
         private IActionResult ToActionResult(Result result)

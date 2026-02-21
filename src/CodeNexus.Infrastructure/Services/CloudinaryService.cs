@@ -84,9 +84,7 @@ public class CloudinaryService : ICloudinaryService
             {
                 File = new FileDescription(fileName, file),
                 Folder = folder,
-                UseFilename = true,
-                UniqueFilename = false,
-                PublicId = Path.GetFileNameWithoutExtension(fileName)
+                PublicId = Guid.NewGuid().ToString()
             };
 
             var uploadResult = await _cloudinary.UploadAsync(uploadParams);
@@ -100,6 +98,35 @@ public class CloudinaryService : ICloudinaryService
         }
         catch (Exception ex)
         {
+            throw;
+        }
+    }
+
+    public async Task<bool> DeleteFileAsync(string publicId)
+    {
+        try
+        {
+            Console.WriteLine($"[CloudinaryService] Attempting to delete file with publicId: {publicId}");
+            
+            var deleteParams = new DeletionParams(publicId)
+            {
+                ResourceType = ResourceType.Raw
+            };
+            var result = await _cloudinary.DestroyAsync(deleteParams);
+
+            Console.WriteLine($"[CloudinaryService] Delete result: {result.Result}");
+            Console.WriteLine($"[CloudinaryService] Delete error: {result.Error?.Message ?? "None"}");
+
+            if (result.Error != null)
+            {
+                return false;
+            }
+
+            return result.Result == "ok";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[CloudinaryService] Delete exception: {ex.Message}");
             throw;
         }
     }
