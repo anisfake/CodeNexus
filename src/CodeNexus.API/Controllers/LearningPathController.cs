@@ -4,6 +4,8 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
+using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using MediatR;
@@ -42,9 +44,34 @@ public class LearningPathController : ControllerBase
     [HttpGet]
     [Authorize]
     [Authorize(Roles = "Mentor")]
-    public async Task<IActionResult> GetAllLearningPath(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAllLearningPath([FromQuery] GetAllLearningPathRequest request, CancellationToken cancellationToken)
     {
-        var query = new GetAllLearningPathQuery();
+        var query = new GetAllLearningPathQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.Status,
+            request.SortDescending
+        );
+        var result = await _sender.Send(query, cancellationToken);
+
+        return ToActionResult(result);
+    }
+
+    [HttpGet("user/{userId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetLearningPathByUserId(Guid userId, [FromQuery] GetLearningPathByUserIdRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathByUserIdQuery(
+            userId,
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.Status,
+            request.SortDescending
+        );
         var result = await _sender.Send(query, cancellationToken);
 
         return ToActionResult(result);

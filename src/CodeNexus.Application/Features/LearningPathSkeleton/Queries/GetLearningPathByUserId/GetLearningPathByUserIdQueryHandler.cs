@@ -1,36 +1,27 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
+namespace CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
 
-public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPathQuery, Result<PaginationDto<LearningPathResponse>>>
+public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPathByUserIdQuery, Result<PaginationDto<LearningPathResponse>>>
 {
     private readonly IApplicationDbContext _context;
-    private readonly ICurrentUserService _currentUserService;
 
-    public GetAllLearningPathQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public GetLearningPathByUserIdQueryHandler(IApplicationDbContext context)
     {
         _context = context;
-        _currentUserService = currentUserService;
     }
 
-    public async Task<Result<PaginationDto<LearningPathResponse>>> Handle(GetAllLearningPathQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PaginationDto<LearningPathResponse>>> Handle(GetLearningPathByUserIdQuery request, CancellationToken cancellationToken)
     {
-        var userId = _currentUserService.GetUserId();
+        var userExists = await _context.Users.AnyAsync(u => u.UserId == request.UserId, cancellationToken);
 
-        var user = _context.Users.Include(x => x.Role).FirstOrDefault(u => u.UserId == userId);
-
-        if (user == null)
+        if (!userExists)
         {
             return Result<PaginationDto<LearningPathResponse>>.Failure("USER_NOT_FOUND", "User not found.");
-        }
-
-        if (user.Role?.RoleName != "Mentor")
-        {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Only mentors can access learning paths.");
         }
 
         var query = _context.LearningPaths
@@ -39,6 +30,7 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
             .Include(lp => lp.User)
             .Include(lp => lp.Chapters).ThenInclude(c => c.Lessons).ThenInclude(l => l.Quizzes)
             .Include(lp => lp.Chapters).ThenInclude(c => c.Tasks)
+            .Where(lp => lp.UserId == request.UserId)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.SearchTerm))
