@@ -3,6 +3,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using MediatR;
@@ -24,7 +25,7 @@ public class LearningPathController : ControllerBase
         _sender = sender;
     }
 
-    [HttpPost("")]
+    [HttpPost]
     public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonCommand command, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(command, cancellationToken);
@@ -33,6 +34,15 @@ public class LearningPathController : ControllerBase
         {
             return BadRequest(new { errorCode = result.ErrorCode, errorMessage = result.ErrorMessage });
         }
+
+        return ToActionResult(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAllLearningPath(CancellationToken cancellationToken)
+    {
+        var query = new GetAllLearningPathQuery();
+        var result = await _sender.Send(query, cancellationToken);
 
         return ToActionResult(result);
     }

@@ -32,7 +32,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Features\LearningPathSkeleton\Queries\GetAllLearningPaths\" />
     <Folder Include="Features\LearningPathSkeleton\Queries\GetLearningPathById\" />
     <Folder Include="Features\Resources\Commands\" />
   </ItemGroup>

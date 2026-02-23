@@ -12,7 +12,7 @@ public record LessonDto(
     List<QuizDto> Quizzes
 );
 public record TaskDto(
-    Guid GoalId,
+    Guid TaskId,
     string Title,
     string Description
 );
@@ -37,5 +37,24 @@ public record CreateLearningPathResponse(
     int? ChapterCount,
     DateTime CreatedAt,
     bool IsContentGenerating = true
+);
+
+public record LearningPathResponse(
+    Guid PathId,
+    Guid SubjectId,
+    string SubjectName,
+    Guid GoalId,
+    string GoalTitle,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    string Title,
+    string Description,
+    string Status,
+    bool CreatedByType,
+    Guid UserId,
+    string UserName,
+    List<ChapterDto> ChapterDtos,
+    int? ChapterCount,
+    DateTime CreatedAt
 );
 
