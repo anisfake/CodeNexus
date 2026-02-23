@@ -39,6 +39,9 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             var username = googleUser.Email.Split('@')[0];
             var finalUsername = await EnsureUniqueUsernameAsync(username, cancellationToken);
 
+            var defaultRole = await _context.Roles
+                .FirstOrDefaultAsync(r => r.RoleName == "Student", cancellationToken);
+
             user = new User
             {
                 UserId = NewId.NextGuid(),
@@ -48,12 +51,27 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
                 FirstName = googleUser.GivenName,
                 LastName = googleUser.FamilyName,
                 CreatedAt = DateTime.Now,
-                Status = "Active"
+                Status = "Active",
+                RoleId = defaultRole?.RoleId
             };
 
             _context.Users.Add(user);
+
+            var userProfile = new UserProfile
+            {
+                ProfileId = NewId.NextGuid(),
+                UserId = user.UserId
+            };
+
+            _context.UserProfiles.Add(userProfile);
             await _context.SaveChangesAsync(cancellationToken);
+
+            user = await _context.Users
+                .Include(u => u.Role)
+                .FirstAsync(u => u.UserId == user.UserId, cancellationToken);
         }
+
+        user.LastLogin = DateTime.Now;
 
         var accessToken = _tokenService.GenerateAccessToken(user);
 
