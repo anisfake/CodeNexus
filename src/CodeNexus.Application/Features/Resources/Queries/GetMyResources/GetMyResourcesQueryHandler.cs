@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
 {
@@ -40,7 +41,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
             }
 
             // filter type
-            if (request.Type != null)
+            if (!request.Type.Equals(ResourceType.All))
             {
                 query = query.Where(r => r.Type.Equals(request.Type));
             }
