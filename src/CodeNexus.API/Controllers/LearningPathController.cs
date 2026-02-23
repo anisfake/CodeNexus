@@ -16,7 +16,7 @@ namespace CodeNexus.API.Controllers;
 
 [ApiController]
 [Route("api/learningpaths")]
-[Authorize]
+
 public class LearningPathController : ControllerBase
 {
     private readonly ISender _sender;
@@ -26,6 +26,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonCommand command, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(command, cancellationToken);
@@ -39,6 +40,8 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize]
+    [Authorize(Roles = "Mentor")]
     public async Task<IActionResult> GetAllLearningPath(CancellationToken cancellationToken)
     {
         var query = new GetAllLearningPathQuery();
@@ -48,6 +51,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost("lessons/{lessonId:guid}/content")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
@@ -55,6 +59,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost("chapters/{chapterId:guid}/generate-content")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateChapterContent(Guid chapterId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateChapterContentCommand(chapterId), cancellationToken);
@@ -62,6 +67,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost("quizzes/{quizId:guid}/generate-questions")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateQuizQuestions(Guid quizId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateQuizQuestionsCommand(quizId), cancellationToken);
