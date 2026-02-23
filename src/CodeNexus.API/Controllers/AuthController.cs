@@ -110,7 +110,10 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
     {
-        var command = new LogoutCommand(request?.AccessToken, request?.RefreshToken);
+        var accessToken = request?.AccessToken
+            ?? HttpContext.Request.Headers["Authorization"].FirstOrDefault()?.Split(" ").Last();
+
+        var command = new LogoutCommand(accessToken, request?.RefreshToken);
         var result = await _sender.Send(command);
         return ToActionResult(result);
     }
