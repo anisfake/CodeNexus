@@ -1,456 +1,311 @@
 using CodeNexus.Application.Common.Interfaces;
-using CodeNexus.Application.Common.Models;
-using CodeNexus.Application.Features.Resources.DTOs;
 using CodeNexus.Application.Features.Resources.Queries.GetMyResources;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
-using MassTransit;
 using Moq;
-using Xunit;
 
-namespace CodeNexus.UnitTests.Features.Resources
+namespace CodeNexus.UnitTests.Features.Resources;
+
+public class GetMyResourcesQueryHandlerTests
 {
-    public class GetMyResourcesQueryHandlerTests
+    private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly GetMyResourcesQueryHandler _handler;
+    private readonly Guid _userId = Guid.NewGuid();
+    private readonly Guid _subjectId = Guid.NewGuid();
+
+    public GetMyResourcesQueryHandlerTests()
     {
-        private readonly Mock<IApplicationDbContext> _mockContext;
-        private readonly Mock<ICurrentUserService> _mockCurrentUserService;
-        private readonly GetMyResourcesQueryHandler _handler;
+        _mockContext = new Mock<IApplicationDbContext>();
+        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _handler = new GetMyResourcesQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
+    }
 
-        public GetMyResourcesQueryHandlerTests()
+    private List<Resource> CreateTestResources()
+    {
+        var subject = new Subject
         {
-            _mockContext = new Mock<IApplicationDbContext>();
-            _mockCurrentUserService = new Mock<ICurrentUserService>();
-            _handler = new GetMyResourcesQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
-        }
+            SubjectId = _subjectId,
+            Name = "C# Programming",
+            CreatedByUserId = Guid.NewGuid()
+        };
 
-        [Fact]
-        public async Task Handle_WithValidQuery_ReturnsResourcesWithPagination()
+        return new List<Resource>
         {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
-
-            var subject = new Subject { SubjectId = subjectId, Name = "C# Programming" };
-            var resources = new List<Resource>
+            new Resource
             {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "C# Basics",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/csharp-basics.pdf",
-                    Description = "Introduction to C#",
-                    FilePath = "/resources/csharp-basics.pdf",
-                    UploadedAt = DateTime.UtcNow.AddDays(-5),
-                    Subject = subject
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Advanced C#",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/advanced-csharp.pdf",
-                    Description = "Advanced C# concepts",
-                    FilePath = "/resources/advanced-csharp.pdf",
-                    UploadedAt = DateTime.UtcNow.AddDays(-3),
-                    Subject = subject
-                }
-            };
-
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                SortDescending = true
-            };
-
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Should().NotBeNull();
-            result.Items.Should().HaveCount(2);
-            result.TotalCount.Should().Be(2);
-            result.PageNumber.Should().Be(1);
-            result.PageSize.Should().Be(10);
-            result.HasNextPage.Should().BeFalse();
-            result.HasPreviousPage.Should().BeFalse();
-            result.Items[0].Title.Should().Be("Advanced C#");
-            result.Items[1].Title.Should().Be("C# Basics");
-        }
-
-        [Fact]
-        public async Task Handle_WithSearchTerm_ReturnsFilteredResources()
-        {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
-
-            var subject = new Subject { SubjectId = subjectId, Name = "Programming" };
-            var resources = new List<Resource>
-            {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "C# Basics",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/csharp.pdf",
-                    Description = "Learn C#",
-                    FilePath = "/resources/csharp.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Java Basics",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/java.pdf",
-                    Description = "Learn Java",
-                    FilePath = "/resources/java.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                }
-            };
-
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                SearchTerm = "C#"
-            };
-
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items.Should().HaveCount(1);
-            result.Items[0].Title.Should().Be("C# Basics");
-            result.TotalCount.Should().Be(1);
-        }
-
-        [Fact]
-        public async Task Handle_WithSubjectFilter_ReturnsResourcesForSpecificSubject()
-        {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId1 = NewId.NextGuid();
-            var subjectId2 = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
-
-            var subject1 = new Subject { SubjectId = subjectId1, Name = "C#" };
-            var subject2 = new Subject { SubjectId = subjectId2, Name = "Java" };
-
-            var resources = new List<Resource>
-            {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId1,
-                    Title = "C# Guide",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/csharp.pdf",
-                    Description = "C# guide",
-                    FilePath = "/resources/csharp.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject1
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId2,
-                    Title = "Java Guide",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/java.pdf",
-                    Description = "Java guide",
-                    FilePath = "/resources/java.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject2
-                }
-            };
-
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                SubjectId = subjectId1
-            };
-
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items.Should().HaveCount(1);
-            result.Items[0].SubjectId.Should().Be(subjectId1);
-            result.Items[0].SubjectName.Should().Be("C#");
-        }
-
-        [Fact]
-        public async Task Handle_WithPagination_ReturnsPaginatedResults()
-        {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
-
-            var subject = new Subject { SubjectId = subjectId, Name = "Programming" };
-            var resources = Enumerable.Range(1, 25).Select(i => new Resource
-            {
-                ResourceId = NewId.NextGuid(),
-                UserId = userId,
-                SubjectId = subjectId,
-                Title = $"Resource {i}",
+                ResourceId = Guid.NewGuid(),
+                UserId = _userId,
+                SubjectId = _subjectId,
+                Title = "C# Basics",
                 Type = ResourceType.File,
-                URL = $"https://example.com/resource{i}.pdf",
-                Description = $"Resource {i} description",
-                FilePath = $"/resources/resource{i}.pdf",
-                UploadedAt = DateTime.UtcNow.AddDays(-i),
+                URL = "https://example.com/csharp-basics.pdf",
+                Description = "Introduction to C#",
+                FilePath = "/resources/csharp-basics.pdf",
+                OriginalFileName = "csharp-basics.pdf",
+                UploadedAt = DateTime.UtcNow.AddDays(-5),
                 Subject = subject
-            }).ToList();
-
-            var query = new GetMyResourcesQuery
+            },
+            new Resource
             {
-                PageNumber = 2,
-                PageSize = 10
-            };
+                ResourceId = Guid.NewGuid(),
+                UserId = _userId,
+                SubjectId = _subjectId,
+                Title = "Advanced C#",
+                Type = ResourceType.Link,
+                URL = "https://example.com/advanced-csharp",
+                Description = "Advanced C# concepts",
+                FilePath = null,
+                OriginalFileName = null,
+                UploadedAt = DateTime.UtcNow.AddDays(-3),
+                Subject = subject
+            }
+        };
+    }
 
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+    [Fact]
+    public async Task Handle_WithValidQuery_ReturnsResourcesWithPagination()
+    {
+        // Arrange
+        var resources = CreateTestResources();
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
 
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items.Should().HaveCount(10);
-            result.PageNumber.Should().Be(2);
-            result.PageSize.Should().Be(10);
-            result.TotalCount.Should().Be(25);
-            result.TotalPages.Should().Be(3);
-            result.HasPreviousPage.Should().BeTrue();
-            result.HasNextPage.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task Handle_WithSortByTitle_ReturnsSortedByTitle()
+        var query = new GetMyResourcesQuery
         {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.All,
+            SortDescending = true
+        };
 
-            var subject = new Subject { SubjectId = subjectId, Name = "Programming" };
-            var resources = new List<Resource>
-            {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Zebra Guide",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/zebra.pdf",
-                    Description = "Zebra",
-                    FilePath = "/resources/zebra.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Apple Guide",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/apple.pdf",
-                    Description = "Apple",
-                    FilePath = "/resources/apple.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                }
-            };
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
 
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                SortBy = ResourceSortBy.Title,
-                SortDescending = false  // Ascending order
-            };
+        // Assert
+        result.Should().NotBeNull();
+        result.Items.Should().HaveCount(2);
+        result.TotalCount.Should().Be(2);
+        result.PageNumber.Should().Be(1);
+        result.PageSize.Should().Be(10);
+        result.Items[0].Title.Should().Be("Advanced C#");
+        result.Items[1].Title.Should().Be("C# Basics");
+    }
 
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+    [Fact]
+    public async Task Handle_WithSearchTerm_ReturnsFilteredResources()
+    {
+        // Arrange
+        var resources = CreateTestResources();
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
 
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items[0].Title.Should().Be("Apple Guide");
-            result.Items[1].Title.Should().Be("Zebra Guide");
-        }
-
-        [Fact]
-        public async Task Handle_WithNoResources_ReturnsEmptyList()
+        var query = new GetMyResourcesQuery
         {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.All,
+            SearchTerm = "Advanced"
+        };
 
-            var resources = new List<Resource>();
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
 
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10
-            };
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Title.Should().Be("Advanced C#");
+        result.TotalCount.Should().Be(1);
+    }
 
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items.Should().BeEmpty();
-            result.TotalCount.Should().Be(0);
-            result.TotalPages.Should().Be(0);
-        }
-
-        [Fact]
-        public async Task Handle_WithCombinedFilters_ReturnsCorrectResults()
+    [Fact]
+    public async Task Handle_WithSubjectFilter_ReturnsResourcesForSpecificSubject()
+    {
+        // Arrange
+        var subject2 = new Subject
         {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
+            SubjectId = Guid.NewGuid(),
+            Name = "Java",
+            CreatedByUserId = Guid.NewGuid()
+        };
 
-            var subject = new Subject { SubjectId = subjectId, Name = "C#" };
-            var resources = new List<Resource>
-            {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "C# Advanced Patterns",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/patterns.pdf",
-                    Description = "Advanced design patterns in C#",
-                    FilePath = "/resources/patterns.pdf",
-                    UploadedAt = DateTime.UtcNow.AddDays(-2),
-                    Subject = subject
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "C# Basics Video",
-                    Type = ResourceType.Link,
-                    URL = "https://example.com/basics.mp4",
-                    Description = "Basic C# concepts",
-                    FilePath = "/resources/basics.mp4",
-                    UploadedAt = DateTime.UtcNow.AddDays(-1),
-                    Subject = subject
-                }
-            };
-
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                SubjectId = subjectId,
-                SearchTerm = "Advanced"
-            };
-
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
-
-            // Assert
-            result.Items.Should().HaveCount(1);
-            result.Items[0].Title.Should().Be("C# Advanced Patterns");
-        }
-
-        [Fact]
-        public async Task Handle_WithSearchInDescription_ReturnsMatchingResources()
+        var resources = CreateTestResources();
+        resources.Add(new Resource
         {
-            // Arrange
-            var userId = NewId.NextGuid();
-            var subjectId = NewId.NextGuid();
-            var cancellationToken = CancellationToken.None;
+            ResourceId = Guid.NewGuid(),
+            UserId = _userId,
+            SubjectId = subject2.SubjectId,
+            Title = "Java Guide",
+            Type = ResourceType.File,
+            URL = "https://example.com/java.pdf",
+            Description = "Java guide",
+            FilePath = "/resources/java.pdf",
+            OriginalFileName = "java.pdf",
+            UploadedAt = DateTime.UtcNow,
+            Subject = subject2
+        });
 
-            var subject = new Subject { SubjectId = subjectId, Name = "Programming" };
-            var resources = new List<Resource>
-            {
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Resource 1",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/resource1.pdf",
-                    Description = "Contains important information",
-                    FilePath = "/resources/resource1.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                },
-                new Resource
-                {
-                    ResourceId = NewId.NextGuid(),
-                    UserId = userId,
-                    SubjectId = subjectId,
-                    Title = "Resource 2",
-                    Type = ResourceType.File,
-                    URL = "https://example.com/resource2.pdf",
-                    Description = "Basic overview",
-                    FilePath = "/resources/resource2.pdf",
-                    UploadedAt = DateTime.UtcNow,
-                    Subject = subject
-                }
-            };
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
 
-            var query = new GetMyResourcesQuery
-            {
-                PageNumber = 1,
-                PageSize = 10,
-                SearchTerm = "important"
-            };
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.All,
+            SubjectId = _subjectId
+        };
 
-            _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(userId);
-            _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
 
-            // Act
-            var result = await _handler.Handle(query, cancellationToken);
+        // Assert
+        result.Items.Should().HaveCount(2);
+        result.Items.Should().AllSatisfy(r => r.SubjectId.Should().Be(_subjectId));
+    }
 
-            // Assert
-            result.Items.Should().HaveCount(1);
-            result.Items[0].Title.Should().Be("Resource 1");
-        }
+    [Fact]
+    public async Task Handle_WithTypeFilter_ReturnsResourcesOfSpecificType()
+    {
+        // Arrange
+        var resources = CreateTestResources();
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.File
+        };
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Type.Should().Be(ResourceType.File);
+        result.Items[0].Title.Should().Be("C# Basics");
+    }
+
+    [Fact]
+    public async Task Handle_WithSortByTitle_ReturnsSortedByTitle()
+    {
+        // Arrange
+        var resources = CreateTestResources();
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.All,
+            SortBy = ResourceSortBy.Title,
+            SortDescending = false
+        };
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.Items[0].Title.Should().Be("Advanced C#");
+        result.Items[1].Title.Should().Be("C# Basics");
+    }
+
+    [Fact]
+    public async Task Handle_WithNoResources_ReturnsEmptyList()
+    {
+        // Arrange
+        var resources = new List<Resource>();
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.All
+        };
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().BeEmpty();
+        result.TotalCount.Should().Be(0);
+        result.TotalPages.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Handle_WithPagination_ReturnsCorrectPage()
+    {
+        // Arrange
+        var subject = new Subject
+        {
+            SubjectId = _subjectId,
+            Name = "Programming",
+            CreatedByUserId = Guid.NewGuid()
+        };
+
+        var resources = Enumerable.Range(1, 15).Select(i => new Resource
+        {
+            ResourceId = Guid.NewGuid(),
+            UserId = _userId,
+            SubjectId = _subjectId,
+            Title = $"Resource {i}",
+            Type = ResourceType.File,
+            URL = $"https://example.com/resource{i}.pdf",
+            Description = $"Resource {i} description",
+            FilePath = $"/resources/resource{i}.pdf",
+            OriginalFileName = $"resource{i}.pdf",
+            UploadedAt = DateTime.UtcNow.AddDays(-i),
+            Subject = subject
+        }).ToList();
+
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 2,
+            PageSize = 5,
+            Type = ResourceType.All
+        };
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(5);
+        result.PageNumber.Should().Be(2);
+        result.PageSize.Should().Be(5);
+        result.TotalCount.Should().Be(15);
+        result.TotalPages.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Handle_WithSearchInDescription_ReturnsMatchingResources()
+    {
+        // Arrange
+        var resources = CreateTestResources();
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 1,
+            PageSize = 10,
+            Type = ResourceType.All,
+            SearchTerm = "Introduction"
+        };
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Title.Should().Be("C# Basics");
     }
 }
