@@ -66,9 +66,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             _context.UserProfiles.Add(userProfile);
             await _context.SaveChangesAsync(cancellationToken);
 
-            user = await _context.Users
-                .Include(u => u.Role)
-                .FirstAsync(u => u.UserId == user.UserId, cancellationToken);
+            user.Role = defaultRole;
         }
 
         user.LastLogin = DateTime.Now;
