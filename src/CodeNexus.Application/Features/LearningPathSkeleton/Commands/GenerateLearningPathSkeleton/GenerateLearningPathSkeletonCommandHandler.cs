@@ -156,6 +156,19 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     learningPath.PathId,
                     learningPath.Title,
                     learningPath.Description,
+                    learningPath.Chapters?.Select(c => new ChapterDto(
+                        c.ChapterId,
+                        c.Title,
+                        c.Content,
+                        c.OrderIndex,
+                        c.Lessons?.Select(l => new LessonDto(
+                            l.LessonId,
+                            l.Title,
+                            l.Content,
+                            l.Quizzes?.Select(q => new QuizDto(q.QuizId, q.Title, q.Description)).ToList() ?? new List<QuizDto>()
+                        )).ToList() ?? new List<LessonDto>(),
+                        c.Tasks?.Select(t => new TaskDto(t.TaskId, t.Title, t.Description)).ToList() ?? new List<TaskDto>()
+                    )).ToList() ?? new List<ChapterDto>(),
                     skeleton?.Chapters?.Count,
                     learningPath.CreatedAt,
                     true
