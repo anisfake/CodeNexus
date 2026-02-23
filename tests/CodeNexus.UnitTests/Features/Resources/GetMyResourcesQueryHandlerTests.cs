@@ -91,7 +91,9 @@ public class GetMyResourcesQueryHandlerTests
         result.PageNumber.Should().Be(1);
         result.PageSize.Should().Be(10);
         result.Items[0].Title.Should().Be("Advanced C#");
+        result.Items[0].ResourceId.Should().Be(resources[1].ResourceId);
         result.Items[1].Title.Should().Be("C# Basics");
+        result.Items[1].ResourceId.Should().Be(resources[0].ResourceId);
     }
 
     [Fact]
@@ -116,6 +118,7 @@ public class GetMyResourcesQueryHandlerTests
         // Assert
         result.Items.Should().HaveCount(1);
         result.Items[0].Title.Should().Be("Advanced C#");
+        result.Items[0].ResourceId.Should().Be(resources[1].ResourceId);
         result.TotalCount.Should().Be(1);
     }
 
@@ -163,6 +166,7 @@ public class GetMyResourcesQueryHandlerTests
         // Assert
         result.Items.Should().HaveCount(2);
         result.Items.Should().AllSatisfy(r => r.SubjectId.Should().Be(_subjectId));
+        result.Items.Should().OnlyContain(r => r.ResourceId == resources[0].ResourceId || r.ResourceId == resources[1].ResourceId);
     }
 
     [Fact]
@@ -187,6 +191,7 @@ public class GetMyResourcesQueryHandlerTests
         result.Items.Should().HaveCount(1);
         result.Items[0].Type.Should().Be(ResourceType.File);
         result.Items[0].Title.Should().Be("C# Basics");
+        result.Items[0].ResourceId.Should().Be(resources[0].ResourceId);
     }
 
     [Fact]
@@ -307,5 +312,6 @@ public class GetMyResourcesQueryHandlerTests
         // Assert
         result.Items.Should().HaveCount(1);
         result.Items[0].Title.Should().Be("C# Basics");
+        result.Items[0].ResourceId.Should().Be(resources[0].ResourceId);
     }
 }

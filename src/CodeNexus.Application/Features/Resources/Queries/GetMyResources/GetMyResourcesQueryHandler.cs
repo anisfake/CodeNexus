@@ -74,6 +74,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                 .Take(request.PageSize)
                 .Select(r => new ResourceResponse
                 (
+                    r.ResourceId,
                     r.Title,
                     r.Type,
                     r.URL,

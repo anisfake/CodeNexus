@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 namespace CodeNexus.Application.Features.Resources.DTOs
 {
     public record ResourceResponse(
+        Guid ResourceId,
         string Title,
         ResourceType Type,
         string? Url,
