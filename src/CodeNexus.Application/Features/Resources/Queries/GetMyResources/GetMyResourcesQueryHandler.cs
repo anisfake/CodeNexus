@@ -30,7 +30,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
             var userId = _currentUserService.GetUserId();
 
             var query = _context.Resources
-                .Where(r => r.UserId == userId)
+                .Where(r => r.UserId == userId && !r.IsDeleted)
                 .Include(r => r.Subject)
                 .AsQueryable();
 

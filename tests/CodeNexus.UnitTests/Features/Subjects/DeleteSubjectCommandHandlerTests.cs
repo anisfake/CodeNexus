@@ -22,7 +22,7 @@ public class DeleteSubjectCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithValidCommand_ShouldDeleteSubjectSuccessfully()
+    public async Task Handle_WithValidCommand_ShouldSoftDeleteSubjectSuccessfully()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -34,12 +34,12 @@ public class DeleteSubjectCommandHandlerTests
             SubjectId = subjectId,
             Name = "Mathematics",
             CreatedByUserId = userId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         SetupSubjectsDbSet(new List<Subject> { subject });
-        _mockContext.Setup(x => x.Subjects.Remove(It.IsAny<Subject>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
@@ -49,6 +49,8 @@ public class DeleteSubjectCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Contains("deleted successfully", result.Value);
+        Assert.True(subject.IsDeleted);
+        Assert.NotNull(subject.DeletedAt);
     }
 
     [Fact]
@@ -112,12 +114,12 @@ public class DeleteSubjectCommandHandlerTests
             SubjectId = subjectId,
             Name = "Chemistry",
             CreatedByUserId = userId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         SetupSubjectsDbSet(new List<Subject> { subject });
-        _mockContext.Setup(x => x.Subjects.Remove(It.IsAny<Subject>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
