@@ -13,6 +13,8 @@ namespace CodeNexus.Domain.Entities
         public bool IsCompleted { get; set; } = false;
         public DateTime? CompletedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
         public virtual ICollection<LearningPath> LearningPaths { get; set; } = new List<LearningPath>();
     }
 }

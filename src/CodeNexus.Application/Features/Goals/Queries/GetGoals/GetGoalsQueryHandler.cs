@@ -25,7 +25,7 @@ public class GetGoalsQueryHandler : IRequestHandler<GetGoalsQuery, Result<List<G
 
         var goals = await _context.Goals
             .AsNoTracking()
-            .Where(g => g.UserId == userId)
+            .Where(g => g.UserId == userId && g.IsDeleted == false)
             .OrderByDescending(g => g.CreatedAt)
             .Select(g => new GoalDto(
                 g.GoalId,

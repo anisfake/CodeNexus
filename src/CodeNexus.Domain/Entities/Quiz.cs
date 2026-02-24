@@ -20,6 +20,8 @@ namespace CodeNexus.Domain.Entities
         public int? TimeLimit { get; set; }
         public decimal? PassingScore { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<Questions> Questions { get; set; } = new List<Questions>();
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();

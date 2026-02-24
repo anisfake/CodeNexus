@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 namespace CodeNexus.Application.Features.Resources.DTOs
 {
     public record ResourceResponse(
+        Guid ResourceId,
         string Title,
         ResourceType Type,
         string? Url,
@@ -31,7 +32,7 @@ namespace CodeNexus.Application.Features.Resources.DTOs
     public record GetMyResourceRequest(
         int PageNumber = 1,
         int PageSize = 10,
-        ResourceType Type = ResourceType.File,
+        ResourceType Type = ResourceType.All,
         Guid? SubjectId = null,
         string? SearchTerm = null,
         ResourceSortBy SortBy = ResourceSortBy.Title,

@@ -29,7 +29,7 @@ public class DeleteResourceCommandHandler : IRequestHandler<DeleteResourceComman
             var userId = _currentUserService.GetUserId();
 
             var resource = await _context.Resources
-                .FirstOrDefaultAsync(x => x.ResourceId == request.ResourceId, cancellationToken);
+                .FirstOrDefaultAsync(x => x.ResourceId == request.ResourceId && !x.IsDeleted, cancellationToken);
 
             if (resource == null)
                 return Result<string>.Failure("RESOURCE_NOT_FOUND", "Resource not found");
@@ -46,7 +46,8 @@ public class DeleteResourceCommandHandler : IRequestHandler<DeleteResourceComman
                 }
             }
 
-            _context.Resources.Remove(resource);
+            resource.IsDeleted = true;
+            resource.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             return Result<string>.Success("Resource deleted successfully");

@@ -82,6 +82,12 @@ public class LoginWithGoogleCommandHandlerTests
         var users = new List<User>();
         SetupUsersDbSet(users);
 
+        var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
+        SetupRolesDbSet(new List<Role> { studentRole });
+
+        var userProfiles = new List<UserProfile>();
+        SetupUserProfilesDbSet(userProfiles);
+
         var refreshTokens = new List<RefreshToken>();
         SetupRefreshTokensDbSet(refreshTokens);
 
@@ -103,8 +109,13 @@ public class LoginWithGoogleCommandHandlerTests
         result.Value.Should().NotBeNull();
         users.Should().HaveCount(1);
         users[0].Email.Should().Be("new@gmail.com");
+        users[0].RoleId.Should().Be(studentRole.RoleId);
         result.Value.AccessToken.Should().Be("jwt");
         result.Value.RefreshToken.Should().Be("rt");
+        result.Value.RoleName.Should().Be("Student");
+
+        userProfiles.Should().HaveCount(1);
+        userProfiles[0].UserId.Should().Be(users[0].UserId);
 
         refreshTokens.Should().HaveCount(1);
         refreshTokens[0].UserId.Should().Be(users[0].UserId);
@@ -139,5 +150,34 @@ public class LoginWithGoogleCommandHandlerTests
 
         dbSetMock.Setup(x => x.Add(It.IsAny<RefreshToken>())).Callback<RefreshToken>(rt => refreshTokens.Add(rt));
         _contextMock.Setup(x => x.RefreshTokens).Returns(dbSetMock.Object);
+    }
+
+    private void SetupRolesDbSet(List<Role> roles)
+    {
+        var queryable = new TestAsyncEnumerable<Role>(roles);
+        var dbSetMock = new Mock<DbSet<Role>>();
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<Role>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<Role>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+
+        _contextMock.Setup(x => x.Roles).Returns(dbSetMock.Object);
+    }
+
+    private void SetupUserProfilesDbSet(List<UserProfile> userProfiles)
+    {
+        var queryable = new TestAsyncEnumerable<UserProfile>(userProfiles);
+        var dbSetMock = new Mock<DbSet<UserProfile>>();
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<UserProfile>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<UserProfile>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+
+        dbSetMock.Setup(x => x.Add(It.IsAny<UserProfile>())).Callback<UserProfile>(up => userProfiles.Add(up));
+        _contextMock.Setup(x => x.UserProfiles).Returns(dbSetMock.Object);
     }
 }

@@ -28,7 +28,7 @@ public class DeleteResourceCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithValidFileResource_ShouldDeleteResourceAndFile()
+    public async Task Handle_WithValidFileResource_ShouldSoftDeleteResourceAndDeleteFile()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -42,13 +42,13 @@ public class DeleteResourceCommandHandlerTests
             Title = "Test Resource",
             Type = ResourceType.File,
             FilePath = "https://res.cloudinary.com/demo/raw/upload/v1234567890/resources/user123/file.pdf",
-            SubjectId = Guid.NewGuid()
+            SubjectId = Guid.NewGuid(),
+            IsDeleted = false
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockCloudinaryService.Setup(x => x.DeleteFileAsync(It.IsAny<string>())).ReturnsAsync(true);
-        _mockContext.Setup(x => x.Resources.Remove(It.IsAny<Resource>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         // Act
@@ -57,13 +57,14 @@ public class DeleteResourceCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Contains("deleted successfully", result.Value);
+        Assert.True(resource.IsDeleted);
+        Assert.NotNull(resource.DeletedAt);
         _mockCloudinaryService.Verify(x => x.DeleteFileAsync(It.IsAny<string>()), Times.Once);
-        _mockContext.Verify(x => x.Resources.Remove(It.IsAny<Resource>()), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_WithValidLinkResource_ShouldDeleteResourceOnly()
+    public async Task Handle_WithValidLinkResource_ShouldSoftDeleteResourceOnly()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -77,12 +78,12 @@ public class DeleteResourceCommandHandlerTests
             Title = "Test Resource",
             Type = ResourceType.Link,
             URL = "https://example.com",
-            SubjectId = Guid.NewGuid()
+            SubjectId = Guid.NewGuid(),
+            IsDeleted = false
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Resources.Remove(It.IsAny<Resource>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         // Act
@@ -91,8 +92,9 @@ public class DeleteResourceCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Contains("deleted successfully", result.Value);
+        Assert.True(resource.IsDeleted);
+        Assert.NotNull(resource.DeletedAt);
         _mockCloudinaryService.Verify(x => x.DeleteFileAsync(It.IsAny<string>()), Times.Never);
-        _mockContext.Verify(x => x.Resources.Remove(It.IsAny<Resource>()), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -111,7 +113,6 @@ public class DeleteResourceCommandHandlerTests
         Assert.False(result.IsSuccess);
         Assert.Equal("RESOURCE_NOT_FOUND", result.ErrorCode);
         Assert.Contains("not found", result.ErrorMessage);
-        _mockContext.Verify(x => x.Resources.Remove(It.IsAny<Resource>()), Times.Never);
     }
 
     [Fact]
@@ -129,7 +130,8 @@ public class DeleteResourceCommandHandlerTests
             UserId = ownerId,
             Title = "Test Resource",
             Type = ResourceType.Link,
-            SubjectId = Guid.NewGuid()
+            SubjectId = Guid.NewGuid(),
+            IsDeleted = false
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
@@ -142,7 +144,6 @@ public class DeleteResourceCommandHandlerTests
         Assert.False(result.IsSuccess);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
         Assert.Contains("your own resources", result.ErrorMessage);
-        _mockContext.Verify(x => x.Resources.Remove(It.IsAny<Resource>()), Times.Never);
     }
 
     [Fact]
@@ -159,12 +160,12 @@ public class DeleteResourceCommandHandlerTests
             UserId = userId,
             Title = "Test Resource",
             Type = ResourceType.File,
-            SubjectId = Guid.NewGuid()
+            SubjectId = Guid.NewGuid(),
+            IsDeleted = false
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Resources.Remove(It.IsAny<Resource>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 

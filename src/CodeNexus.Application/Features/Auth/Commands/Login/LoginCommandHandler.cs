@@ -46,6 +46,8 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             _context.TokenBlacklist.RemoveRange(expiredBlacklistedTokens);
         }
 
+        user.LastLogin = now;
+
         var accessToken = _tokenService.GenerateAccessToken(user);
 
         var refreshTokenValue = _tokenService.GenerateRefreshToken();
