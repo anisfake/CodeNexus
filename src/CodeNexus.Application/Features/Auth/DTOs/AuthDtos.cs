@@ -51,3 +51,7 @@ public record LogoutRequest(
     string? AccessToken = null,
     string? RefreshToken = null
 );
+
+public record RefreshTokenRequest(
+    string RefreshToken
+);

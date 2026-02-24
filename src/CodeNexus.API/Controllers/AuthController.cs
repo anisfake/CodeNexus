@@ -3,6 +3,7 @@ using CodeNexus.Application.Features.Auth.Commands.ForgotPassword;
 using CodeNexus.Application.Features.Auth.Commands.Login;
 using CodeNexus.Application.Features.Auth.Commands.LoginWithGoogle;
 using CodeNexus.Application.Features.Auth.Commands.Logout;
+using CodeNexus.Application.Features.Auth.Commands.RefreshAccessToken;
 using CodeNexus.Application.Features.Auth.Commands.Register;
 using CodeNexus.Application.Features.Auth.Commands.ResendOtp;
 using CodeNexus.Application.Features.Auth.Commands.ResetPassword;
@@ -96,6 +97,20 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Login([FromBody] LoginCommand command)
     {
+        var result = await _sender.Send(command);
+        if (result.IsSuccess)
+            return Ok(result.Value);
+
+        return ToActionResult(result);
+    }
+
+    [HttpPost("refresh-token")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        var command = new RefreshAccessTokenCommand(request.RefreshToken);
         var result = await _sender.Send(command);
         if (result.IsSuccess)
             return Ok(result.Value);
