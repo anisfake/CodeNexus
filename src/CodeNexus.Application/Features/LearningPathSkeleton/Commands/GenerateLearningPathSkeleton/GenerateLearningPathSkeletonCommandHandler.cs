@@ -30,9 +30,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
     public async Task<Result<CreateLearningPathResponse>> Handle(GenerateLearningPathSkeletonCommand request, CancellationToken cancellationToken)
     {
-
-
-
         try
         {
             var userId = _currentUserService.GetUserId();

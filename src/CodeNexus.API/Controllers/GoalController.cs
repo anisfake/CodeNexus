@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Mvc;
 namespace CodeNexus.API.Controllers;
 
 [ApiController]
-[Route("api/goals")]
 [Authorize]
 public class GoalController : ControllerBase
 {
@@ -22,7 +21,7 @@ public class GoalController : ControllerBase
         _sender = sender;
     }
 
-    [HttpGet]
+    [HttpGet("api/goals/me")]
     public async Task<IActionResult> GetGoals(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetGoalsQuery(), cancellationToken);
@@ -30,7 +29,7 @@ public class GoalController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost]
+    [HttpPost("api/goals")]
     public async Task<IActionResult> CreateGoal(CreateGoalRequest request, CancellationToken cancellationToken)
     {
         var command = new CreateGoalCommand(request.Title, request.Description, request.DurationDays);
@@ -38,7 +37,7 @@ public class GoalController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPut("{goalId}")]
+    [HttpPut("api/goals/{goalId}")]
     public async Task<IActionResult> UpdateGoal(Guid goalId, UpdateGoalRequest request, CancellationToken cancellationToken)
     {
         var command = new UpdateGoalCommand(goalId, request.Title, request.Description, request.CompleteAt, request.DurationDays, request.IsCompleted);
@@ -47,7 +46,7 @@ public class GoalController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpDelete("{goalId}")]
+    [HttpDelete("api/goals/{goalId}")]
     public async Task<IActionResult> DeleteGoal(Guid goalId, CancellationToken cancellationToken)
     {
         var command = new DeleteGoalCommand(goalId);

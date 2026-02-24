@@ -60,7 +60,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpGet("user/{userId:guid}")]
-    [Authorize(Roles = "Mentor")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GetLearningPathByUserId(Guid userId, [FromQuery] GetLearningPathByUserIdRequest request, CancellationToken cancellationToken)
     {
         var query = new GetLearningPathByUserIdQuery(
