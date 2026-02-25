@@ -17,6 +17,8 @@ namespace CodeNexus.Application.Common.Interfaces
 
         string GenerateRefreshToken();
 
+        int RefreshTokenExpirationDays { get; }
+
         (string? TokenId, DateTime? ExpiresAt) ExtractTokenInfo(string token);
     }
 }

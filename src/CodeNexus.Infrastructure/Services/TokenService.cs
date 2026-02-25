@@ -19,6 +19,8 @@ public class TokenService : ITokenService
         _settings = settings.Value;
     }
 
+    public int RefreshTokenExpirationDays => _settings.RefreshTokenExpirationDays;
+
     public string GenerateAccessToken(User user)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.SecretKey));

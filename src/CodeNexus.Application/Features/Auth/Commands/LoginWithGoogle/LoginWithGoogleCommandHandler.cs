@@ -80,7 +80,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             UserId = user.UserId,
             Token = refreshTokenValue,
             CreatedAt = DateTime.Now,
-            ExpiresAt = DateTime.Now.AddDays(7)
+            ExpiresAt = DateTime.Now.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
         await _context.SaveChangesAsync(cancellationToken);

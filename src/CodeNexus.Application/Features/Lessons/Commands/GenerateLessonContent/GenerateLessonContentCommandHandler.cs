@@ -1,4 +1,4 @@
-using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Lessons.DTOs;
 using CodeNexus.Domain.Entities;
@@ -98,34 +98,47 @@ Write a focused, easy-to-follow programming lesson in Markdown.
 === CONTEXT ===
 Language: {subject}
 Learning Path: {learningPath.Title}
-
 Full outline:
 {outline}
-
 Current lesson brief: {lesson.Content}
 
 === STRUCTURE ===
-1. ## Overview (2-3 sentences)
-2. ## Core Concepts (bullet points, concise explanations)
-3. ## Code Examples
-   - Use ```{lang} for all code blocks
-   - Inline comments on key lines
-   - Simple ? complex, real-world scenarios only
-4. ## Common Mistakes (wrong vs correct code side by side)
-5. ## Best Practices (3-5 short tips)
-6. ## Summary (bullet point takeaways)
+1. Overview (2-3 sentences)
+2. Core Concepts (bullet points, concise explanations)
+3. Code Examples
+   * Use ```{lang} for all code blocks
+   * Inline comments on key lines
+   * Simple → complex, real-world scenarios only
+4. Common Mistakes
+   * Render as a raw HTML table (it will be embedded in Markdown):
+   <table>
+     <thead>
+       <tr><th></th><th>Wrong</th><th>Correct</th></tr>
+     </thead>
+     <tbody>
+       <tr>
+         <td><strong>Mistake name</strong></td>
+         <td><pre><code class=""{lang}"">// wrong code</code></pre></td>
+         <td><pre><code class=""{lang}"">// correct code</code></pre></td>
+       </tr>
+     </tbody>
+   </table>
+   * Include 1-5 rows, one per common mistake
+   * Keep code snippets short (3-8 lines each)
+5. Best Practices (3-5 short tips)
+6. Summary (bullet point takeaways)
 
 If this is a review/recap lesson, summarize and connect key concepts from all previous lessons shown in the outline above.
 
 === RULES ===
-- ## for sections, ### for subsections
-- Do NOT start with the lesson title as heading
-- All code must be valid, runnable {subject}
-- Explain code step by step, not just show it
-- No foo/bar � use practical examples
-- Write in the same language as the lesson title
-- Keep content concise and focused � easy to absorb for self-learners
-
-Markdown only.";
+* ## for sections, ### for subsections
+* Do NOT start with the lesson title as heading
+* All code must be valid, runnable {subject}
+* Explain code step by step, not just show it
+* No foo/bar — use practical examples
+* Write in the same language as the lesson title
+* Keep content concise and focused — easy to absorb for self-learners
+* For the Common Mistakes table, output raw HTML only — no Markdown fences around it
+Markdown only (except the Common Mistakes HTML table).";
     }
 }

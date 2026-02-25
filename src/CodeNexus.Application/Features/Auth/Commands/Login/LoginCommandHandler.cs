@@ -57,7 +57,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             UserId = user.UserId,
             Token = refreshTokenValue,
             CreatedAt = now,
-            ExpiresAt = now.AddDays(7)
+            ExpiresAt = now.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
         await _context.SaveChangesAsync(cancellationToken);
