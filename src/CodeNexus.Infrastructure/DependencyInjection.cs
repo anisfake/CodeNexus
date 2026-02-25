@@ -72,16 +72,21 @@ public static class DependencyInjection
         services.Configure<CloudinarySettings>(configuration.GetSection(CloudinarySettings.SectionName));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
 
-        services.Configure<GroqSettings>(configuration.GetSection(GroqSettings.SectionName));
-        services.AddHttpClient<GroqService>();
-        services.AddScoped<IAIGeneratorService, GroqService>();
+        var redisConnectionString = configuration["Redis__ConnectionString"];
+        services.AddSingleton<IAIConfigCacheService>(sp =>
+        {
+            var redis = StackExchange.Redis.ConnectionMultiplexer.Connect(
+                redisConnectionString ?? "localhost:6379");
+            return new AIConfigCacheService(redis);
+        });
+
+        services.AddHttpClient<GroqServiceWithCache>();
+        services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();
 
         services.AddScoped<IEncryptionService, EncryptionService>();
 
-        // Add memory cache for AIConfig caching
         services.AddMemoryCache();
 
-        var redisConnectionString = configuration.GetSection("Redis:ConnectionString").Value;
         if (!string.IsNullOrEmpty(redisConnectionString))
         {
             services.AddStackExchangeRedisCache(options =>

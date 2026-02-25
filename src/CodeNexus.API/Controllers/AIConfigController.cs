@@ -28,7 +28,7 @@ namespace CodeNexus.API.Controllers
             var query = new GetAllAIConfigsQuery();
             var result = await _sender.Send(query, cancellationToken);
 
-            return Ok(result);
+            return ToActionResult(result);
         }
 
         [HttpPost]
@@ -38,7 +38,7 @@ namespace CodeNexus.API.Controllers
 
             var result = await _sender.Send(command, cancellationToken);
 
-            return Ok(result);
+            return ToActionResult(result);
         }
 
         [HttpPut("{providerName}")]
