@@ -24,7 +24,7 @@ public class DeleteGoalCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenGoalExists_DeletesSuccessfully()
+    public async Task Handle_WhenGoalExists_SoftDeletesSuccessfully()
     {
         // Arrange
         var goalId = Guid.NewGuid();
@@ -35,11 +35,13 @@ public class DeleteGoalCommandHandlerTests
             Title = "Goal to Delete",
             DurationDays = 30,
             IsCompleted = false,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
+        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new DeleteGoalCommand(goalId);
@@ -50,7 +52,8 @@ public class DeleteGoalCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal("Delete goal successful!", result.Value);
-        _mockContext.Verify(x => x.Goals.Remove(It.IsAny<GoalEntity>()), Times.Once);
+        Assert.True(existingGoal.IsDeleted);
+        Assert.NotNull(existingGoal.DeletedAt);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -60,6 +63,7 @@ public class DeleteGoalCommandHandlerTests
         // Arrange
         var goalId = Guid.NewGuid();
         SetupGoalsDbSet(new List<GoalEntity>());
+        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
 
         var command = new DeleteGoalCommand(goalId);
 
@@ -70,7 +74,6 @@ public class DeleteGoalCommandHandlerTests
         Assert.False(result.IsSuccess);
         Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
         Assert.Equal("The specified goal was not found.", result.ErrorMessage);
-        _mockContext.Verify(x => x.Goals.Remove(It.IsAny<GoalEntity>()), Times.Never);
     }
 
     [Fact]
@@ -86,11 +89,13 @@ public class DeleteGoalCommandHandlerTests
             Title = "Another User's Goal",
             DurationDays = 30,
             IsCompleted = false,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
+        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
 
         var command = new DeleteGoalCommand(goalId);
 
@@ -100,11 +105,10 @@ public class DeleteGoalCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
-        _mockContext.Verify(x => x.Goals.Remove(It.IsAny<GoalEntity>()), Times.Never);
     }
 
     [Fact]
-    public async Task Handle_WhenDeletingCompletedGoal_DeletesSuccessfully()
+    public async Task Handle_WhenDeletingCompletedGoal_SoftDeletesSuccessfully()
     {
         // Arrange
         var goalId = Guid.NewGuid();
@@ -116,11 +120,13 @@ public class DeleteGoalCommandHandlerTests
             DurationDays = 30,
             IsCompleted = true,
             CompletedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow.AddDays(-30)
+            CreatedAt = DateTime.UtcNow.AddDays(-30),
+            IsDeleted = false
         };
 
         var goals = new List<GoalEntity> { completedGoal };
         SetupGoalsDbSet(goals);
+        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new DeleteGoalCommand(goalId);
@@ -130,7 +136,21 @@ public class DeleteGoalCommandHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
-        _mockContext.Verify(x => x.Goals.Remove(It.Is<GoalEntity>(g => g.IsCompleted)), Times.Once);
+        Assert.True(completedGoal.IsDeleted);
+        Assert.NotNull(completedGoal.DeletedAt);
+    }
+
+    private void SetupLearningPathsDbSet(List<CodeNexus.Domain.Entities.LearningPath> learningPaths)
+    {
+        var queryable = new TestAsyncEnumerable<CodeNexus.Domain.Entities.LearningPath>(learningPaths);
+        var dbSetMock = new Mock<DbSet<CodeNexus.Domain.Entities.LearningPath>>();
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.LearningPaths).Returns(dbSetMock.Object);
     }
 
     private void SetupGoalsDbSet(List<GoalEntity> goals)

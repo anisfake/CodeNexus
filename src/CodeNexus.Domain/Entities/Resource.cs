@@ -21,6 +21,8 @@ namespace CodeNexus.Domain.Entities
         public string? OriginalFileName { get; set; }
         public string? Description { get; set; }
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<AISummary> AISummaries { get; set; } = new List<AISummary>();
     }

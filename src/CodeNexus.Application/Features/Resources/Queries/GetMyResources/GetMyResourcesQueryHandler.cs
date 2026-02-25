@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
 {
@@ -29,7 +30,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
             var userId = _currentUserService.GetUserId();
 
             var query = _context.Resources
-                .Where(r => r.UserId == userId)
+                .Where(r => r.UserId == userId && !r.IsDeleted)
                 .Include(r => r.Subject)
                 .AsQueryable();
 
@@ -40,7 +41,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
             }
 
             // filter type
-            if (request.Type != null)
+            if (!request.Type.Equals(ResourceType.All))
             {
                 query = query.Where(r => r.Type.Equals(request.Type));
             }
@@ -73,6 +74,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                 .Take(request.PageSize)
                 .Select(r => new ResourceResponse
                 (
+                    r.ResourceId,
                     r.Title,
                     r.Type,
                     r.URL,

@@ -18,6 +18,8 @@ namespace CodeNexus.Domain.Entities
         public string? Color { get; set; }
         public string? Icon { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<LearningPath> LearningPaths { get; set; } = new List<LearningPath>();
         public virtual ICollection<Resource> Resources { get; set; } = new List<Resource>();

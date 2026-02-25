@@ -3,6 +3,9 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
+using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using MediatR;
@@ -15,7 +18,7 @@ namespace CodeNexus.API.Controllers;
 
 [ApiController]
 [Route("api/learningpaths")]
-[Authorize]
+
 public class LearningPathController : ControllerBase
 {
     private readonly ISender _sender;
@@ -24,7 +27,8 @@ public class LearningPathController : ControllerBase
         _sender = sender;
     }
 
-    [HttpPost("")]
+    [HttpPost]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonCommand command, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(command, cancellationToken);
@@ -37,7 +41,44 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet]
+    [Authorize]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetAllLearningPath([FromQuery] GetAllLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetAllLearningPathQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.Status,
+            request.SortDescending
+        );
+        var result = await _sender.Send(query, cancellationToken);
+
+        return ToActionResult(result);
+    }
+
+    [HttpGet("user/{userId:guid}")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathByUserId(Guid userId, [FromQuery] GetLearningPathByUserIdRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathByUserIdQuery(
+            userId,
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.Status,
+            request.SortDescending
+        );
+        var result = await _sender.Send(query, cancellationToken);
+
+        return ToActionResult(result);
+    }
+
     [HttpPost("lessons/{lessonId:guid}/content")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateLessonContent(Guid lessonId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateLessonContentCommand(lessonId), cancellationToken);
@@ -45,6 +86,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost("chapters/{chapterId:guid}/generate-content")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateChapterContent(Guid chapterId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateChapterContentCommand(chapterId), cancellationToken);
@@ -52,6 +94,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost("quizzes/{quizId:guid}/generate-questions")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateQuizQuestions(Guid quizId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateQuizQuestionsCommand(quizId), cancellationToken);

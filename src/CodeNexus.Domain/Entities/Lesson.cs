@@ -17,6 +17,8 @@ namespace CodeNexus.Domain.Entities
         public int OrderIndex { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
     }

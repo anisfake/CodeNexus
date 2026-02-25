@@ -21,7 +21,7 @@ public class DeleteSubjectCommandHandler : IRequestHandler<DeleteSubjectCommand,
         var userId = _currentUserService.GetUserId();
 
         var subject = await _context.Subjects
-            .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId, cancellationToken);
+            .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId && !s.IsDeleted, cancellationToken);
 
         if (subject == null)
         {
@@ -35,7 +35,8 @@ public class DeleteSubjectCommandHandler : IRequestHandler<DeleteSubjectCommand,
 
         try
         {
-            _context.Subjects.Remove(subject);
+            subject.IsDeleted = true;
+            subject.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
