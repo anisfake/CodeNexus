@@ -37,8 +37,16 @@ namespace CodeNexus.Application.Features.AIConfigs.Queries.GetAllAIConfigs
 
                 var responses = configs.Select(config =>
                 {
-                    var configData = JsonConvert.DeserializeObject<Dictionary<string, object>>(config.ConfigJson)
-                        ?? new Dictionary<string, object>();
+                    Dictionary<string, object> configData;
+                    try
+                    {
+                        configData = JsonConvert.DeserializeObject<Dictionary<string, object>>(config.ConfigJson)
+                            ?? new Dictionary<string, object>();
+                    }
+                    catch
+                    {
+                        configData = new Dictionary<string, object>();
+                    }
 
                     return new GetAllAIConfigResponse(
                         ApiKey: config.EncryptedApiKey,
