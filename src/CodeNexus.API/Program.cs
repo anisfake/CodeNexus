@@ -54,6 +54,7 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
 //if (app.Environment.IsDevelopment())
 //{

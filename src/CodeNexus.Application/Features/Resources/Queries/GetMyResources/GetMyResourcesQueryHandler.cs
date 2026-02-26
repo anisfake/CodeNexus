@@ -31,7 +31,6 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
 
             var query = _context.Resources
                 .Where(r => r.UserId == userId && !r.IsDeleted)
-                .Include(r => r.Subject)
                 .AsQueryable();
 
             // filter subject
@@ -62,7 +61,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                     : query.OrderBy(r => r.UploadedAt)
             };
 
-            // pagination
+            // pagination and projection
             var items = await query
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
@@ -71,11 +70,11 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                     r.ResourceId,
                     r.Title,
                     r.Type,
-                    r.Description,
+                    r.Description ?? string.Empty,
                     r.FilePath,
                     r.OriginalFileName,
                     r.TotalPages,
-                    r.Subject.Name,
+                    r.Subject != null ? r.Subject.Name : "Unknown",
                     r.SubjectId
                 ))
                 .ToListAsync(cancellationToken);
