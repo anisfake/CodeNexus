@@ -14,7 +14,6 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
     {
         public int PageNumber { get; init; } = 1;
         public int PageSize { get; init; } = 10;
-        public ResourceType? Type { get; init; }
         public Guid? SubjectId { get; init; }
         public string? SearchTerm { get; init; }
         public ResourceSortBy SortBy { get; init; }

@@ -40,12 +40,6 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                 query = query.Where(r => r.SubjectId == request.SubjectId);
             }
 
-            // filter type
-            if (!request.Type.Equals(ResourceType.All))
-            {
-                query = query.Where(r => r.Type.Equals(request.Type));
-            }
-
             if (!string.IsNullOrWhiteSpace(request.SearchTerm))
             {
                 var searchTerm = request.SearchTerm.ToLower();
@@ -77,10 +71,10 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                     r.ResourceId,
                     r.Title,
                     r.Type,
-                    r.URL,
                     r.Description,
                     r.FilePath,
                     r.OriginalFileName,
+                    r.TotalPages,
                     r.Subject.Name,
                     r.SubjectId
                 ))

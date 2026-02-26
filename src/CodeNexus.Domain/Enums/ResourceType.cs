@@ -9,8 +9,6 @@ namespace CodeNexus.Domain.Enums
 {
     public enum ResourceType
     {
-        All = -1,
-        File = 0,
-        Link = 1
+        PDF = 0
     }
 }

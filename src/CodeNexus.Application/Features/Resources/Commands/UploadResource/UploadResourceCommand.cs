@@ -14,8 +14,6 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
     {
         public string FileName { get; init; } = string.Empty;
         public string Title { get; init; } = string.Empty;
-        public ResourceType Type { get; init; }
-        public string? Url { get; init; }
         public string? Description { get; init; }
         public Stream? FilePath { get; init; }
         public Guid SubjectId { get; init; }

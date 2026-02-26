@@ -37,7 +37,7 @@ public class DeleteResourceCommandHandler : IRequestHandler<DeleteResourceComman
             if (resource.UserId != userId)
                 return Result<string>.Failure("UNAUTHORIZED", "You can only delete your own resources");
 
-            if (resource.Type == ResourceType.File && !string.IsNullOrEmpty(resource.FilePath))
+            if (resource.Type == ResourceType.PDF && !string.IsNullOrEmpty(resource.FilePath))
             {
                 var publicId = ExtractPublicIdFromUrl(resource.FilePath);
                 if (!string.IsNullOrEmpty(publicId))

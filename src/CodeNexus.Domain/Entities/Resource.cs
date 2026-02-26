@@ -16,14 +16,15 @@ namespace CodeNexus.Domain.Entities
         public virtual Subject Subject { get; set; } = null!;
         public string Title { get; set; } = string.Empty;
         public ResourceType Type { get; set; }
-        public string? URL { get; set; }
         public string? FilePath { get; set; }
         public string? OriginalFileName { get; set; }
         public string? Description { get; set; }
-        public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
+        public int? TotalPages { get; set; }
+        public DateTime UploadedAt { get; set; } = DateTime.Now;
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
 
+        public virtual ICollection<ResourcePage> Pages { get; set; } = new List<ResourcePage>();
         public virtual ICollection<AISummary> AISummaries { get; set; } = new List<AISummary>();
     }
 }

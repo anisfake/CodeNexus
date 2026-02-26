@@ -35,6 +35,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<Tag> Tags => Set<Tag>();
         public DbSet<NoteTags> NoteTags => Set<NoteTags>();
         public DbSet<Resource> Resources => Set<Resource>();
+        public DbSet<ResourcePage> ResourcePages => Set<ResourcePage>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
         public DbSet<Conversation> Conversations => Set<Conversation>();
         public DbSet<Message> Messages => Set<Message>();
@@ -66,6 +67,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Note>().HasKey(e => e.NoteId);
             modelBuilder.Entity<Tag>().HasKey(e => e.TagId);
             modelBuilder.Entity<Resource>().HasKey(e => e.ResourceId);
+            modelBuilder.Entity<ResourcePage>().HasKey(e => e.ResourcePageId);
             modelBuilder.Entity<AISummary>().HasKey(e => e.SummaryId);
             modelBuilder.Entity<Quiz>().HasKey(e => e.QuizId);
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
@@ -177,6 +179,21 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.Resources)
                       .HasForeignKey(r => r.UserId)
                       .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasMany(r => r.Pages)
+                      .WithOne(p => p.Resource)
+                      .HasForeignKey(p => p.ResourceId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ResourcePage>(entity =>
+            {
+                entity.HasOne(p => p.Resource)
+                      .WithMany(r => r.Pages)
+                      .HasForeignKey(p => p.ResourceId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(p => new { p.ResourceId, p.PageNumber }).IsUnique();
             });
 
             modelBuilder.Entity<Chapter>()

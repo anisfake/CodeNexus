@@ -71,6 +71,7 @@ public static class DependencyInjection
 
         services.Configure<CloudinarySettings>(configuration.GetSection(CloudinarySettings.SectionName));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
+        services.AddScoped<IPdfProcessingService, PdfProcessingService>();
 
         var redisConnectionString = configuration["Redis__ConnectionString"];
         services.AddSingleton<IAIConfigCacheService>(sp =>

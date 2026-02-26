@@ -28,7 +28,7 @@ public class UpdateResourceCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UpdateLinkResource_ShouldUpdateUrlAndMetadata()
+    public async Task Handle_UpdateResourceMetadata_ShouldUpdateTitleAndDescription()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -37,7 +37,7 @@ public class UpdateResourceCommandHandlerTests
             resourceId,
             "Updated Title",
             "Updated description",
-            "https://updated-url.com",
+            null,
             null,
             null
         );
@@ -47,9 +47,9 @@ public class UpdateResourceCommandHandlerTests
             ResourceId = resourceId,
             UserId = userId,
             Title = "Old Title",
-            URL = "https://old-url.com",
+            FilePath = "https://old-url.com/file.pdf",
             Description = "Old description",
-            Type = ResourceType.Link,
+            Type = ResourceType.PDF,
             SubjectId = Guid.NewGuid()
         };
 
@@ -64,12 +64,11 @@ public class UpdateResourceCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal("Updated Title", resource.Title);
         Assert.Equal("Updated description", resource.Description);
-        Assert.Equal("https://updated-url.com", resource.URL);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_UpdateFileResource_ShouldUploadNewFile()
+    public async Task Handle_UpdatePdfFile_ShouldUploadNewFileAndDeleteOld()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -91,13 +90,13 @@ public class UpdateResourceCommandHandlerTests
             Title = "Old Title",
             FilePath = "https://res.cloudinary.com/demo/raw/upload/v1234567890/resources/user123/old-file.pdf",
             Description = "Old description",
-            Type = ResourceType.File,
+            Type = ResourceType.PDF,
             SubjectId = Guid.NewGuid()
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockCloudinaryService.Setup(x => x.DeleteFileAsync("resources/user123/old-file")).ReturnsAsync(true);
+        _mockCloudinaryService.Setup(x => x.DeleteFileAsync(It.IsAny<string>())).ReturnsAsync(true);
         _mockCloudinaryService.Setup(x => x.UploadFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync("new-file-path.pdf");
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -110,6 +109,7 @@ public class UpdateResourceCommandHandlerTests
         Assert.Equal("Updated Title", resource.Title);
         Assert.Equal("Updated description", resource.Description);
         Assert.Equal("new-file-path.pdf", resource.FilePath);
+        Assert.Equal("newfile.pdf", resource.OriginalFileName);
         _mockCloudinaryService.Verify(x => x.DeleteFileAsync(It.IsAny<string>()), Times.Once);
         _mockCloudinaryService.Verify(x => x.UploadFileAsync(It.IsAny<Stream>(), "newfile.pdf", $"resources/{userId}"), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -146,7 +146,7 @@ public class UpdateResourceCommandHandlerTests
             ResourceId = resourceId,
             UserId = ownerId,
             Title = "Old Title",
-            Type = ResourceType.File,
+            Type = ResourceType.PDF,
             SubjectId = Guid.NewGuid()
         };
 
@@ -177,7 +177,7 @@ public class UpdateResourceCommandHandlerTests
             Title = "Old Title",
             FilePath = "old-file.pdf",
             Description = "Old description",
-            Type = ResourceType.File,
+            Type = ResourceType.PDF,
             SubjectId = Guid.NewGuid()
         };
 
@@ -192,7 +192,7 @@ public class UpdateResourceCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal("New Title", resource.Title);
         Assert.Equal("New description", resource.Description);
-        Assert.Equal("old-file.pdf", resource.FilePath); // FilePath should not change
+        Assert.Equal("old-file.pdf", resource.FilePath);
         _mockCloudinaryService.Verify(x => x.UploadFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
@@ -210,7 +210,7 @@ public class UpdateResourceCommandHandlerTests
             ResourceId = resourceId,
             UserId = userId,
             Title = "Title",
-            Type = ResourceType.File,
+            Type = ResourceType.PDF,
             SubjectId = Guid.NewGuid()
         };
 
@@ -229,19 +229,20 @@ public class UpdateResourceCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UpdateFileResourceWithUrl_ShouldReturnInvalidUpdate()
+    public async Task Handle_WithNonPdfFile_ShouldReturnInvalidFileType()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var resourceId = Guid.NewGuid();
-        var command = new UpdateResourceCommand(resourceId, null, null, "https://example.com", null, null);
+        var fileStream = new MemoryStream(new byte[] { 1, 2, 3 });
+        var command = new UpdateResourceCommand(resourceId, null, null, null, fileStream, "file.txt");
 
         var resource = new Resource
         {
             ResourceId = resourceId,
             UserId = userId,
             Title = "Title",
-            Type = ResourceType.File,
+            Type = ResourceType.PDF,
             FilePath = "file.pdf",
             SubjectId = Guid.NewGuid()
         };
@@ -254,39 +255,39 @@ public class UpdateResourceCommandHandlerTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("INVALID_UPDATE", result.ErrorCode);
-        Assert.Contains("Cannot update URL for a File resource", result.ErrorMessage);
+        Assert.Equal("INVALID_FILE_TYPE", result.ErrorCode);
+        Assert.Contains("Only PDF files are allowed", result.ErrorMessage);
     }
 
     [Fact]
-    public async Task Handle_UpdateLinkResourceWithFile_ShouldReturnInvalidUpdate()
+    public async Task Handle_WhenSaveChangesFails_ShouldReturnError()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var resourceId = Guid.NewGuid();
-        var fileStream = new MemoryStream(new byte[] { 1, 2, 3 });
-        var command = new UpdateResourceCommand(resourceId, null, null, null, fileStream, "file.pdf");
+        var command = new UpdateResourceCommand(resourceId, "New Title", null, null, null, null);
 
         var resource = new Resource
         {
             ResourceId = resourceId,
             UserId = userId,
-            Title = "Title",
-            Type = ResourceType.Link,
-            URL = "https://example.com",
+            Title = "Old Title",
+            Type = ResourceType.PDF,
             SubjectId = Guid.NewGuid()
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("Database error"));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("INVALID_UPDATE", result.ErrorCode);
-        Assert.Contains("Cannot upload file for a Link resource", result.ErrorMessage);
+        Assert.Equal("ERROR", result.ErrorCode);
+        Assert.Contains("Database error", result.ErrorMessage);
     }
 
     private void SetupResourcesDbSet(List<Resource> resources)

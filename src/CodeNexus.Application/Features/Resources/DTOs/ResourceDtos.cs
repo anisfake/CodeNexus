@@ -12,30 +12,45 @@ namespace CodeNexus.Application.Features.Resources.DTOs
         Guid ResourceId,
         string Title,
         ResourceType Type,
-        string? Url,
         string? Description,
         string? FilePath,
         string? OriginalFileName,
+        int? TotalPages,
         string SubjectName,
         Guid SubjectId
     );
 
     public record UploadResourceRespone(
+        Guid ResourceId,
         string Title,
         ResourceType Type,
-        string? Url,
         string? Description,
         string? FilePath,
-        string? OriginalFileName
+        string? OriginalFileName,
+        int? TotalPages
     );
 
     public record GetMyResourceRequest(
         int PageNumber = 1,
         int PageSize = 10,
-        ResourceType Type = ResourceType.All,
         Guid? SubjectId = null,
         string? SearchTerm = null,
         ResourceSortBy SortBy = ResourceSortBy.Title,
         bool SortDescending = true
+    );
+
+    public record ResourcePagesResponse(
+        Guid ResourceId,
+        string Title,
+        string? OriginalFileName,
+        int TotalPages,
+        List<ResourcePageDto> Pages
+    );
+
+    public record ResourcePageDto(
+        Guid ResourcePageId,
+        int PageNumber,
+        string ImageUrl,
+        string? ExtractedText
     );
 }

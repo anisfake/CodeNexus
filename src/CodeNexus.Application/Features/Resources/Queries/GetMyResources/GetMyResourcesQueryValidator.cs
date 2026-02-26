@@ -11,10 +11,6 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
     {
         public GetMyResourcesQueryValidator()
         {
-            RuleFor(x => x.Type)
-                .IsInEnum()
-                .When(x => x.Type.HasValue)
-                .WithMessage("Type must be a valid enum value.");
             RuleFor(x => x.SortBy)
                 .IsInEnum()
                 .WithMessage("SortBy must be a valid enum value.");

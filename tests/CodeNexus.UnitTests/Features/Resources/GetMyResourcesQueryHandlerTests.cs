@@ -40,12 +40,12 @@ public class GetMyResourcesQueryHandlerTests
                 UserId = _userId,
                 SubjectId = _subjectId,
                 Title = "C# Basics",
-                Type = ResourceType.File,
-                URL = "https://example.com/csharp-basics.pdf",
+                Type = ResourceType.PDF,
+                FilePath = "https://example.com/csharp-basics.pdf",
                 Description = "Introduction to C#",
-                FilePath = "/resources/csharp-basics.pdf",
                 OriginalFileName = "csharp-basics.pdf",
                 UploadedAt = DateTime.UtcNow.AddDays(-5),
+                IsDeleted = false,
                 Subject = subject
             },
             new Resource
@@ -54,12 +54,12 @@ public class GetMyResourcesQueryHandlerTests
                 UserId = _userId,
                 SubjectId = _subjectId,
                 Title = "Advanced C#",
-                Type = ResourceType.Link,
-                URL = "https://example.com/advanced-csharp",
+                Type = ResourceType.PDF,
+                FilePath = "https://example.com/advanced-csharp.pdf",
                 Description = "Advanced C# concepts",
-                FilePath = null,
-                OriginalFileName = null,
+                OriginalFileName = "advanced-csharp.pdf",
                 UploadedAt = DateTime.UtcNow.AddDays(-3),
+                IsDeleted = false,
                 Subject = subject
             }
         };
@@ -77,7 +77,6 @@ public class GetMyResourcesQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 10,
-            Type = ResourceType.All,
             SortDescending = true
         };
 
@@ -108,7 +107,6 @@ public class GetMyResourcesQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 10,
-            Type = ResourceType.All,
             SearchTerm = "Advanced"
         };
 
@@ -140,12 +138,12 @@ public class GetMyResourcesQueryHandlerTests
             UserId = _userId,
             SubjectId = subject2.SubjectId,
             Title = "Java Guide",
-            Type = ResourceType.File,
-            URL = "https://example.com/java.pdf",
+            Type = ResourceType.PDF,
+            FilePath = "https://example.com/java.pdf",
             Description = "Java guide",
-            FilePath = "/resources/java.pdf",
             OriginalFileName = "java.pdf",
             UploadedAt = DateTime.UtcNow,
+            IsDeleted = false,
             Subject = subject2
         });
 
@@ -156,7 +154,6 @@ public class GetMyResourcesQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 10,
-            Type = ResourceType.All,
             SubjectId = _subjectId
         };
 
@@ -167,31 +164,6 @@ public class GetMyResourcesQueryHandlerTests
         result.Items.Should().HaveCount(2);
         result.Items.Should().AllSatisfy(r => r.SubjectId.Should().Be(_subjectId));
         result.Items.Should().OnlyContain(r => r.ResourceId == resources[0].ResourceId || r.ResourceId == resources[1].ResourceId);
-    }
-
-    [Fact]
-    public async Task Handle_WithTypeFilter_ReturnsResourcesOfSpecificType()
-    {
-        // Arrange
-        var resources = CreateTestResources();
-        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
-        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
-
-        var query = new GetMyResourcesQuery
-        {
-            PageNumber = 1,
-            PageSize = 10,
-            Type = ResourceType.File
-        };
-
-        // Act
-        var result = await _handler.Handle(query, CancellationToken.None);
-
-        // Assert
-        result.Items.Should().HaveCount(1);
-        result.Items[0].Type.Should().Be(ResourceType.File);
-        result.Items[0].Title.Should().Be("C# Basics");
-        result.Items[0].ResourceId.Should().Be(resources[0].ResourceId);
     }
 
     [Fact]
@@ -206,7 +178,6 @@ public class GetMyResourcesQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 10,
-            Type = ResourceType.All,
             SortBy = ResourceSortBy.Title,
             SortDescending = false
         };
@@ -230,8 +201,7 @@ public class GetMyResourcesQueryHandlerTests
         var query = new GetMyResourcesQuery
         {
             PageNumber = 1,
-            PageSize = 10,
-            Type = ResourceType.All
+            PageSize = 10
         };
 
         // Act
@@ -260,12 +230,12 @@ public class GetMyResourcesQueryHandlerTests
             UserId = _userId,
             SubjectId = _subjectId,
             Title = $"Resource {i}",
-            Type = ResourceType.File,
-            URL = $"https://example.com/resource{i}.pdf",
+            Type = ResourceType.PDF,
+            FilePath = $"https://example.com/resource{i}.pdf",
             Description = $"Resource {i} description",
-            FilePath = $"/resources/resource{i}.pdf",
             OriginalFileName = $"resource{i}.pdf",
             UploadedAt = DateTime.UtcNow.AddDays(-i),
+            IsDeleted = false,
             Subject = subject
         }).ToList();
 
@@ -275,8 +245,7 @@ public class GetMyResourcesQueryHandlerTests
         var query = new GetMyResourcesQuery
         {
             PageNumber = 2,
-            PageSize = 5,
-            Type = ResourceType.All
+            PageSize = 5
         };
 
         // Act
@@ -302,7 +271,6 @@ public class GetMyResourcesQueryHandlerTests
         {
             PageNumber = 1,
             PageSize = 10,
-            Type = ResourceType.All,
             SearchTerm = "Introduction"
         };
 
@@ -313,5 +281,31 @@ public class GetMyResourcesQueryHandlerTests
         result.Items.Should().HaveCount(1);
         result.Items[0].Title.Should().Be("C# Basics");
         result.Items[0].ResourceId.Should().Be(resources[0].ResourceId);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldFilterOutDeletedResources()
+    {
+        // Arrange
+        var resources = CreateTestResources();
+        resources[0].IsDeleted = true;
+        resources[0].DeletedAt = DateTime.UtcNow;
+
+        _mockCurrentUserService.Setup(s => s.GetUserId()).Returns(_userId);
+        _mockContext.Setup(c => c.Resources).Returns(resources.BuildMockDbSet().Object);
+
+        var query = new GetMyResourcesQuery
+        {
+            PageNumber = 1,
+            PageSize = 10
+        };
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Title.Should().Be("Advanced C#");
+        result.TotalCount.Should().Be(1);
     }
 }

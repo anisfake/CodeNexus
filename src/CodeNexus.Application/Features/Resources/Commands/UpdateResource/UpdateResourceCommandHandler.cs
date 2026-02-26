@@ -38,50 +38,41 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
             if (resource.UserId != userId)
                 return Result<string>.Failure("UNAUTHORIZED", "You can only update your own resources");
 
-            if (resource.Type == ResourceType.File && !string.IsNullOrEmpty(request.Url))
-                return Result<string>.Failure("INVALID_UPDATE", "Cannot update URL for a File resource. Please upload a file instead.");
-
-            if (resource.Type == ResourceType.Link && request.FilePath != null)
-                return Result<string>.Failure("INVALID_UPDATE", "Cannot upload file for a Link resource. Please provide a URL instead.");
-
             if (!string.IsNullOrEmpty(request.Title))
                 resource.Title = request.Title;
 
             if (request.Description != null)
                 resource.Description = request.Description;
 
-            if (resource.Type == ResourceType.File)
+            // Update PDF file if provided
+            if (request.FilePath != null && !string.IsNullOrEmpty(request.FileName))
             {
-                if (request.FilePath != null && !string.IsNullOrEmpty(request.FileName))
+                // Validate PDF file
+                if (!request.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    return Result<string>.Failure("INVALID_FILE_TYPE", "Only PDF files are allowed.");
+
+                // Delete old file from Cloudinary
+                if (!string.IsNullOrEmpty(resource.FilePath))
                 {
-                    if (!string.IsNullOrEmpty(resource.FilePath))
+                    var oldPublicId = ExtractPublicIdFromUrl(resource.FilePath);
+
+                    if (!string.IsNullOrEmpty(oldPublicId))
                     {
-                        var oldPublicId = ExtractPublicIdFromUrl(resource.FilePath);
-
-                        if (!string.IsNullOrEmpty(oldPublicId))
-                        {
-                            var deleteResult = await _cloudinaryService.DeleteFileAsync(oldPublicId);
-                        }
+                        var deleteResult = await _cloudinaryService.DeleteFileAsync(oldPublicId);
                     }
-
-                    var uploadResult = await _cloudinaryService.UploadFileAsync(
-                        request.FilePath,
-                        request.FileName,
-                        $"resources/{userId}");
-
-                    if (uploadResult == null)
-                        return Result<string>.Failure("UPLOAD_FAIL", "File upload failed");
-
-                    resource.FilePath = uploadResult;
-                    resource.OriginalFileName = request.FileName;
                 }
-            }
-            else if (resource.Type == ResourceType.Link)
-            {
-                if (!string.IsNullOrEmpty(request.Url))
-                {
-                    resource.URL = request.Url;
-                }
+
+                // Upload new file
+                var uploadResult = await _cloudinaryService.UploadFileAsync(
+                    request.FilePath,
+                    request.FileName,
+                    $"resources/{userId}");
+
+                if (uploadResult == null)
+                    return Result<string>.Failure("UPLOAD_FAIL", "File upload failed");
+
+                resource.FilePath = uploadResult;
+                resource.OriginalFileName = request.FileName;
             }
 
             await _context.SaveChangesAsync(cancellationToken);
