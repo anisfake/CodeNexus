@@ -30,7 +30,7 @@ namespace CodeNexus.Infrastructure.Services
                 await pdfStream.CopyToAsync(memoryStream);
                 var pdfBytes = memoryStream.ToArray();
 
-                using var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(1080, 1920));
+                using var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions());
                 return docReader.GetPageCount();
             }
             catch (Exception ex)
@@ -50,7 +50,7 @@ namespace CodeNexus.Infrastructure.Services
                 var result = new PdfProcessingResult();
                 var pages = new List<PdfPageData>();
 
-                using (var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(1080, 1920)))
+                using (var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions()))
                 {
                     result.TotalPages = docReader.GetPageCount();
 
@@ -91,13 +91,25 @@ namespace CodeNexus.Infrastructure.Services
             try
             {
                 using var pageReader = docReader.GetPageReader(pageIndex);
-                var rawBytes = pageReader.GetImage();
                 var width = pageReader.GetPageWidth();
                 var height = pageReader.GetPageHeight();
+                var rawBytes = pageReader.GetImage();
+
+                var expectedSize = width * height * 4;
+
+                if (rawBytes.Length < expectedSize)
+                {
+                    throw new InvalidOperationException(
+                        $"Image data size insufficient. Expected: {expectedSize}, Actual: {rawBytes.Length}, " +
+                        $"Width: {width}, Height: {height}");
+                }
+
+                var bytesToCopy = Math.Min(rawBytes.Length, expectedSize);
 
                 using var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
                 var pixelPtr = bitmap.GetPixels();
-                System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, pixelPtr, rawBytes.Length);
+
+                System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, pixelPtr, bytesToCopy);
 
                 using var image = SKImage.FromBitmap(bitmap);
                 using var data = image.Encode(SKEncodedImageFormat.Png, 90);

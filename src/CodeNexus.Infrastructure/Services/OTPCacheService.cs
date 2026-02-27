@@ -208,7 +208,6 @@ public class OTPCacheService : IOTPCacheService
         }
         catch
         {
-            // Silently fail if Redis is unavailable
         }
     }
 

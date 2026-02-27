@@ -84,20 +84,18 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
                     }
                 }
 
-                // Read stream into byte array to avoid stream disposal issues
                 byte[] fileBytes;
                 if (request.FilePath.CanSeek)
                 {
                     request.FilePath.Position = 0;
                 }
-                
+
                 using (var ms = new System.IO.MemoryStream())
                 {
                     await request.FilePath.CopyToAsync(ms, cancellationToken);
                     fileBytes = ms.ToArray();
                 }
 
-                // Upload new PDF file
                 using (var uploadStream = new System.IO.MemoryStream(fileBytes))
                 {
                     var uploadResult = await _cloudinaryService.UploadFileAsync(
@@ -112,7 +110,6 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
                     resource.OriginalFileName = request.FileName;
                 }
 
-                // Process new PDF and create new pages
                 using (var processStream = new System.IO.MemoryStream(fileBytes))
                 {
                     var processingResult = await _pdfProcessingService.ProcessPdfAsync(processStream, userId.ToString());
