@@ -5,7 +5,6 @@ using CodeNexus.Infrastructure.Services;
 using CodeNexus.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.StackExchangeRedis;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -26,7 +25,6 @@ public static class DependencyInjection
         services.Configure<EmailSettings>(configuration.GetSection(EmailSettings.SectionName));
         services.AddScoped<IEmailService, EmailService>();
         services.AddScoped<IOTPService, OTPService>();
-        services.AddScoped<IOTPCacheService, OTPCacheService>();
         services.AddScoped<IPasswordService, PasswordService>();
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<ITokenService, TokenService>();
@@ -74,12 +72,39 @@ public static class DependencyInjection
         services.AddScoped<IPdfProcessingService, PdfProcessingService>();
 
         var redisConnectionString = configuration["Redis__ConnectionString"];
-        services.AddSingleton<IAIConfigCacheService>(sp =>
+
+        services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
         {
-            var redis = StackExchange.Redis.ConnectionMultiplexer.Connect(
-                redisConnectionString ?? "localhost:6379");
-            return new AIConfigCacheService(redis);
+            if (!string.IsNullOrEmpty(redisConnectionString))
+            {
+                try
+                {
+                    var configOptions = StackExchange.Redis.ConfigurationOptions.Parse(redisConnectionString);
+                    configOptions.AbortOnConnectFail = false;
+                    configOptions.ConnectTimeout = 10000;
+                    configOptions.SyncTimeout = 5000;
+                    configOptions.ConnectRetry = 3;
+
+                    return StackExchange.Redis.ConnectionMultiplexer.Connect(configOptions);
+                }
+                catch
+                {
+                    var fallbackOptions = StackExchange.Redis.ConfigurationOptions.Parse("localhost:6379");
+                    fallbackOptions.AbortOnConnectFail = false;
+                    return StackExchange.Redis.ConnectionMultiplexer.Connect(fallbackOptions);
+                }
+            }
+            else
+            {
+                var fallbackOptions = StackExchange.Redis.ConfigurationOptions.Parse("localhost:6379");
+                fallbackOptions.AbortOnConnectFail = false;
+                return StackExchange.Redis.ConnectionMultiplexer.Connect(fallbackOptions);
+            }
         });
+
+
+        services.AddScoped<IAIConfigCacheService, AIConfigCacheService>();
+        services.AddScoped<IOTPCacheService, OTPCacheService>();
 
         services.AddHttpClient<GroqServiceWithCache>();
         services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();
@@ -87,21 +112,6 @@ public static class DependencyInjection
         services.AddScoped<IEncryptionService, EncryptionService>();
 
         services.AddMemoryCache();
-
-        if (!string.IsNullOrEmpty(redisConnectionString))
-        {
-            services.AddStackExchangeRedisCache(options =>
-            {
-                options.ConfigurationOptions = StackExchange.Redis.ConfigurationOptions.Parse(redisConnectionString);
-                options.ConfigurationOptions.AbortOnConnectFail = false;
-                options.ConfigurationOptions.ConnectTimeout = 10000;
-                options.ConfigurationOptions.SyncTimeout = 5000;
-            });
-        }
-        else
-        {
-            services.AddDistributedMemoryCache();
-        }
 
         return services;
     }

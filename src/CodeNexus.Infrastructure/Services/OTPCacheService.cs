@@ -1,13 +1,13 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Enums;
-using Microsoft.Extensions.Caching.Distributed;
+using StackExchange.Redis;
 
 namespace CodeNexus.Infrastructure.Services;
 
 public class OTPCacheService : IOTPCacheService
 {
-    private readonly IDistributedCache _cache;
+    private readonly IConnectionMultiplexer _redis;
     private readonly IOTPService _otpService;
     private string _lastGeneratedOtp = string.Empty;
 
@@ -15,9 +15,9 @@ public class OTPCacheService : IOTPCacheService
     private const int ResendRateLimitMinutes = 1;
     private const int MaxResendPerHour = 5;
 
-    public OTPCacheService(IDistributedCache cache, IOTPService otpService)
+    public OTPCacheService(IConnectionMultiplexer redis, IOTPService otpService)
     {
-        _cache = cache;
+        _redis = redis;
         _otpService = otpService;
     }
 
@@ -27,57 +27,59 @@ public class OTPCacheService : IOTPCacheService
         string? additionalData,
         CancellationToken cancellationToken)
     {
-        var resendKey = $"otp:resend:{email}";
-        var lastResendTime = await _cache.GetStringAsync(resendKey, cancellationToken);
-
-        if (lastResendTime != null)
+        try
         {
-            return Result.Failure("OTP_RATE_LIMITED", "Please wait 1 minute before requesting a new OTP");
+            if (!_redis.IsConnected)
+                return Result.Failure("CACHE_ERROR", "Cache service is unavailable");
+
+            var db = _redis.GetDatabase();
+
+            var resendKey = $"otp:resend:{email}";
+            var lastResendTime = await db.StringGetAsync(resendKey);
+
+            if (lastResendTime.HasValue)
+            {
+                return Result.Failure("OTP_RATE_LIMITED", "Please wait 1 minute before requesting a new OTP");
+            }
+
+            var resendCountKey = $"otp:resend:count:{email}";
+            var resendCountStr = await db.StringGetAsync(resendCountKey);
+            var resendCount = resendCountStr.HasValue && int.TryParse(resendCountStr, out var count) ? count : 0;
+
+            if (resendCount >= MaxResendPerHour)
+            {
+                return Result.Failure("RESEND_RATE_LIMITED", "Too many resend requests. Please try again later");
+            }
+
+            var otp = _otpService.GenerateOtp();
+            _lastGeneratedOtp = otp;
+            var otpHash = _otpService.HashOtp(otp);
+
+            var otpExpiration = TimeSpan.FromMinutes(OtpExpirationMinutes);
+            var otpKey = $"otp:{email}";
+            await db.StringSetAsync(otpKey, otpHash, otpExpiration);
+
+            var purposeKey = $"otp:purpose:{email}";
+            await db.StringSetAsync(purposeKey, purpose.ToString(), otpExpiration);
+
+            if (!string.IsNullOrEmpty(additionalData))
+            {
+                var dataKey = $"otp:data:{email}";
+                await db.StringSetAsync(dataKey, additionalData, otpExpiration);
+            }
+
+            var resendExpiration = TimeSpan.FromMinutes(ResendRateLimitMinutes);
+            await db.StringSetAsync(resendKey, DateTime.Now.ToString("O"), resendExpiration);
+
+            var hourlyExpiration = TimeSpan.FromHours(1);
+            await db.StringSetAsync(resendCountKey, (resendCount + 1).ToString(), hourlyExpiration);
+
+            return Result.Success();
         }
-
-        var resendCountKey = $"otp:resend:count:{email}";
-        var resendCountStr = await _cache.GetStringAsync(resendCountKey, cancellationToken);
-        var resendCount = int.TryParse(resendCountStr, out var count) ? count : 0;
-
-        if (resendCount >= MaxResendPerHour)
+        catch
         {
-            return Result.Failure("RESEND_RATE_LIMITED", "Too many resend requests. Please try again later");
+            return Result.Failure("CACHE_ERROR", "Failed to store OTP");
         }
-
-        var otp = _otpService.GenerateOtp();
-        _lastGeneratedOtp = otp;
-        var otpHash = _otpService.HashOtp(otp);
-
-        var cacheOptions = new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(OtpExpirationMinutes)
-        };
-
-        var otpKey = $"otp:{email}";
-        await _cache.SetStringAsync(otpKey, otpHash, cacheOptions, cancellationToken);
-
-        var purposeKey = $"otp:purpose:{email}";
-        await _cache.SetStringAsync(purposeKey, purpose.ToString(), cacheOptions, cancellationToken);
-
-        if (!string.IsNullOrEmpty(additionalData))
-        {
-            var dataKey = $"otp:data:{email}";
-            await _cache.SetStringAsync(dataKey, additionalData, cacheOptions, cancellationToken);
-        }
-
-        var resendOptions = new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(ResendRateLimitMinutes)
-        };
-        await _cache.SetStringAsync(resendKey, DateTime.Now.ToString("O"), resendOptions, cancellationToken);
-
-        var hourlyOptions = new DistributedCacheEntryOptions
-        {
-            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
-        };
-        await _cache.SetStringAsync(resendCountKey, (resendCount + 1).ToString(), hourlyOptions, cancellationToken);
-
-        return Result.Success();
     }
 
     public async Task<Result<(string data, OtpPurpose purpose)>> VerifyOtpAsync(
@@ -85,82 +87,129 @@ public class OTPCacheService : IOTPCacheService
         string otp,
         CancellationToken cancellationToken)
     {
-        var otpKey = $"otp:{email}";
-        var storedOtpHash = await _cache.GetStringAsync(otpKey, cancellationToken);
-
-        if (storedOtpHash == null)
+        try
         {
-            return Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "No pending verification found for this email");
-        }
+            if (!_redis.IsConnected)
+                return Result<(string, OtpPurpose)>.Failure("CACHE_ERROR", "Cache service is unavailable");
 
-        if (!_otpService.VerifyOtp(otp, storedOtpHash))
+            var db = _redis.GetDatabase();
+
+            var otpKey = $"otp:{email}";
+            var storedOtpHash = await db.StringGetAsync(otpKey);
+
+            if (!storedOtpHash.HasValue)
+            {
+                return Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "No pending verification found for this email");
+            }
+
+            if (!_otpService.VerifyOtp(otp, storedOtpHash.ToString()))
+            {
+                return Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "Invalid OTP code");
+            }
+
+            var purposeKey = $"otp:purpose:{email}";
+            var purposeStr = await db.StringGetAsync(purposeKey);
+
+            if (!purposeStr.HasValue || !Enum.TryParse<OtpPurpose>(purposeStr.ToString(), out var purpose))
+            {
+                return Result<(string, OtpPurpose)>.Failure("INVALID_PURPOSE", "OTP purpose not found");
+            }
+
+            var dataKey = $"otp:data:{email}";
+            var dataValue = await db.StringGetAsync(dataKey);
+            var data = dataValue.HasValue ? dataValue.ToString() : string.Empty;
+
+            return Result<(string, OtpPurpose)>.Success((data, purpose));
+        }
+        catch
         {
-            return Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "Invalid OTP code");
+            return Result<(string, OtpPurpose)>.Failure("CACHE_ERROR", "Failed to verify OTP");
         }
-
-        var purposeKey = $"otp:purpose:{email}";
-        var purposeStr = await _cache.GetStringAsync(purposeKey, cancellationToken);
-
-        if (purposeStr == null || !Enum.TryParse<OtpPurpose>(purposeStr, out var purpose))
-        {
-            return Result<(string, OtpPurpose)>.Failure("INVALID_PURPOSE", "OTP purpose not found");
-        }
-
-        var dataKey = $"otp:data:{email}";
-        var data = await _cache.GetStringAsync(dataKey, cancellationToken) ?? string.Empty;
-
-        return Result<(string, OtpPurpose)>.Success((data, purpose));
     }
 
     public async Task<Result> ResendOtpAsync(
         string email,
         CancellationToken cancellationToken)
     {
-        var dataKey = $"otp:data:{email}";
-        var data = await _cache.GetStringAsync(dataKey, cancellationToken);
-
-        var purposeKey = $"otp:purpose:{email}";
-        var purposeStr = await _cache.GetStringAsync(purposeKey, cancellationToken);
-
-        if (data == null || purposeStr == null)
+        try
         {
-            return Result.Failure("INVALID_EMAIL", "No pending verification found for this email");
-        }
+            if (!_redis.IsConnected)
+                return Result.Failure("CACHE_ERROR", "Cache service is unavailable");
 
-        if (!Enum.TryParse<OtpPurpose>(purposeStr, out var purpose))
+            var db = _redis.GetDatabase();
+
+            var dataKey = $"otp:data:{email}";
+            var data = await db.StringGetAsync(dataKey);
+
+            var purposeKey = $"otp:purpose:{email}";
+            var purposeStr = await db.StringGetAsync(purposeKey);
+
+            if (!data.HasValue || !purposeStr.HasValue)
+            {
+                return Result.Failure("INVALID_EMAIL", "No pending verification found for this email");
+            }
+
+            if (!Enum.TryParse<OtpPurpose>(purposeStr.ToString(), out var purpose))
+            {
+                return Result.Failure("INVALID_PURPOSE", "Invalid OTP purpose");
+            }
+
+            return await GenerateAndStoreOtpAsync(email, purpose, null, cancellationToken);
+        }
+        catch
         {
-            return Result.Failure("INVALID_PURPOSE", "Invalid OTP purpose");
+            return Result.Failure("CACHE_ERROR", "Failed to resend OTP");
         }
-
-        return await GenerateAndStoreOtpAsync(email, purpose, null, cancellationToken);
     }
 
     public async Task<Result<string>> GetDataAsync(
         string email,
         CancellationToken cancellationToken)
     {
-        var dataKey = $"otp:data:{email}";
-        var data = await _cache.GetStringAsync(dataKey, cancellationToken);
-
-        if (data == null)
+        try
         {
-            return Result<string>.Failure("INVALID_PURPOSE", "Data not found");
-        }
+            if (!_redis.IsConnected)
+                return Result<string>.Failure("CACHE_ERROR", "Cache service is unavailable");
 
-        return Result<string>.Success(data);
+            var db = _redis.GetDatabase();
+            var dataKey = $"otp:data:{email}";
+            var data = await db.StringGetAsync(dataKey);
+
+            if (!data.HasValue)
+            {
+                return Result<string>.Failure("INVALID_PURPOSE", "Data not found");
+            }
+
+            return Result<string>.Success(data.ToString());
+        }
+        catch
+        {
+            return Result<string>.Failure("CACHE_ERROR", "Failed to get data");
+        }
     }
 
     public async Task DeleteOtpDataAsync(
         string email,
         CancellationToken cancellationToken)
     {
-        var otpKey = $"otp:{email}";
-        var dataKey = $"otp:data:{email}";
-        var purposeKey = $"otp:purpose:{email}";
+        try
+        {
+            if (!_redis.IsConnected)
+                return;
 
-        await _cache.RemoveAsync(otpKey, cancellationToken);
-        await _cache.RemoveAsync(dataKey, cancellationToken);
-        await _cache.RemoveAsync(purposeKey, cancellationToken);
+            var db = _redis.GetDatabase();
+            var otpKey = $"otp:{email}";
+            var dataKey = $"otp:data:{email}";
+            var purposeKey = $"otp:purpose:{email}";
+
+            await db.KeyDeleteAsync(otpKey);
+            await db.KeyDeleteAsync(dataKey);
+            await db.KeyDeleteAsync(purposeKey);
+        }
+        catch
+        {
+            // Silently fail if Redis is unavailable
+        }
     }
 
     public string GetLastGeneratedOtp()
