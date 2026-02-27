@@ -14,6 +14,7 @@ public class UpdateResourceCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ICloudinaryService> _mockCloudinaryService;
+    private readonly Mock<IPdfProcessingService> _mockPdfProcessingService;
     private readonly UpdateResourceCommandHandler _handler;
 
     public UpdateResourceCommandHandlerTests()
@@ -21,10 +22,12 @@ public class UpdateResourceCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockCloudinaryService = new Mock<ICloudinaryService>();
+        _mockPdfProcessingService = new Mock<IPdfProcessingService>();
         _handler = new UpdateResourceCommandHandler(
             _mockContext.Object, 
             _mockCurrentUserService.Object,
-            _mockCloudinaryService.Object);
+            _mockCloudinaryService.Object,
+            _mockPdfProcessingService.Object);
     }
 
     [Fact]
@@ -37,7 +40,6 @@ public class UpdateResourceCommandHandlerTests
             resourceId,
             "Updated Title",
             "Updated description",
-            null,
             null,
             null
         );
@@ -78,7 +80,6 @@ public class UpdateResourceCommandHandlerTests
             resourceId,
             "Updated Title",
             "Updated description",
-            null,
             fileStream,
             "newfile.pdf"
         );
@@ -91,14 +92,29 @@ public class UpdateResourceCommandHandlerTests
             FilePath = "https://res.cloudinary.com/demo/raw/upload/v1234567890/resources/user123/old-file.pdf",
             Description = "Old description",
             Type = ResourceType.PDF,
-            SubjectId = Guid.NewGuid()
+            SubjectId = Guid.NewGuid(),
+            Pages = new List<ResourcePage>()
         };
 
         SetupResourcesDbSet(new List<Resource> { resource });
+        SetupResourcePagesDbSet(new List<ResourcePage>());
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockCloudinaryService.Setup(x => x.DeleteFileAsync(It.IsAny<string>())).ReturnsAsync(true);
         _mockCloudinaryService.Setup(x => x.UploadFileAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync("new-file-path.pdf");
+        
+        var pdfProcessingResult = new PdfProcessingResult
+        {
+            TotalPages = 5,
+            Pages = new List<PdfPageData>
+            {
+                new PdfPageData { PageNumber = 1, ImageUrl = "page1.jpg", ExtractedText = "Text 1" },
+                new PdfPageData { PageNumber = 2, ImageUrl = "page2.jpg", ExtractedText = "Text 2" }
+            }
+        };
+        _mockPdfProcessingService.Setup(x => x.ProcessPdfAsync(It.IsAny<Stream>(), It.IsAny<string>()))
+            .ReturnsAsync(pdfProcessingResult);
+        
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         // Act
@@ -110,8 +126,11 @@ public class UpdateResourceCommandHandlerTests
         Assert.Equal("Updated description", resource.Description);
         Assert.Equal("new-file-path.pdf", resource.FilePath);
         Assert.Equal("newfile.pdf", resource.OriginalFileName);
+        Assert.Equal(5, resource.TotalPages);
         _mockCloudinaryService.Verify(x => x.DeleteFileAsync(It.IsAny<string>()), Times.Once);
         _mockCloudinaryService.Verify(x => x.UploadFileAsync(It.IsAny<Stream>(), "newfile.pdf", $"resources/{userId}"), Times.Once);
+        _mockPdfProcessingService.Verify(x => x.ProcessPdfAsync(It.IsAny<Stream>(), userId.ToString()), Times.Once);
+        _mockContext.Verify(x => x.ResourcePages.AddRangeAsync(It.IsAny<IEnumerable<ResourcePage>>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -119,7 +138,7 @@ public class UpdateResourceCommandHandlerTests
     public async Task Handle_WithNonExistentResource_ShouldReturnNotFound()
     {
         // Arrange
-        var command = new UpdateResourceCommand(Guid.NewGuid(), "Title", null, null, null, null);
+        var command = new UpdateResourceCommand(Guid.NewGuid(), "Title", null, null, null);
         SetupResourcesDbSet(new List<Resource>());
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(Guid.NewGuid());
 
@@ -139,7 +158,7 @@ public class UpdateResourceCommandHandlerTests
         var resourceId = Guid.NewGuid();
         var ownerId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
-        var command = new UpdateResourceCommand(resourceId, "New Title", null, null, null, null);
+        var command = new UpdateResourceCommand(resourceId, "New Title", null, null, null);
 
         var resource = new Resource
         {
@@ -168,7 +187,7 @@ public class UpdateResourceCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var resourceId = Guid.NewGuid();
-        var command = new UpdateResourceCommand(resourceId, "New Title", "New description", null, null, null);
+        var command = new UpdateResourceCommand(resourceId, "New Title", "New description", null, null);
 
         var resource = new Resource
         {
@@ -203,7 +222,7 @@ public class UpdateResourceCommandHandlerTests
         var userId = Guid.NewGuid();
         var resourceId = Guid.NewGuid();
         var fileStream = new MemoryStream(new byte[] { 1, 2, 3 });
-        var command = new UpdateResourceCommand(resourceId, null, null, null, fileStream, "file.pdf");
+        var command = new UpdateResourceCommand(resourceId, null, null, fileStream, "file.pdf");
 
         var resource = new Resource
         {
@@ -235,7 +254,7 @@ public class UpdateResourceCommandHandlerTests
         var userId = Guid.NewGuid();
         var resourceId = Guid.NewGuid();
         var fileStream = new MemoryStream(new byte[] { 1, 2, 3 });
-        var command = new UpdateResourceCommand(resourceId, null, null, null, fileStream, "file.txt");
+        var command = new UpdateResourceCommand(resourceId, null, null, fileStream, "file.txt");
 
         var resource = new Resource
         {
@@ -265,7 +284,7 @@ public class UpdateResourceCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var resourceId = Guid.NewGuid();
-        var command = new UpdateResourceCommand(resourceId, "New Title", null, null, null, null);
+        var command = new UpdateResourceCommand(resourceId, "New Title", null, null, null);
 
         var resource = new Resource
         {
@@ -301,5 +320,14 @@ public class UpdateResourceCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<Resource>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.Resources).Returns(dbSetMock.Object);
+    }
+
+    private void SetupResourcePagesDbSet(List<ResourcePage> pages)
+    {
+        var dbSetMock = new Mock<DbSet<ResourcePage>>();
+        dbSetMock.Setup(m => m.AddRangeAsync(It.IsAny<IEnumerable<ResourcePage>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        dbSetMock.Setup(m => m.RemoveRange(It.IsAny<IEnumerable<ResourcePage>>()));
+        _mockContext.Setup(x => x.ResourcePages).Returns(dbSetMock.Object);
     }
 }

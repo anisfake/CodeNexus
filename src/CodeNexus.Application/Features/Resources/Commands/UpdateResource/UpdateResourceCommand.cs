@@ -8,7 +8,6 @@ public record UpdateResourceCommand(
     Guid ResourceId,
     string? Title,
     string? Description,
-    string? Url,
     Stream? FilePath,
     string? FileName
 ) : IRequest<Result<string>>;

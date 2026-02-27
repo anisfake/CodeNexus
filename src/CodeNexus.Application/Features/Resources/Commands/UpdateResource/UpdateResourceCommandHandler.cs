@@ -1,9 +1,14 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Resources.DTOs;
+using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace CodeNexus.Application.Features.Resources.Commands.UpdateResource;
 
@@ -12,15 +17,18 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IPdfProcessingService _pdfProcessingService;
 
     public UpdateResourceCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        IPdfProcessingService pdfProcessingService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _cloudinaryService = cloudinaryService;
+        _pdfProcessingService = pdfProcessingService;
     }
 
     public async Task<Result<string>> Handle(UpdateResourceCommand request, CancellationToken cancellationToken)
@@ -30,6 +38,7 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
             var userId = _currentUserService.GetUserId();
 
             var resource = await _context.Resources
+                .Include(r => r.Pages)
                 .FirstOrDefaultAsync(x => x.ResourceId == request.ResourceId, cancellationToken);
 
             if (resource == null)
@@ -44,35 +53,84 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
             if (request.Description != null)
                 resource.Description = request.Description;
 
-            // Update PDF file if provided
             if (request.FilePath != null && !string.IsNullOrEmpty(request.FileName))
             {
-                // Validate PDF file
                 if (!request.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                     return Result<string>.Failure("INVALID_FILE_TYPE", "Only PDF files are allowed.");
 
-                // Delete old file from Cloudinary
+                if (resource.Pages != null && resource.Pages.Any())
+                {
+                    foreach (var page in resource.Pages)
+                    {
+                        if (!string.IsNullOrEmpty(page.ImageUrl))
+                        {
+                            var pagePublicId = ExtractPublicIdFromUrl(page.ImageUrl);
+                            if (!string.IsNullOrEmpty(pagePublicId))
+                            {
+                                await _cloudinaryService.DeleteFileAsync(pagePublicId);
+                            }
+                        }
+                    }
+
+                    _context.ResourcePages.RemoveRange(resource.Pages);
+                }
+
                 if (!string.IsNullOrEmpty(resource.FilePath))
                 {
                     var oldPublicId = ExtractPublicIdFromUrl(resource.FilePath);
-
                     if (!string.IsNullOrEmpty(oldPublicId))
                     {
-                        var deleteResult = await _cloudinaryService.DeleteFileAsync(oldPublicId);
+                        await _cloudinaryService.DeleteFileAsync(oldPublicId);
                     }
                 }
 
-                // Upload new file
-                var uploadResult = await _cloudinaryService.UploadFileAsync(
-                    request.FilePath,
-                    request.FileName,
-                    $"resources/{userId}");
+                // Read stream into byte array to avoid stream disposal issues
+                byte[] fileBytes;
+                if (request.FilePath.CanSeek)
+                {
+                    request.FilePath.Position = 0;
+                }
+                
+                using (var ms = new System.IO.MemoryStream())
+                {
+                    await request.FilePath.CopyToAsync(ms, cancellationToken);
+                    fileBytes = ms.ToArray();
+                }
 
-                if (uploadResult == null)
-                    return Result<string>.Failure("UPLOAD_FAIL", "File upload failed");
+                // Upload new PDF file
+                using (var uploadStream = new System.IO.MemoryStream(fileBytes))
+                {
+                    var uploadResult = await _cloudinaryService.UploadFileAsync(
+                        uploadStream,
+                        request.FileName,
+                        $"resources/{userId}");
 
-                resource.FilePath = uploadResult;
-                resource.OriginalFileName = request.FileName;
+                    if (uploadResult == null)
+                        return Result<string>.Failure("UPLOAD_FAIL", "File upload failed");
+
+                    resource.FilePath = uploadResult;
+                    resource.OriginalFileName = request.FileName;
+                }
+
+                // Process new PDF and create new pages
+                using (var processStream = new System.IO.MemoryStream(fileBytes))
+                {
+                    var processingResult = await _pdfProcessingService.ProcessPdfAsync(processStream, userId.ToString());
+
+                    resource.TotalPages = processingResult.TotalPages;
+
+                    var newPages = processingResult.Pages.Select(p => new ResourcePage
+                    {
+                        ResourcePageId = Guid.NewGuid(),
+                        ResourceId = resource.ResourceId,
+                        PageNumber = p.PageNumber,
+                        ImageUrl = p.ImageUrl,
+                        ExtractedText = p.ExtractedText,
+                        CreatedAt = DateTime.UtcNow
+                    }).ToList();
+
+                    await _context.ResourcePages.AddRangeAsync(newPages, cancellationToken);
+                }
             }
 
             await _context.SaveChangesAsync(cancellationToken);

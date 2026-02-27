@@ -93,7 +93,6 @@ namespace CodeNexus.API.Controllers
                 resourceId,
                 request.Title,
                 request.Description,
-                request.Url,
                 stream,
                 request.File?.FileName
             );

@@ -108,9 +108,34 @@ public class CloudinaryService : ICloudinaryService
         {
             Console.WriteLine($"[CloudinaryService] Attempting to delete file with publicId: {publicId}");
             
-            var deleteParams = new DeletionParams(publicId)
+            // Determine resource type based on file extension
+            var resourceType = ResourceType.Raw;
+            var cleanPublicId = publicId;
+            
+            // Check if it's an image file
+            var isImage = publicId.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                         publicId.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                         publicId.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                         publicId.EndsWith(".gif", StringComparison.OrdinalIgnoreCase) ||
+                         publicId.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+            
+            if (isImage)
             {
-                ResourceType = ResourceType.Raw
+                resourceType = ResourceType.Image;
+            }
+            
+            // Always remove extension from public ID (Cloudinary stores without extension)
+            var lastDotIndex = publicId.LastIndexOf('.');
+            if (lastDotIndex > 0)
+            {
+                cleanPublicId = publicId.Substring(0, lastDotIndex);
+            }
+            
+            Console.WriteLine($"[CloudinaryService] Using resourceType: {resourceType}, cleanPublicId: {cleanPublicId}");
+            
+            var deleteParams = new DeletionParams(cleanPublicId)
+            {
+                ResourceType = resourceType
             };
             var result = await _cloudinary.DestroyAsync(deleteParams);
 
