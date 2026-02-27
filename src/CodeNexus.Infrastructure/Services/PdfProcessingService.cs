@@ -30,7 +30,8 @@ namespace CodeNexus.Infrastructure.Services
                 await pdfStream.CopyToAsync(memoryStream);
                 var pdfBytes = memoryStream.ToArray();
 
-                using var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions());
+                // Use a reasonable scale factor (1.5 = 150 DPI)
+                using var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(1.5));
                 return docReader.GetPageCount();
             }
             catch (Exception ex)
@@ -50,7 +51,8 @@ namespace CodeNexus.Infrastructure.Services
                 var result = new PdfProcessingResult();
                 var pages = new List<PdfPageData>();
 
-                using (var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions()))
+                // Use a reasonable scale factor (1.5 = 150 DPI) for consistent rendering
+                using (var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(1.5)))
                 {
                     result.TotalPages = docReader.GetPageCount();
 
@@ -93,10 +95,26 @@ namespace CodeNexus.Infrastructure.Services
                 using var pageReader = docReader.GetPageReader(pageIndex);
                 var width = pageReader.GetPageWidth();
                 var height = pageReader.GetPageHeight();
-                var rawBytes = pageReader.GetImage();
 
+                // Validate dimensions
+                if (width <= 0 || height <= 0)
+                {
+                    throw new InvalidOperationException($"Invalid page dimensions: {width}x{height}");
+                }
+
+                // Limit maximum dimensions to prevent memory issues
+                const int maxDimension = 4096;
+                if (width > maxDimension || height > maxDimension)
+                {
+                    var scale = Math.Min((double)maxDimension / width, (double)maxDimension / height);
+                    width = (int)(width * scale);
+                    height = (int)(height * scale);
+                }
+
+                var rawBytes = pageReader.GetImage();
                 var expectedSize = width * height * 4;
 
+                // Validate buffer size
                 if (rawBytes.Length < expectedSize)
                 {
                     throw new InvalidOperationException(
@@ -104,10 +122,15 @@ namespace CodeNexus.Infrastructure.Services
                         $"Width: {width}, Height: {height}");
                 }
 
-                var bytesToCopy = Math.Min(rawBytes.Length, expectedSize);
-
+                // Create bitmap with validated dimensions
                 using var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+                if (bitmap.GetPixels() == IntPtr.Zero)
+                {
+                    throw new InvalidOperationException($"Failed to allocate bitmap memory for {width}x{height}");
+                }
+
                 var pixelPtr = bitmap.GetPixels();
+                var bytesToCopy = Math.Min(rawBytes.Length, expectedSize);
 
                 System.Runtime.InteropServices.Marshal.Copy(rawBytes, 0, pixelPtr, bytesToCopy);
 
