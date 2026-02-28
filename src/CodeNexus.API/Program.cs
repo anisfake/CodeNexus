@@ -14,6 +14,19 @@ builder.Configuration.AddEnvironmentVariables();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
+var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() ?? [];
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 builder.Services.AddSignalR();
 
 builder.Services.AddControllers()
@@ -63,6 +76,7 @@ app.UseSwaggerUI();
 //}
 
 app.UseHttpsRedirection();
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseAuthorization();
@@ -70,6 +84,7 @@ app.MapControllers();
 app.MapHub<LessonHub>("/hubs/lesson");
 app.MapHub<ChapterHub>("/hubs/chapter");
 app.MapHub<QuizHub>("/hubs/quiz");
+app.MapHub<TaskHub>("/hubs/task");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
