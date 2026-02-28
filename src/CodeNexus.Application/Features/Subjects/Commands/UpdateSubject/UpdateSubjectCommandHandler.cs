@@ -21,6 +21,10 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
     {
         var userId = _currentUserService.GetUserId();
 
+        var user = await _context.Users
+            .Where(u => u.UserId == userId)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var subject = await _context.Subjects
             .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId, cancellationToken);
 
@@ -35,7 +39,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
         }
 
         var duplicateSubject = await _context.Subjects
-            .FirstOrDefaultAsync(s => s.Name.ToLower() == request.Name.ToLower() 
+            .FirstOrDefaultAsync(s => s.Name.ToLower() == request.Name.ToLower()
                 && s.SubjectId != request.SubjectId, cancellationToken);
 
         if (duplicateSubject != null)
@@ -63,6 +67,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
             subject.Description,
             subject.Color,
             subject.Icon,
+            user.FirstName + " " + user.LastName,
             subject.CreatedAt
         );
 

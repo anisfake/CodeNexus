@@ -67,6 +67,7 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
             subject.Description,
             subject.Color,
             subject.Icon,
+            user.FirstName + " " + user.LastName,
             subject.CreatedAt
         );
 

@@ -29,6 +29,16 @@ public class UpdateSubjectCommandHandlerTests
         var subjectId = Guid.NewGuid();
         var command = new UpdateSubjectCommand(subjectId, "Updated Math", "New Description", "#AABBCC", "new-icon");
 
+        var user = new User
+        {
+            UserId = userId,
+            FirstName = "John",
+            LastName = "Doe",
+            Username = "johndoe",
+            Email = "john@test.com",
+            PasswordHash = "hash"
+        };
+
         var subject = new Subject
         {
             SubjectId = subjectId,
@@ -38,6 +48,7 @@ public class UpdateSubjectCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUsersDbSet(new List<User> { user });
         SetupSubjectsDbSet(new List<Subject> { subject });
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -60,7 +71,18 @@ public class UpdateSubjectCommandHandlerTests
         var subjectId = Guid.NewGuid();
         var command = new UpdateSubjectCommand(subjectId, "Physics", null, null, null);
 
+        var user = new User
+        {
+            UserId = userId,
+            FirstName = "John",
+            LastName = "Doe",
+            Username = "johndoe",
+            Email = "john@test.com",
+            PasswordHash = "hash"
+        };
+
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUsersDbSet(new List<User> { user });
         SetupSubjectsDbSet(new List<Subject>());
 
         // Act
@@ -80,6 +102,16 @@ public class UpdateSubjectCommandHandlerTests
         var subjectId = Guid.NewGuid();
         var command = new UpdateSubjectCommand(subjectId, "Chemistry", null, null, null);
 
+        var user = new User
+        {
+            UserId = userId,
+            FirstName = "John",
+            LastName = "Doe",
+            Username = "johndoe",
+            Email = "john@test.com",
+            PasswordHash = "hash"
+        };
+
         var subject = new Subject
         {
             SubjectId = subjectId,
@@ -89,6 +121,7 @@ public class UpdateSubjectCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUsersDbSet(new List<User> { user });
         SetupSubjectsDbSet(new List<Subject> { subject });
 
         // Act
@@ -108,6 +141,16 @@ public class UpdateSubjectCommandHandlerTests
         var subjectId = Guid.NewGuid();
         var command = new UpdateSubjectCommand(subjectId, "Biology", null, null, null);
 
+        var user = new User
+        {
+            UserId = userId,
+            FirstName = "John",
+            LastName = "Doe",
+            Username = "johndoe",
+            Email = "john@test.com",
+            PasswordHash = "hash"
+        };
+
         var subject = new Subject
         {
             SubjectId = subjectId,
@@ -125,6 +168,7 @@ public class UpdateSubjectCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUsersDbSet(new List<User> { user });
         SetupSubjectsDbSet(new List<Subject> { subject, existingSubject });
 
         // Act
@@ -133,6 +177,19 @@ public class UpdateSubjectCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("SUBJECT_EXISTS", result.ErrorCode);
+    }
+
+    private void SetupUsersDbSet(List<User> users)
+    {
+        var queryable = new TestAsyncEnumerable<User>(users);
+        var dbSetMock = new Mock<DbSet<User>>();
+        dbSetMock.As<IQueryable<User>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<User>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<User>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<User>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<User>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.Users).Returns(dbSetMock.Object);
     }
 
     private void SetupSubjectsDbSet(List<Subject> subjects)

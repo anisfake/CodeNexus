@@ -27,12 +27,33 @@ public class GetSubjectsQueryHandlerTests
         // Arrange
         var query = new GetSubjectsQuery();
 
+        var user1 = new User
+        {
+            UserId = NewId.NextGuid(),
+            FirstName = "John",
+            LastName = "Doe",
+            Username = "johndoe",
+            Email = "john@test.com",
+            PasswordHash = "hash"
+        };
+
+        var user2 = new User
+        {
+            UserId = NewId.NextGuid(),
+            FirstName = "Jane",
+            LastName = "Smith",
+            Username = "janesmith",
+            Email = "jane@test.com",
+            PasswordHash = "hash"
+        };
+
         var subjects = new List<Subject>
         {
             new()
             {
                 SubjectId = NewId.NextGuid(),
-                CreatedByUserId = NewId.NextGuid(),
+                CreatedByUserId = user1.UserId,
+                CreatedByUser = user1,
                 Name = "Python",
                 Description = "Learn Python",
                 Color = "#3776AB",
@@ -42,7 +63,8 @@ public class GetSubjectsQueryHandlerTests
             new()
             {
                 SubjectId = NewId.NextGuid(),
-                CreatedByUserId = NewId.NextGuid(),
+                CreatedByUserId = user2.UserId,
+                CreatedByUser = user2,
                 Name = "Java",
                 Description = "Learn Java",
                 Color = "#F89820",

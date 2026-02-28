@@ -18,6 +18,7 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
     public async Task<Result<List<SubjectDto>>> Handle(GetSubjectsQuery request, CancellationToken cancellationToken)
     {
         var subjects = await _context.Subjects
+            .Include(s => s.CreatedByUser)
             .AsNoTracking()
             .OrderByDescending(s => s.CreatedAt)
             .Select(s => new SubjectDto(
@@ -26,6 +27,7 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
                 s.Description,
                 s.Color,
                 s.Icon,
+                s.CreatedByUser.FirstName + " " + s.CreatedByUser.LastName,
                 s.CreatedAt
             ))
             .ToListAsync(cancellationToken);
