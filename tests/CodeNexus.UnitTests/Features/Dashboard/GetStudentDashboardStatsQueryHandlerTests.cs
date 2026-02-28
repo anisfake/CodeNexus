@@ -6,6 +6,7 @@ using FluentAssertions;
 using MassTransit;
 using Moq;
 using Xunit;
+using TaskEntity = CodeNexus.Domain.Entities.Tasks;
 
 namespace CodeNexus.UnitTests.Features.Dashboard;
 
@@ -146,7 +147,7 @@ public class GetStudentDashboardStatsQueryHandlerTests
         var userTaskId = NewId.NextGuid();
         var otherTaskId = NewId.NextGuid();
 
-        var userTask = new Tasks
+        var userTask = new TaskEntity
         {
             TaskId = userTaskId,
             ChapterId = completedChapter.ChapterId,
@@ -155,7 +156,7 @@ public class GetStudentDashboardStatsQueryHandlerTests
             Title = "Task 1"
         };
 
-        var otherTask = new Tasks
+        var otherTask = new TaskEntity
         {
             TaskId = otherTaskId,
             ChapterId = otherUserChapter.ChapterId,
