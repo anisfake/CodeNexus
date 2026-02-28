@@ -1,11 +1,6 @@
 ﻿using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
 using MediatR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
 {
@@ -13,7 +8,5 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
         Guid GoalId,
         string Title,
         string? Description,
-        DateTime? CompleteAt,
-        int DurationDays,
-        bool IsCompleted) : IRequest<Result<GoalDto>>;
+        bool IsActive) : IRequest<Result<GoalDto>>;
 }

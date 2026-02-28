@@ -21,7 +21,7 @@ public class GoalController : ControllerBase
         _sender = sender;
     }
 
-    [HttpGet("api/goals/me")]
+    [HttpGet("api/goals")]
     public async Task<IActionResult> GetGoals(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetGoalsQuery(), cancellationToken);
@@ -32,7 +32,7 @@ public class GoalController : ControllerBase
     [HttpPost("api/goals")]
     public async Task<IActionResult> CreateGoal(CreateGoalRequest request, CancellationToken cancellationToken)
     {
-        var command = new CreateGoalCommand(request.Title, request.Description, request.DurationDays);
+        var command = new CreateGoalCommand(request.Title, request.Description);
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
@@ -40,7 +40,7 @@ public class GoalController : ControllerBase
     [HttpPut("api/goals/{goalId}")]
     public async Task<IActionResult> UpdateGoal(Guid goalId, UpdateGoalRequest request, CancellationToken cancellationToken)
     {
-        var command = new UpdateGoalCommand(goalId, request.Title, request.Description, request.CompleteAt, request.DurationDays, request.IsCompleted);
+        var command = new UpdateGoalCommand(goalId, request.Title, request.Description, request.IsActive);
 
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
@@ -55,7 +55,6 @@ public class GoalController : ControllerBase
 
         return ToActionResult(result);
     }
-
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)

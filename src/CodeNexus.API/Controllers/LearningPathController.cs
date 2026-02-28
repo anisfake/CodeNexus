@@ -1,4 +1,5 @@
 using Azure.Core;
+using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
@@ -29,8 +30,14 @@ public class LearningPathController : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = "Mentor, Student")]
-    public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonCommand command, CancellationToken cancellationToken)
+    public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonRequest request, CancellationToken cancellationToken)
     {
+        var command = new GenerateLearningPathSkeletonCommand(
+            request.SubjectId,
+            request.GoalId,
+            request.ComplexityLevel
+        );
+
         var result = await _sender.Send(command, cancellationToken);
 
         if (!result.IsSuccess)

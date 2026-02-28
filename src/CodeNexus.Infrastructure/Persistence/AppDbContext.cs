@@ -216,10 +216,10 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<Goals>(entity =>
             {
-                entity.HasOne(g => g.User)
+                entity.HasOne(g => g.CreatedByUser)
                       .WithMany(u => u.Goals)
-                      .HasForeignKey(g => g.UserId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                      .HasForeignKey(g => g.CreatedByUserId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<Questions>(entity =>

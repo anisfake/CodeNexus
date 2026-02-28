@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -71,34 +72,44 @@ public static class DependencyInjection
         services.AddScoped<ICloudinaryService, CloudinaryService>();
         services.AddScoped<IPdfProcessingService, PdfProcessingService>();
 
-        var redisConnectionString = configuration["Redis__ConnectionString"];
+        var redisConnectionString = configuration["Redis:ConnectionString"];
 
         services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(sp =>
         {
-            if (!string.IsNullOrEmpty(redisConnectionString))
-            {
-                try
-                {
-                    var configOptions = StackExchange.Redis.ConfigurationOptions.Parse(redisConnectionString);
-                    configOptions.AbortOnConnectFail = false;
-                    configOptions.ConnectTimeout = 10000;
-                    configOptions.SyncTimeout = 5000;
-                    configOptions.ConnectRetry = 3;
+            var logger = sp.GetRequiredService<ILogger<StackExchange.Redis.IConnectionMultiplexer>>();
 
-                    return StackExchange.Redis.ConnectionMultiplexer.Connect(configOptions);
-                }
-                catch
-                {
-                    var fallbackOptions = StackExchange.Redis.ConfigurationOptions.Parse("localhost:6379");
-                    fallbackOptions.AbortOnConnectFail = false;
-                    return StackExchange.Redis.ConnectionMultiplexer.Connect(fallbackOptions);
-                }
-            }
-            else
+            if (string.IsNullOrEmpty(redisConnectionString))
             {
+                logger.LogWarning("No Redis connection string configured, using fallback localhost");
                 var fallbackOptions = StackExchange.Redis.ConfigurationOptions.Parse("localhost:6379");
                 fallbackOptions.AbortOnConnectFail = false;
+                fallbackOptions.ConnectTimeout = 5000;
                 return StackExchange.Redis.ConnectionMultiplexer.Connect(fallbackOptions);
+            }
+
+            try
+            {
+                var configOptions = StackExchange.Redis.ConfigurationOptions.Parse(redisConnectionString);
+                configOptions.AbortOnConnectFail = false;
+                configOptions.ConnectTimeout = 15000;
+                configOptions.SyncTimeout = 10000;
+                configOptions.ConnectRetry = 5;
+                configOptions.KeepAlive = 60;
+                configOptions.AllowAdmin = false;
+
+                var multiplexer = StackExchange.Redis.ConnectionMultiplexer.Connect(configOptions);
+
+                multiplexer.ConnectionFailed += (sender, args) =>
+                {
+                    logger.LogError("Redis connection failed: {FailureType}", args.FailureType);
+                };
+
+                return multiplexer;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to connect to Redis");
+                throw;
             }
         });
 
@@ -110,6 +121,7 @@ public static class DependencyInjection
         services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();
 
         services.AddScoped<IEncryptionService, EncryptionService>();
+        services.AddScoped<IGoalValidationService, GoalValidationService>();
 
         services.AddMemoryCache();
 

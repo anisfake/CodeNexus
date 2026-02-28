@@ -27,7 +27,6 @@ public class AIConfigCacheService : IAIConfigCacheService
         }
         catch
         {
-            // If Redis fails, return null to force reading from DB
             return null;
         }
     }

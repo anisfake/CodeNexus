@@ -30,7 +30,14 @@ public class OTPCacheService : IOTPCacheService
         try
         {
             if (!_redis.IsConnected)
+            {
+                await Task.Delay(1000, cancellationToken);
+            }
+
+            if (!_redis.IsConnected)
+            {
                 return Result.Failure("CACHE_ERROR", "Cache service is unavailable");
+            }
 
             var db = _redis.GetDatabase();
 

@@ -25,15 +25,16 @@ public class GetGoalsQueryHandler : IRequestHandler<GetGoalsQuery, Result<List<G
 
         var goals = await _context.Goals
             .AsNoTracking()
-            .Where(g => g.UserId == userId && g.IsDeleted == false)
-            .OrderByDescending(g => g.CreatedAt)
+            .Where(g => !g.IsDeleted && g.IsActive && 
+                       (g.IsSystemDefined || g.CreatedByUserId == userId))
+            .OrderByDescending(g => g.IsSystemDefined) 
+            .ThenByDescending(g => g.CreatedAt)
             .Select(g => new GoalDto(
                 g.GoalId,
                 g.Title,
                 g.Description,
-                g.DurationDays,
-                g.IsCompleted,
-                g.CompletedAt,
+                g.IsSystemDefined,
+                g.IsActive,
                 g.CreatedAt
             ))
             .ToListAsync(cancellationToken);

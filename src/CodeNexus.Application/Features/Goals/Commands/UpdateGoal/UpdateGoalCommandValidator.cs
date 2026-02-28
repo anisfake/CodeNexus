@@ -1,9 +1,4 @@
 ﻿using FluentValidation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
 {
@@ -11,13 +6,16 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
     {
         public UpdateGoalCommandValidator()
         {
+            RuleFor(x => x.GoalId)
+                .NotEmpty().WithMessage("GoalId is required.");
+
             RuleFor(x => x.Title)
                 .NotEmpty().WithMessage("Title is required.")
-                .MaximumLength(100).WithMessage("Title cannot exceed 100 characters.");
+                .MinimumLength(10).WithMessage("Title must be at least 10 characters.")
+                .MaximumLength(200).WithMessage("Title must not exceed 200 characters.");
+
             RuleFor(x => x.Description)
-                .MaximumLength(100).WithMessage("Description cannot exceed 100 characters.");
-            RuleFor(x => x.DurationDays)
-                .GreaterThan(0).WithMessage("Duration must be greater than 0.");
+                .MaximumLength(500).WithMessage("Description must not exceed 500 characters.");
         }
     }
 }

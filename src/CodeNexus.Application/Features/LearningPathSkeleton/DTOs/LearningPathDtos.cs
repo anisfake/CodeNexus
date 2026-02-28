@@ -31,6 +31,12 @@ public record LearningPathSkeletonDto(
     string Description,
     List<ChapterDto> Chapters
 );
+
+public record GenerateLearningPathSkeletonRequest(
+    Guid SubjectId,
+    Guid GoalId,
+    ComplexityLevel ComplexityLevel
+);
 public record CreateLearningPathResponse(
     Guid PathId,
     string Title,

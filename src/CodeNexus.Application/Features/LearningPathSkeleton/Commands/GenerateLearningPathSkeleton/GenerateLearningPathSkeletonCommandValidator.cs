@@ -1,9 +1,5 @@
 ﻿using FluentValidation;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
@@ -18,5 +14,9 @@ public class GenerateLearningPathSkeletonCommandValidator : AbstractValidator<Ge
         RuleFor(x => x.GoalId)
             .NotEmpty()
             .WithMessage("Goal ID is required");
+
+        RuleFor(x => x.ComplexityLevel)
+            .IsInEnum()
+            .WithMessage("Complexity level must be Beginner, Intermediate, or Advanced");
     }
 }

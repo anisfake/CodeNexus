@@ -4,27 +4,25 @@ public record GoalDto(
     Guid GoalId,
     string Title,
     string? Description,
-    int DurationDays,
-    bool IsCompleted,
-    DateTime? CompletedAt,
+    bool IsSystemDefined,
+    bool IsActive,
     DateTime CreatedAt
 );
-public record CreateGoalResponeDto(
+
+public record CreateGoalResponseDto(
+    Guid GoalId,
     string Title,
     string? Description,
-    int DurationDays
+    bool IsSystemDefined
 );
 
 public record CreateGoalRequest(
     string Title,
-    string? Description,
-    int DurationDays
+    string? Description
 );
 
 public record UpdateGoalRequest(
     string Title,
     string? Description,
-    int DurationDays,
-    bool IsCompleted,
-    DateTime? CompleteAt
+    bool IsActive
 );

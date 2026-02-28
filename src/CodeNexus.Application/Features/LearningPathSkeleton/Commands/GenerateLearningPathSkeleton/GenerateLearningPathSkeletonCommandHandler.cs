@@ -4,11 +4,13 @@ using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
 using MassTransit;
 using MediatR;
+using CodeNexus.Domain.Enums;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
@@ -34,7 +36,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         {
             var userId = _currentUserService.GetUserId();
 
-            var subject = await _context.Subjects.FindAsync(new object[] { request.SubjectId }, cancellationToken: cancellationToken);
+            var subject = await _context.Subjects.FirstOrDefaultAsync(x => x.SubjectId == request.SubjectId, cancellationToken: cancellationToken);
             if (subject == null)
             {
                 return Result<CreateLearningPathResponse>.Failure("SUBJECT_NOT_FOUND", "Subject not found");
@@ -46,7 +48,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found");
             }
 
-            var (chapterCount, lessonsPerChapter, tasksPerChapter, quizzPercentage) = CalculateStructure(goal.DurationDays);
+            var (chapterCount, lessonsPerChapter, quizzPercentage, estimatedDays) = CalculateStructureByComplexity(request.ComplexityLevel);
 
             LearningPathSkeletonDto skeleton;
             try
@@ -57,8 +59,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     goal.Description,
                     chapterCount,
                     lessonsPerChapter,
-                    tasksPerChapter,
-                    quizzPercentage);
+                    quizzPercentage,
+                    request.ComplexityLevel);
             }
             catch (Exception ex)
             {
@@ -80,7 +82,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 Description = skeleton.Description,
                 Status = "Active",
                 StartDate = DateTime.Now,
-                EndDate = DateTime.Now.AddDays(goal.DurationDays),
+                EndDate = DateTime.Now.AddDays(estimatedDays),
                 CreatedAt = DateTime.Now,
                 CreatedByType = true
             };
@@ -129,21 +131,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                         await _context.Quizzes.AddAsync(quiz, cancellationToken);
                     }
                 }
-
-                foreach (var taskDto in chapterDto.Tasks ?? new List<TaskDto>())
-                {
-                    var task = new Tasks
-                    {
-                        TaskId = NewId.NextGuid(),
-                        ChapterId = chapter.ChapterId,
-                        PathId = learningPath.PathId,
-                        Title = taskDto.Title,
-                        Status = Domain.Enums.TaskStatus_.Pending,
-                        CreatedAt = DateTime.Now
-                    };
-
-                    await _context.Tasks.AddAsync(task, cancellationToken);
-                }
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -164,7 +151,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                             l.Content,
                             l.Quizzes?.Select(q => new QuizDto(q.QuizId, q.Title, q.Description)).ToList() ?? new List<QuizDto>()
                         )).ToList() ?? new List<LessonDto>(),
-                        c.Tasks?.Select(t => new TaskDto(t.TaskId, t.Title, t.Description)).ToList() ?? new List<TaskDto>()
+                        new List<TaskDto>()
                     )).ToList() ?? new List<ChapterDto>(),
                     skeleton?.Chapters?.Count,
                     learningPath.CreatedAt,
@@ -178,48 +165,30 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         }
     }
 
-    private (int chapters, int lessonsPerChapter, int tasksPerChapter, int quizzPercentage) CalculateStructure(int durationDays)
+    private (int chapters, int lessonsPerChapter, int quizzPercentage, int estimatedDays) CalculateStructureByComplexity(Domain.Enums.ComplexityLevel complexity)
     {
-        if (durationDays <= 0)
-            return (1, 1, 1, 50);
-
-        var weeks = Math.Max(1, durationDays / 7);
-        var chapters = Math.Min(weeks, 12);
-
-        int lessonsPerChapter, tasksPerChapter, quizzPercentage;
-
-        if (durationDays <= 7)
+        return complexity switch
         {
-            lessonsPerChapter = 1;
-            tasksPerChapter = 1;
-            quizzPercentage = 0;
-        }
-        else if (durationDays <= 14)
-        {
-            lessonsPerChapter = 2;
-            tasksPerChapter = 1;
-            quizzPercentage = 50;
-        }
-        else if (durationDays <= 30)
-        {
-            lessonsPerChapter = 2;
-            tasksPerChapter = 2;
-            quizzPercentage = 50;
-        }
-        else if (durationDays <= 60)
-        {
-            lessonsPerChapter = 3;
-            tasksPerChapter = 2;
-            quizzPercentage = 60;
-        }
-        else
-        {
-            lessonsPerChapter = 4;
-            tasksPerChapter = 3;
-            quizzPercentage = 70;
-        }
-
-        return (chapters, lessonsPerChapter, tasksPerChapter, quizzPercentage);
+            ComplexityLevel.Beginner => (
+                3,     // 3 chapters
+                3,     // 3 lessons/chapter = 9 lessons total
+                50,    // 50% lessons có quiz
+                30     // ~1 tháng
+            ),
+            ComplexityLevel.Intermediate => (
+                5,     // 5 chapters
+                4,     // 4 lessons/chapter = 20 lessons total
+                60,    // 60% lessons có quiz
+                60     // ~2 tháng
+            ),
+            ComplexityLevel.Advanced => (
+                7,     // 7 chapters
+                5,     // 5 lessons/chapter = 35 lessons total
+                70,    // 70% lessons có quiz
+                90     // ~3 tháng
+            ),
+            _ => (3, 3, 50, 30)        // default
+        };
     }
 
     private async Task<LearningPathSkeletonDto> GenerateLearningPathSkeletonFromAI(
@@ -228,10 +197,18 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         string? goalDescription,
         int chapterCount,
         int lessonsPerChapter,
-        int tasksPerChapter,
-        int quizzPercentage)
+        int quizzPercentage,
+        Domain.Enums.ComplexityLevel complexity)
     {
-        var prompt = BuildPrompt(subjectName, goalTitle, goalDescription, chapterCount, lessonsPerChapter, tasksPerChapter, quizzPercentage);
+        var complexityText = complexity switch
+        {
+            ComplexityLevel.Beginner => "Basic, suitable for beginners.",
+            ComplexityLevel.Intermediate => "Average, suitable for those who already have a basic understanding.",
+            ComplexityLevel.Advanced => "Advanced level, suitable for those who want to specialize and already have a foundational knowledge.",
+            _ => "Basic, suitable for beginners."
+        };
+
+        var prompt = BuildPrompt(subjectName, goalTitle, goalDescription, chapterCount, lessonsPerChapter, quizzPercentage, complexityText);
         var skeleton = await _aiGeneratorService.GenerateStructureAsync<LearningPathSkeletonDto>(prompt);
         return skeleton;
     }
@@ -242,8 +219,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         string? goalDescription,
         int chapterCount,
         int lessonsPerChapter,
-        int tasksPerChapter,
-        int quizzPercentage)
+        int quizzPercentage,
+        string complexityText)
     {
         var quizzDescription = quizzPercentage == 0
             ? "No quizzes needed"
@@ -253,15 +230,16 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
                 Subject: {subjectName}
                 Goal: {goalTitle}
+                Complexity Level: {complexityText}
 
             Structure Requirements:
                 - Exactly {chapterCount} chapters
                 - Each chapter must have {lessonsPerChapter} to 5 lessons (minimum {lessonsPerChapter}, maximum 5)
-                - Each chapter must have {tasksPerChapter} to 3 tasks (minimum {tasksPerChapter}, maximum 3)
                 - {quizzDescription}
                 - Only include quizzes for lessons that need them (not all lessons need quizzes)
                 - Each quiz belongs to exactly one lesson
                 - Provide only titles and descriptions, no content
+                - Content should match the complexity level: {complexityText}
 
                 Return ONLY valid JSON (no markdown, no extra text):
                 {{
@@ -283,13 +261,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                             }}
                         ]
                     }}
-                  ],
-                    ""tasks"": [
-                    {{
-                        ""title"": ""Task Title"",
-                        ""description"": ""Task description""
-                }}
-            ]
+                  ]
         }}
     ]
 }}";
