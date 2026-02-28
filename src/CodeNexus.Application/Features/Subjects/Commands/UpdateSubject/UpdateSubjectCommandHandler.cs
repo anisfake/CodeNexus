@@ -68,6 +68,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
             subject.Color,
             subject.Icon,
             user.FirstName + " " + user.LastName,
+            subject.CreatedByUserId,
             subject.CreatedAt
         );
 

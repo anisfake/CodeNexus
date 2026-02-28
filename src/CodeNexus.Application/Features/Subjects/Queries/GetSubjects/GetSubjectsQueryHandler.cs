@@ -28,6 +28,7 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
                 s.Color,
                 s.Icon,
                 s.CreatedByUser.FirstName + " " + s.CreatedByUser.LastName,
+                s.CreatedByUserId,
                 s.CreatedAt
             ))
             .ToListAsync(cancellationToken);

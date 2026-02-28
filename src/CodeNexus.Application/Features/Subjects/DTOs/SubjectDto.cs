@@ -7,6 +7,7 @@ public record SubjectDto(
     string? Color,
     string? Icon,
     string CreatedBy,
+    Guid CreatedByUserId,
     DateTime CreatedAt
 );
 
