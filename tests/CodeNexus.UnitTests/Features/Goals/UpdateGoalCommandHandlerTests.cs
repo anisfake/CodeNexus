@@ -12,6 +12,7 @@ public class UpdateGoalCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IGoalValidationService> _mockGoalValidationService;
     private readonly UpdateGoalCommandHandler _handler;
     private readonly Guid _testUserId = Guid.NewGuid();
 
@@ -19,8 +20,9 @@ public class UpdateGoalCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockGoalValidationService = new Mock<IGoalValidationService>();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(_testUserId);
-        _handler = new UpdateGoalCommandHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _handler = new UpdateGoalCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockGoalValidationService.Object);
     }
 
     [Fact]
@@ -31,24 +33,24 @@ public class UpdateGoalCommandHandlerTests
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
-            UserId = _testUserId,
+            CreatedByUserId = _testUserId,
             Title = "Old Title",
             Description = "Old Description",
-            DurationDays = 30,
-            IsCompleted = false,
+            IsSystemDefined = false,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var command = new UpdateGoalCommand(
             goalId,
             "New Title",
             "New Description",
-            DateTime.UtcNow,
-            60,
             true
         );
 
@@ -60,9 +62,7 @@ public class UpdateGoalCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal("New Title", result.Value.Title);
         Assert.Equal("New Description", result.Value.Description);
-        Assert.Equal(60, result.Value.DurationDays);
-        Assert.True(result.Value.IsCompleted);
-        Assert.NotNull(result.Value.CompletedAt);
+        Assert.True(result.Value.IsActive);
     }
 
     [Fact]
@@ -76,9 +76,7 @@ public class UpdateGoalCommandHandlerTests
             goalId,
             "New Title",
             "New Description",
-            null,
-            60,
-            false
+            true
         );
 
         // Act
@@ -98,17 +96,17 @@ public class UpdateGoalCommandHandlerTests
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
-            UserId = anotherUserId,
+            CreatedByUserId = anotherUserId,
             Title = "Old Title",
-            DurationDays = 30,
-            IsCompleted = false,
+            IsSystemDefined = false,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
 
-        var command = new UpdateGoalCommand(goalId, "New Title", null, null, 60, false);
+        var command = new UpdateGoalCommand(goalId, "New Title", null, true);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -119,34 +117,31 @@ public class UpdateGoalCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenMarkingAsIncomplete_ClearsCompletedAt()
+    public async Task Handle_WhenUpdatingSystemGoal_ReturnsFailure()
     {
         // Arrange
         var goalId = Guid.NewGuid();
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
-            UserId = _testUserId,
-            Title = "Completed Goal",
-            DurationDays = 30,
-            IsCompleted = true,
-            CompletedAt = DateTime.UtcNow.AddDays(-1),
-            CreatedAt = DateTime.UtcNow.AddDays(-30)
+            CreatedByUserId = null,
+            Title = "System Goal",
+            IsSystemDefined = true,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var command = new UpdateGoalCommand(goalId, "Updated Goal", null, null, 30, false);
+        var command = new UpdateGoalCommand(goalId, "Updated Title", null, true);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
-        Assert.False(result.Value.IsCompleted);
-        Assert.Null(result.Value.CompletedAt);
+        Assert.False(result.IsSuccess);
+        Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
     }
 
     private void SetupGoalsDbSet(List<GoalEntity> goals)

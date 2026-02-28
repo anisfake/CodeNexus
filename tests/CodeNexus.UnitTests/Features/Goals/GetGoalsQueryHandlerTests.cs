@@ -37,22 +37,21 @@ public class GetGoalsQueryHandlerTests
             new()
             {
                 GoalId = NewId.NextGuid(),
-                UserId = userId,
+                CreatedByUserId = userId,
                 Title = "Learn Python Basics",
                 Description = "Master Python fundamentals",
-                DurationDays = 30,
-                IsCompleted = false,
+                IsSystemDefined = false,
+                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-1)
             },
             new()
             {
                 GoalId = NewId.NextGuid(),
-                UserId = userId,
+                CreatedByUserId = userId,
                 Title = "Build Spring Boot App",
                 Description = "Create a REST API with Spring Boot",
-                DurationDays = 60,
-                IsCompleted = true,
-                CompletedAt = DateTime.Now,
+                IsSystemDefined = false,
+                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };
@@ -103,17 +102,19 @@ public class GetGoalsQueryHandlerTests
             new()
             {
                 GoalId = NewId.NextGuid(),
-                UserId = userId,
+                CreatedByUserId = userId,
                 Title = "My Goal",
-                DurationDays = 30,
+                IsSystemDefined = false,
+                IsActive = true,
                 CreatedAt = DateTime.Now
             },
             new()
             {
                 GoalId = NewId.NextGuid(),
-                UserId = otherUserId,
+                CreatedByUserId = otherUserId,
                 Title = "Other User Goal",
-                DurationDays = 14,
+                IsSystemDefined = false,
+                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };

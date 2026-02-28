@@ -50,7 +50,9 @@ public class GetLearningPathByUserIdQueryHandlerTests
             GoalId = _goalId,
             Title = "Learn Calculus",
             Description = "Master calculus",
-            UserId = _studentUserId
+            CreatedByUserId = _studentUserId,
+            IsSystemDefined = false,
+            IsActive = true
         };
 
         return new List<LearningPath>

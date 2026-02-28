@@ -31,10 +31,10 @@ public class DeleteGoalCommandHandlerTests
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
-            UserId = _testUserId,
+            CreatedByUserId = _testUserId,
             Title = "Goal to Delete",
-            DurationDays = 30,
-            IsCompleted = false,
+            IsSystemDefined = false,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
@@ -85,10 +85,10 @@ public class DeleteGoalCommandHandlerTests
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
-            UserId = anotherUserId,
+            CreatedByUserId = anotherUserId,
             Title = "Another User's Goal",
-            DurationDays = 30,
-            IsCompleted = false,
+            IsSystemDefined = false,
+            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
@@ -108,26 +108,24 @@ public class DeleteGoalCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenDeletingCompletedGoal_SoftDeletesSuccessfully()
+    public async Task Handle_WhenDeletingSystemGoal_ReturnsFailure()
     {
         // Arrange
         var goalId = Guid.NewGuid();
-        var completedGoal = new GoalEntity
+        var systemGoal = new GoalEntity
         {
             GoalId = goalId,
-            UserId = _testUserId,
-            Title = "Completed Goal",
-            DurationDays = 30,
-            IsCompleted = true,
-            CompletedAt = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow.AddDays(-30),
+            CreatedByUserId = null,
+            Title = "System Goal",
+            IsSystemDefined = true,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
 
-        var goals = new List<GoalEntity> { completedGoal };
+        var goals = new List<GoalEntity> { systemGoal };
         SetupGoalsDbSet(goals);
         SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new DeleteGoalCommand(goalId);
 
@@ -135,9 +133,8 @@ public class DeleteGoalCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
-        Assert.True(completedGoal.IsDeleted);
-        Assert.NotNull(completedGoal.DeletedAt);
+        Assert.False(result.IsSuccess);
+        Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
     }
 
     private void SetupLearningPathsDbSet(List<CodeNexus.Domain.Entities.LearningPath> learningPaths)

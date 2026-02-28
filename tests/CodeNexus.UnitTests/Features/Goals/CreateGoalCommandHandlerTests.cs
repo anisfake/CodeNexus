@@ -14,13 +14,15 @@ public class CreateGoalCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IGoalValidationService> _mockGoalValidationService;
     private readonly CreateGoalCommandHandler _handler;
 
     public CreateGoalCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new CreateGoalCommandHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockGoalValidationService = new Mock<IGoalValidationService>();
+        _handler = new CreateGoalCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockGoalValidationService.Object);
     }
 
     [Fact]
@@ -28,9 +30,11 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn C#", "Master C# programming", 60);
+        var command = new CreateGoalCommand("Learn C#", "Master C# programming");
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
@@ -46,7 +50,7 @@ public class CreateGoalCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal("Learn C#", result.Value.Title);
         Assert.Equal("Master C# programming", result.Value.Description);
-        Assert.Equal(60, result.Value.DurationDays);
+        Assert.False(result.Value.IsSystemDefined);
     }
 
     [Fact]
@@ -54,9 +58,11 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Python", null, 30);
+        var command = new CreateGoalCommand("Learn Python", null);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
@@ -72,7 +78,6 @@ public class CreateGoalCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal("Learn Python", result.Value.Title);
         Assert.Null(result.Value.Description);
-        Assert.Equal(30, result.Value.DurationDays);
     }
 
     [Fact]
@@ -80,9 +85,11 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Java", "Master Java", 45);
+        var command = new CreateGoalCommand("Learn Java", "Master Java");
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         SetupGoalsDbSet(new List<GoalEntity>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
@@ -100,26 +107,24 @@ public class CreateGoalCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithDifferentDurationDays_ShouldCreateGoalWithCorrectDuration()
+    public async Task Handle_WithInvalidGoal_ShouldReturnFailure()
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn TypeScript", "Master TypeScript", 90);
+        var command = new CreateGoalCommand("Learn Cooking", "Master cooking skills");
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         SetupGoalsDbSet(new List<GoalEntity>());
-        _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
-            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
-                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        Assert.True(result.IsSuccess);
-        Assert.Equal(90, result.Value.DurationDays);
+        Assert.False(result.IsSuccess);
+        Assert.Equal("INVALID_GOAL", result.ErrorCode);
+        Assert.Contains("programming", result.ErrorMessage);
     }
 
     private void SetupGoalsDbSet(List<GoalEntity> goals)

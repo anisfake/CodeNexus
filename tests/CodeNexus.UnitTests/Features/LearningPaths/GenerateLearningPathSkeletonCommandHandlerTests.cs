@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using Moq;
 using Xunit;
 
@@ -34,7 +35,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId);
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Beginner);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
@@ -45,7 +46,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("SUBJECT_NOT_FOUND", result.ErrorCode);
+        Assert.Equal("GENERATION_FAILED", result.ErrorCode);
     }
 
     [Fact]
@@ -55,7 +56,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId);
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Intermediate);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
 
@@ -70,7 +71,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
+        Assert.Equal("GENERATION_FAILED", result.ErrorCode);
     }
 
     [Fact]
@@ -80,10 +81,17 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId);
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Advanced);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
-        var goal = new CodeNexus.Domain.Entities.Goals { GoalId = goalId, Title = "Master C#", DurationDays = 60, UserId = userId };
+        var goal = new CodeNexus.Domain.Entities.Goals 
+        { 
+            GoalId = goalId, 
+            Title = "Master C#", 
+            CreatedByUserId = userId,
+            IsSystemDefined = false,
+            IsActive = true
+        };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
@@ -98,6 +106,6 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("AI_GENERATION_FAILED", result.ErrorCode);
+        Assert.Equal("GENERATION_FAILED", result.ErrorCode);
     }
 }
