@@ -2,10 +2,8 @@ using CodeNexus.Application.Common.Interfaces;
 using Docnet.Core;
 using Docnet.Core.Readers;
 using Docnet.Core.Models;
-using iText.Kernel.Pdf;
-using iText.Kernel.Pdf.Canvas.Parser;
-using iText.Kernel.Pdf.Canvas.Parser.Listener;
 using SkiaSharp;
+using Tesseract;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,10 +14,18 @@ namespace CodeNexus.Infrastructure.Services
     public class PdfProcessingService : IPdfProcessingService
     {
         private readonly ICloudinaryService _cloudinaryService;
+        private readonly string _tessDataPath;
 
         public PdfProcessingService(ICloudinaryService cloudinaryService)
         {
             _cloudinaryService = cloudinaryService;
+
+            _tessDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tessdata");
+
+            if (!Directory.Exists(_tessDataPath))
+            {
+                Directory.CreateDirectory(_tessDataPath);
+            }
         }
 
         public async Task<int> GetPageCountAsync(Stream pdfStream)
@@ -30,7 +36,6 @@ namespace CodeNexus.Infrastructure.Services
                 await pdfStream.CopyToAsync(memoryStream);
                 var pdfBytes = memoryStream.ToArray();
 
-                // Use a reasonable scale factor (1.5 = 150 DPI)
                 using var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(1.5));
                 return docReader.GetPageCount();
             }
@@ -51,7 +56,6 @@ namespace CodeNexus.Infrastructure.Services
                 var result = new PdfProcessingResult();
                 var pages = new List<PdfPageData>();
 
-                // Use a reasonable scale factor (1.5 = 150 DPI) for consistent rendering
                 using (var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(1.5)))
                 {
                     result.TotalPages = docReader.GetPageCount();
@@ -76,9 +80,9 @@ namespace CodeNexus.Infrastructure.Services
         {
             var pageNumber = pageIndex + 1;
 
-            var imageUrl = await RenderPageToImageAsync(docReader, pageIndex, pageNumber, userId);
+            var (imageUrl, imageBytes) = await RenderPageToImageAsync(docReader, pageIndex, pageNumber, userId);
 
-            var extractedText = ExtractTextFromPage(pdfBytes, pageIndex);
+            var extractedText = await ExtractTextFromImageAsync(imageBytes);
 
             return new PdfPageData
             {
@@ -88,7 +92,7 @@ namespace CodeNexus.Infrastructure.Services
             };
         }
 
-        private async Task<string> RenderPageToImageAsync(IDocReader docReader, int pageIndex, int pageNumber, string userId)
+        private async Task<(string imageUrl, byte[] imageBytes)> RenderPageToImageAsync(IDocReader docReader, int pageIndex, int pageNumber, string userId)
         {
             try
             {
@@ -96,13 +100,11 @@ namespace CodeNexus.Infrastructure.Services
                 var width = pageReader.GetPageWidth();
                 var height = pageReader.GetPageHeight();
 
-                // Validate dimensions
                 if (width <= 0 || height <= 0)
                 {
                     throw new InvalidOperationException($"Invalid page dimensions: {width}x{height}");
                 }
 
-                // Limit maximum dimensions to prevent memory issues
                 const int maxDimension = 4096;
                 if (width > maxDimension || height > maxDimension)
                 {
@@ -114,7 +116,6 @@ namespace CodeNexus.Infrastructure.Services
                 var rawBytes = pageReader.GetImage();
                 var expectedSize = width * height * 4;
 
-                // Validate buffer size
                 if (rawBytes.Length < expectedSize)
                 {
                     throw new InvalidOperationException(
@@ -122,7 +123,6 @@ namespace CodeNexus.Infrastructure.Services
                         $"Width: {width}, Height: {height}");
                 }
 
-                // Create bitmap with validated dimensions
                 using var bitmap = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
                 if (bitmap.GetPixels() == IntPtr.Zero)
                 {
@@ -136,12 +136,14 @@ namespace CodeNexus.Infrastructure.Services
 
                 using var image = SKImage.FromBitmap(bitmap);
                 using var data = image.Encode(SKEncodedImageFormat.Png, 90);
-                using var imageStream = data.AsStream();
 
+                var imageBytes = data.ToArray();
+
+                using var imageStream = new MemoryStream(imageBytes);
                 var fileName = $"page_{pageNumber}.png";
                 var imageUrl = await _cloudinaryService.UploadImageAsync(imageStream, fileName, $"resources/{userId}/pages");
 
-                return imageUrl;
+                return (imageUrl, imageBytes);
             }
             catch (Exception ex)
             {
@@ -149,23 +151,45 @@ namespace CodeNexus.Infrastructure.Services
             }
         }
 
-        private string? ExtractTextFromPage(byte[] pdfBytes, int pageIndex)
+        private async Task<string?> ExtractTextFromImageAsync(byte[] imageBytes)
         {
             try
             {
-                using var pdfStream = new MemoryStream(pdfBytes);
-                using var pdfReader = new PdfReader(pdfStream);
-                using var pdfDocument = new PdfDocument(pdfReader);
+                var engDataPath = Path.Combine(_tessDataPath, "eng.traineddata");
+                var vieDataPath = Path.Combine(_tessDataPath, "vie.traineddata");
 
-                var page = pdfDocument.GetPage(pageIndex + 1);
-                var strategy = new SimpleTextExtractionStrategy();
-                var text = PdfTextExtractor.GetTextFromPage(page, strategy);
+                var languages = new List<string>();
+
+                if (File.Exists(vieDataPath))
+                {
+                    languages.Add("vie");
+                }
+
+                if (File.Exists(engDataPath))
+                {
+                    languages.Add("eng");
+                }
+
+                if (languages.Count == 0)
+                {
+                    Console.WriteLine($"Tesseract data not found at {_tessDataPath}. OCR will be skipped.");
+                    return null;
+                }
+
+                var languageString = string.Join("+", languages);
+
+                using var engine = new TesseractEngine(_tessDataPath, languageString, EngineMode.Default);
+
+                using var img = Pix.LoadFromMemory(imageBytes);
+                using var page = engine.Process(img);
+
+                var text = page.GetText();
 
                 return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Failed to extract text from page {pageIndex + 1}: {ex.Message}");
+                Console.WriteLine($"OCR failed: {ex.Message}");
                 return null;
             }
         }
