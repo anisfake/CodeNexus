@@ -4,6 +4,7 @@ using CodeNexus.Application.Features.Goals.Commands.DeleteGoal;
 using CodeNexus.Application.Features.Goals.Commands.UpdateGoal;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Application.Features.Goals.Queries.GetGoals;
+using CodeNexus.Application.Features.Goals.Queries.GetMyGoal;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +20,14 @@ public class GoalController : ControllerBase
     public GoalController(ISender sender)
     {
         _sender = sender;
+    }
+
+    [HttpGet("api/goals/me")]
+    public async Task<IActionResult> GetMyGoals(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMyGoalQuery(), cancellationToken);
+
+        return ToActionResult(result);
     }
 
     [HttpGet("api/goals")]
