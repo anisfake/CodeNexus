@@ -21,6 +21,7 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
             .Include(s => s.CreatedByUser)
             .AsNoTracking()
             .OrderByDescending(s => s.CreatedAt)
+            .Where(s => !s.IsDeleted)
             .Select(s => new SubjectDto(
                 s.SubjectId,
                 s.Name,
