@@ -167,9 +167,9 @@ public class GetStudentDashboardStatsQueryHandlerTests
 
         var focusSessions = new List<FocusSession>
         {
-            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, Duration = 30 },
-            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, Duration = 45 },
-            new FocusSession { SessionId = NewId.NextGuid(), TaskId = otherTaskId, Task = otherTask, Duration = 60 }
+            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, DurationInMinutes = 30 },
+            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, DurationInMinutes = 45 },
+            new FocusSession { SessionId = NewId.NextGuid(), TaskId = otherTaskId, Task = otherTask, DurationInMinutes = 60 }
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
