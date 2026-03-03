@@ -4,6 +4,6 @@ namespace CodeNexus.Domain.Enums
     {
         Practice = 0,
         Theory = 1,
-        Mixed = 2
+        Quizz = 2
     }
 }

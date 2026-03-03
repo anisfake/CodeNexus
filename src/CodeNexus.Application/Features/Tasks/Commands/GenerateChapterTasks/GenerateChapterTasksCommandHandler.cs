@@ -57,7 +57,15 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             if (generated?.Tasks == null || generated.Tasks.Count == 0)
                 return Result<ChapterTasksDto>.Failure("INVALID_AI_RESPONSE", "AI returned no tasks");
 
-            foreach (var t in generated.Tasks)
+            // Filter out invalid tasks (installation, setup, download tasks)
+            var validTasks = generated.Tasks
+                .Where(t => !IsInvalidTask(t.Title, t.Description))
+                .ToList();
+
+            if (validTasks.Count == 0)
+                return Result<ChapterTasksDto>.Failure("NO_VALID_TASKS", "AI generated only invalid tasks (setup/installation). Please regenerate.");
+
+            foreach (var t in validTasks)
             {
                 var task = new Domain.Entities.Tasks
                 {
@@ -68,7 +76,14 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                     Description = t.Description,
                     Priority = ParsePriority(t.Priority),
                     Status = TaskStatus_.Pending,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.Now,
+                    TaskType = ParseTaskType(t.TaskType),
+                    VerificationMethod = ParseVerificationMethod(t.VerificationMethod),
+                    VerificationPrompt = t.VerificationPrompt,
+                    MinimumScore = t.MinimumScore ?? 70,
+                    QuizQuestionsJson = t.QuizQuestions != null && t.QuizQuestions.Any()
+                        ? System.Text.Json.JsonSerializer.Serialize(t.QuizQuestions)
+                        : null
                 };
 
                 await _context.Tasks.AddAsync(task, cancellationToken);
@@ -104,6 +119,21 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
         return new ChapterTasksDto(chapter.ChapterId, chapter.Title, tasks);
     }
 
+    private static bool IsInvalidTask(string title, string description)
+    {
+        var combined = $"{title} {description}".ToLowerInvariant();
+
+        // Keywords that indicate setup/installation tasks
+        var invalidKeywords = new[]
+        {
+            "install", "cài đặt", "download", "tải xuống", "setup", "thiết lập",
+            "configure environment", "cấu hình môi trường", "verify installation",
+            "kiểm tra cài đặt", "check version", "kiểm tra phiên bản"
+        };
+
+        return invalidKeywords.Any(keyword => combined.Contains(keyword));
+    }
+
     private static TaskPriority ParsePriority(string priority)
     {
         return priority?.ToLowerInvariant() switch
@@ -111,6 +141,26 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             "high" => TaskPriority.High,
             "medium" => TaskPriority.Medium,
             _ => TaskPriority.Low
+        };
+    }
+
+    private static TaskType ParseTaskType(string taskType)
+    {
+        return taskType?.ToLowerInvariant() switch
+        {
+            "theory" => TaskType.Theory,
+            "quizz" or "quiz" or "mixed" => TaskType.Quizz,
+            _ => TaskType.Practice
+        };
+    }
+
+    private static VerificationMethod ParseVerificationMethod(string method)
+    {
+        return method?.ToLowerInvariant() switch
+        {
+            "summarysubmission" => VerificationMethod.SummarySubmission,
+            "quickquiz" or "hybrid" => VerificationMethod.QuickQuiz,
+            _ => VerificationMethod.CodeSubmission
         };
     }
 
@@ -136,29 +186,88 @@ Lessons in this chapter:
 - {lessons}
 
 === TASK ===
-Based on the lessons listed above in this chapter, generate practical study tasks that a student should complete.
-Each task should correspond to one or more lessons and help the student practice or apply what they learned.
+Based on the lessons listed above, generate meaningful study tasks that help students LEARN and PRACTICE the concepts.
+Each task should directly relate to the lesson content and require active learning or coding.
 
-=== REQUIREMENTS ===
-- Generate between 2 and 4 tasks depending on the number and complexity of lessons
-- Each task must have a clear, actionable title
-- Each task must have a description explaining what the student should do
-- Priority: ""Low"", ""Medium"", or ""High"" based on difficulty
-- Write tasks in the same language as the chapter title
-- Tasks should cover all lessons in the chapter
+=== CRITICAL RULES - READ CAREFULLY ===
+ IMPORTANT: Even if lesson titles mention ""installation"" or ""setup"", DO NOT create tasks about installing software!
+Instead, focus on USING the technology after it's already installed.
 
+1. ONLY generate tasks about LEARNING CONTENT from the lessons:
+   - Practice tasks: Write code, solve problems, build features, implement algorithms
+   - Theory tasks: Understand concepts, explain principles, analyze patterns
+   - Quiz tasks: Test knowledge with specific questions about lesson content
+
+2. ABSOLUTELY FORBIDDEN - DO NOT generate tasks about:
+    Installing software (""Install Docker"", ""Install Python"", ""Setup IDE"", ""Download tools"")
+   Verifying installation (""Verify Docker installation"", ""Check version"")
+   Environment setup (""Configure environment"", ""Setup workspace"")
+   Downloading files or resources
+   System configuration or prerequisites
+   Administrative or preparation tasks
+
+3. CORRECT APPROACH - If lessons mention installation:
+   Instead of: ""Install Docker"" → Create: ""Build and run a Docker container""
+   Instead of: ""Setup Python environment"" → Create: ""Write a Python script using virtual environments""
+   Instead of: ""Verify installation"" → Create: ""Use Docker commands to manage containers""
+
+4. For Practice tasks (TaskType: ""Practice"", VerificationMethod: ""CodeSubmission""):
+   - Must require writing actual code
+   - Must be specific programming exercises based on lesson content
+   - VerificationPrompt should describe what to check in the submitted code
+   - Examples: 
+     * ""Build a Docker container for a web application""
+     * ""Create a Dockerfile with multi-stage builds""
+     * ""Implement a sorting algorithm in Python""
+     * ""Build a REST API endpoint with authentication""
+
+5. For Theory tasks (TaskType: ""Theory""):
+   - Use VerificationMethod: ""QuickQuiz"" with 2-3 questions
+   - Questions must test understanding of specific concepts from lessons
+   - Each question needs 4 options with correctAnswer index (0-3)
+   - OR use VerificationMethod: ""SummarySubmission"" with VerificationPrompt describing what to summarize
+
+6. Task Quality Requirements:
+   - Title: Specific and actionable (not vague like ""Learn basics"")
+   - Description: Clear instructions on what to do
+   - Priority: High (core concepts), Medium (important), Low (optional practice)
+   - Generate 2-4 tasks depending on lesson complexity
+   - Write in the same language as the chapter title
+
+=== OUTPUT FORMAT ===
 Return ONLY valid JSON (no markdown, no extra text):
 {{
   ""tasks"": [
     {{
-      ""title"": ""Practice basic syntax"",
-      ""description"": ""Write small programs to practice the basic syntax covered in the introductory lessons."",
-      ""priority"": ""High""
+      ""title"": ""Implement bubble sort algorithm"",
+      ""description"": ""Write a function that implements the bubble sort algorithm to sort an array of integers in ascending order."",
+      ""priority"": ""High"",
+      ""taskType"": ""Practice"",
+      ""verificationMethod"": ""CodeSubmission"",
+      ""verificationPrompt"": ""Verify the code correctly implements bubble sort with proper comparisons and swaps. Check for correct time complexity understanding."",
+      ""minimumScore"": 70,
+      ""quizQuestions"": null
     }},
     {{
-      ""title"": ""Solve exercises on control flow"",
-      ""description"": ""Complete exercises involving if-else statements, loops, and switch cases."",
-      ""priority"": ""Medium""
+      ""title"": ""Understanding sorting algorithms complexity"",
+      ""description"": ""Test your knowledge about time and space complexity of different sorting algorithms."",
+      ""priority"": ""Medium"",
+      ""taskType"": ""Theory"",
+      ""verificationMethod"": ""QuickQuiz"",
+      ""verificationPrompt"": null,
+      ""minimumScore"": 70,
+      ""quizQuestions"": [
+        {{
+          ""question"": ""What is the average time complexity of bubble sort?"",
+          ""options"": [""O(n)"", ""O(n log n)"", ""O(n²)"", ""O(log n)""],
+          ""correctAnswer"": 2
+        }},
+        {{
+          ""question"": ""Which sorting algorithm has O(n log n) average complexity?"",
+          ""options"": [""Bubble sort"", ""Selection sort"", ""Merge sort"", ""Insertion sort""],
+          ""correctAnswer"": 2
+        }}
+      ]
     }}
   ]
 }}";
