@@ -60,7 +60,7 @@ public class GetStudentDashboardStatsQueryHandler
         var totalStudyMinutes = await _context.FocusSessions
             .AsNoTracking()
             .Where(fs => fs.Task.LearningPath.UserId == userId)
-            .SumAsync(fs => fs.Duration, cancellationToken);
+            .SumAsync(fs => fs.DurationInMinutes, cancellationToken);
 
         var checkinDates = await _context.DailyCheckins
             .AsNoTracking()

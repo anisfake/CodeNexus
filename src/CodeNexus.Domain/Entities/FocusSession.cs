@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CodeNexus.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,11 +15,16 @@ namespace CodeNexus.Domain.Entities
         public string? Title { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
-        public int Duration { get; set; }
-        public string? SessionType { get; set; }
+        public int DurationInMinutes { get; set; }
+        public SessionType SessionType { get; set; } = SessionType.Pomodoro;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
-        public DateTime? GoalDeadline { get; set; }
-        public string? GoalContent { get; set; }
+
+        public string? SubmittedCode { get; set; }
+        public string? SubmittedSummary { get; set; }
+        public string? AIFeedback { get; set; }
+        public int? VerificationScore { get; set; }
+        public bool IsVerified { get; set; } = false;
+
         public virtual ICollection<Note> Notes { get; set; } = new List<Note>();
         public virtual DailyCheckins? DailyCheckin { get; set; }
     }

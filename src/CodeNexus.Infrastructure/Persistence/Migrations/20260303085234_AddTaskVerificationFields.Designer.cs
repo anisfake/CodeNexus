@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260303085234_AddTaskVerificationFields")]
+    partial class AddTaskVerificationFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -242,17 +245,23 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("DurationInMinutes")
+                    b.Property<int>("Duration")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("GoalContent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("GoalDeadline")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsVerified")
                         .HasColumnType("bit");
 
-                    b.Property<int>("SessionType")
-                        .HasColumnType("int");
+                    b.Property<string>("SessionType")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("StartTime")
                         .HasColumnType("datetime2");
@@ -846,6 +855,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("GoalContent")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("GoalDeadline")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("MinimumScore")
                         .HasColumnType("int");
 
@@ -853,9 +868,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Priority")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("QuizQuestionsJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Status")

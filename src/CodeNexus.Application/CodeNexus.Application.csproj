@@ -38,6 +38,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\FocusSessions\Commands\" />
+    <Folder Include="Features\FocusSessions\DTOs\" />
     <Folder Include="Features\Goals\Queries\GetGoalsByUserId\" />
     <Folder Include="Features\LearningPathSkeleton\Queries\GetAllLearningPaths\" />
     <Folder Include="Features\LearningPathSkeleton\Queries\GetLearningPathByUserId\" />

@@ -16,8 +16,13 @@ namespace CodeNexus.Domain.Entities
         public TaskStatus_ Status { get; set; } = TaskStatus_.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime? CompletedAt { get; set; }
-        public DateTime? GoalDeadline { get; set; }
-        public string? GoalContent { get; set; }
+
+        public TaskType TaskType { get; set; } = TaskType.Practice;
+        public VerificationMethod VerificationMethod { get; set; } = VerificationMethod.CodeSubmission;
+        public string? VerificationPrompt { get; set; }
+        public int MinimumScore { get; set; } = 70;
+        public string? QuizQuestionsJson { get; set; }
+
         public virtual ICollection<FocusSession> FocusSessions { get; set; } = new List<FocusSession>();
     }
 }
