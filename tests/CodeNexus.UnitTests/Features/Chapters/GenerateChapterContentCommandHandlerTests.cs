@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using MassTransit;
