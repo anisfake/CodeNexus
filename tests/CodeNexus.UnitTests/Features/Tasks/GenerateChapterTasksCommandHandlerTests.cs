@@ -129,7 +129,7 @@ public class GenerateChapterTasksCommandHandlerTests
         result.Value.Tasks.Should().HaveCount(1);
         result.Value.Tasks[0].Title.Should().Be("Viết hàm tính giai thừa");
         _mockAIGeneratorService.Verify(
-            x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()), Times.Never);
+            x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()), Times.Never);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         var tasksList = new List<Domain.Entities.Tasks>();
@@ -196,7 +196,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         // Act
@@ -219,7 +219,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync((GeneratedTasksDto)null!);
 
         // Act
@@ -242,7 +242,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ThrowsAsync(new InvalidOperationException("Groq API timeout"));
 
         // Act
@@ -286,7 +286,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         // Act
@@ -351,7 +351,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         var tasksList = new List<Domain.Entities.Tasks>();
@@ -403,7 +403,7 @@ public class GenerateChapterTasksCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Chapters).Returns(
             new[] { chapter }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         var tasksList = new List<Domain.Entities.Tasks>();

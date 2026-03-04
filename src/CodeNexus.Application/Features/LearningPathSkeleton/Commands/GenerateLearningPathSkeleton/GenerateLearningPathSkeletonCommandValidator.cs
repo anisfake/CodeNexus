@@ -18,5 +18,9 @@ public class GenerateLearningPathSkeletonCommandValidator : AbstractValidator<Ge
         RuleFor(x => x.ComplexityLevel)
             .IsInEnum()
             .WithMessage("Complexity level must be Beginner, Intermediate, or Advanced");
+
+        RuleFor(x => x.LanguageSelection)
+            .IsInEnum()
+            .WithMessage("Language selection must be Vietnamese or English");
     }
 }

@@ -6,6 +6,7 @@ using MediatR;
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
 public record GenerateLearningPathSkeletonCommand(
-    Guid SubjectId, 
-    Guid GoalId, 
-    ComplexityLevel ComplexityLevel) : IRequest<Result<CreateLearningPathResponse>>;
+    Guid SubjectId,
+    Guid GoalId,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection) : IRequest<Result<CreateLearningPathResponse>>;

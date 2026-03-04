@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Text.Json;
@@ -12,7 +13,6 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly IAIConfigCacheService _cacheService;
     private readonly IEncryptionService _encryptionService;
     private const string GroqApiUrl = "https://api.groq.com/openai/v1/chat/completions";
-    private const string ProviderName = "Groq";
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
     private const int DefaultMaxTokens = 8192;
@@ -31,12 +31,12 @@ public class GroqServiceWithCache : IAIGeneratorService
         _encryptionService = encryptionService;
     }
 
-    public async Task<T> GenerateStructureAsync<T>(string prompt)
+    public async Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
     {
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config) = await GetConfigAsync();
+        var (apiKey, config) = await GetConfigAsync(usageType);
         var responseText = await CallGroqApiAsync(prompt, apiKey, config, jsonMode: true);
         var jsonContent = ExtractJsonFromResponse(responseText);
 
@@ -59,18 +59,18 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    public async Task<string> GenerateContentAsync(string prompt)
+    public async Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
     {
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config) = await GetConfigAsync();
+        var (apiKey, config) = await GetConfigAsync(usageType);
         return await CallGroqApiAsync(prompt, apiKey, config, jsonMode: false);
     }
 
-    private async Task<(string apiKey, GroqConfig config)> GetConfigAsync()
+    private async Task<(string apiKey, GroqConfig config)> GetConfigAsync(AIUsageType usageType)
     {
-        var cachedApiKey = await _cacheService.GetApiKeyAsync(ProviderName);
+        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType);
 
         if (!string.IsNullOrEmpty(cachedApiKey))
         {
@@ -84,18 +84,18 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
 
         var dbConfig = await _context.AIProviderConfigs
-            .FirstOrDefaultAsync(c => c.ProviderName == ProviderName && c.IsEnabled);
+            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsEnabled);
 
         if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
         {
-            throw new InvalidOperationException($"Groq API configuration not found in database. Please configure it via AIConfig API.");
+            throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
         }
 
         var decryptedApiKey = _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
 
         var config = ParseConfigJson(dbConfig.ConfigJson);
 
-        await _cacheService.SetApiKeyAsync(ProviderName, decryptedApiKey, TimeSpan.FromHours(1));
+        await _cacheService.SetApiKeyAsync(usageType, decryptedApiKey, TimeSpan.FromHours(1));
 
         return (decryptedApiKey, config);
     }

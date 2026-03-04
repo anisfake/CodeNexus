@@ -137,7 +137,7 @@ public class GenerateQuizQuestionsCommandHandlerTests
         result.Value.Questions.Should().HaveCount(1);
         result.Value.Questions[0].QuestionText.Should().Be("What is a variable?");
         _mockAIGeneratorService.Verify(
-            x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>()), Times.Never);
+            x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()), Times.Never);
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class GenerateQuizQuestionsCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Quizzes).Returns(
             new[] { quiz }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         var questionsList = new List<Questions>();
@@ -206,7 +206,7 @@ public class GenerateQuizQuestionsCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Quizzes).Returns(
             new[] { quiz }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generated);
 
         // Act
@@ -229,7 +229,7 @@ public class GenerateQuizQuestionsCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Quizzes).Returns(
             new[] { quiz }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ThrowsAsync(new InvalidOperationException("Groq API timeout"));
 
         // Act

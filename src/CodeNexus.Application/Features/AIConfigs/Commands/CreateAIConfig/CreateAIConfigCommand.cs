@@ -1,6 +1,7 @@
-using MediatR;
-using CodeNexus.Application.Features.AIConfigs.DTOs;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.AIConfigs.DTOs;
+using CodeNexus.Domain.Enums;
+using MediatR;
 
 namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
 {
@@ -8,6 +9,7 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
         string ProviderName,
         string ApiKey,
         Dictionary<string, object> ConfigJson,
+        AIUsageType AIUsageType,
         bool IsEnabled
     ) : IRequest<Result<CreateAIConfigResponse>>;
 }

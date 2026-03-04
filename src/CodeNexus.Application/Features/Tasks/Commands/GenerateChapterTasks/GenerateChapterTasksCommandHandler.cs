@@ -51,13 +51,13 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
 
         try
         {
-            var prompt = BuildPrompt(chapter);
-            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt);
+            var language = chapter.LearningPath.Language;
+            var prompt = BuildPrompt(chapter, language);
+            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Tasks == null || generated.Tasks.Count == 0)
                 return Result<ChapterTasksDto>.Failure("INVALID_AI_RESPONSE", "AI returned no tasks");
 
-            // Filter out invalid tasks (installation, setup, download tasks)
             var validTasks = generated.Tasks
                 .Where(t => !IsInvalidTask(t.Title, t.Description))
                 .ToList();
@@ -123,7 +123,6 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
     {
         var combined = $"{title} {description}".ToLowerInvariant();
 
-        // Keywords that indicate setup/installation tasks
         var invalidKeywords = new[]
         {
             "install", "cài đặt", "download", "tải xuống", "setup", "thiết lập",
@@ -164,7 +163,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
         };
     }
 
-    private static string BuildPrompt(Domain.Entities.Chapter chapter)
+    private static string BuildPrompt(Domain.Entities.Chapter chapter, LanguageSelection language)
     {
         var learningPath = chapter.LearningPath;
         var subject = learningPath.Subject.Name;
@@ -173,6 +172,24 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             .OrderBy(l => l.OrderIndex)
             .Select(l => l.Title);
         var lessons = string.Join("\n- ", lessonTitles);
+
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in Vietnamese language
+- IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
+- Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, Algorithm, etc.
+- Use Vietnamese for general descriptions and explanations
+- Example: ""Viết hàm sắp xếp bubble sort"" (correct) instead of ""Viết hàm sắp xếp bong bóng"" (wrong)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in English language
+- Use clear, professional English
+",
+            _ => ""
+        };
 
         return $@"You are a study planning assistant for a {subject} course.
 
@@ -184,6 +201,8 @@ Chapter title: {chapter.Title}
 Chapter description: {chapter.Content ?? "N/A"}
 Lessons in this chapter:
 - {lessons}
+
+{languageInstruction}
 
 === TASK ===
 Based on the lessons listed above, generate meaningful study tasks that help students LEARN and PRACTICE the concepts.

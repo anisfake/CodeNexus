@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Enums;
 using System.Text.RegularExpressions;
 
 namespace CodeNexus.Infrastructure.Services;
@@ -11,21 +12,21 @@ public class GoalValidationService : IGoalValidationService
     {
         "c#", "csharp", "java", "python", "javascript", "typescript", "php", "ruby", "go", "rust",
         "kotlin", "swift", "c++", "cpp", "scala", "dart", "r", "matlab", "perl", "lua",
-        
+
         "lập trình", "code", "coding", "developer", "dev", "programmer", "software", "phần mềm",
         "web", "mobile", "app", "application", "ứng dụng", "api", "backend", "frontend", "fullstack",
         "full-stack", "full stack",
-        
-        "react", "angular", "vue", "asp.net", "aspnet", ".net", "dotnet", "spring", "django", 
+
+        "react", "angular", "vue", "asp.net", "aspnet", ".net", "dotnet", "spring", "django",
         "flask", "express", "node", "nodejs", "laravel", "rails", "flutter", "xamarin",
-        
+
         "html", "css", "sql", "nosql", "mongodb", "postgresql", "mysql", "redis", "docker",
         "kubernetes", "git", "github", "gitlab", "ci/cd", "devops", "cloud", "aws", "azure", "gcp",
-        
+
         "algorithm", "thuật toán", "data structure", "cấu trúc dữ liệu", "oop", "design pattern",
         "database", "cơ sở dữ liệu", "testing", "unit test", "integration", "deployment",
         "microservice", "rest", "graphql", "websocket", "authentication", "authorization",
-        
+
         "học", "learn", "build", "xây dựng", "phát triển", "develop", "tạo", "create",
         "làm", "make", "viết", "write", "code", "debug", "test", "deploy", "triển khai"
     };
@@ -60,13 +61,13 @@ public class GoalValidationService : IGoalValidationService
 
     private bool HasObviousProgrammingKeywords(string normalizedGoal)
     {
-        return ProgrammingKeywords.Any(keyword => 
+        return ProgrammingKeywords.Any(keyword =>
             normalizedGoal.Contains(keyword, StringComparison.OrdinalIgnoreCase));
     }
 
     private bool HasNonProgrammingKeywords(string normalizedGoal)
     {
-        return NonProgrammingKeywords.Any(keyword => 
+        return NonProgrammingKeywords.Any(keyword =>
             normalizedGoal.Contains(keyword, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -84,9 +85,9 @@ Reply ONLY with 'YES' or 'NO'.
 
 Answer:";
 
-            var response = await _aiGeneratorService.GenerateContentAsync(prompt);
+            var response = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.Verification);
             var answer = response?.Trim().ToUpper();
-            
+
             return answer == "YES";
         }
         catch

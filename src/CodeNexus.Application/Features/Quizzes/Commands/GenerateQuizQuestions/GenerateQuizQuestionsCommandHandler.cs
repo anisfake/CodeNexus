@@ -54,7 +54,7 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
         try
         {
             var prompt = BuildPrompt(quiz, quiz.Lesson);
-            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedQuestionsDto>(prompt);
+            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedQuestionsDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Questions == null || generated.Questions.Count == 0)
                 return Result<QuizQuestionsDto>.Failure("INVALID_AI_RESPONSE", "AI returned no questions");

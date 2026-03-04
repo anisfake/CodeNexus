@@ -35,7 +35,8 @@ public record LearningPathSkeletonDto(
 public record GenerateLearningPathSkeletonRequest(
     Guid SubjectId,
     Guid GoalId,
-    ComplexityLevel ComplexityLevel
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection
 );
 public record CreateLearningPathResponse(
     Guid PathId,

@@ -35,7 +35,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Beginner);
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
@@ -56,7 +56,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Intermediate);
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Intermediate, LanguageSelection.English);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
 
@@ -81,7 +81,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Advanced);
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Advanced, LanguageSelection.VietNamese);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
         var goal = new CodeNexus.Domain.Entities.Goals 
@@ -98,7 +98,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
             .ReturnsAsync(subject);
         _mockContext.Setup(x => x.Goals.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(goal);
-        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<LearningPathSkeletonDto>(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<LearningPathSkeletonDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ThrowsAsync(new InvalidOperationException("AI service error"));
 
         // Act

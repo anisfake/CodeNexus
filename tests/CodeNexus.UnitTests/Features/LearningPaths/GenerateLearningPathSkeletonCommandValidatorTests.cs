@@ -18,7 +18,7 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithValidCommand_ShouldNotHaveErrors()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.NewGuid(), ComplexityLevel.Beginner);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.NewGuid(), ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -31,7 +31,7 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithEmptySubjectId_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, Guid.NewGuid(), ComplexityLevel.Intermediate);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, Guid.NewGuid(), ComplexityLevel.Intermediate, LanguageSelection.English);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -44,7 +44,7 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithEmptyGoalId_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.Empty, ComplexityLevel.Advanced);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.Empty, ComplexityLevel.Advanced, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -57,7 +57,7 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithBothEmptyIds_ShouldHaveErrors()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, Guid.Empty, ComplexityLevel.Beginner);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, Guid.Empty, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -71,7 +71,7 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithInvalidComplexityLevel_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.NewGuid(), (ComplexityLevel)999);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.NewGuid(), (ComplexityLevel)999, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);

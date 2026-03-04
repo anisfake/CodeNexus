@@ -17,6 +17,9 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
             RuleFor(x => x.ConfigJson)
                 .NotNull().WithMessage("Config JSON is required")
                 .Must(x => x.Count > 0).WithMessage("Config JSON must contain at least one field");
+
+            RuleFor(x => x.AIUsageType)
+                .IsInEnum().WithMessage("Invalid AI usage type");
         }
     }
 }

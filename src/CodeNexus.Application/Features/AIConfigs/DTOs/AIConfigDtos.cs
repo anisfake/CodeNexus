@@ -1,4 +1,5 @@
-﻿using System;
+﻿using CodeNexus.Domain.Enums;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +11,8 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         string ProviderName,
         string ApiKey,
         Dictionary<string, object> ConfigJson,
-        bool IsEnabel
+        bool IsEnabel,
+        AIUsageType AIUsageType
     );
     public record CreateAIConfigResponse(
         string Message,

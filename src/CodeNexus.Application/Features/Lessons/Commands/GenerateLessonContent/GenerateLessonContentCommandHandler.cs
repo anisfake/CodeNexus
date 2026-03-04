@@ -2,6 +2,7 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Lessons.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,25 +28,24 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
     {
         var userId = _currentUserService.GetUserId();
 
-		var lesson = await _context.Lessons
-				.Include(l => l.Chapter)
-	            .ThenInclude(c => c.LearningPath)
-		            .ThenInclude(lp => lp.Subject)
+        var lesson = await _context.Lessons
+                .Include(l => l.Chapter)
+                .ThenInclude(c => c.LearningPath)
+                    .ThenInclude(lp => lp.Subject)
 
-				.Include(l => l.Chapter)
-	            .ThenInclude(c => c.LearningPath)
-		            .ThenInclude(lp => lp.Chapters)
-			            .ThenInclude(c => c.Lessons)
+                .Include(l => l.Chapter)
+                .ThenInclude(c => c.LearningPath)
+                    .ThenInclude(lp => lp.Chapters)
+                        .ThenInclude(c => c.Lessons)
 
 
-			.FirstOrDefaultAsync(l => l.LessonId == request.LessonId, cancellationToken);
-		if (lesson == null)
+            .FirstOrDefaultAsync(l => l.LessonId == request.LessonId, cancellationToken);
+        if (lesson == null)
             return Result<LessonContentDto>.Failure("LESSON_NOT_FOUND", "Lesson not found");
 
         if (lesson.Chapter.LearningPath.UserId != userId)
             return Result<LessonContentDto>.Failure("UNAUTHORIZED", "You do not have access to this lesson");
 
-        // UpdatedAt is null after skeleton creation, set only when content is confirmed
         if (lesson.UpdatedAt != null)
         {
             return Result<LessonContentDto>.Success(
@@ -55,7 +55,7 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
         try
         {
             var prompt = BuildPrompt(lesson, lesson.Chapter, lesson.Chapter.LearningPath);
-            var content = await _aiGeneratorService.GenerateContentAsync(prompt);
+            var content = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.ContentGeneration);
 
             lesson.Content = content;
             lesson.UpdatedAt = DateTime.Now;

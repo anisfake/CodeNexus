@@ -36,7 +36,8 @@ public class LearningPathController : ControllerBase
         var command = new GenerateLearningPathSkeletonCommand(
             request.SubjectId,
             request.GoalId,
-            request.ComplexityLevel
+            request.ComplexityLevel,
+            request.LanguageSelection
         );
 
         var result = await _sender.Send(command, cancellationToken);

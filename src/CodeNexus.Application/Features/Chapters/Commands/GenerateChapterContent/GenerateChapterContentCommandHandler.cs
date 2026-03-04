@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,7 +49,7 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
         try
         {
             var prompt = BuildPrompt(chapter, chapter.LearningPath);
-            var content = await _aiGeneratorService.GenerateContentAsync(prompt);
+            var content = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.ContentGeneration);
 
             chapter.Content = content;
             chapter.UpdatedAt = DateTime.Now;

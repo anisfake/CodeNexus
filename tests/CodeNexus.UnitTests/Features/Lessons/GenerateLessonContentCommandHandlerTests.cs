@@ -94,7 +94,7 @@ public class GenerateLessonContentCommandHandlerTests
         result.Value!.LessonId.Should().Be(lesson.LessonId);
         result.Value.Content.Should().Be("Full generated lesson content...");
         _mockAIGeneratorService.Verify(
-            x => x.GenerateContentAsync(It.IsAny<string>()), Times.Never);
+            x => x.GenerateContentAsync(It.IsAny<string>(), It.IsAny<AIUsageType>()), Times.Never);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class GenerateLessonContentCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Lessons).Returns(
             new[] { lesson }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generatedContent);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -143,7 +143,7 @@ public class GenerateLessonContentCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Lessons).Returns(
             new[] { lesson }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ThrowsAsync(new InvalidOperationException("Groq API timeout"));
 
         // Act
@@ -171,7 +171,7 @@ public class GenerateLessonContentCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Lessons).Returns(
             new[] { lesson }.BuildMockDbSet().Object);
-        _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>()))
+        _mockAIGeneratorService.Setup(x => x.GenerateContentAsync(It.IsAny<string>(), It.IsAny<AIUsageType>()))
             .ReturnsAsync(generatedContent);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
@@ -183,7 +183,7 @@ public class GenerateLessonContentCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Content.Should().Be(generatedContent);
         _mockAIGeneratorService.Verify(
-            x => x.GenerateContentAsync(It.IsAny<string>()), Times.Once);
+            x => x.GenerateContentAsync(It.IsAny<string>(), It.IsAny<AIUsageType>()), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

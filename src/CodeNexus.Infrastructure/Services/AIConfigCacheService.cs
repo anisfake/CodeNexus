@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Enums;
 using StackExchange.Redis;
 
 namespace CodeNexus.Infrastructure.Services;
@@ -13,7 +14,7 @@ public class AIConfigCacheService : IAIConfigCacheService
         _redis = redis;
     }
 
-    public async Task<string?> GetApiKeyAsync(string providerName, CancellationToken cancellationToken = default)
+    public async Task<string?> GetApiKeyAsync(AIUsageType usageType, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -21,7 +22,7 @@ public class AIConfigCacheService : IAIConfigCacheService
                 return null;
 
             var db = _redis.GetDatabase();
-            var key = $"{KeyPrefix}{providerName.ToLower()}";
+            var key = $"{KeyPrefix}{usageType}";
             var value = await db.StringGetAsync(key);
             return value.HasValue ? value.ToString() : null;
         }
@@ -31,7 +32,7 @@ public class AIConfigCacheService : IAIConfigCacheService
         }
     }
 
-    public async Task SetApiKeyAsync(string providerName, string apiKey, TimeSpan expiration, CancellationToken cancellationToken = default)
+    public async Task SetApiKeyAsync(AIUsageType usageType, string apiKey, TimeSpan expiration, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -39,7 +40,7 @@ public class AIConfigCacheService : IAIConfigCacheService
                 return;
 
             var db = _redis.GetDatabase();
-            var key = $"{KeyPrefix}{providerName.ToLower()}";
+            var key = $"{KeyPrefix}{usageType}";
             await db.StringSetAsync(key, apiKey, expiration);
         }
         catch

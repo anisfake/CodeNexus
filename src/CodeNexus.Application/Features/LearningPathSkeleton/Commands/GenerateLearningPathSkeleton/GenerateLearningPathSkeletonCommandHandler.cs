@@ -60,7 +60,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     chapterCount,
                     lessonsPerChapter,
                     quizzPercentage,
-                    request.ComplexityLevel);
+                    request.ComplexityLevel,
+                    request.LanguageSelection);
             }
             catch (Exception ex)
             {
@@ -84,7 +85,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 StartDate = DateTime.Now,
                 EndDate = DateTime.Now.AddDays(estimatedDays),
                 CreatedAt = DateTime.Now,
-                CreatedByType = true
+                CreatedByType = true,
+                Language = request.LanguageSelection
             };
 
             await _context.LearningPaths.AddAsync(learningPath, cancellationToken);
@@ -198,7 +200,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         int chapterCount,
         int lessonsPerChapter,
         int quizzPercentage,
-        Domain.Enums.ComplexityLevel complexity)
+        ComplexityLevel complexity,
+        LanguageSelection language)
     {
         var complexityText = complexity switch
         {
@@ -208,8 +211,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             _ => "Basic, suitable for beginners."
         };
 
-        var prompt = BuildPrompt(subjectName, goalTitle, goalDescription, chapterCount, lessonsPerChapter, quizzPercentage, complexityText);
-        var skeleton = await _aiGeneratorService.GenerateStructureAsync<LearningPathSkeletonDto>(prompt);
+        var prompt = BuildPrompt(subjectName, goalTitle, goalDescription, chapterCount, lessonsPerChapter, quizzPercentage, complexityText, language);
+        var skeleton = await _aiGeneratorService.GenerateStructureAsync<LearningPathSkeletonDto>(prompt, AIUsageType.StructureGeneration);
         return skeleton;
     }
 
@@ -220,50 +223,74 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         int chapterCount,
         int lessonsPerChapter,
         int quizzPercentage,
-        string complexityText)
+        string complexityText,
+        LanguageSelection languageSelection)
     {
         var quizzDescription = quizzPercentage == 0
             ? "No quizzes needed"
             : $"Approximately {quizzPercentage}% of lessons should have quizzes (some lessons have quizzes, some don't)";
 
+        var languageInstruction = languageSelection switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in Vietnamese language
+- IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
+- Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, etc.
+- Use Vietnamese for general descriptions and explanations
+- Example: ""Giới thiệu về REST API"" (correct) instead of ""Giới thiệu về API nghỉ ngơi"" (wrong)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in English language
+- Use clear, professional English
+",
+            _ => ""
+        };
+
         return $@"Generate a learning path in JSON format.
 
-                Subject: {subjectName}
-                Goal: {goalTitle}
-                Complexity Level: {complexityText}
+=== CONTEXT ===
+Subject: {subjectName}
+Goal: {goalTitle}
+{(string.IsNullOrEmpty(goalDescription) ? "" : $"Goal Description: {goalDescription}")}
+Complexity Level: {complexityText}
 
-            Structure Requirements:
-                - Exactly {chapterCount} chapters
-                - Each chapter must have {lessonsPerChapter} to 5 lessons (minimum {lessonsPerChapter}, maximum 5)
-                - {quizzDescription}
-                - Only include quizzes for lessons that need them (not all lessons need quizzes)
-                - Each quiz belongs to exactly one lesson
-                - Provide only titles and descriptions, no content
-                - Content should match the complexity level: {complexityText}
+{languageInstruction}
 
-                Return ONLY valid JSON (no markdown, no extra text):
-                {{
-                    ""title"": ""Learning Path Title"",
-                    ""description"": ""Brief description of the learning path"",
-                    ""chapters"": [
-                    {{
-                        ""title"": ""Chapter Title"",
-                        ""description"": ""Chapter description"",
-                        ""orderIndex"": 0,
-                        ""lessons"": [
-                        {{
-                            ""title"": ""Lesson Title"",
-                            ""description"": ""Lesson description"",
-                            ""quizzes"": [
-                            {{
-                                ""title"": ""Quiz Title"",
-                                ""description"": ""Quiz description""
-                            }}
-                        ]
-                    }}
-                  ]
+=== STRUCTURE REQUIREMENTS ===
+- Exactly {chapterCount} chapters
+- Each chapter must have {lessonsPerChapter} to 5 lessons (minimum {lessonsPerChapter}, maximum 5)
+- {quizzDescription}
+- Only include quizzes for lessons that need them (not all lessons need quizzes)
+- Each quiz belongs to exactly one lesson
+- Provide only titles and descriptions, no content
+- Content should match the complexity level: {complexityText}
+
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON (no markdown, no extra text):
+{{
+  ""title"": ""Learning Path Title"",
+  ""description"": ""Brief description of the learning path"",
+  ""chapters"": [
+    {{
+      ""title"": ""Chapter Title"",
+      ""description"": ""Chapter description"",
+      ""orderIndex"": 0,
+      ""lessons"": [
+        {{
+          ""title"": ""Lesson Title"",
+          ""description"": ""Lesson description"",
+          ""quizzes"": [
+            {{
+              ""title"": ""Quiz Title"",
+              ""description"": ""Quiz description""
+            }}
+          ]
         }}
-    ]
+      ]
+    }}
+  ]
 }}";
     }
 }

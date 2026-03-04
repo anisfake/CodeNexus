@@ -34,7 +34,7 @@ namespace CodeNexus.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAIConfig(CreateAIConfigRequest request, CancellationToken cancellationToken)
         {
-            var command = new CreateAIConfigCommand(request.ProviderName, request.ApiKey, request.ConfigJson, request.IsEnabel);
+            var command = new CreateAIConfigCommand(request.ProviderName, request.ApiKey, request.ConfigJson, request.AIUsageType, request.IsEnabel);
 
             var result = await _sender.Send(command, cancellationToken);
 

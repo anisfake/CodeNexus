@@ -1,14 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Common.Interfaces
 {
     public interface IAIGeneratorService
     {
-        Task<T> GenerateStructureAsync<T>(string prompt);
-        Task<string> GenerateContentAsync(string prompt);
+        Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration);
+        Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration);
     }
 }
