@@ -44,6 +44,7 @@ public record UserRespone(
     string? Address,
     DateTime? DateOfBirth,
     DateTime? LastLogin,
+    string? Status,
     string? RoleName,
     DateTime CreatedAt
 );
