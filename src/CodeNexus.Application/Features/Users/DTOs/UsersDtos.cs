@@ -43,6 +43,7 @@ public record UserRespone(
     string? Phone,
     string? Address,
     DateTime? DateOfBirth,
+    DateTime? LastLogin,
     string? RoleName,
     DateTime CreatedAt
 );

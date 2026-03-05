@@ -67,6 +67,7 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, Paginat
                 u.UserProfile != null ? u.UserProfile.Phone : null,
                 u.UserProfile != null ? u.UserProfile.Address : null,
                 u.UserProfile != null ? u.UserProfile.DateOfBirth : null,
+                u.LastLogin,
                 u.Role != null ? u.Role.RoleName : null,
                 u.CreatedAt
             ))

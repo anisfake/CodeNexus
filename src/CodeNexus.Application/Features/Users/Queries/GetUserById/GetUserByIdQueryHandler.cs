@@ -38,6 +38,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, Result<
             user.UserProfile?.Phone,
             user.UserProfile?.Address,
             user.UserProfile?.DateOfBirth,
+            user.LastLogin,
             user.Role?.RoleName,
             user.CreatedAt
         );
