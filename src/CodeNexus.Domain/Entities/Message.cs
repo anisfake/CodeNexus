@@ -7,7 +7,7 @@
         public string Content { get; set; } = string.Empty;
         public int? InputTokens { get; set; }
         public int? OutputTokens { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual Conversation Conversation { get; set; } = null!;
     }

@@ -10,7 +10,7 @@ namespace CodeNexus.Domain.Entities
         public string EncryptedApiKey { get; set; } = string.Empty;
         public string ConfigJson { get; set; } = string.Empty;
         public bool IsActive { get; set; } = false;
-        public DateTime LastUpdated { get; set; } = DateTime.Now;
+        public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 
         public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
     }

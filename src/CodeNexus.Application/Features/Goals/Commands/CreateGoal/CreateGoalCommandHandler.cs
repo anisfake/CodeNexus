@@ -58,7 +58,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             IsSystemDefined = false,
             CreatedByUserId = userId,
             IsActive = true,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         try

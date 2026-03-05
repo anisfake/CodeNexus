@@ -76,7 +76,7 @@ public class OTPCacheService : IOTPCacheService
             }
 
             var resendExpiration = TimeSpan.FromMinutes(ResendRateLimitMinutes);
-            await db.StringSetAsync(resendKey, DateTime.Now.ToString("O"), resendExpiration);
+            await db.StringSetAsync(resendKey, DateTime.UtcNow.ToString("O"), resendExpiration);
 
             var hourlyExpiration = TimeSpan.FromHours(1);
             await db.StringSetAsync(resendCountKey, (resendCount + 1).ToString(), hourlyExpiration);

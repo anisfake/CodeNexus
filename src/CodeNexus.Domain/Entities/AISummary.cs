@@ -18,7 +18,7 @@ namespace CodeNexus.Domain.Entities
 
         public string Title { get; set; } = string.Empty;
         public string? Summary { get; set; }
-        public DateTime GeneratedAt { get; set; } = DateTime.Now;
+        public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
 
         public virtual ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
     }

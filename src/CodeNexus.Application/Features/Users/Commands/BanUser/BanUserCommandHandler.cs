@@ -38,7 +38,7 @@ public class BanUserCommandHandler : IRequestHandler<BanUserCommand, Result<stri
 
         foreach (var token in activeTokens)
         {
-            token.RevokedAt = DateTime.Now;
+            token.RevokedAt = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync(cancellationToken);

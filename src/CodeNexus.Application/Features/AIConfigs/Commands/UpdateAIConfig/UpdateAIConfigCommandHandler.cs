@@ -60,7 +60,7 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
                 config.UsageType = request.UsageType.Value;
             }
 
-            config.LastUpdated = DateTime.Now;
+            config.LastUpdated = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 

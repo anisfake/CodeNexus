@@ -6,7 +6,7 @@
         public Guid UserId { get; set; }
         public Guid ConfigId { get; set; }
         public string Title { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int MessageCount { get; set; } = 0;
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }

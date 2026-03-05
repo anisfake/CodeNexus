@@ -29,7 +29,7 @@ public class TokenBlacklistMiddleware
                 if (!string.IsNullOrEmpty(jti))
                 {
                     var isBlacklisted = await dbContext.TokenBlacklist
-                        .AnyAsync(t => t.TokenId == jti && t.ExpiresAt > DateTime.Now);
+                        .AnyAsync(t => t.TokenId == jti && t.ExpiresAt > DateTime.UtcNow);
 
                     if (isBlacklisted)
                     {

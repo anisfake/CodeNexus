@@ -57,7 +57,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
             goal.Title = request.Title.Trim();
             goal.Description = request.Description?.Trim();
             goal.IsActive = request.IsActive;
-            goal.UpdatedAt = DateTime.Now;
+            goal.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 

@@ -15,6 +15,6 @@ namespace CodeNexus.Domain.Entities
         public DateTime CheckinDate { get; set; }
         public string? Mood { get; set; }
         public int? Productivity { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

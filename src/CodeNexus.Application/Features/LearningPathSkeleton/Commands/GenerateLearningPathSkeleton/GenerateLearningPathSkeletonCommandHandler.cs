@@ -82,9 +82,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 Title = skeleton.Title,
                 Description = skeleton.Description,
                 Status = "Active",
-                StartDate = DateTime.Now,
-                EndDate = DateTime.Now.AddDays(estimatedDays),
-                CreatedAt = DateTime.Now,
+                StartDate = DateTime.UtcNow,
+                EndDate = DateTime.UtcNow.AddDays(estimatedDays),
+                CreatedAt = DateTime.UtcNow,
                 CreatedByType = true,
                 Language = request.LanguageSelection
             };
@@ -100,7 +100,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     Title = chapterDto.Title,
                     OrderIndex = chapterDto.OrderIndex,
                     IsCompleted = false,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
 
                 await _context.Chapters.AddAsync(chapter, cancellationToken);
@@ -114,7 +114,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                         Title = lessonDto.Title,
                         Content = string.Empty,
                         OrderIndex = chapterDto.Lessons?.IndexOf(lessonDto) ?? 0,
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     };
 
                     await _context.Lessons.AddAsync(lesson, cancellationToken);
@@ -127,7 +127,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                             LessonId = lesson.LessonId,
                             Title = quizDto.Title,
                             Description = quizDto.Description,
-                            CreatedAt = DateTime.Now
+                            CreatedAt = DateTime.UtcNow
                         };
 
                         await _context.Quizzes.AddAsync(quiz, cancellationToken);

@@ -10,6 +10,6 @@ namespace CodeNexus.Domain.Entities
         public int PageNumber { get; set; }
         public string ImageUrl { get; set; } = string.Empty;
         public string? ExtractedText { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

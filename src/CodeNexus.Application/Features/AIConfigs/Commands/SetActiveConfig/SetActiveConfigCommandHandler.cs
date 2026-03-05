@@ -43,7 +43,7 @@ public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigComm
             }
 
             config.IsActive = true;
-            config.LastUpdated = DateTime.Now;
+            config.LastUpdated = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 

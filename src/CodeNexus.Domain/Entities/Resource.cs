@@ -20,7 +20,7 @@ namespace CodeNexus.Domain.Entities
         public string? OriginalFileName { get; set; }
         public string? Description { get; set; }
         public int? TotalPages { get; set; }
-        public DateTime UploadedAt { get; set; } = DateTime.Now;
+        public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
 

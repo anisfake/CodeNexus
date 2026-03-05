@@ -19,7 +19,7 @@ namespace CodeNexus.Domain.Entities
         public string? Description { get; set; }
         public int? TimeLimit { get; set; }
         public decimal? PassingScore { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
 

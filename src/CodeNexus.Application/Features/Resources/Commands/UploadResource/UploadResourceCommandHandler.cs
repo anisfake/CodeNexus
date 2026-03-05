@@ -81,7 +81,7 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
                 TotalPages = pdfProcessingResult.TotalPages,
                 SubjectId = request.SubjectId,
                 UserId = userId,
-                UploadedAt = DateTime.Now
+                UploadedAt = DateTime.UtcNow
             };
 
             foreach (var pageData in pdfProcessingResult.Pages)
@@ -92,7 +92,7 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
                     PageNumber = pageData.PageNumber,
                     ImageUrl = pageData.ImageUrl,
                     ExtractedText = pageData.ExtractedText,
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
                 resource.Pages.Add(resourcePage);
             }

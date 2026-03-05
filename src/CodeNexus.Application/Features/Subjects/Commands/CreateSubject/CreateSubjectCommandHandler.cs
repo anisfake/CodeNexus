@@ -48,7 +48,7 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
             Color = request.Color,
             Icon = request.Icon,
             CreatedByUserId = userId,
-            CreatedAt = DateTime.Now
+            CreatedAt = DateTime.UtcNow
         };
 
         try

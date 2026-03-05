@@ -19,6 +19,6 @@ namespace CodeNexus.Domain.Entities
         public decimal? Score { get; set; }
         public QuizAttemptStatus Status { get; set; } = QuizAttemptStatus.InProgress;
         public string? Answers { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

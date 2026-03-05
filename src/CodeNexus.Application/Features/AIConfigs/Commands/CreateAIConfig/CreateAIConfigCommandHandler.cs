@@ -54,7 +54,7 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
                     EncryptedApiKey = encryptedKey,
                     ConfigJson = configJsonString,
                     IsActive = request.IsEnabled,
-                    LastUpdated = DateTime.Now,
+                    LastUpdated = DateTime.UtcNow,
                     UsageType = request.AIUsageType
                 };
 

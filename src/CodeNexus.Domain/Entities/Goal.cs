@@ -10,7 +10,7 @@ namespace CodeNexus.Domain.Entities
         public Guid? CreatedByUserId { get; set; } 
         public virtual User? CreatedByUser { get; set; }
         public bool IsActive { get; set; } = true;
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }

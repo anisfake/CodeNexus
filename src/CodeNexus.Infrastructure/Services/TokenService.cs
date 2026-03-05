@@ -45,7 +45,7 @@ public class TokenService : ITokenService
             issuer: _settings.Issuer,
             audience: _settings.Audience,
             claims: claims,
-            expires: DateTime.Now.AddMinutes(_settings.AccessTokenExpirationMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_settings.AccessTokenExpirationMinutes),
             signingCredentials: credentials
         );
 
@@ -72,7 +72,7 @@ public class TokenService : ITokenService
             issuer: _settings.Issuer,
             audience: _settings.Audience,
             claims: claims,
-            expires: DateTime.Now.AddMinutes(_settings.ResetPasswordTokenExpirationMinutes),
+            expires: DateTime.UtcNow.AddMinutes(_settings.ResetPasswordTokenExpirationMinutes),
             signingCredentials: credentials
         );
 

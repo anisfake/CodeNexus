@@ -58,7 +58,7 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
             var content = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.ContentGeneration);
 
             lesson.Content = content;
-            lesson.UpdatedAt = DateTime.Now;
+            lesson.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 

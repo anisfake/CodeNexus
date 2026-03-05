@@ -48,7 +48,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.DeleteGoal
             }
 
             goal.IsDeleted = true;
-            goal.DeletedAt = DateTime.Now;
+            goal.DeletedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
             return Result<string>.Success("Delete goal successful!");

@@ -21,7 +21,7 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
 
     public async Task<Result<LoginResponse>> Handle(RefreshAccessTokenCommand request, CancellationToken cancellationToken)
     {
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         var storedToken = await _context.RefreshTokens
             .Include(rt => rt.User)

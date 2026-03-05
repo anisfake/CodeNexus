@@ -172,7 +172,7 @@ public class LogoutCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         refreshToken.RevokedAt.Should().NotBeNull();
-        refreshToken.RevokedAt.Should().BeCloseTo(DateTime.Now, TimeSpan.FromSeconds(1));
+        refreshToken.RevokedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
         _contextMock.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 

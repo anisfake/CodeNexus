@@ -52,7 +52,7 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
             var content = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.ContentGeneration);
 
             chapter.Content = content;
-            chapter.UpdatedAt = DateTime.Now;
+            chapter.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 

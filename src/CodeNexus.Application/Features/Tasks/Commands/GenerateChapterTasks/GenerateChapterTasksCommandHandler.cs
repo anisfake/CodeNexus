@@ -76,7 +76,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                     Description = t.Description,
                     Priority = ParsePriority(t.Priority),
                     Status = TaskStatus_.Pending,
-                    CreatedAt = DateTime.Now,
+                    CreatedAt = DateTime.UtcNow,
                     TaskType = ParseTaskType(t.TaskType),
                     VerificationMethod = ParseVerificationMethod(t.VerificationMethod),
                     VerificationPrompt = t.VerificationPrompt,

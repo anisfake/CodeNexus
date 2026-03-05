@@ -50,7 +50,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
                         Id = NewId.NextGuid(),
                         TokenId = tokenId,
                         ExpiresAt = expiresAt.Value,
-                        BlacklistedAt = DateTime.Now,
+                        BlacklistedAt = DateTime.UtcNow,
                         Reason = "User logout"
                     };
 
@@ -66,7 +66,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
 
             if (refreshToken != null)
             {
-                refreshToken.RevokedAt = DateTime.Now;
+                refreshToken.RevokedAt = DateTime.UtcNow;
             }
         }
         else
@@ -77,7 +77,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
 
             foreach (var token in activeTokens)
             {
-                token.RevokedAt = DateTime.Now;
+                token.RevokedAt = DateTime.UtcNow;
             }
         }
 
