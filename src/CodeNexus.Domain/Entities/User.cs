@@ -14,7 +14,7 @@ namespace CodeNexus.Domain.Entities
         public string PasswordHash { get; set; } = string.Empty;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? LastLogin { get; set; }
         public string? Status { get; set; } = "Active";
         public Guid? RoleId { get; set; }

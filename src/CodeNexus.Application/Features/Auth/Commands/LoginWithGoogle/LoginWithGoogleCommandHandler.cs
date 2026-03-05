@@ -50,7 +50,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
                 PasswordHash = string.Empty,
                 FirstName = googleUser.GivenName,
                 LastName = googleUser.FamilyName,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 Status = "Active",
                 RoleId = defaultRole?.RoleId
             };
@@ -82,8 +82,8 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             TokenId = NewId.NextGuid(),
             UserId = user.UserId,
             Token = refreshTokenValue,
-            CreatedAt = DateTime.Now,
-            ExpiresAt = DateTime.Now.AddDays(_tokenService.RefreshTokenExpirationDays)
+            CreatedAt = DateTime.UtcNow,
+            ExpiresAt = DateTime.UtcNow.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
         await _context.SaveChangesAsync(cancellationToken);
