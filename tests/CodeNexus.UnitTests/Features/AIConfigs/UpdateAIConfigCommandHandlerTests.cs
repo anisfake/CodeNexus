@@ -31,21 +31,24 @@ public class UpdateAIConfigCommandHandlerTests
     public async Task Handle_WithValidCommand_ShouldUpdateConfigSuccessfully()
     {
         // Arrange
-        var providerName = "OpenAI";
+        var configId = Guid.NewGuid();
         var newApiKey = "new-api-key";
         var command = new UpdateAIConfigCommand(
-            providerName,
+            configId,
+            null,  // ProviderName
             newApiKey,
             new Dictionary<string, object> { { "model", "gpt-4" } },
-            true
+            true,  // IsActive
+            null   // UsageType
         );
 
         var existingConfig = new AIProviderConfig
         {
-            ProviderName = providerName,
+            ConfigId = configId,
+            ProviderName = "OpenAI",
             EncryptedApiKey = "old-encrypted-key",
             ConfigJson = "{\"model\":\"gpt-3.5\"}",
-            IsEnabled = false,
+            IsActive = false,
             LastUpdated = DateTime.Now.AddDays(-1)
         };
 
@@ -59,17 +62,17 @@ public class UpdateAIConfigCommandHandlerTests
         // Assert
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
-        Assert.Equal(providerName, result.Value.ProviderName);
+        Assert.Equal("OpenAI", result.Value.ProviderName);
         Assert.True(result.Value.IsEnabled);
         _mockEncryptionService.Verify(x => x.Encrypt(newApiKey), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_WithNonExistentProvider_ShouldReturnNotFound()
+    public async Task Handle_WithNonExistentConfig_ShouldReturnNotFound()
     {
         // Arrange
-        var command = new UpdateAIConfigCommand("NonExistent", "api-key", null, null);
+        var command = new UpdateAIConfigCommand(Guid.NewGuid(), null, "api-key", null, null, null);
         SetupAIProviderConfigsDbSet(new List<AIProviderConfig>());
 
         // Act
@@ -77,7 +80,7 @@ public class UpdateAIConfigCommandHandlerTests
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("PROVIDER_NOT_FOUND", result.ErrorCode);
+        Assert.Equal("CONFIG_NOT_FOUND", result.ErrorCode);
         Assert.Contains("not found", result.ErrorMessage);
     }
 
@@ -85,16 +88,17 @@ public class UpdateAIConfigCommandHandlerTests
     public async Task Handle_WithOnlyApiKeyUpdate_ShouldUpdateOnlyApiKey()
     {
         // Arrange
-        var providerName = "Anthropic";
+        var configId = Guid.NewGuid();
         var newApiKey = "new-api-key";
-        var command = new UpdateAIConfigCommand(providerName, newApiKey, null, null);
+        var command = new UpdateAIConfigCommand(configId, null, newApiKey, null, null, null);
 
         var existingConfig = new AIProviderConfig
         {
-            ProviderName = providerName,
+            ConfigId = configId,
+            ProviderName = "Anthropic",
             EncryptedApiKey = "old-encrypted-key",
             ConfigJson = "{\"model\":\"claude-2\"}",
-            IsEnabled = true,
+            IsActive = true,
             LastUpdated = DateTime.Now.AddDays(-1)
         };
 
@@ -114,15 +118,16 @@ public class UpdateAIConfigCommandHandlerTests
     public async Task Handle_WithOnlyIsEnabledUpdate_ShouldUpdateOnlyIsEnabled()
     {
         // Arrange
-        var providerName = "Google";
-        var command = new UpdateAIConfigCommand(providerName, null, null, false);
+        var configId = Guid.NewGuid();
+        var command = new UpdateAIConfigCommand(configId, null, null, null, false, null);
 
         var existingConfig = new AIProviderConfig
         {
-            ProviderName = providerName,
+            ConfigId = configId,
+            ProviderName = "Google",
             EncryptedApiKey = "encrypted-key",
             ConfigJson = "{\"model\":\"gemini-pro\"}",
-            IsEnabled = true,
+            IsActive = true,
             LastUpdated = DateTime.Now.AddDays(-1)
         };
 
@@ -142,13 +147,15 @@ public class UpdateAIConfigCommandHandlerTests
     public async Task Handle_WhenSaveChangesFails_ShouldReturnError()
     {
         // Arrange
-        var command = new UpdateAIConfigCommand("OpenAI", "new-key", null, null);
+        var configId = Guid.NewGuid();
+        var command = new UpdateAIConfigCommand(configId, null, "new-key", null, null, null);
         var existingConfig = new AIProviderConfig
         {
+            ConfigId = configId,
             ProviderName = "OpenAI",
             EncryptedApiKey = "old-key",
             ConfigJson = "{}",
-            IsEnabled = true
+            IsActive = true
         };
 
         SetupAIProviderConfigsDbSet(new List<AIProviderConfig> { existingConfig });

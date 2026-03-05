@@ -57,33 +57,35 @@ public class CreateAIConfigCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ProviderAlreadyExists_ShouldReturnFailure()
+    public async Task Handle_DuplicateApiKey_ShouldReturnFailure()
     {
         // Arrange
         var existingConfig = new AIProviderConfig
         {
+            ConfigId = Guid.NewGuid(),
             ProviderName = "OpenAI",
-            EncryptedApiKey = "existing-key",
+            EncryptedApiKey = "encrypted-existing-key",
             ConfigJson = "{}",
-            IsEnabled = true
+            IsActive = true
         };
 
         var command = new CreateAIConfigCommand(
-            "OpenAI",
-            "new-api-key",
+            "Groq",  // Different provider but same API key
+            "existing-api-key",
             new Dictionary<string, object>(),
             AIUsageType.ContentGeneration,
             true
         );
 
         SetupAIProviderConfigsDbSet(new List<AIProviderConfig> { existingConfig });
+        _mockEncryptionService.Setup(x => x.Decrypt("encrypted-existing-key")).Returns("existing-api-key");
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("PROVIDER_EXISTS");
+        result.ErrorCode.Should().Be("DUPLICATE_KEY");
     }
 
     [Fact]

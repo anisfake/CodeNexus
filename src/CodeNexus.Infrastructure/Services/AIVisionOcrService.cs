@@ -37,7 +37,7 @@ public class AIVisionOcrService : IOcrService
             _logger.LogInformation($"Extracting text using AI Vision ({imageBytes.Length} bytes)...");
 
             var aiConfig = await _dbContext.AIProviderConfigs
-                .Where(c => c.UsageType == AIUsageType.Assistant && c.IsEnabled)
+                .Where(c => c.UsageType == AIUsageType.Assistant && c.IsActive)
                 .FirstOrDefaultAsync();
 
             if (aiConfig == null)

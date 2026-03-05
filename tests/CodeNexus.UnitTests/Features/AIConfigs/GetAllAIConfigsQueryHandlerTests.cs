@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AIConfigs.Queries.GetAllAIConfigs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using Microsoft.Extensions.Caching.Memory;
 using Moq;
@@ -29,18 +30,22 @@ public class GetAllAIConfigsQueryHandlerTests
         {
             new AIProviderConfig
             {
+                ConfigId = Guid.NewGuid(),
                 ProviderName = "Groq",
                 EncryptedApiKey = "encrypted_key_1",
                 ConfigJson = "{\"Model\":\"llama-3.3-70b-versatile\",\"MaxTokens\":8000}",
-                IsEnabled = true,
+                UsageType = AIUsageType.StructureGeneration,
+                IsActive = true,
                 LastUpdated = DateTime.UtcNow
             },
             new AIProviderConfig
             {
+                ConfigId = Guid.NewGuid(),
                 ProviderName = "OpenAI",
                 EncryptedApiKey = "encrypted_key_2",
                 ConfigJson = "{\"Model\":\"gpt-4\",\"MaxTokens\":4000}",
-                IsEnabled = false,
+                UsageType = AIUsageType.ContentGeneration,
+                IsActive = false,
                 LastUpdated = DateTime.UtcNow.AddDays(-1)
             }
         };
@@ -61,9 +66,11 @@ public class GetAllAIConfigsQueryHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal(2, result.Value.Count);
         Assert.Equal("Groq", result.Value[0].ProviderName);
-        Assert.True(result.Value[0].IsEnabled);
+        Assert.True(result.Value[0].IsActive);
+        Assert.Equal(AIUsageType.StructureGeneration, result.Value[0].UsageType);
         Assert.Equal("OpenAI", result.Value[1].ProviderName);
-        Assert.False(result.Value[1].IsEnabled);
+        Assert.False(result.Value[1].IsActive);
+        Assert.Equal(AIUsageType.ContentGeneration, result.Value[1].UsageType);
     }
 
     [Fact]
@@ -97,10 +104,12 @@ public class GetAllAIConfigsQueryHandlerTests
         {
             new AIProviderConfig
             {
+                ConfigId = Guid.NewGuid(),
                 ProviderName = "Groq",
                 EncryptedApiKey = "encrypted_key",
                 ConfigJson = "invalid json",
-                IsEnabled = true,
+                UsageType = AIUsageType.Assistant,
+                IsActive = true,
                 LastUpdated = DateTime.UtcNow
             }
         };

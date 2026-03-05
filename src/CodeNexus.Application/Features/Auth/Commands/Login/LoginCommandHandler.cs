@@ -36,7 +36,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             return Result<LoginResponse>.Failure("USER_BANNED", "Your account has been banned. Please contact support.");
 
         if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
-            return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
+            return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid username/email or password");
 
         var now = DateTime.Now;
 

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Caching.Memory;
 using CodeNexus.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using MassTransit;
 
 namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
 {
@@ -30,11 +31,17 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
         {
             try
             {
-                var existing = await _context.AIProviderConfigs
-                    .FirstOrDefaultAsync(x => x.ProviderName == request.ProviderName, cancellationToken);
-
-                if (existing != null)
-                    return Result<CreateAIConfigResponse>.Failure("PROVIDER_EXISTS", $"Provider '{request.ProviderName}' already exists");
+                await foreach (var encryptedApiKey in _context.AIProviderConfigs
+                    .Select(x => x.EncryptedApiKey)
+                    .AsAsyncEnumerable()
+                    .WithCancellation(cancellationToken))
+                {
+                    var decryptedKey = _encryptionService.Decrypt(encryptedApiKey);
+                    if (decryptedKey.Equals(request.ApiKey, StringComparison.Ordinal))
+                    {
+                        return Result<CreateAIConfigResponse>.Failure("DUPLICATE_KEY", "An AI config with the same API key already exists.");
+                    }
+                }
 
                 var encryptedKey = _encryptionService.Encrypt(request.ApiKey);
 
@@ -42,10 +49,11 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
 
                 var config = new AIProviderConfig
                 {
+                    ConfigId = NewId.NextGuid(),
                     ProviderName = request.ProviderName,
                     EncryptedApiKey = encryptedKey,
                     ConfigJson = configJsonString,
-                    IsEnabled = request.IsEnabled,
+                    IsActive = request.IsEnabled,
                     LastUpdated = DateTime.Now,
                     UsageType = request.AIUsageType
                 };

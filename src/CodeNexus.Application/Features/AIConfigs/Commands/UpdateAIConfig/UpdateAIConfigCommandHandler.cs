@@ -30,14 +30,19 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
         try
         {
             var config = await _context.AIProviderConfigs
-                .FirstOrDefaultAsync(x => x.ProviderName == request.ProviderName, cancellationToken);
+                .FirstOrDefaultAsync(x => x.ConfigId == request.ConfigId, cancellationToken);
 
             if (config == null)
-                return Result<UpdateAIConfigResponse>.Failure("PROVIDER_NOT_FOUND", $"Provider '{request.ProviderName}' not found");
+                return Result<UpdateAIConfigResponse>.Failure("CONFIG_NOT_FOUND", $"Config with ID '{request.ConfigId}' not found");
 
             if (request.ApiKey != null)
             {
                 config.EncryptedApiKey = _encryptionService.Encrypt(request.ApiKey);
+            }
+
+            if (request.ProviderName != null)
+            {
+                config.ProviderName = request.ProviderName;
             }
 
             if (request.ConfigJson != null)
@@ -45,9 +50,14 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
                 config.ConfigJson = JsonSerializer.Serialize(request.ConfigJson);
             }
 
-            if (request.IsEnabled.HasValue)
+            if (request.IsActive.HasValue)
             {
-                config.IsEnabled = request.IsEnabled.Value;
+                config.IsActive = request.IsActive.Value;
+            }
+
+            if (request.UsageType.HasValue)
+            {
+                config.UsageType = request.UsageType.Value;
             }
 
             config.LastUpdated = DateTime.Now;
@@ -58,8 +68,8 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
 
             return Result<UpdateAIConfigResponse>.Success(new UpdateAIConfigResponse(
                 "Config updated successfully",
-                request.ProviderName,
-                config.IsEnabled
+                config.ProviderName,
+                config.IsActive
             ));
         }
         catch (Exception ex)

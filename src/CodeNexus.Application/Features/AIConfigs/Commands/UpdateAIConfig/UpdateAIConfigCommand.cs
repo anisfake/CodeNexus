@@ -1,12 +1,15 @@
 using MediatR;
 using CodeNexus.Application.Features.AIConfigs.DTOs;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.AIConfigs.Commands.UpdateAIConfig;
 
 public record UpdateAIConfigCommand(
-    string ProviderName,
+    Guid ConfigId,
+    string? ProviderName,
     string? ApiKey,
     Dictionary<string, object>? ConfigJson,
-    bool? IsEnabled
+    bool? IsActive,
+    AIUsageType? UsageType
 ) : IRequest<Result<UpdateAIConfigResponse>>;

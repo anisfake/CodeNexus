@@ -3,8 +3,10 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig;
 using CodeNexus.Application.Features.AIConfigs.Commands.UpdateAIConfig;
 using CodeNexus.Application.Features.AIConfigs.Commands.DeleteAIConfig;
+using CodeNexus.Application.Features.AIConfigs.Commands.SetActiveConfig;
 using CodeNexus.Application.Features.AIConfigs.DTOs;
 using CodeNexus.Application.Features.AIConfigs.Queries.GetAllAIConfigs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -41,17 +43,19 @@ namespace CodeNexus.API.Controllers
             return ToActionResult(result);
         }
 
-        [HttpPut("{providerName}")]
+        [HttpPut("{configId}")]
         public async Task<IActionResult> UpdateAIConfig(
-            string providerName,
+            Guid configId,
             UpdateAIConfigRequest request,
             CancellationToken cancellationToken)
         {
             var command = new UpdateAIConfigCommand(
-                providerName,
+                configId,
+                request.ProviderName,
                 request.ApiKey,
                 request.ConfigJson,
-                request.IsEnabled
+                request.IsActive,
+                request.UsageType
             );
 
             var result = await _sender.Send(command, cancellationToken);
@@ -60,7 +64,7 @@ namespace CodeNexus.API.Controllers
             {
                 return result.ErrorCode switch
                 {
-                    "PROVIDER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                    "CONFIG_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
                     _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
                 };
             }
@@ -68,12 +72,24 @@ namespace CodeNexus.API.Controllers
             return Ok(result.Value);
         }
 
-        [HttpDelete("{providerName}")]
+        [HttpDelete("{configId}")]
         public async Task<IActionResult> DeleteAIConfig(
-            string providerName,
+            Guid configId,
             CancellationToken cancellationToken)
         {
-            var command = new DeleteAIConfigCommand(providerName);
+            var command = new DeleteAIConfigCommand(configId);
+            var result = await _sender.Send(command, cancellationToken);
+
+            return ToActionResult(result);
+        }
+
+        [HttpPost("{configId}/set-active")]
+        public async Task<IActionResult> SetActiveConfig(
+            Guid configId,
+            [FromBody] SetActiveConfigRequest request,
+            CancellationToken cancellationToken)
+        {
+            var command = new SetActiveConfigCommand(configId, request.UsageType);
             var result = await _sender.Send(command, cancellationToken);
 
             return ToActionResult(result);
@@ -85,7 +101,7 @@ namespace CodeNexus.API.Controllers
 
             return result.ErrorCode switch
             {
-                "PROVIDER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                "CONFIG_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
                 _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
             };
         }
@@ -97,7 +113,7 @@ namespace CodeNexus.API.Controllers
 
             return result.ErrorCode switch
             {
-                "PROVIDER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                "CONFIG_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
                 _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
             };
         }

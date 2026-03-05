@@ -22,14 +22,20 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
 
     public record UpdateAIConfigRequest(
         string? ApiKey,
+        string? ProviderName,
         Dictionary<string, object>? ConfigJson,
-        bool? IsEnabled
+        bool? IsActive,
+        AIUsageType? UsageType
     );
 
     public record UpdateAIConfigResponse(
         string Message,
         string ProviderName,
         bool IsEnabled
+    );
+
+    public record SetActiveConfigRequest(
+        AIUsageType UsageType
     );
 
     public record AIConfigResponse(
@@ -39,9 +45,11 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         Dictionary<string, object> Schema
     );
     public record GetAllAIConfigResponse(
+        Guid ConfigId,
         string ApiKey,
         string ProviderName,
-        bool IsEnabled,
+        AIUsageType UsageType,
+        bool IsActive,
         DateTime LastUpdated,
         Dictionary<string, object> ConfigJson
     );

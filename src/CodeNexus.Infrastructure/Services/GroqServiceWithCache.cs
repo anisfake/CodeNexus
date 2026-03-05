@@ -84,7 +84,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
 
         var dbConfig = await _context.AIProviderConfigs
-            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsEnabled);
+            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive);
 
         if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
         {

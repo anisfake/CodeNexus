@@ -25,17 +25,17 @@ public class DeleteAIConfigCommandHandler : IRequestHandler<DeleteAIConfigComman
         try
         {
             var config = await _context.AIProviderConfigs
-                .FirstOrDefaultAsync(x => x.ProviderName == request.ProviderName, cancellationToken);
+                .FirstOrDefaultAsync(x => x.ConfigId == request.ConfigId, cancellationToken);
 
             if (config == null)
-                return Result<string>.Failure("PROVIDER_NOT_FOUND", $"Provider '{request.ProviderName}' not found");
+                return Result<string>.Failure("CONFIG_NOT_FOUND", $"Config with ID '{request.ConfigId}' not found");
 
             _context.AIProviderConfigs.Remove(config);
             await _context.SaveChangesAsync(cancellationToken);
 
             _cache.Remove(CACHE_KEY_ALL);
 
-            return Result<string>.Success($"Provider '{request.ProviderName}' deleted successfully");
+            return Result<string>.Success($"Config '{config.ProviderName}' deleted successfully");
         }
         catch (Exception ex)
         {

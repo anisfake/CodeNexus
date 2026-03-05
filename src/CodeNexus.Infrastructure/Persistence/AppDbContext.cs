@@ -74,7 +74,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
-            modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ProviderName);
+            modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
             modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
 
@@ -250,11 +250,13 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<AIProviderConfig>(entity =>
             {
-                entity.HasKey(e => e.ProviderName);
+                entity.HasKey(e => e.ConfigId);
+
+                entity.HasIndex(e => new { e.UsageType, e.IsActive });
 
                 entity.HasMany(e => e.Conversations)
                       .WithOne(c => c.Provider)
-                      .HasForeignKey(c => c.ProviderName)
+                      .HasForeignKey(c => c.ConfigId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -269,7 +271,7 @@ namespace CodeNexus.Infrastructure.Persistence
 
                 entity.HasOne(c => c.Provider)
                       .WithMany(p => p.Conversations)
-                      .HasForeignKey(c => c.ProviderName)
+                      .HasForeignKey(c => c.ConfigId)
                       .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasMany(c => c.Messages)

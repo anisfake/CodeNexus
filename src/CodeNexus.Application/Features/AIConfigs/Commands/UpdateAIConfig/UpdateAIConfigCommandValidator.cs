@@ -6,14 +6,14 @@ public class UpdateAIConfigCommandValidator : AbstractValidator<UpdateAIConfigCo
 {
     public UpdateAIConfigCommandValidator()
     {
-        RuleFor(x => x.ProviderName)
-            .NotEmpty().WithMessage("Provider name is required.")
-            .MaximumLength(100).WithMessage("Provider name must not exceed 100 characters.");
+        RuleFor(x => x.ConfigId)
+            .NotEmpty().WithMessage("ConfigId is required.");
 
         When(x => x.ApiKey != null, () =>
         {
             RuleFor(x => x.ApiKey)
                 .NotEmpty().WithMessage("API key cannot be empty if provided.");
         });
+
     }
 }

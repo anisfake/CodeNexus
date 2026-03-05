@@ -6,8 +6,7 @@ public class DeleteAIConfigCommandValidator : AbstractValidator<DeleteAIConfigCo
 {
     public DeleteAIConfigCommandValidator()
     {
-        RuleFor(x => x.ProviderName)
-            .NotEmpty().WithMessage("Provider name is required.")
-            .MaximumLength(100).WithMessage("Provider name must not exceed 100 characters.");
+        RuleFor(x => x.ConfigId)
+            .NotEmpty().WithMessage("ConfigId is required.");
     }
 }
