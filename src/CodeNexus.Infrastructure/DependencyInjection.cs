@@ -70,6 +70,7 @@ public static class DependencyInjection
 
         services.Configure<CloudinarySettings>(configuration.GetSection(CloudinarySettings.SectionName));
         services.AddScoped<ICloudinaryService, CloudinaryService>();
+        services.AddScoped<IOcrService, AIVisionOcrService>();
         services.AddScoped<IPdfProcessingService, PdfProcessingService>();
 
         var redisConnectionString = configuration["Redis:ConnectionString"];
