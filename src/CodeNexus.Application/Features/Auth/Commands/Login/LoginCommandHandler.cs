@@ -38,7 +38,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
             return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid username/email or password");
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
 
         var expiredBlacklistedTokens = await _context.TokenBlacklist
             .Where(t => t.ExpiresAt <= now)

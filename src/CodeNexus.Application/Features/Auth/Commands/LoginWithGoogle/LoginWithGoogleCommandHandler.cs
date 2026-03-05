@@ -72,7 +72,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
         if (user.Status == "Banned")
             return Result<LoginResponse>.Failure("USER_BANNED", "Your account has been banned. Please contact support.");
 
-        user.LastLogin = DateTime.Now;
+        user.LastLogin = DateTime.UtcNow;
 
         var accessToken = _tokenService.GenerateAccessToken(user);
 
