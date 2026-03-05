@@ -76,6 +76,7 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
             user.UserId,
             user.Email,
             user.Username,
+            user.LastLogin,
             user.RoleId,
             user.Role?.RoleName
         ));

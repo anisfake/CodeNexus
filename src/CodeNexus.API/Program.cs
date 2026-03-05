@@ -95,6 +95,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseMiddleware<TokenBlacklistMiddleware>();
+app.UseMiddleware<BannedUserMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHub<LessonHub>("/hubs/lesson");

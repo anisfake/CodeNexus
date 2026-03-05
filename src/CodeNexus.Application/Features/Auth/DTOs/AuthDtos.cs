@@ -37,6 +37,7 @@ public record LoginResponse(
     Guid UserId,
     string Email,
     string Username,
+    DateTime? LastLogin,
     Guid? RoleId,
     string? RoleName
 );

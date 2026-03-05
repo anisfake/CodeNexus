@@ -4,6 +4,8 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.Commands.ChangePassword;
 using CodeNexus.Application.Features.Users.Commands.UpdateProfile;
 using CodeNexus.Application.Features.Users.Commands.UploadAvatar;
+using CodeNexus.Application.Features.Users.Commands.BanUser;
+using CodeNexus.Application.Features.Users.Commands.UnbanUser;
 using CodeNexus.Application.Features.Users.DTOs;
 using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using CodeNexus.Application.Features.Users.Queries.GetAllUsers;
@@ -122,6 +124,37 @@ public class UserController : ControllerBase
 
         return ToActionResult(result);
     }
+
+    [HttpPost("{userId}/ban")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> BanUser(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new BanUserCommand(userId);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("{userId}/unban")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UnbanUser(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new UnbanUserCommand(userId);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)

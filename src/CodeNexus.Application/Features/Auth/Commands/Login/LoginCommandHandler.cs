@@ -32,6 +32,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         if (user == null)
             return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
 
+        if (user.Status == "Banned")
+            return Result<LoginResponse>.Failure("USER_BANNED", "Your account has been banned. Please contact support.");
+
         if (!_passwordService.VerifyPassword(request.Password, user.PasswordHash))
             return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
 
@@ -68,6 +71,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             user.UserId,
             user.Email,
             user.Username,
+            user.LastLogin,
             user.RoleId,
             user.Role?.RoleName
         ));
