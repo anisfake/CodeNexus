@@ -54,7 +54,8 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
 
         try
         {
-            var prompt = BuildPrompt(lesson, lesson.Chapter, lesson.Chapter.LearningPath);
+            var language = lesson.Chapter.LearningPath.Language;
+            var prompt = BuildPrompt(lesson, lesson.Chapter, lesson.Chapter.LearningPath, language);
             var content = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.ContentGeneration);
 
             lesson.Content = content;
@@ -72,10 +73,28 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
         }
     }
 
-    private static string BuildPrompt(Lesson lesson, Chapter chapter, LearningPath learningPath)
+    private static string BuildPrompt(Lesson lesson, Chapter chapter, LearningPath learningPath, LanguageSelection language)
     {
         var subject = learningPath.Subject.Name;
         var lang = subject.ToLowerInvariant();
+
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in Vietnamese language
+- IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
+- Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, Algorithm, etc.
+- Use Vietnamese for general descriptions and explanations
+- Example: ""Giới thiệu về REST API"" (correct) instead of ""Giới thiệu về API nghỉ ngơi"" (wrong)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in English language
+- Use clear, professional English
+",
+            _ => ""
+        };
 
         var outlineLines = new List<string>();
         foreach (var ch in learningPath.Chapters.OrderBy(c => c.OrderIndex))
@@ -101,6 +120,8 @@ Learning Path: {learningPath.Title}
 Full outline:
 {outline}
 Current lesson brief: {lesson.Content}
+
+{languageInstruction}
 
 === STRUCTURE ===
 1. Overview (2-3 sentences)
@@ -136,7 +157,6 @@ If this is a review/recap lesson, summarize and connect key concepts from all pr
 * All code must be valid, runnable {subject}
 * Explain code step by step, not just show it
 * No foo/bar — use practical examples
-* Write in the same language as the lesson title
 * Keep content concise and focused — easy to absorb for self-learners
 * For the Common Mistakes table, output raw HTML only — no Markdown fences around it
 Markdown only (except the Common Mistakes HTML table).";
