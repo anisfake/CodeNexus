@@ -10,6 +10,7 @@ using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using CodeNexus.Application.Features.Tasks.Commands.GenerateChapterTasks;
+using CodeNexus.Application.Features.AISummaries.Commands.GenerateResourceSummary;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -110,13 +111,15 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost("chapters/{chapterId:guid}/generate-tasks")]
+
+	[HttpPost("chapters/{chapterId:guid}/generate-tasks")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateChapterTasks(Guid chapterId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateChapterTasksCommand(chapterId), cancellationToken);
         return ToActionResult(result);
     }
+  
 
     private IActionResult ToActionResult(Result result)
     {

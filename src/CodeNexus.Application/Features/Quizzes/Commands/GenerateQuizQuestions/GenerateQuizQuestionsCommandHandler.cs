@@ -53,7 +53,8 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
 
         try
         {
-            var prompt = BuildPrompt(quiz, quiz.Lesson);
+            var language = quiz.Lesson.Chapter.LearningPath.Language;
+            var prompt = BuildPrompt(quiz, quiz.Lesson, language);
             var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedQuestionsDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Questions == null || generated.Questions.Count == 0)
@@ -110,9 +111,27 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
         return new QuizQuestionsDto(quiz.QuizId, quiz.Title, questions);
     }
 
-    private static string BuildPrompt(Quiz quiz, Lesson lesson)
+    private static string BuildPrompt(Quiz quiz, Lesson lesson, LanguageSelection language)
     {
         var subject = lesson.Chapter.LearningPath.Subject.Name;
+
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in Vietnamese language
+- IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
+- Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, Algorithm, etc.
+- Use Vietnamese for general descriptions and explanations
+- Example: ""Vi?t hàm s?p x?p bubble sort"" (correct) instead of ""Vi?t hàm s?p x?p bong bóng"" (wrong)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in English language
+- Use clear, professional English
+",
+            _ => ""
+        };
 
         return $@"You are a senior {subject} instructor.
 Generate exactly 6 quiz questions in JSON format, one for each question type.
@@ -124,6 +143,8 @@ Quiz description: {quiz.Description}
 Lesson title: {lesson.Title}
 Lesson content:
 {lesson.Content}
+
+{languageInstruction}
 
 === QUESTION TYPES (generate exactly 1 of each) ===
 1. TrueFalse (type = 0): A statement that is either true or false.
@@ -159,7 +180,6 @@ Lesson content:
 - For MultipleChoice and SingleChoice: prefer questions that involve analyzing a code snippet, predicting output, or reasoning about code behavior — not just recalling definitions
 - For code snippets in questions: use \n for newlines inside the questionText string
 - Points: 1 for easy, 2 for medium, 3 for hard
-- Write questions in the same language as the lesson title
 
 Return ONLY valid JSON (no markdown, no extra text):
 {{

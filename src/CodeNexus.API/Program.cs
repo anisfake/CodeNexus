@@ -102,6 +102,7 @@ app.MapHub<LessonHub>("/hubs/lesson");
 app.MapHub<ChapterHub>("/hubs/chapter");
 app.MapHub<QuizHub>("/hubs/quiz");
 app.MapHub<TaskHub>("/hubs/task");
+app.MapHub<SummaryHub>("/hubs/summary");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 

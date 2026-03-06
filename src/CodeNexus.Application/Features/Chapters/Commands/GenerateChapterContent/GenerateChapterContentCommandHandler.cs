@@ -48,7 +48,8 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
 
         try
         {
-            var prompt = BuildPrompt(chapter, chapter.LearningPath);
+            var language = chapter.LearningPath.Language;
+            var prompt = BuildPrompt(chapter, chapter.LearningPath, language);
             var content = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.ContentGeneration);
 
             chapter.Content = content;
@@ -66,7 +67,7 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
         }
     }
 
-    private static string BuildPrompt(Chapter chapter, LearningPath learningPath)
+    private static string BuildPrompt(Chapter chapter, LearningPath learningPath, LanguageSelection language)
     {
         var subject = learningPath.Subject.Name;
 
@@ -75,11 +76,18 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
             .Select(l => l.Title);
         var lessons = string.Join(", ", lessonTitles);
 
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => "Write the sentence in Vietnamese. Keep technical terms in English.",
+            LanguageSelection.English => "Write the sentence in English.",
+            _ => ""
+        };
+
         return $@"Given a programming chapter titled ""{chapter.Title}"" in a {subject} learning path (""{learningPath.Title}""), which contains the following lessons: {lessons}.
 
 Write a single short sentence (max 20 words) that describes the main goal/outcome of this chapter. 
 The sentence should summarize what the learner will be able to do after completing this chapter.
-Write in the same language as the chapter title.
+{languageInstruction}
 Return ONLY the sentence, no quotes, no markdown, no extra text.";
     }
 }

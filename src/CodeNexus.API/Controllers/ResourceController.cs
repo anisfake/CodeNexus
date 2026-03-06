@@ -15,6 +15,7 @@ using CodeNexus.Domain.Entities;
 using System.Threading.Tasks;
 using CodeNexus.Application.Features.Resources.Queries.GetMyResources;
 using CodeNexus.Application.Features.Resources.Queries.GetResourcePages;
+using CodeNexus.Application.Features.AISummaries.Commands.GenerateResourceSummary;
 
 namespace CodeNexus.API.Controllers
 {
@@ -114,6 +115,19 @@ namespace CodeNexus.API.Controllers
             return ToActionResult(result);
         }
 
+        [HttpPost("{resourceId}/summary")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GenerateResourceSummary(Guid resourceId, [FromQuery] int startPage, [FromQuery] int endPage)
+        {
+            var command = new GenerateResourceSummaryCommand(resourceId, startPage, endPage);
+            var result = await _sender.Send(command);
+
+            return ToActionResult(result);
+        }
+
         private IActionResult ToActionResult(Result result)
         {
             if (result.IsSuccess)
@@ -134,7 +148,7 @@ namespace CodeNexus.API.Controllers
 
             return result.ErrorCode switch
             {
-                "RESOURCE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                "RESOURCE_NOT_FOUND" or "PAGES_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
                 "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
                 "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
                 _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
