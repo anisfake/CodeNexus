@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
@@ -42,7 +42,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 return Result<CreateLearningPathResponse>.Failure("SUBJECT_NOT_FOUND", "Subject not found");
             }
 
-            var goal = await _context.Goals.FindAsync(new object[] { request.GoalId }, cancellationToken: cancellationToken);
+            var goal = await _context.Goals
+                .FirstOrDefaultAsync(x => x.GoalId == request.GoalId, cancellationToken: cancellationToken);
             if (goal == null)
             {
                 return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found");
@@ -264,7 +265,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             _ => ""
         };
 
-        return $@"Generate a learning path in JSON format.
+        return $@"Generate a complete learning path structure in valid JSON format.
 
 === CONTEXT ===
 Subject: {subjectName}
@@ -283,8 +284,14 @@ Complexity Level: {complexityText}
 - Provide only titles and descriptions, no content
 - Content should match the complexity level: {complexityText}
 
-=== OUTPUT FORMAT ===
-Return ONLY valid JSON (no markdown, no extra text):
+=== CRITICAL INSTRUCTIONS ===
+1. Return ONLY valid, complete JSON (no markdown, no extra text, no explanations)
+2. Ensure ALL JSON brackets and braces are properly closed
+3. Do not truncate the response - provide the complete JSON structure
+4. Use proper JSON syntax with double quotes for all strings
+5. Ensure the JSON is parseable and complete
+
+=== REQUIRED JSON STRUCTURE ===
 {{
   ""title"": ""Learning Path Title"",
   ""description"": ""Brief description of the learning path"",
@@ -307,6 +314,8 @@ Return ONLY valid JSON (no markdown, no extra text):
       ]
     }}
   ]
-}}";
+}}
+
+IMPORTANT: Generate the complete JSON structure with all {chapterCount} chapters and their lessons. Do not truncate or abbreviate the response.";
     }
 }
