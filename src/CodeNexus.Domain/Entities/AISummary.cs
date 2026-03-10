@@ -18,7 +18,5 @@ namespace CodeNexus.Domain.Entities
         public int StartPage { get; set; }
         public int EndPage { get; set; }
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
-
-        public virtual ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
     }
 }
