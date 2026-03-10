@@ -36,7 +36,7 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         if (attempt.UserId != userId)
             return Result<SubmitQuizResultDto>.Failure("UNAUTHORIZED", "You do not have access to this attempt");
 
-        if (attempt.Status == QuizAttemptStatus.Completed)
+        if (attempt.Status != QuizAttemptStatus.InProgress)
             return Result<SubmitQuizResultDto>.Failure("ATTEMPT_ALREADY_COMPLETED", "This attempt has already been submitted");
 
         var now = DateTime.UtcNow;
@@ -77,7 +77,7 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
 
         attempt.EndTime = now;
         attempt.Score = earnedScore;
-        attempt.Status = QuizAttemptStatus.Completed;
+        attempt.Status = passed ? QuizAttemptStatus.Passed : QuizAttemptStatus.NotPassed;
         attempt.Answers = System.Text.Json.JsonSerializer.Serialize(request.Answers);
 
         await _context.SaveChangesAsync(cancellationToken);

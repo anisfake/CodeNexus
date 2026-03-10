@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Quizzes.Commands.StartQuizAttempt;
 using CodeNexus.Application.Features.Quizzes.Commands.SubmitQuizAttempt;
 using CodeNexus.Application.Features.Quizzes.DTOs;
+using CodeNexus.Application.Features.Quizzes.Queries.GetQuizStatus;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,6 +19,13 @@ public class QuizController : ControllerBase
     public QuizController(ISender sender)
     {
         _sender = sender;
+    }
+
+    [HttpGet("{quizId:guid}/status")]
+    public async Task<IActionResult> GetQuizStatus(Guid quizId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetQuizStatusQuery(quizId), cancellationToken);
+        return ToActionResult(result);
     }
 
     [HttpPost("{quizId:guid}/start")]
