@@ -303,15 +303,15 @@ Instead, focus on USING the technology after it's already installed.
    Instead of: ""Setup Python environment"" → Create: ""Write a Python script using virtual environments""
    Instead of: ""Verify installation"" → Create: ""Use Docker commands to manage containers""
 
-4. For Practice tasks (TaskType: ""Practice"", VerificationMethod: ""CodeSubmission""):
-   - Must require writing actual code
-   - Must be specific programming exercises based on lesson content
-   - VerificationPrompt should describe what to check in the submitted code
+4. For Practice tasks (TaskType: ""Practice""):
+   - All practice tasks require students to WRITE CODE
+   - Use VerificationMethod: ""CodeSubmission""
+   - VerificationPrompt: describe what to check in the submitted code
    - Examples: 
-     * ""Build a Docker container for a web application""
-     * ""Create a Dockerfile with multi-stage builds""
-     * ""Implement a sorting algorithm in Python""
-     * ""Build a REST API endpoint with authentication""
+     * ""Implement Bubble Sort algorithm in Python"" → student submits Python code
+     * ""Build a REST API endpoint in C#"" → student submits C# code
+     * ""Write SQL queries to join tables"" → student submits SQL code
+     * ""Create a calculator function in JavaScript"" → student submits JavaScript code
 
 5. For Theory tasks (TaskType: ""Theory""):
    - Use VerificationMethod: ""QuickQuiz"" with 2-3 questions
@@ -338,6 +338,16 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""taskType"": ""Practice"",
       ""verificationMethod"": ""CodeSubmission"",
       ""verificationPrompt"": ""Verify the code correctly implements bubble sort with proper comparisons and swaps. Check for correct time complexity understanding."",
+      ""minimumScore"": 70,
+      ""quizQuestions"": null
+    }},
+    {{
+      ""title"": ""Build a simple calculator function"",
+      ""description"": ""Create a calculator function that can perform basic arithmetic operations (add, subtract, multiply, divide)."",
+      ""priority"": ""Medium"",
+      ""taskType"": ""Practice"",
+      ""verificationMethod"": ""CodeSubmission"",
+      ""verificationPrompt"": ""Check if the function handles all four operations correctly, includes error handling for division by zero, and has proper input validation."",
       ""minimumScore"": 70,
       ""quizQuestions"": null
     }},
