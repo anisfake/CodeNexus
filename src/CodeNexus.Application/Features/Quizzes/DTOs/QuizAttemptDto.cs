@@ -2,20 +2,22 @@ using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Quizzes.DTOs;
 
-public record QuestionItemDto(
+public record AttemptQuestionDto(
     Guid QuestionId,
     string QuestionText,
     QuestionType Type,
     List<string> Options,
-    string CorrectAnswer,
     decimal Points,
     int OrderIndex
 );
 
-public record QuizQuestionsDto(
+public record StartQuizAttemptDto(
+    Guid AttemptId,
     Guid QuizId,
     string Title,
     int? TimeLimit,
     decimal? PassingScore,
-    List<QuestionItemDto> Questions
+    int RemainingSeconds,
+    DateTime StartTime,
+    List<AttemptQuestionDto> Questions
 );

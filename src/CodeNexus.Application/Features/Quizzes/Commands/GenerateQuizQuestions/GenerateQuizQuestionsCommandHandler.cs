@@ -60,6 +60,8 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
             if (generated?.Questions == null || generated.Questions.Count == 0)
                 return Result<QuizQuestionsDto>.Failure("INVALID_AI_RESPONSE", "AI returned no questions");
 
+            NormalizePoints(generated.Questions);
+
             var orderIndex = 0;
             foreach (var q in generated.Questions)
             {
@@ -77,6 +79,9 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
 
                 await _context.Questions.AddAsync(question, cancellationToken);
             }
+
+            quiz.TimeLimit = Math.Clamp(generated.TimeLimitMinutes, 6, 10);
+            quiz.PassingScore = 8;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -108,7 +113,35 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
             ))
             .ToList();
 
-        return new QuizQuestionsDto(quiz.QuizId, quiz.Title, questions);
+        return new QuizQuestionsDto(quiz.QuizId, quiz.Title, quiz.TimeLimit, quiz.PassingScore, questions);
+    }
+
+    private static void NormalizePoints(List<GeneratedQuestionDto> questions)
+    {
+        const decimal totalTarget = 10m;
+        var currentTotal = questions.Sum(q => q.Points);
+
+        if (currentTotal == totalTarget)
+            return;
+
+        var scale = totalTarget / currentTotal;
+        decimal runningSum = 0;
+
+        for (int i = 0; i < questions.Count; i++)
+        {
+            decimal normalized;
+            if (i == questions.Count - 1)
+            {
+                normalized = totalTarget - runningSum;
+            }
+            else
+            {
+                normalized = Math.Round(questions[i].Points * scale, 1);
+            }
+
+            runningSum += normalized;
+            questions[i] = questions[i] with { Points = normalized };
+        }
     }
 
     private static string BuildPrompt(Quiz quiz, Lesson lesson, LanguageSelection language)
@@ -179,52 +212,54 @@ Lesson content:
 - Use the lesson content as knowledge source
 - For MultipleChoice and SingleChoice: prefer questions that involve analyzing a code snippet, predicting output, or reasoning about code behavior — not just recalling definitions
 - For code snippets in questions: use \n for newlines inside the questionText string
-- Points: 1 for easy, 2 for medium, 3 for hard
+- Points: distribute points across all 6 questions so they sum to EXACTLY 10. Use decimal values (e.g., 1.0, 1.5, 2.0, 2.5). Assign higher points to harder questions.
+- timeLimitMinutes: an integer between 6 and 10 representing the total quiz duration in minutes. Choose based on the overall difficulty of the questions.
 
 Return ONLY valid JSON (no markdown, no extra text):
 {{
+  ""timeLimitMinutes"": 8,
   ""questions"": [
     {{
       ""questionText"": ""Python is a compiled language."",
       ""type"": 0,
       ""options"": [""True"", ""False""],
       ""correctAnswer"": ""False"",
-      ""points"": 1
+      ""points"": 1.0
     }},
     {{
       ""questionText"": ""Given the following code:\nx = [1, 2, 3]\ny = x\ny.append(4)\nWhich statements are true?"",
       ""type"": 1,
       ""options"": [""x equals [1, 2, 3, 4]"", ""y equals [1, 2, 3, 4]"", ""x and y refer to the same object"", ""x equals [1, 2, 3]""],
       ""correctAnswer"": ""x equals [1, 2, 3, 4], y equals [1, 2, 3, 4], x and y refer to the same object"",
-      ""points"": 2
+      ""points"": 2.0
     }},
     {{
       ""questionText"": ""What is the output of this code?\nfor i in range(3):\n    print(i, end=' ')"",
       ""type"": 2,
       ""options"": [""1 2 3"", ""0 1 2"", ""0 1 2 3"", ""1 2 3 4""],
       ""correctAnswer"": ""0 1 2"",
-      ""points"": 2
+      ""points"": 2.0
     }},
     {{
       ""questionText"": ""Match each data type with its example:"",
       ""type"": 3,
       ""options"": [""int::42"", ""str::hello"", ""float::3.14"", ""bool::True""],
       ""correctAnswer"": ""int::42,str::hello,float::3.14,bool::True"",
-      ""points"": 2
+      ""points"": 1.5
     }},
     {{
       ""questionText"": ""The keyword ___ is used to create a loop that iterates over a sequence in Python."",
       ""type"": 4,
       ""options"": [],
       ""correctAnswer"": ""for"",
-      ""points"": 1
+      ""points"": 1.0
     }},
     {{
       ""questionText"": ""Arrange the steps to read a file and process its content in Python:"",
       ""type"": 5,
       ""options"": [""Close the file"", ""Open the file with open()"", ""Process each line"", ""Read the content"", ""Import necessary modules""],
       ""correctAnswer"": ""Import necessary modules,Open the file with open(),Read the content,Process each line,Close the file"",
-      ""points"": 3
+      ""points"": 2.5
     }}
   ]
 }}";

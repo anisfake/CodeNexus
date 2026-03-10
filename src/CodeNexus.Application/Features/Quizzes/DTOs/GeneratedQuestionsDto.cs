@@ -11,5 +11,6 @@ public record GeneratedQuestionDto(
 );
 
 public record GeneratedQuestionsDto(
+    int TimeLimitMinutes,
     List<GeneratedQuestionDto> Questions
 );
