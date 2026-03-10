@@ -136,6 +136,8 @@ public class GenerateQuizQuestionsCommandHandlerTests
         result.Value!.QuizId.Should().Be(quiz.QuizId);
         result.Value.Questions.Should().HaveCount(1);
         result.Value.Questions[0].QuestionText.Should().Be("What is a variable?");
+        result.Value.TimeLimit.Should().BeNull();
+        result.Value.PassingScore.Should().BeNull();
         _mockAIGeneratorService.Verify(
             x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()), Times.Never);
     }
@@ -149,26 +151,26 @@ public class GenerateQuizQuestionsCommandHandlerTests
 
         var quiz = CreateQuizGraph(command.QuizId, userId);
 
-        var generated = new GeneratedQuestionsDto(new List<GeneratedQuestionDto>
+        var generated = new GeneratedQuestionsDto(8, new List<GeneratedQuestionDto>
         {
             new("Python is a compiled language.", QuestionType.TrueFalse,
                 new List<string> { "True", "False" },
-                "False", 1),
+                "False", 1.0m),
             new("Which are valid Python data types?", QuestionType.MultipleChoice,
                 new List<string> { "int", "float", "char", "str" },
-                "int, float, str", 2),
+                "int, float, str", 2.0m),
             new("What keyword defines a function?", QuestionType.SingleChoice,
                 new List<string> { "func", "def", "function", "define" },
-                "def", 1),
+                "def", 1.5m),
             new("Match each type with its example:", QuestionType.Matching,
                 new List<string> { "int::42", "str::hello", "float::3.14", "bool::True" },
-                "int::42,str::hello,float::3.14,bool::True", 2),
+                "int::42,str::hello,float::3.14,bool::True", 2.0m),
             new("The keyword ___ is used to create a loop over a sequence.", QuestionType.FillInTheBlank,
                 new List<string>(),
-                "for", 1),
+                "for", 1.0m),
             new("Arrange steps to create a function:", QuestionType.Ordering,
                 new List<string> { "Call the function", "Define with def", "Write body", "Add parameters", "Return a value" },
-                "Define with def,Add parameters,Write body,Return a value,Call the function", 3)
+                "Define with def,Add parameters,Write body,Return a value,Call the function", 2.5m)
         });
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
@@ -189,6 +191,8 @@ public class GenerateQuizQuestionsCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value!.QuizId.Should().Be(quiz.QuizId);
+        result.Value.TimeLimit.Should().Be(8);
+        result.Value.PassingScore.Should().Be(8);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -201,7 +205,7 @@ public class GenerateQuizQuestionsCommandHandlerTests
 
         var quiz = CreateQuizGraph(command.QuizId, userId);
 
-        var generated = new GeneratedQuestionsDto(new List<GeneratedQuestionDto>());
+        var generated = new GeneratedQuestionsDto(8, new List<GeneratedQuestionDto>());
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Quizzes).Returns(
