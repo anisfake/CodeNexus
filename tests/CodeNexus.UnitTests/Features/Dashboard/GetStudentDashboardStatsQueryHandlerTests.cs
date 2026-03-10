@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Dashboard.Queries.GetStudentDashboardStats;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using MassTransit;
@@ -167,9 +168,9 @@ public class GetStudentDashboardStatsQueryHandlerTests
 
         var focusSessions = new List<FocusSession>
         {
-            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, DurationInMinutes = 30 },
-            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, DurationInMinutes = 45 },
-            new FocusSession { SessionId = NewId.NextGuid(), TaskId = otherTaskId, Task = otherTask, DurationInMinutes = 60 }
+            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, PlannedDurationMinutes = 30, ActualDurationMinutes = 30, SessionStatus = SessionStatus.CompletedOnTime },
+            new FocusSession { SessionId = NewId.NextGuid(), TaskId = userTaskId, Task = userTask, PlannedDurationMinutes = 45, ActualDurationMinutes = 45, SessionStatus = SessionStatus.CompletedOnTime },
+            new FocusSession { SessionId = NewId.NextGuid(), TaskId = otherTaskId, Task = otherTask, PlannedDurationMinutes = 60, ActualDurationMinutes = 60, SessionStatus = SessionStatus.CompletedOnTime }
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);

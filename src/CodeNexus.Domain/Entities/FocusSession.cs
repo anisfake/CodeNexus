@@ -15,7 +15,9 @@ namespace CodeNexus.Domain.Entities
         public string? Title { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
-        public int DurationInMinutes { get; set; }
+        public int PlannedDurationMinutes { get; set; } = 25;
+        public int? ActualDurationMinutes { get; set; }
+        public SessionStatus SessionStatus { get; set; } = SessionStatus.Running;
         public SessionType SessionType { get; set; } = SessionType.Pomodoro;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

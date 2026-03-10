@@ -291,35 +291,40 @@ Instead, focus on USING the technology after it's already installed.
    - Quiz tasks: Test knowledge with specific questions about lesson content
 
 2. ABSOLUTELY FORBIDDEN - DO NOT generate tasks about:
-    Installing software (""Install Docker"", ""Install Python"", ""Setup IDE"", ""Download tools"")
-   Verifying installation (""Verify Docker installation"", ""Check version"")
-   Environment setup (""Configure environment"", ""Setup workspace"")
-   Downloading files or resources
-   System configuration or prerequisites
-   Administrative or preparation tasks
+   - Installing software (""Install .NET SDK"", ""Setup IDE"", ""Download tools"")
+   - Verifying installation (""Check .NET version"", ""Verify setup"")
+   - Environment setup (""Configure environment"", ""Setup workspace"")
+   - Running/Testing applications (""Run app in browser"", ""Test the application"", ""Start the server"")
+   - Downloading files or resources
+   - System configuration or prerequisites
+   - Administrative or preparation tasks
 
-3. CORRECT APPROACH - If lessons mention installation:
-   Instead of: ""Install Docker"" → Create: ""Build and run a Docker container""
-   Instead of: ""Setup Python environment"" → Create: ""Write a Python script using virtual environments""
-   Instead of: ""Verify installation"" → Create: ""Use Docker commands to manage containers""
+3. CORRECT APPROACH - Focus on CODE WRITING:
+   Instead of: ""Create and run ASP.NET app"" → Create: ""Write a Controller with action methods""
+   Instead of: ""Test the application"" → Create: ""Implement error handling in Controller""
+   Instead of: ""Run in browser"" → Create: ""Create View with Razor syntax""
 
 4. For Practice tasks (TaskType: ""Practice""):
-   - All practice tasks require students to WRITE CODE
+   - All practice tasks require students to WRITE CODE ONLY
+   - Focus on specific code components, not running/testing
    - Use VerificationMethod: ""CodeSubmission""
    - VerificationPrompt: describe what to check in the submitted code
    - Examples: 
-     * ""Implement Bubble Sort algorithm in Python"" → student submits Python code
-     * ""Build a REST API endpoint in C#"" → student submits C# code
-     * ""Write SQL queries to join tables"" → student submits SQL code
-     * ""Create a calculator function in JavaScript"" → student submits JavaScript code
+     * ""Write a Controller class with GET and POST actions"" → student submits Controller code
+     * ""Implement Model class with data annotations"" → student submits Model code
+     * ""Create Razor View with form elements"" → student submits View code
+     * ""Write Middleware class for request logging"" → student submits Middleware code
 
 5. For Theory tasks (TaskType: ""Theory""):
-   - Use VerificationMethod: ""QuickQuiz"" with 2-3 questions
-   - Questions must test understanding of specific concepts from lessons
-   - Each question needs 4 options with correctAnswer index (0-3)
-   - OR use VerificationMethod: ""SummarySubmission"" with VerificationPrompt describing what to summarize
+   - Use VerificationMethod: ""SummarySubmission"" with VerificationPrompt describing what to summarize
 
-6. Task Quality Requirements:
+6. For Quiz tasks (TaskType: ""Quizz""):
+   - Use VerificationMethod: ""QuickQuiz"" with 3-5 questions
+   - Questions should test comprehensive understanding of lesson concepts
+   - Each question needs 4 options with correctAnswer index (0-3)
+   - Focus on practical application and deeper understanding
+
+7. Task Quality Requirements:
    - Title: Specific and actionable (not vague like ""Learn basics"")
    - Description: Clear instructions on what to do
    - Priority: High (core concepts), Medium (important), Low (optional practice)
@@ -369,6 +374,32 @@ Return ONLY valid JSON (no markdown, no extra text):
           ""question"": ""Which sorting algorithm has O(n log n) average complexity?"",
           ""options"": [""Bubble sort"", ""Selection sort"", ""Merge sort"", ""Insertion sort""],
           ""correctAnswer"": 2
+        }}
+      ]
+    }},
+    {{
+      ""title"": ""Comprehensive algorithm knowledge test"",
+      ""description"": ""Complete quiz covering all algorithm concepts from this chapter including implementation details and performance analysis."",
+      ""priority"": ""High"",
+      ""taskType"": ""Quizz"",
+      ""verificationMethod"": ""QuickQuiz"",
+      ""verificationPrompt"": null,
+      ""minimumScore"": 80,
+      ""quizQuestions"": [
+        {{
+          ""question"": ""What is the space complexity of merge sort?"",
+          ""options"": [""O(1)"", ""O(log n)"", ""O(n)"", ""O(n²)""],
+          ""correctAnswer"": 2
+        }},
+        {{
+          ""question"": ""Which algorithm is most suitable for nearly sorted arrays?"",
+          ""options"": [""Quick sort"", ""Merge sort"", ""Insertion sort"", ""Heap sort""],
+          ""correctAnswer"": 2
+        }},
+        {{
+          ""question"": ""What is the worst-case time complexity of quick sort?"",
+          ""options"": [""O(n log n)"", ""O(n²)"", ""O(n)"", ""O(log n)""],
+          ""correctAnswer"": 1
         }}
       ]
     }}
