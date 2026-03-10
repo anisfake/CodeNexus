@@ -31,6 +31,8 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
         var chapter = await _context.Chapters
                 .Include(c => c.LearningPath)
                     .ThenInclude(lp => lp.Subject)
+                .Include(c => c.LearningPath)
+                    .ThenInclude(lp => lp.Chapters)
                 .Include(c => c.Lessons)
                 .Include(c => c.Tasks)
             .FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId, cancellationToken);
@@ -52,7 +54,8 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
         try
         {
             var language = chapter.LearningPath.Language;
-            var prompt = BuildPrompt(chapter, language);
+            var taskCount = CalculateTaskCount(chapter.Lessons.Count);
+            var prompt = BuildPrompt(chapter, language, taskCount);
             var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Tasks == null || generated.Tasks.Count == 0)
@@ -65,8 +68,11 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             if (validTasks.Count == 0)
                 return Result<ChapterTasksDto>.Failure("NO_VALID_TASKS", "AI generated only invalid tasks (setup/installation). Please regenerate.");
 
-            foreach (var t in validTasks)
+            var dueDates = CalculateTaskDueDates(chapter, validTasks.Count);
+
+            for (int i = 0; i < validTasks.Count; i++)
             {
+                var t = validTasks[i];
                 var task = new Domain.Entities.Tasks
                 {
                     TaskId = NewId.NextGuid(),
@@ -74,6 +80,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                     PathId = chapter.PathId,
                     Title = t.Title,
                     Description = t.Description,
+                    DueDate = dueDates[i],
                     Priority = ParsePriority(t.Priority),
                     Status = TaskStatus_.Pending,
                     CreatedAt = DateTime.UtcNow,
@@ -163,7 +170,61 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
         };
     }
 
-    private static string BuildPrompt(Domain.Entities.Chapter chapter, LanguageSelection language)
+    private static int CalculateTaskCount(int lessonCount)
+    {
+        return lessonCount switch
+        {
+            <= 2 => 2,      // 1-2 lessons → 2 tasks
+            3 => 3,         // 3 lessons → 3 tasks
+            4 => 3,         // 4 lessons → 3 tasks
+            5 => 4,         // 5 lessons → 4 tasks
+            6 => 4,         // 6 lessons → 4 tasks
+            7 => 5,         // 7 lessons → 5 tasks
+            _ => 6          // 8+ lessons → 6 tasks (max)
+        };
+    }
+
+    private static List<DateTime?> CalculateTaskDueDates(Domain.Entities.Chapter chapter, int taskCount)
+    {
+        var learningPath = chapter.LearningPath;
+        var dueDates = new List<DateTime?>();
+
+        if (learningPath.EndDate == null)
+        {
+            for (int i = 0; i < taskCount; i++)
+                dueDates.Add(null);
+            return dueDates;
+        }
+
+        var allChapters = learningPath.Chapters.OrderBy(c => c.OrderIndex).ToList();
+        var currentChapterIndex = allChapters.FindIndex(c => c.ChapterId == chapter.ChapterId);
+
+        if (currentChapterIndex == -1)
+        {
+            for (int i = 0; i < taskCount; i++)
+                dueDates.Add(null);
+            return dueDates;
+        }
+
+        var totalChapters = allChapters.Count;
+        var totalDays = (learningPath.EndDate.Value - learningPath.StartDate.Value).TotalDays;
+        var daysPerChapter = totalDays / totalChapters;
+
+        var chapterStartDate = learningPath.StartDate?.AddDays(currentChapterIndex * daysPerChapter);
+        var chapterEndDate = learningPath.StartDate?.AddDays((currentChapterIndex + 1) * daysPerChapter);
+
+        var daysPerTask = (chapterEndDate.Value - chapterStartDate.Value).TotalDays / taskCount;
+
+        for (int i = 0; i < taskCount; i++)
+        {
+            var dueDate = chapterStartDate.Value.AddDays((i + 1) * daysPerTask);
+            dueDates.Add(dueDate);
+        }
+
+        return dueDates;
+    }
+
+    private static string BuildPrompt(Domain.Entities.Chapter chapter, LanguageSelection language, int taskCount)
     {
         var learningPath = chapter.LearningPath;
         var subject = learningPath.Subject.Name;
@@ -178,10 +239,22 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             LanguageSelection.VietNamese => @"
 === LANGUAGE REQUIREMENTS ===
 - Generate ALL content in Vietnamese language
-- IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
-- Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, Algorithm, etc.
-- Use Vietnamese for general descriptions and explanations
-- Example: ""Viết hàm sắp xếp bubble sort"" (correct) instead of ""Viết hàm sắp xếp bong bóng"" (wrong)
+- CRITICAL: ALWAYS keep ALL technical terms, programming concepts, and technology names in ENGLISH
+- DO NOT translate technical terms to Vietnamese under any circumstances
+- Examples of terms that MUST stay in English:
+  * Data structures: Array, Stack, Queue, Tree, Graph, Heap, Hash Table, Linked List
+  * Algorithms: Bubble Sort, Quick Sort, Merge Sort, Binary Search, DFS, BFS, Dynamic Programming
+  * Programming: API, REST, JSON, XML, Framework, Library, Interface, Class, Function, Variable
+  * Technologies: Docker, Kubernetes, React, Angular, Node.js, MongoDB, SQL, NoSQL
+  * Concepts: Recursion, Iteration, Polymorphism, Inheritance, Encapsulation, Abstraction
+- Use Vietnamese ONLY for:
+  * General descriptions and explanations
+  * Action words (viết, tạo, thực hiện, xây dựng, etc.)
+  * Connecting phrases and sentences
+- Correct examples:
+  * ""Viết hàm Bubble Sort"" ✓
+  * ""Thực hành với Stack và Queue"" ✓
+  * ""Xây dựng REST API"" ✓
 ",
             LanguageSelection.English => @"
 === LANGUAGE REQUIREMENTS ===
@@ -250,7 +323,8 @@ Instead, focus on USING the technology after it's already installed.
    - Title: Specific and actionable (not vague like ""Learn basics"")
    - Description: Clear instructions on what to do
    - Priority: High (core concepts), Medium (important), Low (optional practice)
-   - Generate 2-4 tasks depending on lesson complexity
+   - Generate EXACTLY {taskCount} tasks (no more, no less)
+   - Distribute tasks evenly across lessons (don't focus on just one lesson)
    - Write in the same language as the chapter title
 
 === OUTPUT FORMAT ===

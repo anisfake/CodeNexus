@@ -26,7 +26,7 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
             var userId = _currentUserService.GetUserId();
 
             var query = _context.Goals
-                .Where(g => g.CreatedByUserId == userId)
+                .Where(g => g.CreatedByUserId == userId && !g.IsDeleted)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(request.SearchTerm))

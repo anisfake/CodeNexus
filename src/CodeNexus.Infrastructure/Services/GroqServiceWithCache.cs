@@ -230,16 +230,110 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
 
         var jsonStart = response.IndexOf('{');
-        var jsonEnd = response.LastIndexOf('}');
-        if (jsonStart >= 0 && jsonEnd > jsonStart)
-            return response.Substring(jsonStart, jsonEnd - jsonStart + 1).Trim();
+        if (jsonStart >= 0)
+        {
+            var jsonEnd = FindMatchingCloseBrace(response, jsonStart);
+            if (jsonEnd > jsonStart)
+                return response.Substring(jsonStart, jsonEnd - jsonStart + 1).Trim();
+        }
 
         var arrayStart = response.IndexOf('[');
-        var arrayEnd = response.LastIndexOf(']');
-        if (arrayStart >= 0 && arrayEnd > arrayStart)
-            return response.Substring(arrayStart, arrayEnd - arrayStart + 1).Trim();
+        if (arrayStart >= 0)
+        {
+            var arrayEnd = FindMatchingCloseBracket(response, arrayStart);
+            if (arrayEnd > arrayStart)
+                return response.Substring(arrayStart, arrayEnd - arrayStart + 1).Trim();
+        }
 
         return null;
+    }
+
+    private static int FindMatchingCloseBrace(string text, int openBraceIndex)
+    {
+        int depth = 0;
+        bool inString = false;
+        bool escapeNext = false;
+
+        for (int i = openBraceIndex; i < text.Length; i++)
+        {
+            char c = text[i];
+
+            if (escapeNext)
+            {
+                escapeNext = false;
+                continue;
+            }
+
+            if (c == '\\')
+            {
+                escapeNext = true;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString)
+                continue;
+
+            if (c == '{')
+                depth++;
+            else if (c == '}')
+            {
+                depth--;
+                if (depth == 0)
+                    return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int FindMatchingCloseBracket(string text, int openBracketIndex)
+    {
+        int depth = 0;
+        bool inString = false;
+        bool escapeNext = false;
+
+        for (int i = openBracketIndex; i < text.Length; i++)
+        {
+            char c = text[i];
+
+            if (escapeNext)
+            {
+                escapeNext = false;
+                continue;
+            }
+
+            if (c == '\\')
+            {
+                escapeNext = true;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inString = !inString;
+                continue;
+            }
+
+            if (inString)
+                continue;
+
+            if (c == '[')
+                depth++;
+            else if (c == ']')
+            {
+                depth--;
+                if (depth == 0)
+                    return i;
+            }
+        }
+
+        return -1;
     }
 
     private class GroqConfig

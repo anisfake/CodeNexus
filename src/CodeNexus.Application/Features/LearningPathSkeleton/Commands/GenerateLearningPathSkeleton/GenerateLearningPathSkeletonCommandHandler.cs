@@ -235,10 +235,26 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             LanguageSelection.VietNamese => @"
 === LANGUAGE REQUIREMENTS ===
 - Generate ALL content in Vietnamese language
-- IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
-- Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, etc.
-- Use Vietnamese for general descriptions and explanations
-- Example: ""Giới thiệu về REST API"" (correct) instead of ""Giới thiệu về API nghỉ ngơi"" (wrong)
+- CRITICAL: ALWAYS keep ALL technical terms, programming concepts, and technology names in ENGLISH
+- DO NOT translate technical terms to Vietnamese under any circumstances
+- Examples of terms that MUST stay in English:
+  * Data structures: Array, Stack, Queue, Tree, Graph, Heap, Hash Table, Linked List
+  * Algorithms: Bubble Sort, Quick Sort, Merge Sort, Binary Search, DFS, BFS, Dynamic Programming
+  * Programming: API, REST, JSON, XML, Framework, Library, Interface, Class, Function, Variable
+  * Technologies: Docker, Kubernetes, React, Angular, Node.js, MongoDB, SQL, NoSQL
+  * Concepts: Recursion, Iteration, Polymorphism, Inheritance, Encapsulation, Abstraction
+- Use Vietnamese ONLY for:
+  * General descriptions and explanations
+  * Action words (học, tìm hiểu, thực hành, áp dụng, etc.)
+  * Connecting phrases and sentences
+- Correct examples:
+  * ""Giới thiệu về Binary Search Tree"" ✓
+  * ""Tìm hiểu thuật toán Bubble Sort"" ✓
+  * ""Thực hành với Stack và Queue"" ✓
+- Wrong examples:
+  * ""Giới thiệu về Cây tìm kiếm nhị phân"" ✗ (should keep ""Binary Search Tree"")
+  * ""Tìm hiểu thuật toán sắp xếp nổi bọt"" ✗ (should keep ""Bubble Sort"")
+  * ""Thực hành với Ngăn xếp và Hàng đợi"" ✗ (should keep ""Stack"" and ""Queue"")
 ",
             LanguageSelection.English => @"
 === LANGUAGE REQUIREMENTS ===
