@@ -74,7 +74,7 @@ public class SubmitQuizAttemptCommandHandlerTests
         // Arrange
         var userId = NewId.NextGuid();
         var attempt = CreateAttemptWithQuiz(userId);
-        attempt.Status = QuizAttemptStatus.Completed;
+        attempt.Status = QuizAttemptStatus.NotPassed;
         var command = new SubmitQuizAttemptCommand(attempt.AttemptId, new List<AnswerItemDto>());
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);

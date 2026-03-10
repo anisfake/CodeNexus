@@ -12,9 +12,6 @@ namespace CodeNexus.Domain.Entities
         public Guid? LessonId { get; set; }
         public virtual Lesson? Lesson { get; set; }
 
-        public Guid? SummaryId { get; set; }
-        public virtual AISummary? Summary { get; set; }
-
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public int? TimeLimit { get; set; }

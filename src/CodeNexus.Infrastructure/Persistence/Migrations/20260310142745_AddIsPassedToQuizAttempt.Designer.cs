@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260310142745_AddIsPassedToQuizAttempt")]
+    partial class AddIsPassedToQuizAttempt
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -245,23 +248,17 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("AIFeedback")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("ActualDurationMinutes")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("DurationInMinutes")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsVerified")
                         .HasColumnType("bit");
-
-                    b.Property<int>("PlannedDurationMinutes")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SessionStatus")
-                        .HasColumnType("int");
 
                     b.Property<int>("SessionType")
                         .HasColumnType("int");
@@ -600,6 +597,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
 
+                    b.Property<Guid?>("SummaryId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int?>("TimeLimit")
                         .HasColumnType("int");
 
@@ -610,6 +610,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasKey("QuizId");
 
                     b.HasIndex("LessonId");
+
+                    b.HasIndex("SummaryId");
 
                     b.ToTable("Quizzes");
                 });
@@ -628,6 +630,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsPassed")
+                        .HasColumnType("bit");
 
                     b.Property<Guid>("QuizId")
                         .HasColumnType("uniqueidentifier");
@@ -1187,7 +1192,13 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .WithMany("Quizzes")
                         .HasForeignKey("LessonId");
 
+                    b.HasOne("CodeNexus.Domain.Entities.AISummary", "Summary")
+                        .WithMany("Quizzes")
+                        .HasForeignKey("SummaryId");
+
                     b.Navigation("Lesson");
+
+                    b.Navigation("Summary");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.QuizAttempt", b =>
@@ -1303,6 +1314,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.AIProviderConfig", b =>
                 {
                     b.Navigation("Conversations");
+                });
+
+            modelBuilder.Entity("CodeNexus.Domain.Entities.AISummary", b =>
+                {
+                    b.Navigation("Quizzes");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Chapter", b =>

@@ -9,6 +9,7 @@ namespace CodeNexus.Domain.Enums
     public enum QuizAttemptStatus
     {
         InProgress = 0,
-        Completed = 1
+        NotPassed = 1,
+        Passed = 2
     }
 }

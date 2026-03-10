@@ -64,7 +64,7 @@ public class StartQuizAttemptCommandHandler : IRequestHandler<StartQuizAttemptCo
 
             if (remaining <= 0)
             {
-                existingAttempt.Status = QuizAttemptStatus.Completed;
+                existingAttempt.Status = QuizAttemptStatus.NotPassed;
                 existingAttempt.EndTime = existingAttempt.StartTime.AddMinutes(quiz.TimeLimit ?? 0);
                 existingAttempt.Score = 0;
                 await _context.SaveChangesAsync(cancellationToken);
