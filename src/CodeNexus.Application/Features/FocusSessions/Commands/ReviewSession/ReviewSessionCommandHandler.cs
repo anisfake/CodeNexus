@@ -71,7 +71,7 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
                     request.SubmittedSummary!,
                     session.Task.VerificationPrompt);
             }
-            else // TaskType.Quizz
+            else
             {
                 verificationResult = await _verificationService.VerifyQuizSubmissionAsync(
                     session.Task.Title,

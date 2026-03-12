@@ -74,7 +74,8 @@ public record ActiveSessionDto(
 
 public record ReviewSessionRequest(
     string? SubmittedCode = null,
-    string? SubmittedSummary = null
+    string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null
 );
 
 public record ReviewSessionResponseDto(

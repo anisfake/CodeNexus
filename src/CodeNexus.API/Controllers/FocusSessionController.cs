@@ -47,7 +47,8 @@ public class FocusSessionController : ControllerBase
         var command = new ReviewSessionCommand(
             sessionId,
             request.SubmittedCode,
-            request.SubmittedSummary);
+            request.SubmittedSummary,
+            request.SubmittedQuizAnswers);
         var result = await _sender.Send(command, cancellationToken);
         return Ok(result);
     }
