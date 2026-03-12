@@ -42,11 +42,27 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 "There is already an active session for this task");
         }
 
-        if (request.PlannedDurationMinutes < 5 || request.PlannedDurationMinutes > 120)
+        int plannedDuration;
+        if (request.SessionType == SessionType.Pomodoro)
         {
-            return Result<StartSessionResponseDto>.Failure(
-                "INVALID_DURATION",
-                "Planned duration must be between 5 and 120 minutes");
+            var duration = request.PlannedDurationMinutes ?? 25;
+            if (duration < 5 || duration > 120)
+            {
+                return Result<StartSessionResponseDto>.Failure(
+                    "INVALID_DURATION",
+                    "Pomodoro session duration must be between 5 and 120 minutes");
+            }
+            plannedDuration = duration;
+        }
+        else
+        {
+            plannedDuration = request.PlannedDurationMinutes ?? 0;
+            if (plannedDuration < 0 || plannedDuration > 480)
+            {
+                return Result<StartSessionResponseDto>.Failure(
+                    "INVALID_DURATION",
+                    "Study session duration must be 0 (unlimited) or between 1 and 480 minutes");
+            }
         }
 
         try
@@ -55,11 +71,11 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
             {
                 SessionId = NewId.NextGuid(),
                 TaskId = request.TaskId,
-                Title = request.Title ?? $"Focus Session - {task.Title}",
+                Title = request.Title ?? $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} Session - {task.Title}",
                 StartTime = DateTime.UtcNow,
-                PlannedDurationMinutes = request.PlannedDurationMinutes,
+                PlannedDurationMinutes = plannedDuration,
                 SessionStatus = SessionStatus.Running,
-                SessionType = SessionType.Pomodoro,
+                SessionType = request.SessionType,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -76,7 +92,7 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 focusSession.SessionId,
                 focusSession.StartTime,
                 focusSession.PlannedDurationMinutes,
-                "Focus session started successfully"
+                $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} session started successfully"
             );
 
             return Result<StartSessionResponseDto>.Success(responseDto);

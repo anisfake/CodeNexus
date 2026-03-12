@@ -29,6 +29,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy.WithOrigins(allowedOrigins)
+              .SetIsOriginAllowed(origin => true)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -102,6 +103,7 @@ app.UseMiddleware<TokenBlacklistMiddleware>();
 app.UseMiddleware<BannedUserMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<LearningPathHub>("/hubs/learningpath");
 app.MapHub<LessonHub>("/hubs/lesson");
 app.MapHub<ChapterHub>("/hubs/chapter");
 app.MapHub<QuizHub>("/hubs/quiz");
@@ -111,3 +113,6 @@ app.MapHub<SummaryHub>("/hubs/summary");
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
+
+// Make Program class accessible for testing
+public partial class Program { }

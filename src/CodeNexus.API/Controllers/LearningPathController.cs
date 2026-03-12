@@ -4,6 +4,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
@@ -112,14 +113,23 @@ public class LearningPathController : ControllerBase
     }
 
 
-	[HttpPost("chapters/{chapterId:guid}/generate-tasks")]
+    [HttpPost("chapters/{chapterId:guid}/generate-tasks")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateChapterTasks(Guid chapterId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateChapterTasksCommand(chapterId), cancellationToken);
         return ToActionResult(result);
     }
-  
+
+    [HttpPost("{pathId:guid}/chapters/{orderIndex:int}/skeleton")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GenerateChapterSkeleton(Guid pathId, int orderIndex, CancellationToken cancellationToken)
+    {
+        var command = new GenerateChapterSkeletonCommand(pathId, orderIndex);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
 
     private IActionResult ToActionResult(Result result)
     {

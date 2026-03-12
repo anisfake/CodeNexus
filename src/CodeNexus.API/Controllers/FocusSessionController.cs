@@ -31,7 +31,7 @@ public class FocusSessionController : ControllerBase
             return BadRequest(new { ErrorCode = "INVALID_REQUEST", ErrorMessage = "Request body is required" });
         }
 
-        var command = new StartSessionCommand(request.TaskId, request.PlannedDurationMinutes, request.Title);
+        var command = new StartSessionCommand(request.TaskId, request.SessionType, request.PlannedDurationMinutes, request.Title);
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }

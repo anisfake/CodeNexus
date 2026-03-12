@@ -26,7 +26,7 @@ public class StartSessionCommandHandlerTests
     {
         // Arrange
         var taskId = Guid.NewGuid();
-        var command = new StartSessionCommand(taskId, 25, "Test Session");
+        var command = new StartSessionCommand(taskId, SessionType.Pomodoro, 25, "Test Session");
 
         var task = new TaskEntity
         {
@@ -60,7 +60,7 @@ public class StartSessionCommandHandlerTests
     {
         // Arrange
         var taskId = Guid.NewGuid();
-        var command = new StartSessionCommand(taskId, 25, "Test Session");
+        var command = new StartSessionCommand(taskId, SessionType.Pomodoro, 25, "Test Session");
 
         SetupTasksDbSet(new List<TaskEntity>());
         SetupFocusSessionsDbSet(new List<FocusSession>());
@@ -79,7 +79,7 @@ public class StartSessionCommandHandlerTests
     {
         // Arrange
         var taskId = Guid.NewGuid();
-        var command = new StartSessionCommand(taskId, 3, "Test Session"); // Invalid duration < 5
+        var command = new StartSessionCommand(taskId, SessionType.Pomodoro, 3, "Test Session"); // Invalid duration < 5
 
         var task = new TaskEntity
         {

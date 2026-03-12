@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
+using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizSkeleton;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -17,21 +18,60 @@ public class LessonHub : Hub
 
     public async Task RequestLessonContent(Guid lessonId)
     {
-        await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId });
-
-        var result = await _sender.Send(new GenerateLessonContentCommand(lessonId));
-
-        if (result.IsSuccess)
+        try
         {
-            await Clients.Caller.SendAsync("ReceiveLessonContent", result.Value);
+            await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId });
+
+            var lessonResult = await _sender.Send(new GenerateLessonContentCommand(lessonId));
+
+            if (!lessonResult.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("LessonContentError", new
+                {
+                    LessonId = lessonId,
+                    lessonResult.ErrorCode,
+                    lessonResult.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("ReceiveLessonContent", lessonResult.Value);
+
+            await Clients.Caller.SendAsync("QuizSkeletonLoading", new { lessonId });
+
+            var quizResult = await _sender.Send(new GenerateQuizSkeletonCommand(lessonId));
+
+            if (quizResult.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("ReceiveQuizSkeleton", new
+                {
+                    LessonId = lessonId,
+                    Quizzes = quizResult.Value.Quizzes
+                });
+            }
+            else
+            {
+                await Clients.Caller.SendAsync("QuizSkeletonError", new
+                {
+                    LessonId = lessonId,
+                    quizResult.ErrorCode,
+                    quizResult.ErrorMessage
+                });
+            }
+
+            await Clients.Caller.SendAsync("LessonGenerationCompleted", new
+            {
+                LessonId = lessonId,
+                Message = "Lesson content and quizzes generated successfully!"
+            });
         }
-        else
+        catch (Exception ex)
         {
             await Clients.Caller.SendAsync("LessonContentError", new
             {
                 LessonId = lessonId,
-                result.ErrorCode,
-                result.ErrorMessage
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
             });
         }
     }

@@ -16,9 +16,9 @@ public class GroqServiceWithCache : IAIGeneratorService
     private const string GroqApiUrl = "https://api.groq.com/openai/v1/chat/completions";
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
-    private const int DefaultMaxTokens = 16384; // Tăng từ 8192 lên 16384
-    private const float DefaultTemperature = 0.2f; // Giảm từ 0.3 xuống 0.2 để ổn định hơn
-    private const int DefaultRequestTimeoutSeconds = 120; // Tăng từ 60 lên 120 giây
+    private const int DefaultMaxTokens = 8192;
+    private const float DefaultTemperature = 0.4f;
+    private const int DefaultRequestTimeoutSeconds = 120;
 
     public GroqServiceWithCache(
         HttpClient httpClient,
@@ -37,22 +37,21 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        const int maxRetries = 5; // Tăng từ 3 lên 5
+        const int maxRetries = 3;
         Exception lastException = null;
-        var allAttempts = new List<string>(); // Log tất cả attempts
+        var allAttempts = new List<string>();
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
             try
             {
                 var (apiKey, config) = await GetConfigAsync(usageType);
-                
-                // Điều chỉnh config cho từng attempt
-                var adjustedConfig = AdjustConfigForAttempt(config, attempt);
-                
+
+                var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
+
                 var responseText = await CallGroqApiAsync(prompt, apiKey, adjustedConfig, jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
-                
+
                 var jsonContent = ExtractJsonFromResponse(responseText);
 
                 if (string.IsNullOrWhiteSpace(jsonContent))
@@ -60,15 +59,8 @@ public class GroqServiceWithCache : IAIGeneratorService
                     throw new InvalidOperationException($"Could not extract JSON from response. Raw response: {responseText?.Substring(0, Math.Min(500, responseText?.Length ?? 0))}...");
                 }
 
-                // Multiple validation layers
-                if (!IsValidJson(jsonContent))
-                {
-                    throw new InvalidOperationException($"Extracted content is not valid JSON: {jsonContent.Substring(0, Math.Min(200, jsonContent.Length))}...");
-                }
-
-                // Try to deserialize with multiple strategies
                 var result = DeserializeWithFallback<T>(jsonContent);
-                
+
                 if (result == null)
                     throw new InvalidOperationException($"Failed to deserialize to {typeof(T).Name}");
 
@@ -77,7 +69,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             catch (Exception ex) when (attempt < maxRetries)
             {
                 lastException = ex;
-                var delay = Math.Min(1000 * attempt * attempt, 10000); // Exponential backoff with cap
+                var delay = Math.Min(500 * attempt, 2000);
                 await Task.Delay(delay);
                 continue;
             }
@@ -88,13 +80,11 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
         }
 
-        // Ultimate fallback - try to generate a basic structure
         try
         {
             var fallbackResult = await GenerateFallbackStructure<T>(prompt, usageType);
             if (fallbackResult != null)
             {
-                // Log warning but return fallback
                 Console.WriteLine($"WARNING: Used fallback structure after {maxRetries} failed attempts. All attempts: {string.Join("; ", allAttempts)}");
                 return fallbackResult;
             }
@@ -205,8 +195,8 @@ public class GroqServiceWithCache : IAIGeneratorService
             ["messages"] = messages,
             ["max_tokens"] = config.MaxTokens,
             ["temperature"] = config.Temperature,
-            ["top_p"] = 0.9, // Add top_p for better consistency
-            ["stream"] = false // Ensure we get complete response
+            ["top_p"] = 0.9,
+            ["stream"] = false
         };
 
         if (jsonMode)
@@ -248,7 +238,6 @@ public class GroqServiceWithCache : IAIGeneratorService
             if (string.IsNullOrEmpty(text))
                 throw new InvalidOperationException("Groq API returned empty response");
 
-            // Check if response was truncated
             var finishReason = responseJson.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("finish_reason")
@@ -272,9 +261,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         return new GroqConfig
         {
             Model = baseConfig.Model,
-            MaxTokens = Math.Min(baseConfig.MaxTokens + (attempt * 2048), 32768), // Tăng tokens mỗi attempt
-            Temperature = Math.Max(baseConfig.Temperature - (attempt * 0.05f), 0.1f), // Giảm temperature
-            RequestTimeoutSeconds = baseConfig.RequestTimeoutSeconds + (attempt * 30) // Tăng timeout
+            MaxTokens = Math.Min(baseConfig.MaxTokens + (attempt * 1024), 24576),
+            Temperature = Math.Min(baseConfig.Temperature + (attempt * 0.05f), 0.6f),
+            RequestTimeoutSeconds = baseConfig.RequestTimeoutSeconds + (attempt * 15)
         };
     }
 
@@ -282,24 +271,21 @@ public class GroqServiceWithCache : IAIGeneratorService
     {
         var strategies = new List<JsonSerializerOptions>
         {
-            // Strategy 1: Standard options
-            new JsonSerializerOptions 
-            { 
+            new JsonSerializerOptions
+            {
                 PropertyNameCaseInsensitive = true,
                 AllowTrailingCommas = true,
                 ReadCommentHandling = JsonCommentHandling.Skip
             },
-            // Strategy 2: More lenient options
-            new JsonSerializerOptions 
-            { 
+            new JsonSerializerOptions
+            {
                 PropertyNameCaseInsensitive = true,
                 AllowTrailingCommas = true,
                 ReadCommentHandling = JsonCommentHandling.Skip,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             },
-            // Strategy 3: Most lenient
-            new JsonSerializerOptions 
-            { 
+            new JsonSerializerOptions
+            {
                 PropertyNameCaseInsensitive = true,
                 AllowTrailingCommas = true,
                 ReadCommentHandling = JsonCommentHandling.Skip,
@@ -318,7 +304,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
             catch (JsonException)
             {
-                continue; // Try next strategy
+                continue;
             }
         }
 
@@ -327,25 +313,22 @@ public class GroqServiceWithCache : IAIGeneratorService
 
     private async Task<T?> GenerateFallbackStructure<T>(string prompt, AIUsageType usageType)
     {
-        // Fallback strategy: Generate a minimal valid structure
         if (typeof(T).Name.Contains("LearningPathSkeleton"))
         {
             return await GenerateFallbackLearningPath<T>(prompt);
         }
-        
+
         return default(T);
     }
 
     private async Task<T?> GenerateFallbackLearningPath<T>(string prompt)
     {
-        // Extract subject and goal from prompt
         var subjectMatch = System.Text.RegularExpressions.Regex.Match(prompt, @"Subject:\s*([^\n\r]+)");
         var goalMatch = System.Text.RegularExpressions.Regex.Match(prompt, @"Goal:\s*([^\n\r]+)");
-        
+
         var subject = subjectMatch.Success ? subjectMatch.Groups[1].Value.Trim() : "Programming";
         var goal = goalMatch.Success ? goalMatch.Groups[1].Value.Trim() : "Learn Programming";
 
-        // Create a minimal but valid learning path structure
         var fallbackJson = $@"{{
   ""title"": ""Lộ trình học {subject}"",
   ""description"": ""Lộ trình học cơ bản về {subject} - được tạo tự động"",
@@ -418,7 +401,6 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         response = response.Trim();
 
-        // Remove common prefixes that might appear
         var prefixesToRemove = new[] { "Here's the JSON:", "JSON:", "Response:", "```json", "```" };
         foreach (var prefix in prefixesToRemove)
         {
@@ -428,7 +410,6 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
         }
 
-        // Handle markdown code blocks
         if (response.Contains("```json"))
         {
             var start = response.IndexOf("```json") + 7;
@@ -453,7 +434,6 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
         }
 
-        // Try to find JSON object
         var jsonStart = response.IndexOf('{');
         if (jsonStart >= 0)
         {
@@ -466,7 +446,6 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
         }
 
-        // Try to find JSON array
         var arrayStart = response.IndexOf('[');
         if (arrayStart >= 0)
         {
@@ -479,8 +458,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
         }
 
-        // If all else fails, try the entire response if it looks like JSON
-        if ((response.StartsWith("{") && response.EndsWith("}")) || 
+        if ((response.StartsWith("{") && response.EndsWith("}")) ||
             (response.StartsWith("[") && response.EndsWith("]")))
         {
             if (IsValidJson(response))

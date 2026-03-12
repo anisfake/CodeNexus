@@ -51,16 +51,15 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
             var (chapterCount, lessonsPerChapter, quizzPercentage, estimatedDays) = CalculateStructureByComplexity(request.ComplexityLevel);
 
-            LearningPathSkeletonDto skeleton;
+            LearningPathGenerationData learningPathData;
             try
             {
-                skeleton = await GenerateLearningPathSkeletonFromAI(
+                learningPathData = await GenerateLearningPathFromAI(
                     subject.Name,
                     goal.Title,
                     goal.Description,
                     chapterCount,
                     lessonsPerChapter,
-                    quizzPercentage,
                     request.ComplexityLevel,
                     request.LanguageSelection);
             }
@@ -69,9 +68,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 return Result<CreateLearningPathResponse>.Failure("AI_GENERATION_FAILED", $"Failed to generate learning path: {ex.Message}");
             }
 
-            if (skeleton == null || string.IsNullOrEmpty(skeleton.Title))
+            if (learningPathData == null || string.IsNullOrEmpty(learningPathData.Title))
             {
-                return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", "AI returned invalid skeleton structure");
+                return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", "AI returned invalid learning path structure");
             }
 
             var learningPath = new LearningPath
@@ -80,8 +79,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 UserId = userId,
                 SubjectId = request.SubjectId,
                 GoalId = request.GoalId,
-                Title = skeleton.Title,
-                Description = skeleton.Description,
+                Title = learningPathData.Title,
+                Description = learningPathData.Description,
                 Status = "Active",
                 StartDate = DateTime.UtcNow,
                 EndDate = DateTime.UtcNow.AddDays(estimatedDays),
@@ -92,48 +91,56 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
             await _context.LearningPaths.AddAsync(learningPath, cancellationToken);
 
-            foreach (var chapterDto in skeleton.Chapters ?? new List<ChapterDto>())
+            var chapters = new List<ChapterDto>();
+            for (int i = 0; i < learningPathData.Chapters.Count; i++)
             {
+                var chapterData = learningPathData.Chapters[i];
                 var chapter = new Chapter
                 {
                     ChapterId = NewId.NextGuid(),
                     PathId = learningPath.PathId,
-                    Title = chapterDto.Title,
-                    OrderIndex = chapterDto.OrderIndex,
+                    Title = chapterData.Title,
+                    OrderIndex = i,
                     IsCompleted = false,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 await _context.Chapters.AddAsync(chapter, cancellationToken);
 
-                foreach (var lessonDto in chapterDto.Lessons ?? new List<LessonDto>())
+                var lessonDtos = new List<LessonDto>();
+                if (chapterData.Lessons != null)
                 {
-                    var lesson = new Lesson
+                    for (int j = 0; j < chapterData.Lessons.Count; j++)
                     {
-                        LessonId = NewId.NextGuid(),
-                        ChapterId = chapter.ChapterId,
-                        Title = lessonDto.Title,
-                        Content = string.Empty,
-                        OrderIndex = chapterDto.Lessons?.IndexOf(lessonDto) ?? 0,
-                        CreatedAt = DateTime.UtcNow
-                    };
-
-                    await _context.Lessons.AddAsync(lesson, cancellationToken);
-
-                    foreach (var quizDto in lessonDto.Quizzes ?? new List<QuizDto>())
-                    {
-                        var quiz = new Quiz
+                        var lesson = new Lesson
                         {
-                            QuizId = NewId.NextGuid(),
-                            LessonId = lesson.LessonId,
-                            Title = quizDto.Title,
-                            Description = quizDto.Description,
+                            LessonId = NewId.NextGuid(),
+                            ChapterId = chapter.ChapterId,
+                            Title = chapterData.Lessons[j],
+                            Content = string.Empty,
+                            OrderIndex = j,
                             CreatedAt = DateTime.UtcNow
                         };
 
-                        await _context.Quizzes.AddAsync(quiz, cancellationToken);
+                        await _context.Lessons.AddAsync(lesson, cancellationToken);
+
+                        lessonDtos.Add(new LessonDto(
+                            lesson.LessonId,
+                            lesson.Title,
+                            lesson.Content,
+                            new List<QuizDto>()
+                        ));
                     }
                 }
+
+                chapters.Add(new ChapterDto(
+                    chapter.ChapterId,
+                    chapter.Title,
+                    null,
+                    chapter.OrderIndex,
+                    lessonDtos,
+                    new List<TaskDto>()
+                ));
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -143,20 +150,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     learningPath.PathId,
                     learningPath.Title,
                     learningPath.Description,
-                    learningPath.Chapters?.Select(c => new ChapterDto(
-                        c.ChapterId,
-                        c.Title,
-                        c.Content,
-                        c.OrderIndex,
-                        c.Lessons?.Select(l => new LessonDto(
-                            l.LessonId,
-                            l.Title,
-                            l.Content,
-                            l.Quizzes?.Select(q => new QuizDto(q.QuizId, q.Title, q.Description)).ToList() ?? new List<QuizDto>()
-                        )).ToList() ?? new List<LessonDto>(),
-                        new List<TaskDto>()
-                    )).ToList() ?? new List<ChapterDto>(),
-                    skeleton?.Chapters?.Count,
+                    chapters,
+                    chapterCount,
                     learningPath.CreatedAt,
                     true
                 )
@@ -194,13 +189,12 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         };
     }
 
-    private async Task<LearningPathSkeletonDto> GenerateLearningPathSkeletonFromAI(
+    private async Task<LearningPathGenerationData> GenerateLearningPathFromAI(
         string subjectName,
         string goalTitle,
         string? goalDescription,
         int chapterCount,
         int lessonsPerChapter,
-        int quizzPercentage,
         ComplexityLevel complexity,
         LanguageSelection language)
     {
@@ -212,110 +206,89 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             _ => "Basic, suitable for beginners."
         };
 
-        var prompt = BuildPrompt(subjectName, goalTitle, goalDescription, chapterCount, lessonsPerChapter, quizzPercentage, complexityText, language);
-        var skeleton = await _aiGeneratorService.GenerateStructureAsync<LearningPathSkeletonDto>(prompt, AIUsageType.StructureGeneration);
-        return skeleton;
+        var prompt = BuildPrompt(subjectName, goalTitle, goalDescription, complexityText, chapterCount, lessonsPerChapter, language);
+        var learningPathData = await _aiGeneratorService.GenerateStructureAsync<LearningPathGenerationData>(prompt, AIUsageType.StructureGeneration);
+        return learningPathData;
     }
 
     private string BuildPrompt(
         string subjectName,
         string goalTitle,
         string? goalDescription,
+        string complexityText,
         int chapterCount,
         int lessonsPerChapter,
-        int quizzPercentage,
-        string complexityText,
         LanguageSelection languageSelection)
     {
-        var quizzDescription = quizzPercentage == 0
-            ? "No quizzes needed"
-            : $"Approximately {quizzPercentage}% of lessons should have quizzes (some lessons have quizzes, some don't)";
-
         var languageInstruction = languageSelection switch
         {
             LanguageSelection.VietNamese => @"
-=== LANGUAGE REQUIREMENTS ===
-- Generate ALL content in Vietnamese language
-- CRITICAL: ALWAYS keep ALL technical terms, programming concepts, and technology names in ENGLISH
-- DO NOT translate technical terms to Vietnamese under any circumstances
-- Examples of terms that MUST stay in English:
-  * Data structures: Array, Stack, Queue, Tree, Graph, Heap, Hash Table, Linked List
-  * Algorithms: Bubble Sort, Quick Sort, Merge Sort, Binary Search, DFS, BFS, Dynamic Programming
-  * Programming: API, REST, JSON, XML, Framework, Library, Interface, Class, Function, Variable
-  * Technologies: Docker, Kubernetes, React, Angular, Node.js, MongoDB, SQL, NoSQL
-  * Concepts: Recursion, Iteration, Polymorphism, Inheritance, Encapsulation, Abstraction
-- Use Vietnamese ONLY for:
-  * General descriptions and explanations
-  * Action words (học, tìm hiểu, thực hành, áp dụng, etc.)
-  * Connecting phrases and sentences
-- Correct examples:
-  * ""Giới thiệu về Binary Search Tree"" ✓
-  * ""Tìm hiểu thuật toán Bubble Sort"" ✓
-  * ""Thực hành với Stack và Queue"" ✓
-- Wrong examples:
-  * ""Giới thiệu về Cây tìm kiếm nhị phân"" ✗ (should keep ""Binary Search Tree"")
-  * ""Tìm hiểu thuật toán sắp xếp nổi bọt"" ✗ (should keep ""Bubble Sort"")
-  * ""Thực hành với Ngăn xếp và Hàng đợi"" ✗ (should keep ""Stack"" and ""Queue"")
+=== LANGUAGE ===
+- Use Vietnamese for descriptions
+- Keep technical terms in English (Array, Stack, Queue, API, JSON, etc.)
 ",
             LanguageSelection.English => @"
-=== LANGUAGE REQUIREMENTS ===
-- Generate ALL content in English language
-- Use clear, professional English
+=== LANGUAGE ===
+- Use English
 ",
             _ => ""
         };
 
-        return $@"Generate a complete learning path structure in valid JSON format.
+        return $@"Generate a complete learning path structure with chapters and lessons in JSON format.
 
-=== CONTEXT ===
 Subject: {subjectName}
 Goal: {goalTitle}
-{(string.IsNullOrEmpty(goalDescription) ? "" : $"Goal Description: {goalDescription}")}
-Complexity Level: {complexityText}
+Description: {goalDescription ?? "Not provided"}
+Level: {complexityText}
 
 {languageInstruction}
 
-=== STRUCTURE REQUIREMENTS ===
-- Exactly {chapterCount} chapters
-- Each chapter must have {lessonsPerChapter} to 5 lessons (minimum {lessonsPerChapter}, maximum 5)
-- {quizzDescription}
-- Only include quizzes for lessons that need them (not all lessons need quizzes)
-- Each quiz belongs to exactly one lesson
-- Provide only titles and descriptions, no content
-- Content should match the complexity level: {complexityText}
+REQUIREMENTS:
+- Generate {chapterCount} chapters
+- Each chapter should have {lessonsPerChapter}-5 lessons
+- Chapters should progress logically from basic to advanced
+- Lessons within each chapter should build upon each other
+- Focus on practical learning outcomes
 
-=== CRITICAL INSTRUCTIONS ===
-1. Return ONLY valid, complete JSON (no markdown, no extra text, no explanations)
-2. Ensure ALL JSON brackets and braces are properly closed
-3. Do not truncate the response - provide the complete JSON structure
-4. Use proper JSON syntax with double quotes for all strings
-5. Ensure the JSON is parseable and complete
-
-=== REQUIRED JSON STRUCTURE ===
+JSON FORMAT:
 {{
-  ""title"": ""Learning Path Title"",
-  ""description"": ""Brief description of the learning path"",
+  ""title"": ""Learning path title"",
+  ""description"": ""Brief description of what students will learn"",
   ""chapters"": [
     {{
-      ""title"": ""Chapter Title"",
-      ""description"": ""Chapter description"",
-      ""orderIndex"": 0,
+      ""title"": ""Chapter 1 title"",
       ""lessons"": [
-        {{
-          ""title"": ""Lesson Title"",
-          ""description"": ""Lesson description"",
-          ""quizzes"": [
-            {{
-              ""title"": ""Quiz Title"",
-              ""description"": ""Quiz description""
-            }}
-          ]
-        }}
+        ""Lesson 1.1 title"",
+        ""Lesson 1.2 title"",
+        ""Lesson 1.3 title""
+      ]
+    }},
+    {{
+      ""title"": ""Chapter 2 title"",
+      ""lessons"": [
+        ""Lesson 2.1 title"",
+        ""Lesson 2.2 title"",
+        ""Lesson 2.3 title""
       ]
     }}
   ]
 }}
 
-IMPORTANT: Generate the complete JSON structure with all {chapterCount} chapters and their lessons. Do not truncate or abbreviate the response.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     }
+
+    private class LearningPathGenerationData
+    {
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public List<ChapterGenerationData> Chapters { get; set; } = new();
+    }
+
+    private class ChapterGenerationData
+    {
+        public string Title { get; set; } = "";
+        public List<string> Lessons { get; set; } = new();
+    }
+
+
 }

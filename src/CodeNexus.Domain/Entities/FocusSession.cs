@@ -15,10 +15,10 @@ namespace CodeNexus.Domain.Entities
         public string? Title { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
-        public int PlannedDurationMinutes { get; set; } = 25;
+        public int PlannedDurationMinutes { get; set; } = 0; // 0 means unlimited for Study sessions
         public int? ActualDurationMinutes { get; set; }
         public SessionStatus SessionStatus { get; set; } = SessionStatus.Running;
-        public SessionType SessionType { get; set; } = SessionType.Pomodoro;
+        public SessionType SessionType { get; set; } = SessionType.Study; // Default to Study session
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public string? SubmittedCode { get; set; }

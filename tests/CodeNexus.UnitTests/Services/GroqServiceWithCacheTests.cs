@@ -94,7 +94,7 @@ public class GroqServiceWithCacheTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.GenerateStructureAsync<TestDto>("test prompt"));
         
-        Assert.Contains("Failed to generate structure after 5 attempts", exception.Message);
+        Assert.Contains("Failed to generate structure after 3 attempts", exception.Message);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class GroqServiceWithCacheTests
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _service.GenerateStructureAsync<TestDto>("test prompt"));
         
-        Assert.Contains("Failed to generate structure after 5 attempts", exception.Message);
+        Assert.Contains("Failed to generate structure after 3 attempts", exception.Message);
     }
 
     [Theory]

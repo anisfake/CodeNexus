@@ -1,3 +1,5 @@
+using CodeNexus.Domain.Enums;
+
 namespace CodeNexus.Application.Features.FocusSessions.DTOs;
 
 public record FocusSessionDto(
@@ -20,7 +22,8 @@ public record FocusSessionDto(
 
 public record StartSessionRequest(
     Guid TaskId,
-    int PlannedDurationMinutes = 25,
+    SessionType SessionType = SessionType.Pomodoro,
+    int? PlannedDurationMinutes = null,
     string? Title = null
 );
 
