@@ -31,6 +31,16 @@ public class TaskVerificationService : ITaskVerificationService
         return await GetVerificationResultAsync(prompt);
     }
 
+    public async Task<VerificationResult> VerifyQuizSubmissionAsync(
+        string taskTitle, 
+        string taskDescription, 
+        string quizQuestionsJson, 
+        string submittedAnswersJson)
+    {
+        var prompt = BuildQuizVerificationPrompt(taskTitle, taskDescription, quizQuestionsJson, submittedAnswersJson);
+        return await GetVerificationResultAsync(prompt);
+    }
+
     private string BuildCodeVerificationPrompt(string taskTitle, string taskDescription, string submittedCode, string? customPrompt)
     {
         var basePrompt = $@"You are a programming instructor evaluating a student's code submission.
@@ -86,6 +96,48 @@ Respond in JSON format:
 {{
   ""score"": <number 0-100>,
   ""feedback"": ""<your detailed feedback in Vietnamese>""
+}}";
+
+        return basePrompt;
+    }
+
+    private string BuildQuizVerificationPrompt(string taskTitle, string taskDescription, string quizQuestionsJson, string submittedAnswersJson)
+    {
+        var basePrompt = $@"You are an instructor evaluating a student's quiz submission.
+
+Task Title: {taskTitle}
+Task Description: {taskDescription}
+
+Quiz Questions (JSON format):
+{quizQuestionsJson}
+
+Student's Submitted Answers (JSON format):
+{submittedAnswersJson}
+
+Evaluate the quiz submission by:
+1. Parsing the quiz questions and correct answers
+2. Comparing student's answers with correct answers
+3. Calculating the percentage of correct answers
+4. Providing constructive feedback in Vietnamese
+
+The quiz questions are in this format:
+{{
+  ""question"": ""Question text"",
+  ""options"": [""Option A"", ""Option B"", ""Option C"", ""Option D""],
+  ""correctAnswer"": <index 0-3>
+}}
+
+The student answers should be in this format:
+{{
+  ""answers"": [0, 1, 2, 1, 3]  // Array of selected option indices
+}}
+
+Calculate score as: (correct answers / total questions) * 100
+
+Respond in JSON format:
+{{
+  ""score"": <number 0-100>,
+  ""feedback"": ""<detailed feedback in Vietnamese showing which questions were correct/incorrect>""
 }}";
 
         return basePrompt;

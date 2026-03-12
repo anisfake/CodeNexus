@@ -9,5 +9,6 @@ public record CompleteSessionCommand(
     Guid SessionId,
     string? SubmittedCode = null,
     string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null,
     bool IsEarlyCompletion = false,
     SubmissionType SubmissionType = SubmissionType.Progress) : IRequest<Result<CompleteSessionResponseDto>>;

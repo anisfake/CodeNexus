@@ -43,6 +43,11 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
             return Result<ReviewSessionResponseDto>.Failure("MISSING_SUMMARY_SUBMISSION", "Summary submission is required for summary tasks");
         }
 
+        if (session.Task.TaskType == TaskType.Quizz && string.IsNullOrWhiteSpace(request.SubmittedQuizAnswers))
+        {
+            return Result<ReviewSessionResponseDto>.Failure("MISSING_QUIZ_ANSWERS", "Quiz answers submission is required for quiz tasks");
+        }
+
         string? aiFeedback = null;
         int? verificationScore = null;
 
@@ -58,13 +63,21 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
                     request.SubmittedCode!,
                     session.Task.VerificationPrompt);
             }
-            else
+            else if (session.Task.TaskType == TaskType.Theory)
             {
                 verificationResult = await _verificationService.VerifySummarySubmissionAsync(
                     session.Task.Title,
                     session.Task.Description ?? "",
                     request.SubmittedSummary!,
                     session.Task.VerificationPrompt);
+            }
+            else // TaskType.Quizz
+            {
+                verificationResult = await _verificationService.VerifyQuizSubmissionAsync(
+                    session.Task.Title,
+                    session.Task.Description ?? "",
+                    session.Task.QuizQuestionsJson!,
+                    request.SubmittedQuizAnswers!);
             }
 
             aiFeedback = verificationResult.Feedback;

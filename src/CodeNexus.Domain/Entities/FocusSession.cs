@@ -23,6 +23,7 @@ namespace CodeNexus.Domain.Entities
 
         public string? SubmittedCode { get; set; }
         public string? SubmittedSummary { get; set; }
+        public string? SubmittedQuizAnswers { get; set; }
         public string? AIFeedback { get; set; }
         public int? VerificationScore { get; set; }
         public bool IsVerified { get; set; } = false;

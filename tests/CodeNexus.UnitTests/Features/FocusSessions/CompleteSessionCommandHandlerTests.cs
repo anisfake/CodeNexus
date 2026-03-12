@@ -29,7 +29,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "console.log('Hello World');", null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
+        var command = new CompleteSessionCommand(sessionId, "console.log('Hello World');", null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -83,7 +83,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, "I learned about variables and data types", false, CodeNexus.Domain.Enums.SubmissionType.Final);
+        var command = new CompleteSessionCommand(sessionId, null, "I learned about variables and data types", null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -137,7 +137,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
+        var command = new CompleteSessionCommand(sessionId, null, null, "{\"answers\": [0, 1, 2, 1]}", false, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -145,7 +145,8 @@ public class CompleteSessionCommandHandlerTests
             Title = "Quiz Task",
             Description = "Complete the quiz",
             TaskType = TaskType.Quizz,
-            Status = TaskStatus_.InProgress
+            Status = TaskStatus_.InProgress,
+            QuizQuestionsJson = "[{\"question\":\"Test?\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":0}]"
         };
 
         var session = new FocusSession
@@ -159,6 +160,9 @@ public class CompleteSessionCommandHandlerTests
         };
 
         SetupFocusSessionsDbSet(new List<FocusSession> { session });
+        _mockVerificationService.Setup(v => v.VerifyQuizSubmissionAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(new VerificationResult { Score = 85, Feedback = "Good job!", IsPass = true });
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
@@ -169,9 +173,9 @@ public class CompleteSessionCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
         Assert.Equal(SessionStatus.CompletedOnTime.ToString(), result.Value.SessionStatus);
-        Assert.False(result.Value.TaskCompleted);
-        Assert.Null(result.Value.AIFeedback);
-        Assert.Null(result.Value.VerificationScore);
+        Assert.True(result.Value.TaskCompleted); // Quiz task should complete with verification
+        Assert.Equal("Good job!", result.Value.AIFeedback);
+        Assert.Equal(85, result.Value.VerificationScore);
     }
 
     [Fact]
@@ -180,7 +184,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "console.log('Hello');", null, true, CodeNexus.Domain.Enums.SubmissionType.Final);
+        var command = new CompleteSessionCommand(sessionId, "console.log('Hello');", null, null, true, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -229,7 +233,7 @@ public class CompleteSessionCommandHandlerTests
     {
         // Arrange
         var sessionId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "code", null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
+        var command = new CompleteSessionCommand(sessionId, "code", null, null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
 
         SetupFocusSessionsDbSet(new List<FocusSession>());
 
@@ -248,7 +252,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "code", null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
+        var command = new CompleteSessionCommand(sessionId, "code", null, null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
 
         var task = new TaskEntity
         {
@@ -284,7 +288,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final); // No code for practice task
+        var command = new CompleteSessionCommand(sessionId, null, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final); // No code for practice task
 
         var task = new TaskEntity
         {
@@ -321,7 +325,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final); // No summary for theory task
+        var command = new CompleteSessionCommand(sessionId, null, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final); // No summary for theory task
 
         var task = new TaskEntity
         {

@@ -49,6 +49,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             session.ActualDurationMinutes = actualDurationMinutes;
             session.SubmittedCode = request.SubmittedCode;
             session.SubmittedSummary = request.SubmittedSummary;
+            session.SubmittedQuizAnswers = request.SubmittedQuizAnswers;
 
             if (request.IsEarlyCompletion)
             {
@@ -77,7 +78,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     validationResult.ErrorMessage!);
             }
 
-            if (request.SubmissionType == SubmissionType.Final && taskType != TaskType.Quizz)
+            if (request.SubmissionType == SubmissionType.Final)
             {
                 try
                 {
@@ -91,13 +92,21 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                             request.SubmittedCode!,
                             session.Task.VerificationPrompt);
                     }
-                    else
+                    else if (taskType == TaskType.Theory)
                     {
                         verificationResult = await _verificationService.VerifySummarySubmissionAsync(
                             session.Task.Title,
                             session.Task.Description ?? "",
                             request.SubmittedSummary!,
                             session.Task.VerificationPrompt);
+                    }
+                    else
+                    {
+                        verificationResult = await _verificationService.VerifyQuizSubmissionAsync(
+                            session.Task.Title,
+                            session.Task.Description ?? "",
+                            session.Task.QuizQuestionsJson!,
+                            request.SubmittedQuizAnswers!);
                     }
 
                     session.AIFeedback = verificationResult.Feedback;
@@ -180,6 +189,15 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                 break;
 
             case TaskType.Quizz:
+                if (string.IsNullOrEmpty(request.SubmittedQuizAnswers))
+                {
+                    return new ValidationResult
+                    {
+                        IsValid = false,
+                        ErrorCode = "MISSING_QUIZ_ANSWERS",
+                        ErrorMessage = $"Quiz tasks require quiz answers submission for {request.SubmissionType.ToString().ToLower()} submission"
+                    };
+                }
                 break;
         }
 

@@ -65,6 +65,7 @@ public class FocusSessionController : ControllerBase
             sessionId,
             submittedCode,
             submittedSummary,
+            null,
             isEarlyCompletion,
             submissionType);
         var result = await _sender.Send(command, cancellationToken);
@@ -81,6 +82,7 @@ public class FocusSessionController : ControllerBase
             sessionId,
             request.SubmittedCode,
             request.SubmittedSummary,
+            request.SubmittedQuizAnswers,
             request.IsEarlyCompletion,
             request.SubmissionType);
         var result = await _sender.Send(command, cancellationToken);

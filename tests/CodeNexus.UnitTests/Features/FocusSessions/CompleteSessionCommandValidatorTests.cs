@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
+using CodeNexus.Domain.Enums;
 using Xunit;
 
 namespace CodeNexus.UnitTests.Features.FocusSessions;
@@ -20,7 +21,9 @@ public class CompleteSessionCommandValidatorTests
             Guid.NewGuid(),
             "console.log('Hello World');",
             null,
-            false);
+            null,
+            false,
+            SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -35,10 +38,7 @@ public class CompleteSessionCommandValidatorTests
     {
         // Arrange
         var command = new CompleteSessionCommand(
-            Guid.Empty,
-            "console.log('Hello World');",
-            null,
-            false);
+            Guid.Empty, "console.log('Hello World');", null, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -54,10 +54,7 @@ public class CompleteSessionCommandValidatorTests
         // Arrange
         var longCode = new string('a', 10001); // Exceeds 10,000 character limit
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            longCode,
-            null,
-            false);
+            Guid.NewGuid(), longCode, null, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -74,10 +71,7 @@ public class CompleteSessionCommandValidatorTests
         // Arrange
         var longSummary = new string('a', 2001); // Exceeds 2,000 character limit
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            null,
-            longSummary,
-            false);
+            Guid.NewGuid(), null, longSummary, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -94,10 +88,7 @@ public class CompleteSessionCommandValidatorTests
         // Arrange
         var validCode = new string('a', 5000); // Within 10,000 character limit
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            validCode,
-            null,
-            false);
+            Guid.NewGuid(), validCode, null, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -113,10 +104,7 @@ public class CompleteSessionCommandValidatorTests
         // Arrange
         var validSummary = new string('a', 1000); // Within 2,000 character limit
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            null,
-            validSummary,
-            false);
+            Guid.NewGuid(), null, validSummary, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -131,10 +119,7 @@ public class CompleteSessionCommandValidatorTests
     {
         // Arrange
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            null,
-            null,
-            true);
+            Guid.NewGuid(), null, null, null, true, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -149,10 +134,7 @@ public class CompleteSessionCommandValidatorTests
     {
         // Arrange
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            "",
-            "",
-            false);
+            Guid.NewGuid(), "", "", null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -179,10 +161,7 @@ namespace Test
     }
 }";
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            codeWithSpecialChars,
-            null,
-            false);
+            Guid.NewGuid(), codeWithSpecialChars, null, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -208,10 +187,7 @@ Key takeaways:
 - Write clean, readable code";
 
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            null,
-            summaryWithSpecialChars,
-            false);
+            Guid.NewGuid(), null, summaryWithSpecialChars, null, false, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);
@@ -226,10 +202,7 @@ Key takeaways:
     {
         // Arrange
         var command = new CompleteSessionCommand(
-            Guid.NewGuid(),
-            "console.log('Hello');",
-            "I learned about console output",
-            true);
+            Guid.NewGuid(), "console.log('Hello');", "I learned about console output", null, true, SubmissionType.Final);
 
         // Act
         var result = _validator.Validate(command);

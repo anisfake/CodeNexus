@@ -30,6 +30,7 @@ public record StartSessionRequest(
 public record CompleteSessionRequest(
     string? SubmittedCode = null,
     string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null,
     bool IsEarlyCompletion = false,
     SubmissionType SubmissionType = SubmissionType.Progress
 );
