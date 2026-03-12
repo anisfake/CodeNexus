@@ -16,7 +16,11 @@ public record LessonDto(
 public record TaskDto(
     Guid TaskId,
     string Title,
-    string Description
+    string Description,
+    TaskType TaskType,
+    TaskPriority? Priority,
+    TaskStatus_ TaskStatus,
+    string? QuizQuestionsJson
 );
 public record ChapterDto(
     Guid ChapterId,

@@ -42,9 +42,31 @@ public class FocusSessionController : ControllerBase
         [FromForm] string? submittedCode = null,
         [FromForm] string? submittedSummary = null,
         [FromForm] bool isEarlyCompletion = false,
+        [FromForm] int submissionType = 0, // Default to Progress
         CancellationToken cancellationToken = default)
     {
-        var command = new CompleteSessionCommand(sessionId, submittedCode, submittedSummary, isEarlyCompletion);
+        var command = new CompleteSessionCommand(
+            sessionId, 
+            submittedCode, 
+            submittedSummary, 
+            isEarlyCompletion, 
+            (CodeNexus.Domain.Enums.SubmissionType)submissionType);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("api/focus-sessions/{sessionId}/complete-json")]
+    public async Task<IActionResult> CompleteSessionWithJson(
+        Guid sessionId,
+        [FromBody] CompleteSessionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new CompleteSessionCommand(
+            sessionId, 
+            request.SubmittedCode, 
+            request.SubmittedSummary, 
+            request.IsEarlyCompletion,
+            request.SubmissionType);
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }

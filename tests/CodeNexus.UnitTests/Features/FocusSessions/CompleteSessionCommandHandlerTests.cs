@@ -29,7 +29,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "console.log('Hello World');", null, false);
+        var command = new CompleteSessionCommand(sessionId, "console.log('Hello World');", null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -83,7 +83,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, "I learned about variables and data types", false);
+        var command = new CompleteSessionCommand(sessionId, null, "I learned about variables and data types", false, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -137,7 +137,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, false);
+        var command = new CompleteSessionCommand(sessionId, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -180,7 +180,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "console.log('Hello');", null, true);
+        var command = new CompleteSessionCommand(sessionId, "console.log('Hello');", null, true, CodeNexus.Domain.Enums.SubmissionType.Final);
 
         var task = new TaskEntity
         {
@@ -229,7 +229,7 @@ public class CompleteSessionCommandHandlerTests
     {
         // Arrange
         var sessionId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "code", null, false);
+        var command = new CompleteSessionCommand(sessionId, "code", null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
 
         SetupFocusSessionsDbSet(new List<FocusSession>());
 
@@ -248,7 +248,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, "code", null, false);
+        var command = new CompleteSessionCommand(sessionId, "code", null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
 
         var task = new TaskEntity
         {
@@ -284,7 +284,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, false); // No code for practice task
+        var command = new CompleteSessionCommand(sessionId, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final); // No code for practice task
 
         var task = new TaskEntity
         {
@@ -321,7 +321,7 @@ public class CompleteSessionCommandHandlerTests
         // Arrange
         var sessionId = Guid.NewGuid();
         var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, false); // No summary for theory task
+        var command = new CompleteSessionCommand(sessionId, null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final); // No summary for theory task
 
         var task = new TaskEntity
         {

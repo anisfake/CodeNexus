@@ -1,4 +1,5 @@
 using FluentValidation;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
 
@@ -21,6 +22,10 @@ public class CompleteSessionCommandValidator : AbstractValidator<CompleteSession
             .MaximumLength(2000)
             .WithMessage("Submitted summary cannot exceed 2,000 characters")
             .When(x => !string.IsNullOrEmpty(x.SubmittedSummary));
+
+        RuleFor(x => x.SubmissionType)
+            .IsInEnum()
+            .WithMessage("Invalid submission type");
     }
 
     private static bool BeValidCodeContent(string? code)

@@ -103,7 +103,11 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
                         t.Title,
-                        t.Description
+                        t.Description ?? "",
+                        t.TaskType,
+                        t.Priority,
+                        t.Status,
+                        t.QuizQuestionsJson
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),

@@ -30,13 +30,15 @@ public record StartSessionRequest(
 public record CompleteSessionRequest(
     string? SubmittedCode = null,
     string? SubmittedSummary = null,
-    bool IsEarlyCompletion = false
+    bool IsEarlyCompletion = false,
+    SubmissionType SubmissionType = SubmissionType.Progress
 );
 
 public record CompleteSessionWithRawCodeRequest(
     string? RawCode = null,
     string? RawSummary = null,
-    bool IsEarlyCompletion = false
+    bool IsEarlyCompletion = false,
+    SubmissionType SubmissionType = SubmissionType.Progress
 );
 
 public record StartSessionResponseDto(

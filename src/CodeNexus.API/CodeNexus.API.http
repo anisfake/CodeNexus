@@ -93,3 +93,59 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
 }
 
 ###
+
+# Focus Session API Tests
+
+# Complete session with Progress submission (no validation required)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "// Work in progress...\nconsole.log('Still working on this');",
+  "submittedSummary": null,
+  "isEarlyCompletion": false,
+  "submissionType": 0
+}
+
+###
+
+# Complete session with Review submission (requires code/summary, runs verification)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}",
+  "submittedSummary": null,
+  "isEarlyCompletion": false,
+  "submissionType": 2
+}
+
+###
+
+# Complete session with Final submission (requires code/summary, runs verification, completes task if passed)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}\n\n// Test cases\nconsole.log(fibonacci(5)); // Should output 5\nconsole.log(fibonacci(10)); // Should output 55",
+  "submittedSummary": null,
+  "isEarlyCompletion": false,
+  "submissionType": 1
+}
+
+###
+
+# Complete session with Form data (for file uploads)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete
+Content-Type: multipart/form-data
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+submittedCode=console.log('Hello World');
+submittedSummary=
+isEarlyCompletion=false
+submissionType=0
+
+###

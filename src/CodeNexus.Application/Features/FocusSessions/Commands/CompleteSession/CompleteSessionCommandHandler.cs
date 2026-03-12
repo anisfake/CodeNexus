@@ -54,7 +54,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             {
                 session.SessionStatus = SessionStatus.CompletedEarly;
             }
-            else if (actualDurationMinutes <= session.PlannedDurationMinutes * 0.6) // If completed in 60% or less of planned time
+            else if (actualDurationMinutes <= session.PlannedDurationMinutes * 0.6)
             {
                 session.SessionStatus = SessionStatus.CompletedEarly;
             }
@@ -68,36 +68,17 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             int? verificationScore = null;
 
             var taskType = session.Task.TaskType;
-            bool hasValidSubmission = false;
 
-            switch (taskType)
+            var validationResult = ValidateSubmission(request, taskType);
+            if (!validationResult.IsValid)
             {
-                case TaskType.Practice:
-                    hasValidSubmission = !string.IsNullOrEmpty(request.SubmittedCode);
-                    if (!hasValidSubmission)
-                    {
-                        return Result<CompleteSessionResponseDto>.Failure(
-                            "MISSING_CODE_SUBMISSION",
-                            "Practice tasks require code submission");
-                    }
-                    break;
-
-                case TaskType.Theory:
-                    hasValidSubmission = !string.IsNullOrEmpty(request.SubmittedSummary);
-                    if (!hasValidSubmission)
-                    {
-                        return Result<CompleteSessionResponseDto>.Failure(
-                            "MISSING_SUMMARY_SUBMISSION",
-                            "Theory tasks require summary submission");
-                    }
-                    break;
-
-                case TaskType.Quizz:
-                    hasValidSubmission = true;
-                    break;
+                return Result<CompleteSessionResponseDto>.Failure(
+                    validationResult.ErrorCode!,
+                    validationResult.ErrorMessage!);
             }
 
-            if (hasValidSubmission && taskType != TaskType.Quizz)
+            if ((request.SubmissionType == SubmissionType.Final || request.SubmissionType == SubmissionType.Review)
+                && taskType != TaskType.Quizz)
             {
                 try
                 {
@@ -127,7 +108,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     aiFeedback = verificationResult.Feedback;
                     verificationScore = verificationResult.Score;
 
-                    if (verificationResult.IsPass)
+                    if (request.SubmissionType == SubmissionType.Final && verificationResult.IsPass)
                     {
                         session.Task.Status = TaskStatus_.Completed;
                         session.Task.CompletedAt = DateTime.UtcNow;
@@ -143,9 +124,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            var message = session.SessionStatus == SessionStatus.CompletedEarly
-                ? $"Session completed early! You finished {session.PlannedDurationMinutes - actualDurationMinutes} minutes ahead of schedule."
-                : "Session completed successfully!";
+            var message = GetCompletionMessage(session, request.SubmissionType, actualDurationMinutes, taskCompleted);
 
             var responseDto = new CompleteSessionResponseDto(
                 session.SessionId,
@@ -166,5 +145,68 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                 "COMPLETE_SESSION_FAILED",
                 $"An error occurred while completing the session: {ex.Message}");
         }
+    }
+
+    private static ValidationResult ValidateSubmission(CompleteSessionCommand request, TaskType taskType)
+    {
+        if (request.SubmissionType == SubmissionType.Progress)
+        {
+            return new ValidationResult { IsValid = true };
+        }
+
+        switch (taskType)
+        {
+            case TaskType.Practice:
+                if (string.IsNullOrEmpty(request.SubmittedCode))
+                {
+                    return new ValidationResult
+                    {
+                        IsValid = false,
+                        ErrorCode = "MISSING_CODE_SUBMISSION",
+                        ErrorMessage = $"Practice tasks require code submission for {request.SubmissionType.ToString().ToLower()} submission"
+                    };
+                }
+                break;
+
+            case TaskType.Theory:
+                if (string.IsNullOrEmpty(request.SubmittedSummary))
+                {
+                    return new ValidationResult
+                    {
+                        IsValid = false,
+                        ErrorCode = "MISSING_SUMMARY_SUBMISSION",
+                        ErrorMessage = $"Theory tasks require summary submission for {request.SubmissionType.ToString().ToLower()} submission"
+                    };
+                }
+                break;
+
+            case TaskType.Quizz:
+                break;
+        }
+
+        return new ValidationResult { IsValid = true };
+    }
+
+    private static string GetCompletionMessage(Domain.Entities.FocusSession session, SubmissionType submissionType, int actualDurationMinutes, bool taskCompleted)
+    {
+        var baseMessage = session.SessionStatus == SessionStatus.CompletedEarly
+            ? $"Session completed early! You finished {session.PlannedDurationMinutes - actualDurationMinutes} minutes ahead of schedule."
+            : "Session completed successfully!";
+
+        return submissionType switch
+        {
+            SubmissionType.Progress => $"{baseMessage} Progress saved.",
+            SubmissionType.Review => $"{baseMessage} Submitted for review.",
+            SubmissionType.Final when taskCompleted => $"{baseMessage} Task completed!",
+            SubmissionType.Final when !taskCompleted => $"{baseMessage} Final submission received, but task verification failed.",
+            _ => baseMessage
+        };
+    }
+
+    private class ValidationResult
+    {
+        public bool IsValid { get; set; }
+        public string? ErrorCode { get; set; }
+        public string? ErrorMessage { get; set; }
     }
 }
