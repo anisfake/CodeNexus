@@ -18,7 +18,6 @@ namespace CodeNexus.Domain.Entities
         public DateTime? CompletedAt { get; set; }
 
         public TaskType TaskType { get; set; } = TaskType.Practice;
-        public VerificationMethod VerificationMethod { get; set; } = VerificationMethod.CodeSubmission;
         public string? VerificationPrompt { get; set; }
         public int MinimumScore { get; set; } = 70;
         public string? QuizQuestionsJson { get; set; }

@@ -85,10 +85,9 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                     Status = TaskStatus_.Pending,
                     CreatedAt = DateTime.UtcNow,
                     TaskType = ParseTaskType(t.TaskType),
-                    VerificationMethod = ParseVerificationMethod(t.VerificationMethod),
                     VerificationPrompt = t.VerificationPrompt,
                     MinimumScore = t.MinimumScore ?? 70,
-                    QuizQuestionsJson = t.QuizQuestions != null && t.QuizQuestions.Any()
+                    QuizQuestionsJson = ParseTaskType(t.TaskType) == TaskType.Quizz && t.QuizQuestions != null && t.QuizQuestions.Any()
                         ? System.Text.Json.JsonSerializer.Serialize(t.QuizQuestions)
                         : null
                 };
@@ -159,16 +158,6 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             "theory" => TaskType.Theory,
             "quizz" or "quiz" or "mixed" => TaskType.Quizz,
             _ => TaskType.Practice
-        };
-    }
-
-    private static VerificationMethod ParseVerificationMethod(string method)
-    {
-        return method?.ToLowerInvariant() switch
-        {
-            "summarysubmission" => VerificationMethod.SummarySubmission,
-            "quickquiz" or "hybrid" => VerificationMethod.QuickQuiz,
-            _ => VerificationMethod.CodeSubmission
         };
     }
 
@@ -309,7 +298,6 @@ Instead, focus on USING the technology after it's already installed.
 4. For Practice tasks (TaskType: ""Practice""):
    - All practice tasks require students to WRITE CODE ONLY
    - Focus on specific code components, not running/testing
-   - Use VerificationMethod: ""CodeSubmission""
    - VerificationPrompt: describe what to check in the submitted code
    - Examples: 
      * ""Write a Controller class with GET and POST actions"" → student submits Controller code
@@ -318,10 +306,10 @@ Instead, focus on USING the technology after it's already installed.
      * ""Write Middleware class for request logging"" → student submits Middleware code
 
 5. For Theory tasks (TaskType: ""Theory""):
-   - Use VerificationMethod: ""SummarySubmission"" with VerificationPrompt describing what to summarize
+   - VerificationPrompt: describe what to summarize
 
 6. For Quiz tasks (TaskType: ""Quizz""):
-   - Use VerificationMethod: ""QuickQuiz"" with 3-5 questions
+   - Include 3-5 questions in quizQuestions array
    - Questions should test comprehensive understanding of lesson concepts
    - Each question needs 4 options with correctAnswer index (0-3)
    - Focus on practical application and deeper understanding
@@ -343,7 +331,6 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""description"": ""Write a function that implements the bubble sort algorithm to sort an array of integers in ascending order."",
       ""priority"": ""High"",
       ""taskType"": ""Practice"",
-      ""verificationMethod"": ""CodeSubmission"",
       ""verificationPrompt"": ""Verify the code correctly implements bubble sort with proper comparisons and swaps. Check for correct time complexity understanding."",
       ""minimumScore"": 70,
       ""quizQuestions"": null
@@ -353,38 +340,24 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""description"": ""Create a calculator function that can perform basic arithmetic operations (add, subtract, multiply, divide)."",
       ""priority"": ""Medium"",
       ""taskType"": ""Practice"",
-      ""verificationMethod"": ""CodeSubmission"",
       ""verificationPrompt"": ""Check if the function handles all four operations correctly, includes error handling for division by zero, and has proper input validation."",
       ""minimumScore"": 70,
       ""quizQuestions"": null
     }},
     {{
       ""title"": ""Understanding sorting algorithms complexity"",
-      ""description"": ""Test your knowledge about time and space complexity of different sorting algorithms."",
+      ""description"": ""Write a summary explaining the time and space complexity of different sorting algorithms including bubble sort, merge sort, and quick sort."",
       ""priority"": ""Medium"",
       ""taskType"": ""Theory"",
-      ""verificationMethod"": ""QuickQuiz"",
-      ""verificationPrompt"": null,
+      ""verificationPrompt"": ""Check if the summary covers time complexity, space complexity, and practical use cases for each algorithm mentioned."",
       ""minimumScore"": 70,
-      ""quizQuestions"": [
-        {{
-          ""question"": ""What is the average time complexity of bubble sort?"",
-          ""options"": [""O(n)"", ""O(n log n)"", ""O(n²)"", ""O(log n)""],
-          ""correctAnswer"": 2
-        }},
-        {{
-          ""question"": ""Which sorting algorithm has O(n log n) average complexity?"",
-          ""options"": [""Bubble sort"", ""Selection sort"", ""Merge sort"", ""Insertion sort""],
-          ""correctAnswer"": 2
-        }}
-      ]
+      ""quizQuestions"": null
     }},
     {{
       ""title"": ""Comprehensive algorithm knowledge test"",
       ""description"": ""Complete quiz covering all algorithm concepts from this chapter including implementation details and performance analysis."",
       ""priority"": ""High"",
       ""taskType"": ""Quizz"",
-      ""verificationMethod"": ""QuickQuiz"",
       ""verificationPrompt"": null,
       ""minimumScore"": 80,
       ""quizQuestions"": [

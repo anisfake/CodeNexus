@@ -96,6 +96,18 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
 
 # Focus Session API Tests
 
+# Review session (get AI feedback without ending session)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}",
+  "submittedSummary": null
+}
+
+###
+
 # Complete session with Progress submission (no validation required)
 POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
 Content-Type: application/json
@@ -106,20 +118,6 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
   "submittedSummary": null,
   "isEarlyCompletion": false,
   "submissionType": 0
-}
-
-###
-
-# Complete session with Review submission (requires code/summary, runs verification)
-POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
-Content-Type: application/json
-Authorization: Bearer YOUR_JWT_TOKEN_HERE
-
-{
-  "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}",
-  "submittedSummary": null,
-  "isEarlyCompletion": false,
-  "submissionType": 2
 }
 
 ###

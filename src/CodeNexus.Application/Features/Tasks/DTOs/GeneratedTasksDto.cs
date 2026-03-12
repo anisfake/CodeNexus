@@ -5,7 +5,6 @@ public record GeneratedTaskItemDto(
     string Description,
     string Priority,
     string TaskType,
-    string VerificationMethod,
     string? VerificationPrompt,
     int? MinimumScore,
     List<QuizQuestionDto>? QuizQuestions

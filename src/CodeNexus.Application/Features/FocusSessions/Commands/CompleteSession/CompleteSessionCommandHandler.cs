@@ -77,8 +77,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     validationResult.ErrorMessage!);
             }
 
-            if ((request.SubmissionType == SubmissionType.Final || request.SubmissionType == SubmissionType.Review)
-                && taskType != TaskType.Quizz)
+            if (request.SubmissionType == SubmissionType.Final && taskType != TaskType.Quizz)
             {
                 try
                 {
@@ -108,7 +107,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     aiFeedback = verificationResult.Feedback;
                     verificationScore = verificationResult.Score;
 
-                    if (request.SubmissionType == SubmissionType.Final && verificationResult.IsPass)
+                    if (verificationResult.IsPass)
                     {
                         session.Task.Status = TaskStatus_.Completed;
                         session.Task.CompletedAt = DateTime.UtcNow;
@@ -196,7 +195,6 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         return submissionType switch
         {
             SubmissionType.Progress => $"{baseMessage} Progress saved.",
-            SubmissionType.Review => $"{baseMessage} Submitted for review.",
             SubmissionType.Final when taskCompleted => $"{baseMessage} Task completed!",
             SubmissionType.Final when !taskCompleted => $"{baseMessage} Final submission received, but task verification failed.",
             _ => baseMessage

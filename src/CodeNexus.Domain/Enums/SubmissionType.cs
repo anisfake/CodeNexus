@@ -4,7 +4,5 @@ public enum SubmissionType
 {
     Progress = 0,
 
-    Final = 1,
-    
-    Review = 2
+    Final = 1
 }

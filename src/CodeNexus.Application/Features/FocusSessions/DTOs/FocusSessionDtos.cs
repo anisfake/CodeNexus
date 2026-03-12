@@ -70,3 +70,16 @@ public record ActiveSessionDto(
     string SessionStatus,
     bool IsOvertime
 );
+
+public record ReviewSessionRequest(
+    string? SubmittedCode = null,
+    string? SubmittedSummary = null
+);
+
+public record ReviewSessionResponseDto(
+    Guid SessionId,
+    DateTime ReviewTime,
+    string? AIFeedback,
+    int? VerificationScore,
+    string Message
+);

@@ -1,10 +1,12 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.Commands.AbandonSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
+using CodeNexus.Application.Features.FocusSessions.Commands.ReviewSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.StartSession;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
 using CodeNexus.Application.Features.FocusSessions.Queries.GetActiveSession;
 using CodeNexus.Application.Features.FocusSessions.Queries.GetSessionHistory;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,21 +38,35 @@ public class FocusSessionController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("api/focus-sessions/{sessionId}/review")]
+    public async Task<IActionResult> ReviewSession(
+        Guid sessionId,
+        [FromBody] ReviewSessionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new ReviewSessionCommand(
+            sessionId,
+            request.SubmittedCode,
+            request.SubmittedSummary);
+        var result = await _sender.Send(command, cancellationToken);
+        return Ok(result);
+    }
+
     [HttpPost("api/focus-sessions/{sessionId}/complete")]
     public async Task<IActionResult> CompleteSessionWithForm(
         Guid sessionId,
         [FromForm] string? submittedCode = null,
         [FromForm] string? submittedSummary = null,
         [FromForm] bool isEarlyCompletion = false,
-        [FromForm] int submissionType = 0, // Default to Progress
+        [FromForm] SubmissionType submissionType = SubmissionType.Progress,
         CancellationToken cancellationToken = default)
     {
         var command = new CompleteSessionCommand(
-            sessionId, 
-            submittedCode, 
-            submittedSummary, 
-            isEarlyCompletion, 
-            (CodeNexus.Domain.Enums.SubmissionType)submissionType);
+            sessionId,
+            submittedCode,
+            submittedSummary,
+            isEarlyCompletion,
+            submissionType);
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
@@ -62,9 +78,9 @@ public class FocusSessionController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var command = new CompleteSessionCommand(
-            sessionId, 
-            request.SubmittedCode, 
-            request.SubmittedSummary, 
+            sessionId,
+            request.SubmittedCode,
+            request.SubmittedSummary,
             request.IsEarlyCompletion,
             request.SubmissionType);
         var result = await _sender.Send(command, cancellationToken);
