@@ -118,8 +118,10 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                 t.TaskId,
                 t.Title,
                 t.Description,
+                t.TaskType,
                 t.Priority,
-                t.Status
+                t.Status,
+                t.QuizQuestionsJson
             ))
             .ToList();
 

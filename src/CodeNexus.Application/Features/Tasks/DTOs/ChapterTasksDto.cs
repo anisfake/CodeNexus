@@ -5,9 +5,11 @@ namespace CodeNexus.Application.Features.Tasks.DTOs;
 public record TaskItemDto(
     Guid TaskId,
     string Title,
-    string? Description,
+    string Description,
+    TaskType TaskType,
     TaskPriority? Priority,
-    TaskStatus_ Status
+    TaskStatus_ TaskStatus,
+    string? QuizQuestionsJson
 );
 
 public record ChapterTasksDto(
