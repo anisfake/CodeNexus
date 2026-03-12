@@ -1,11 +1,15 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 
@@ -13,8 +17,11 @@ namespace CodeNexus.Infrastructure.Persistence
 {
     public class AppDbContext : DbContext, IApplicationDbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        private readonly IHttpContextAccessor? _httpContextAccessor;
+
+        public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null) : base(options)
         {
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public DbSet<Role> Roles => Set<Role>();
@@ -45,7 +52,128 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
         public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        => await base.SaveChangesAsync(cancellationToken);
+        {
+            var auditEntries = OnBeforeSaveChanges();
+
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            if (auditEntries.Count > 0)
+            {
+                await OnAfterSaveChanges(auditEntries, cancellationToken);
+            }
+
+            return result;
+        }
+
+        private List<AuditEntry> OnBeforeSaveChanges()
+        {
+            ChangeTracker.DetectChanges();
+
+            var auditEntries = new List<AuditEntry>();
+            var userId = GetCurrentUserId();
+            var ipAddress = GetCurrentIPAddress();
+
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.Entity is AuditLog || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
+                    continue;
+
+                var auditEntry = new AuditEntry
+                {
+                    UserId = userId,
+                    TableName = entry.Metadata.GetTableName() ?? entry.Entity.GetType().Name,
+                    Action = entry.State.ToString(),
+                    IPAddress = ipAddress,
+                    Entry = entry
+                };
+
+                foreach (var property in entry.Properties)
+                {
+                    if (property.IsTemporary)
+                    {
+                        auditEntry.TemporaryProperties.Add(property);
+                        continue;
+                    }
+
+                    var propertyName = property.Metadata.Name;
+
+                    if (property.Metadata.IsPrimaryKey())
+                    {
+                        auditEntry.RecordId = property.CurrentValue is Guid guidValue ? guidValue : null;
+                        continue;
+                    }
+
+                    switch (entry.State)
+                    {
+                        case EntityState.Added:
+                            auditEntry.NewValues[propertyName] = property.CurrentValue;
+                            break;
+
+                        case EntityState.Deleted:
+                            auditEntry.OldValues[propertyName] = property.OriginalValue;
+                            break;
+
+                        case EntityState.Modified:
+                            if (property.IsModified && !Equals(property.OriginalValue, property.CurrentValue))
+                            {
+                                auditEntry.OldValues[propertyName] = property.OriginalValue;
+                                auditEntry.NewValues[propertyName] = property.CurrentValue;
+                            }
+                            break;
+                    }
+                }
+
+                if (entry.State != EntityState.Modified || auditEntry.OldValues.Count > 0)
+                {
+                    auditEntries.Add(auditEntry);
+                }
+            }
+
+            foreach (var auditEntry in auditEntries.Where(e => !e.HasTemporaryProperties))
+            {
+                AuditLogs.Add(auditEntry.ToAuditLog());
+            }
+
+            return auditEntries.Where(e => e.HasTemporaryProperties).ToList();
+        }
+
+        private async Task OnAfterSaveChanges(List<AuditEntry> auditEntries, CancellationToken cancellationToken)
+        {
+            foreach (var auditEntry in auditEntries)
+            {
+                foreach (var prop in auditEntry.TemporaryProperties)
+                {
+                    if (prop.Metadata.IsPrimaryKey())
+                    {
+                        auditEntry.RecordId = prop.CurrentValue is Guid guidValue ? guidValue : null;
+                    }
+                    else
+                    {
+                        auditEntry.NewValues[prop.Metadata.Name] = prop.CurrentValue;
+                    }
+                }
+
+                AuditLogs.Add(auditEntry.ToAuditLog());
+            }
+
+            await base.SaveChangesAsync(cancellationToken);
+        }
+
+        private Guid? GetCurrentUserId()
+        {
+            var userIdClaim = _httpContextAccessor?.HttpContext?.User
+                .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+                return userId;
+
+            return null;
+        }
+
+        private string? GetCurrentIPAddress()
+        {
+            return _httpContextAccessor?.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
