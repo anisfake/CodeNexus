@@ -17,17 +17,26 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
 
     public async Task<Result<List<SubjectDto>>> Handle(GetSubjectsQuery request, CancellationToken cancellationToken)
     {
-        var subjects = await _context.Subjects
+        var query = _context.Subjects
             .Include(s => s.CreatedByUser)
             .AsNoTracking()
+            .Where(s => !s.IsDeleted);
+
+        // Apply category filter if provided
+        if (request.Category.HasValue)
+        {
+            query = query.Where(s => s.Category == request.Category.Value);
+        }
+
+        var subjects = await query
             .OrderByDescending(s => s.CreatedAt)
-            .Where(s => !s.IsDeleted)
             .Select(s => new SubjectDto(
                 s.SubjectId,
                 s.Name,
                 s.Description,
                 s.Color,
                 s.Icon,
+                s.Category,
                 s.CreatedByUser.FirstName + " " + s.CreatedByUser.LastName,
                 s.CreatedByUserId,
                 s.CreatedAt

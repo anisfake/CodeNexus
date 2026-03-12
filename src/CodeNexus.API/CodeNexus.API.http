@@ -4,3 +4,92 @@ GET {{CodeNexus.API_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Subject API Tests
+
+# Get all subjects (no filter)
+GET {{CodeNexus.API_HostAddress}}/api/subjects
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Frontend category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=0
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Backend category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=1
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Database category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=2
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Mobile category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=3
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Other category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=9
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Create a new subject with Frontend category
+POST {{CodeNexus.API_HostAddress}}/api/subjects
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "name": "React Development",
+  "description": "Learn React.js for frontend development",
+  "color": "#61DAFB",
+  "icon": "react-icon",
+  "category": 0
+}
+
+###
+
+# Create a new subject with Backend category
+POST {{CodeNexus.API_HostAddress}}/api/subjects
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "name": "Node.js Development",
+  "description": "Learn Node.js for backend development",
+  "color": "#339933",
+  "icon": "nodejs-icon",
+  "category": 1
+}
+
+###
+
+# Create a new subject with Database category
+POST {{CodeNexus.API_HostAddress}}/api/subjects
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "name": "SQL Fundamentals",
+  "description": "Learn SQL for database management",
+  "color": "#336791",
+  "icon": "sql-icon",
+  "category": 2
+}
+
+###

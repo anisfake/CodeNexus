@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Subjects.Commands.CreateSubject;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using Moq;
 using Xunit;
@@ -27,7 +28,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Mathematics", "Advanced Math", "#FF5733", "math-icon");
+        var command = new CreateSubjectCommand("Mathematics", "Advanced Math", "#FF5733", "math-icon", SubjectCategory.Other);
 
         var mentorRole = new Role { RoleId = roleId, RoleName = "Mentor" };
         var user = new User { UserId = userId, RoleId = roleId, Role = mentorRole };
@@ -59,7 +60,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Physics", "Basic Physics", null, null);
+        var command = new CreateSubjectCommand("Physics", "Basic Physics", null, null, SubjectCategory.Other);
 
         var studentRole = new Role { RoleId = roleId, RoleName = "Student" };
         var user = new User { UserId = userId, RoleId = roleId, Role = studentRole };
@@ -82,7 +83,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Chemistry", "Organic Chemistry", null, null);
+        var command = new CreateSubjectCommand("Chemistry", "Organic Chemistry", null, null, SubjectCategory.Other);
 
         var mentorRole = new Role { RoleId = roleId, RoleName = "Mentor" };
         var user = new User { UserId = userId, RoleId = roleId, Role = mentorRole };
@@ -107,7 +108,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Biology", "Cell Biology", null, null);
+        var command = new CreateSubjectCommand("Biology", "Cell Biology", null, null, SubjectCategory.Other);
 
         var mentorRole = new Role { RoleId = roleId, RoleName = "Mentor" };
         var user = new User { UserId = userId, RoleId = roleId, Role = mentorRole };

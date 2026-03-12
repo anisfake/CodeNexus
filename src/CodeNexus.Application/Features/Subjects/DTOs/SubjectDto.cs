@@ -1,3 +1,5 @@
+using CodeNexus.Domain.Enums;
+
 namespace CodeNexus.Application.Features.Subjects.DTOs;
 
 public record SubjectDto(
@@ -6,6 +8,7 @@ public record SubjectDto(
     string? Description,
     string? Color,
     string? Icon,
+    SubjectCategory Category,
     string CreatedBy,
     Guid CreatedByUserId,
     DateTime CreatedAt
@@ -15,12 +18,14 @@ public record CreateSubjectRequest(
     string Name,
     string? Description,
     string? Color,
-    string? Icon
+    string? Icon,
+    SubjectCategory Category
 );
 
 public record UpdateSubjectRequest(
     string Name,
     string? Description,
     string? Color,
-    string? Icon
+    string? Icon,
+    SubjectCategory Category
 );

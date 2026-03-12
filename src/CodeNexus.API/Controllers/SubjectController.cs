@@ -4,6 +4,7 @@ using CodeNexus.Application.Features.Subjects.Commands.UpdateSubject;
 using CodeNexus.Application.Features.Subjects.Commands.DeleteSubject;
 using CodeNexus.Application.Features.Subjects.DTOs;
 using CodeNexus.Application.Features.Subjects.Queries.GetSubjects;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -30,7 +31,8 @@ public class SubjectController : ControllerBase
             request.Name,
             request.Description,
             request.Color,
-            request.Icon
+            request.Icon,
+            request.Category
         );
 
         var result = await _sender.Send(command, cancellationToken);
@@ -39,9 +41,9 @@ public class SubjectController : ControllerBase
 
     [HttpGet]
     [Authorize(Roles = "Mentor, Student")]
-    public async Task<IActionResult> GetSubjects(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSubjects([FromQuery] SubjectCategory? category, CancellationToken cancellationToken)
     {
-        var query = new GetSubjectsQuery();
+        var query = new GetSubjectsQuery(category);
         var result = await _sender.Send(query, cancellationToken);
         return Ok(result);
     }
@@ -55,7 +57,8 @@ public class SubjectController : ControllerBase
             request.Name,
             request.Description,
             request.Color,
-            request.Icon
+            request.Icon,
+            request.Category
         );
 
         var result = await _sender.Send(command, cancellationToken);

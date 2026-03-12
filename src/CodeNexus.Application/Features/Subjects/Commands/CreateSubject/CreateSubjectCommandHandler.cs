@@ -47,6 +47,7 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
             Description = request.Description,
             Color = request.Color,
             Icon = request.Icon,
+            Category = request.Category,
             CreatedByUserId = userId,
             CreatedAt = DateTime.UtcNow
         };
@@ -67,6 +68,7 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
             subject.Description,
             subject.Color,
             subject.Icon,
+            subject.Category,
             user.FirstName + " " + user.LastName,
             subject.CreatedByUserId,
             subject.CreatedAt

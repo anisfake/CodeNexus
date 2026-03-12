@@ -51,6 +51,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
         subject.Description = request.Description;
         subject.Color = request.Color;
         subject.Icon = request.Icon;
+        subject.Category = request.Category;
 
         try
         {
@@ -67,6 +68,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
             subject.Description,
             subject.Color,
             subject.Icon,
+            subject.Category,
             user.FirstName + " " + user.LastName,
             subject.CreatedByUserId,
             subject.CreatedAt

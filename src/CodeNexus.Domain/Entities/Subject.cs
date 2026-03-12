@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Domain.Entities
 {
@@ -15,6 +16,7 @@ namespace CodeNexus.Domain.Entities
         public string? Description { get; set; }
         public string? Color { get; set; }
         public string? Icon { get; set; }
+        public SubjectCategory Category { get; set; } = SubjectCategory.Other;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
