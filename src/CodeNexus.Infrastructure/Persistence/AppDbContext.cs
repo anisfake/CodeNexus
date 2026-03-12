@@ -1,4 +1,5 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Features.AuditLogs.DTOs;
 using CodeNexus.Domain.Entities;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -18,10 +19,12 @@ namespace CodeNexus.Infrastructure.Persistence
     public class AppDbContext : DbContext, IApplicationDbContext
     {
         private readonly IHttpContextAccessor? _httpContextAccessor;
+        private readonly IAuditLogNotifier? _auditLogNotifier;
 
-        public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null) : base(options)
+        public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null, IAuditLogNotifier? auditLogNotifier = null) : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
+            _auditLogNotifier = auditLogNotifier;
         }
 
         public DbSet<Role> Roles => Set<Role>();
@@ -53,19 +56,21 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            var auditEntries = OnBeforeSaveChanges();
+            var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
 
             var result = await base.SaveChangesAsync(cancellationToken);
 
-            if (auditEntries.Count > 0)
+            if (pendingEntries.Count > 0)
             {
-                await OnAfterSaveChanges(auditEntries, cancellationToken);
+                await OnAfterSaveChanges(pendingEntries, cancellationToken);
             }
+
+            await NotifyAuditLogEntries(completedEntries, cancellationToken);
 
             return result;
         }
 
-        private List<AuditEntry> OnBeforeSaveChanges()
+        private (List<AuditEntry> Completed, List<AuditEntry> Pending) OnBeforeSaveChanges()
         {
             ChangeTracker.DetectChanges();
 
@@ -129,12 +134,15 @@ namespace CodeNexus.Infrastructure.Persistence
                 }
             }
 
-            foreach (var auditEntry in auditEntries.Where(e => !e.HasTemporaryProperties))
+            var completed = auditEntries.Where(e => !e.HasTemporaryProperties).ToList();
+            var pending = auditEntries.Where(e => e.HasTemporaryProperties).ToList();
+
+            foreach (var auditEntry in completed)
             {
                 AuditLogs.Add(auditEntry.ToAuditLog());
             }
 
-            return auditEntries.Where(e => e.HasTemporaryProperties).ToList();
+            return (completed, pending);
         }
 
         private async Task OnAfterSaveChanges(List<AuditEntry> auditEntries, CancellationToken cancellationToken)
@@ -157,6 +165,41 @@ namespace CodeNexus.Infrastructure.Persistence
             }
 
             await base.SaveChangesAsync(cancellationToken);
+
+            await NotifyAuditLogEntries(auditEntries, cancellationToken);
+        }
+
+        private async Task NotifyAuditLogEntries(List<AuditEntry> entries, CancellationToken cancellationToken)
+        {
+            if (_auditLogNotifier == null || entries.Count == 0)
+                return;
+
+            var username = GetCurrentUsername();
+
+            foreach (var entry in entries)
+            {
+                var auditLog = entry.ToAuditLog();
+                var response = new AuditLogResponse(
+                    auditLog.LogId,
+                    auditLog.UserId,
+                    username,
+                    auditLog.Action,
+                    auditLog.TableName,
+                    auditLog.RecordId,
+                    auditLog.OldValue,
+                    auditLog.NewValue,
+                    auditLog.Timestamp,
+                    auditLog.IPAddress
+                );
+
+                await _auditLogNotifier.NotifyAsync(response, cancellationToken);
+            }
+        }
+
+        private string? GetCurrentUsername()
+        {
+            return _httpContextAccessor?.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
         }
 
         private Guid? GetCurrentUserId()
