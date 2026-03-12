@@ -96,14 +96,68 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
 
 # Focus Session API Tests
 
-# Review session (get AI feedback without ending session)
+# QUIZ FORMAT EXPLANATION:
+# 
+# Quiz Questions (stored in task.QuizQuestionsJson) format:
+# [
+#   {
+#     "question": "What is a variable in JavaScript?",
+#     "options": ["A container for data", "A function", "A loop", "An object"],
+#     "correctAnswer": 0
+#   },
+#   {
+#     "question": "Which keyword is used to declare constants?",
+#     "options": ["var", "let", "const", "function"],
+#     "correctAnswer": 2
+#   }
+# ]
+#
+# Student Quiz Answers (submittedQuizAnswers) format:
+# {
+#   "answers": [0, 2, 1, 3, 0]  // Array of selected option indices (0-3)
+# }
+# 
+# The AI will:
+# 1. Parse both quiz questions and student answers
+# 2. Compare each answer with correctAnswer index
+# 3. Calculate score as: (correct answers / total questions) * 100
+# 4. Provide detailed feedback in Vietnamese
+
+# Review Practice Task (get AI feedback without ending session)
 POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
 Content-Type: application/json
 Authorization: Bearer YOUR_JWT_TOKEN_HERE
 
 {
   "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}",
-  "submittedSummary": null
+  "submittedSummary": null,
+  "submittedQuizAnswers": null
+}
+
+###
+
+# Review Theory Task (get AI feedback without ending session)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": null,
+  "submittedSummary": "Variables are containers for storing data values. In JavaScript, you can declare variables using var, let, or const keywords.",
+  "submittedQuizAnswers": null
+}
+
+###
+
+# Review Quiz Task (get AI feedback without ending session)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": null,
+  "submittedSummary": null,
+  "submittedQuizAnswers": "{\"answers\": [0, 2, 1, 3, 0]}"
 }
 
 ###
