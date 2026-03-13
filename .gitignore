@@ -364,3 +364,13 @@ FodyWeavers.xsd
 
 # Kiro specs (internal development documents)
 .kiro/specs/
+
+# Local development settings (contains secrets)
+**/appsettings.Development.json
+
+
+# Copilot instructions (local only)
+.github/copilot-instructions.md
+
+# SQL files
+*.sql

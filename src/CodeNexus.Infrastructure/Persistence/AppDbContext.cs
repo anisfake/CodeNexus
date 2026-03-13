@@ -1,11 +1,16 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Features.AuditLogs.DTOs;
 using CodeNexus.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
+using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 
@@ -13,8 +18,13 @@ namespace CodeNexus.Infrastructure.Persistence
 {
     public class AppDbContext : DbContext, IApplicationDbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        private readonly IHttpContextAccessor? _httpContextAccessor;
+        private readonly IAuditLogNotifier? _auditLogNotifier;
+
+        public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null, IAuditLogNotifier? auditLogNotifier = null) : base(options)
         {
+            _httpContextAccessor = httpContextAccessor;
+            _auditLogNotifier = auditLogNotifier;
         }
 
         public DbSet<Role> Roles => Set<Role>();
@@ -23,34 +33,190 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
-
         public DbSet<Tasks> Tasks => Set<Tasks>();
-        public DbSet<TaskGoals> TaskGoals => Set<TaskGoals>();
         public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
-        public DbSet<FocusGoals> FocusGoals => Set<FocusGoals>();
         public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
-
         public DbSet<Note> Notes => Set<Note>();
         public DbSet<Tag> Tags => Set<Tag>();
         public DbSet<NoteTags> NoteTags => Set<NoteTags>();
-
         public DbSet<Resource> Resources => Set<Resource>();
+        public DbSet<ResourcePage> ResourcePages => Set<ResourcePage>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
-        public DbSet<AIInteraction> AIInteractions => Set<AIInteraction>();
-        public DbSet<ChatMessages> ChatMessages => Set<ChatMessages>();
-
+        public DbSet<Conversation> Conversations => Set<Conversation>();
+        public DbSet<Message> Messages => Set<Message>();
         public DbSet<Quiz> Quizzes => Set<Quiz>();
         public DbSet<Questions> Questions => Set<Questions>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
-        public DbSet<OtpVerification> OtpVerification => Set<OtpVerification>();
+        public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
+        public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-        => await base.SaveChangesAsync(cancellationToken);
+        {
+            var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
+
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            if (pendingEntries.Count > 0)
+            {
+                await OnAfterSaveChanges(pendingEntries, cancellationToken);
+            }
+
+            await NotifyAuditLogEntries(completedEntries, cancellationToken);
+
+            return result;
+        }
+
+        private (List<AuditEntry> Completed, List<AuditEntry> Pending) OnBeforeSaveChanges()
+        {
+            ChangeTracker.DetectChanges();
+
+            var auditEntries = new List<AuditEntry>();
+            var userId = GetCurrentUserId();
+            var ipAddress = GetCurrentIPAddress();
+
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                if (entry.Entity is AuditLog || entry.State == EntityState.Detached || entry.State == EntityState.Unchanged)
+                    continue;
+
+                var auditEntry = new AuditEntry
+                {
+                    UserId = userId,
+                    TableName = entry.Metadata.GetTableName() ?? entry.Entity.GetType().Name,
+                    Action = entry.State.ToString(),
+                    IPAddress = ipAddress,
+                    Entry = entry
+                };
+
+                foreach (var property in entry.Properties)
+                {
+                    if (property.IsTemporary)
+                    {
+                        auditEntry.TemporaryProperties.Add(property);
+                        continue;
+                    }
+
+                    var propertyName = property.Metadata.Name;
+
+                    if (property.Metadata.IsPrimaryKey())
+                    {
+                        auditEntry.RecordId = property.CurrentValue is Guid guidValue ? guidValue : null;
+                        continue;
+                    }
+
+                    switch (entry.State)
+                    {
+                        case EntityState.Added:
+                            auditEntry.NewValues[propertyName] = property.CurrentValue;
+                            break;
+
+                        case EntityState.Deleted:
+                            auditEntry.OldValues[propertyName] = property.OriginalValue;
+                            break;
+
+                        case EntityState.Modified:
+                            if (property.IsModified && !Equals(property.OriginalValue, property.CurrentValue))
+                            {
+                                auditEntry.OldValues[propertyName] = property.OriginalValue;
+                                auditEntry.NewValues[propertyName] = property.CurrentValue;
+                            }
+                            break;
+                    }
+                }
+
+                if (entry.State != EntityState.Modified || auditEntry.OldValues.Count > 0)
+                {
+                    auditEntries.Add(auditEntry);
+                }
+            }
+
+            var completed = auditEntries.Where(e => !e.HasTemporaryProperties).ToList();
+            var pending = auditEntries.Where(e => e.HasTemporaryProperties).ToList();
+
+            foreach (var auditEntry in completed)
+            {
+                AuditLogs.Add(auditEntry.ToAuditLog());
+            }
+
+            return (completed, pending);
+        }
+
+        private async Task OnAfterSaveChanges(List<AuditEntry> auditEntries, CancellationToken cancellationToken)
+        {
+            foreach (var auditEntry in auditEntries)
+            {
+                foreach (var prop in auditEntry.TemporaryProperties)
+                {
+                    if (prop.Metadata.IsPrimaryKey())
+                    {
+                        auditEntry.RecordId = prop.CurrentValue is Guid guidValue ? guidValue : null;
+                    }
+                    else
+                    {
+                        auditEntry.NewValues[prop.Metadata.Name] = prop.CurrentValue;
+                    }
+                }
+
+                AuditLogs.Add(auditEntry.ToAuditLog());
+            }
+
+            await base.SaveChangesAsync(cancellationToken);
+
+            await NotifyAuditLogEntries(auditEntries, cancellationToken);
+        }
+
+        private async Task NotifyAuditLogEntries(List<AuditEntry> entries, CancellationToken cancellationToken)
+        {
+            if (_auditLogNotifier == null || entries.Count == 0)
+                return;
+
+            var username = GetCurrentUsername();
+
+            foreach (var entry in entries)
+            {
+                var auditLog = entry.ToAuditLog();
+                var response = new AuditLogResponse(
+                    auditLog.LogId,
+                    auditLog.UserId,
+                    username,
+                    auditLog.Action,
+                    auditLog.TableName,
+                    auditLog.RecordId,
+                    auditLog.OldValue,
+                    auditLog.NewValue,
+                    auditLog.Timestamp,
+                    auditLog.IPAddress
+                );
+
+                await _auditLogNotifier.NotifyAsync(response, cancellationToken);
+            }
+        }
+
+        private string? GetCurrentUsername()
+        {
+            return _httpContextAccessor?.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+        }
+
+        private Guid? GetCurrentUserId()
+        {
+            var userIdClaim = _httpContextAccessor?.HttpContext?.User
+                .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrEmpty(userIdClaim) && Guid.TryParse(userIdClaim, out var userId))
+                return userId;
+
+            return null;
+        }
+
+        private string? GetCurrentIPAddress()
+        {
+            return _httpContextAccessor?.HttpContext?.Connection.RemoteIpAddress?.ToString();
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -68,19 +234,20 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Lesson>().HasKey(e => e.LessonId);
             modelBuilder.Entity<Tasks>().HasKey(e => e.TaskId);
             modelBuilder.Entity<FocusSession>().HasKey(e => e.SessionId);
-            modelBuilder.Entity<FocusGoals>().HasKey(e => e.FocusGoalId);
             modelBuilder.Entity<DailyCheckins>().HasKey(e => e.CheckinId);
             modelBuilder.Entity<Note>().HasKey(e => e.NoteId);
             modelBuilder.Entity<Tag>().HasKey(e => e.TagId);
             modelBuilder.Entity<Resource>().HasKey(e => e.ResourceId);
+            modelBuilder.Entity<ResourcePage>().HasKey(e => e.ResourcePageId);
             modelBuilder.Entity<AISummary>().HasKey(e => e.SummaryId);
-            modelBuilder.Entity<AIInteraction>().HasKey(e => e.InteractionId);
-            modelBuilder.Entity<ChatMessages>().HasKey(e => e.MessageId);
             modelBuilder.Entity<Quiz>().HasKey(e => e.QuizId);
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
-            modelBuilder.Entity<OtpVerification>().HasKey(e => e.Id);
+            modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
+            modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
+            modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
+            modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -121,21 +288,23 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasForeignKey(nt => nt.TagId);
             });
 
-            modelBuilder.Entity<TaskGoals>(entity =>
+            modelBuilder.Entity<Tasks>(entity =>
             {
-                entity.HasKey(tg => tg.TaskGoalId);
-                entity.HasOne(tg => tg.Task)
-                      .WithOne(t => t.TaskGoal)
-                      .HasForeignKey<TaskGoals>(tg => tg.TaskId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
+                entity.Property(t => t.Priority)
+                      .HasConversion<string>();
 
-            modelBuilder.Entity<FocusGoals>(entity =>
-            {
-                entity.HasOne(fg => fg.FocusSession)
-                      .WithOne(fs => fs.FocusGoal)
-                      .HasForeignKey<FocusGoals>(fg => fg.SessionId)
+                entity.Property(t => t.Status)
+                      .HasConversion<string>();
+
+                entity.HasOne(t => t.Chapter)
+                      .WithMany(c => c.Tasks)
+                      .HasForeignKey(t => t.ChapterId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(t => t.LearningPath)
+                      .WithMany(lp => lp.Tasks)
+                      .HasForeignKey(t => t.PathId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<DailyCheckins>(entity =>
@@ -169,6 +338,9 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<Resource>(entity =>
             {
+                entity.Property(r => r.Type)
+                      .HasConversion<string>();
+
                 entity.HasOne(r => r.Subject)
                       .WithMany(s => s.Resources)
                       .HasForeignKey(r => r.SubjectId)
@@ -178,6 +350,21 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.Resources)
                       .HasForeignKey(r => r.UserId)
                       .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasMany(r => r.Pages)
+                      .WithOne(p => p.Resource)
+                      .HasForeignKey(p => p.ResourceId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ResourcePage>(entity =>
+            {
+                entity.HasOne(p => p.Resource)
+                      .WithMany(r => r.Pages)
+                      .HasForeignKey(p => p.ResourceId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(p => new { p.ResourceId, p.PageNumber }).IsUnique();
             });
 
             modelBuilder.Entity<Chapter>()
@@ -192,19 +379,6 @@ namespace CodeNexus.Infrastructure.Persistence
                 .HasForeignKey(l => l.ChapterId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<Tasks>(entity =>
-            {
-                entity.HasOne(t => t.Chapter)
-                      .WithMany(c => c.Tasks)
-                      .HasForeignKey(t => t.ChapterId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(t => t.LearningPath)
-                      .WithMany(lp => lp.Tasks)
-                      .HasForeignKey(t => t.PathId)
-                      .OnDelete(DeleteBehavior.NoAction);
-            });
-
             modelBuilder.Entity<AISummary>()
                .HasOne(s => s.Resource)
                .WithMany(r => r.AISummaries)
@@ -213,27 +387,78 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<Goals>(entity =>
             {
-                entity.HasOne(g => g.User)
+                entity.HasOne(g => g.CreatedByUser)
                       .WithMany(u => u.Goals)
-                      .HasForeignKey(g => g.UserId)
-                      .OnDelete(DeleteBehavior.Cascade);
+                      .HasForeignKey(g => g.CreatedByUserId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
-            modelBuilder.Entity<Questions>()
-                .Property(q => q.Points)
-                .HasPrecision(5, 2);
+            modelBuilder.Entity<Questions>(entity =>
+            {
+                entity.Property(q => q.Points)
+                      .HasPrecision(5, 2);
+
+                entity.Property(q => q.Type)
+                      .HasConversion<string>();
+            });
 
             modelBuilder.Entity<Quiz>()
                 .Property(q => q.PassingScore)
                 .HasPrecision(5, 2);
 
-            modelBuilder.Entity<QuizAttempt>()
-                .Property(q => q.Score)
-                .HasPrecision(5, 2);
-
-            modelBuilder.Entity<OtpVerification>(entity =>
+            modelBuilder.Entity<QuizAttempt>(entity =>
             {
-                entity.HasIndex(o => o.Email).IsUnique();
+                entity.Property(q => q.Score)
+                      .HasPrecision(5, 2);
+
+                entity.Property(qa => qa.Status)
+                      .HasConversion<string>();
+            });
+
+            modelBuilder.Entity<Notification>()
+                .Property(n => n.Type)
+                .HasConversion<string>();
+
+            modelBuilder.Entity<AIProviderConfig>(entity =>
+            {
+                entity.HasKey(e => e.ConfigId);
+
+                entity.HasIndex(e => new { e.UsageType, e.IsActive });
+
+                entity.HasMany(e => e.Conversations)
+                      .WithOne(c => c.Provider)
+                      .HasForeignKey(c => c.ConfigId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Conversation>(entity =>
+            {
+                entity.HasKey(e => e.ConversationId);
+
+                entity.HasOne(c => c.User)
+                      .WithMany(u => u.Conversations)
+                      .HasForeignKey(c => c.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(c => c.Provider)
+                      .WithMany(p => p.Conversations)
+                      .HasForeignKey(c => c.ConfigId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(c => c.Messages)
+                      .WithOne(m => m.Conversation)
+                      .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Message>(entity =>
+            {
+                entity.HasKey(e => e.MessageId);
+
+                entity.HasOne(m => m.Conversation)
+                      .WithMany(c => c.Messages)
+                      .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

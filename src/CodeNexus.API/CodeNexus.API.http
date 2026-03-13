@@ -4,3 +4,217 @@ GET {{CodeNexus.API_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Subject API Tests
+
+# Get all subjects (no filter)
+GET {{CodeNexus.API_HostAddress}}/api/subjects
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Frontend category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=0
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Backend category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=1
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Database category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=2
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Mobile category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=3
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Get subjects filtered by Other category
+GET {{CodeNexus.API_HostAddress}}/api/subjects?category=9
+Accept: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+# Create a new subject with Frontend category
+POST {{CodeNexus.API_HostAddress}}/api/subjects
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "name": "React Development",
+  "description": "Learn React.js for frontend development",
+  "color": "#61DAFB",
+  "icon": "react-icon",
+  "category": 0
+}
+
+###
+
+# Create a new subject with Backend category
+POST {{CodeNexus.API_HostAddress}}/api/subjects
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "name": "Node.js Development",
+  "description": "Learn Node.js for backend development",
+  "color": "#339933",
+  "icon": "nodejs-icon",
+  "category": 1
+}
+
+###
+
+# Create a new subject with Database category
+POST {{CodeNexus.API_HostAddress}}/api/subjects
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "name": "SQL Fundamentals",
+  "description": "Learn SQL for database management",
+  "color": "#336791",
+  "icon": "sql-icon",
+  "category": 2
+}
+
+###
+
+# Focus Session API Tests
+
+# QUIZ FORMAT EXPLANATION:
+# 
+# Quiz Questions (stored in task.QuizQuestionsJson) format:
+# [
+#   {
+#     "question": "What is a variable in JavaScript?",
+#     "options": ["A container for data", "A function", "A loop", "An object"],
+#     "correctAnswer": 0
+#   },
+#   {
+#     "question": "Which keyword is used to declare constants?",
+#     "options": ["var", "let", "const", "function"],
+#     "correctAnswer": 2
+#   }
+# ]
+#
+# Student Quiz Answers (submittedQuizAnswers) format:
+# {
+#   "answers": [0, 2, 1, 3, 0]  // Array of selected option indices (0-3)
+# }
+# 
+# The AI will:
+# 1. Parse both quiz questions and student answers
+# 2. Compare each answer with correctAnswer index
+# 3. Calculate score as: (correct answers / total questions) * 100
+# 4. Provide detailed feedback in Vietnamese
+
+# Review Practice Task (get AI feedback without ending session)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}",
+  "submittedSummary": null,
+  "submittedQuizAnswers": null
+}
+
+###
+
+# Review Theory Task (get AI feedback without ending session)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": null,
+  "submittedSummary": "Variables are containers for storing data values. In JavaScript, you can declare variables using var, let, or const keywords.",
+  "submittedQuizAnswers": null
+}
+
+###
+
+# Review Quiz Task (get AI feedback without ending session)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/review
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": null,
+  "submittedSummary": null,
+  "submittedQuizAnswers": "{\"answers\": [0, 2, 1, 3, 0]}"
+}
+
+###
+
+# Complete session with Progress submission (no validation required)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "// Work in progress...\nconsole.log('Still working on this');",
+  "submittedSummary": null,
+  "submittedQuizAnswers": null,
+  "isEarlyCompletion": false,
+  "submissionType": 0
+}
+
+###
+
+# Complete session with Final submission (requires code/summary, runs verification, completes task if passed)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": "function fibonacci(n) {\n  if (n <= 1) return n;\n  return fibonacci(n-1) + fibonacci(n-2);\n}\n\n// Test cases\nconsole.log(fibonacci(5)); // Should output 5\nconsole.log(fibonacci(10)); // Should output 55",
+  "submittedSummary": null,
+  "submittedQuizAnswers": null,
+  "isEarlyCompletion": false,
+  "submissionType": 1
+}
+
+###
+
+# Complete Quiz Task with Final submission
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete-json
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "submittedCode": null,
+  "submittedSummary": null,
+  "submittedQuizAnswers": "{\"answers\": [0, 2, 1, 3, 0]}",
+  "isEarlyCompletion": false,
+  "submissionType": 1
+}
+
+###
+
+# Complete session with Form data (for file uploads)
+POST {{CodeNexus.API_HostAddress}}/api/focus-sessions/{{sessionId}}/complete
+Content-Type: multipart/form-data
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+submittedCode=console.log('Hello World');
+submittedSummary=
+isEarlyCompletion=false
+submissionType=0
+
+###

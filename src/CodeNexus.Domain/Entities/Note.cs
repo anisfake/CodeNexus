@@ -14,8 +14,10 @@ namespace CodeNexus.Domain.Entities
 
         public string? Title { get; set; }
         public string? Content { get; set; }
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
 
         public virtual ICollection<NoteTags> NoteTags { get; set; } = new List<NoteTags>();
     }

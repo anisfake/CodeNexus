@@ -10,7 +10,7 @@ namespace CodeNexus.Domain.Entities
     {
         public Guid TagId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual ICollection<NoteTags> NoteTags { get; set; } = new List<NoteTags>();
     }

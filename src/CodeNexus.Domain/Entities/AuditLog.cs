@@ -17,7 +17,7 @@ namespace CodeNexus.Domain.Entities
         public Guid? RecordId { get; set; }
         public string? OldValue { get; set; }
         public string? NewValue { get; set; }
-        public DateTime Timestamp { get; set; } = DateTime.Now;
+        public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public string? IPAddress { get; set; }
     }
 }
