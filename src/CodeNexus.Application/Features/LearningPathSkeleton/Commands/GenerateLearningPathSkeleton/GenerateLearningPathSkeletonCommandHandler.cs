@@ -118,8 +118,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                         Title = $"Lesson {j + 1}: {subject.Name} Topic {j + 1}",
                         Content = string.Empty,
                         OrderIndex = j,
-                        ScheduledDate = lessonSchedule.ScheduledDate,
-                        EstimatedMinutes = lessonSchedule.EstimatedMinutes,
+                        LessonDay = lessonSchedule.LessonDay, // Use LessonDay instead of ScheduledDate
                         CreatedAt = DateTime.UtcNow
                     };
 
@@ -137,8 +136,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                             LessonId = lesson.LessonId,
                             Title = $"Quiz {k + 1}: {lesson.Title}",
                             Description = $"Assessment quiz for {lesson.Title}",
-                            AvailableFrom = lessonSchedule.ScheduledDate.AddHours(1),
-                            DueDate = lessonSchedule.ScheduledDate.AddDays(2),
+                            DueDate = lessonSchedule.LessonDay.AddDays(2), // Due 2 days after lesson day
                             CreatedAt = DateTime.UtcNow
                         };
 

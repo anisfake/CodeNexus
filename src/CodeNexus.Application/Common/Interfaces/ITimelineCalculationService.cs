@@ -49,8 +49,7 @@ public record ChapterTimelineDto(
 
 public record LessonScheduleDto(
     int OrderIndex,
-    DateTime ScheduledDate,
-    int EstimatedMinutes
+    DateTime LessonDay // Changed from ScheduledDate to LessonDay, removed EstimatedMinutes
 );
 
 public record TaskScheduleDto(
@@ -60,6 +59,5 @@ public record TaskScheduleDto(
 
 public record QuizScheduleDto(
     int LessonOrderIndex,
-    DateTime AvailableFrom,
     DateTime DueDate
 );

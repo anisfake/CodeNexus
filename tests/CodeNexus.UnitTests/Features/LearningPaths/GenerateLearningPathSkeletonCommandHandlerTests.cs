@@ -143,11 +143,11 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         // Mock lesson schedules (5 lessons per chapter for intermediate)
         var lessonSchedules = new List<LessonScheduleDto>
         {
-            new(0, DateTime.UtcNow, 60),
-            new(1, DateTime.UtcNow.AddDays(1), 60),
-            new(2, DateTime.UtcNow.AddDays(2), 60),
-            new(3, DateTime.UtcNow.AddDays(3), 60),
-            new(4, DateTime.UtcNow.AddDays(4), 60)
+            new(0, DateTime.UtcNow), // Use LessonDay only
+            new(1, DateTime.UtcNow.AddDays(1)),
+            new(2, DateTime.UtcNow.AddDays(2)),
+            new(3, DateTime.UtcNow.AddDays(3)),
+            new(4, DateTime.UtcNow.AddDays(4))
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);

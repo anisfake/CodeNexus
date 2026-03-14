@@ -17,8 +17,7 @@ namespace CodeNexus.Domain.Entities
         public int? TimeLimit { get; set; } 
         public decimal? PassingScore { get; set; }
         
-        // Timeline fields
-        public DateTime? AvailableFrom { get; set; } 
+        // Timeline field - when quiz must be completed
         public DateTime? DueDate { get; set; } 
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
