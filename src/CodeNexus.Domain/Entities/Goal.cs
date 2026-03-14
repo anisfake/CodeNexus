@@ -22,6 +22,6 @@ namespace CodeNexus.Domain.Entities
         public int DurationInDays => (int)Duration;
         
         // Navigation properties
-        public virtual ICollection<LearningPath> LearningPaths { get; set; } = new List<LearningPath>();
+        public virtual ICollection<LearningPathGoal> LearningPathGoals { get; set; } = new List<LearningPathGoal>();
     }
 }

@@ -28,6 +28,23 @@ public class ChapterHub : Hub
             if (result.IsSuccess)
             {
                 await Clients.Caller.SendAsync("ChapterSkeletonGenerated", result.Value);
+
+                await Clients.Caller.SendAsync("ChapterContentLoading", new { chapterId = result.Value.ChapterId });
+                var contentResult = await _sender.Send(new GenerateChapterContentCommand(result.Value.ChapterId));
+
+                if (contentResult.IsSuccess)
+                {
+                    await Clients.Caller.SendAsync("ReceiveChapterContent", contentResult.Value);
+                }
+                else
+                {
+                    await Clients.Caller.SendAsync("ChapterContentError", new
+                    {
+                        ChapterId = result.Value.ChapterId,
+                        contentResult.ErrorCode,
+                        contentResult.ErrorMessage
+                    });
+                }
             }
             else
             {

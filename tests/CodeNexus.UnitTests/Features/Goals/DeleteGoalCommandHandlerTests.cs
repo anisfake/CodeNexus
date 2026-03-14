@@ -41,7 +41,7 @@ public class DeleteGoalCommandHandlerTests
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
-        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
+        SetupLearningPathGoalsDbSet(new List<CodeNexus.Domain.Entities.LearningPathGoal>());
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new DeleteGoalCommand(goalId);
@@ -63,7 +63,7 @@ public class DeleteGoalCommandHandlerTests
         // Arrange
         var goalId = Guid.NewGuid();
         SetupGoalsDbSet(new List<GoalEntity>());
-        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
+        SetupLearningPathGoalsDbSet(new List<CodeNexus.Domain.Entities.LearningPathGoal>());
 
         var command = new DeleteGoalCommand(goalId);
 
@@ -95,7 +95,7 @@ public class DeleteGoalCommandHandlerTests
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
-        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
+        SetupLearningPathGoalsDbSet(new List<CodeNexus.Domain.Entities.LearningPathGoal>());
 
         var command = new DeleteGoalCommand(goalId);
 
@@ -125,7 +125,7 @@ public class DeleteGoalCommandHandlerTests
 
         var goals = new List<GoalEntity> { systemGoal };
         SetupGoalsDbSet(goals);
-        SetupLearningPathsDbSet(new List<CodeNexus.Domain.Entities.LearningPath>());
+        SetupLearningPathGoalsDbSet(new List<CodeNexus.Domain.Entities.LearningPathGoal>());
 
         var command = new DeleteGoalCommand(goalId);
 
@@ -137,17 +137,17 @@ public class DeleteGoalCommandHandlerTests
         Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
     }
 
-    private void SetupLearningPathsDbSet(List<CodeNexus.Domain.Entities.LearningPath> learningPaths)
+    private void SetupLearningPathGoalsDbSet(List<CodeNexus.Domain.Entities.LearningPathGoal> learningPathGoals)
     {
-        var queryable = new TestAsyncEnumerable<CodeNexus.Domain.Entities.LearningPath>(learningPaths);
-        var dbSetMock = new Mock<DbSet<CodeNexus.Domain.Entities.LearningPath>>();
-        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
-        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
-        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
-        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
-        dbSetMock.As<IAsyncEnumerable<CodeNexus.Domain.Entities.LearningPath>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+        var queryable = new TestAsyncEnumerable<CodeNexus.Domain.Entities.LearningPathGoal>(learningPathGoals);
+        var dbSetMock = new Mock<DbSet<CodeNexus.Domain.Entities.LearningPathGoal>>();
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPathGoal>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPathGoal>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPathGoal>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<CodeNexus.Domain.Entities.LearningPathGoal>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<CodeNexus.Domain.Entities.LearningPathGoal>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
-        _mockContext.Setup(x => x.LearningPaths).Returns(dbSetMock.Object);
+        _mockContext.Setup(x => x.LearningPathGoals).Returns(dbSetMock.Object);
     }
 
     private void SetupGoalsDbSet(List<GoalEntity> goals)

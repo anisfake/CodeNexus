@@ -18,9 +18,6 @@ namespace CodeNexus.Domain.Entities
         public Guid SubjectId { get; set; }
         public virtual Subject Subject { get; set; } = null!;
 
-        public Guid? GoalId { get; set; }
-        public virtual Goals? Goal { get; set; }
-
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTime? StartDate { get; set; }
@@ -32,5 +29,6 @@ namespace CodeNexus.Domain.Entities
 
         public virtual ICollection<Chapter> Chapters { get; set; } = new List<Chapter>();
         public virtual ICollection<Tasks> Tasks { get; set; } = new List<Tasks>();
+        public virtual ICollection<LearningPathGoal> LearningPathGoals { get; set; } = new List<LearningPathGoal>();
     }
 }

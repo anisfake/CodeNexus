@@ -25,7 +25,8 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _handler = new GenerateLearningPathSkeletonCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
-            _mockTimelineCalculationService.Object
+            _mockTimelineCalculationService.Object,
+            new ThrowingAIGeneratorService()
         );
     }
 
@@ -36,18 +37,18 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
+        var goals = new List<LearningPathGoalRequest> { new(goalId, 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Subject)null);
+        _mockContext.Setup(x => x.Subjects).Returns(new List<Subject>().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("GENERATION_FAILED", result.ErrorCode);
+        Assert.Equal("SUBJECT_NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -57,22 +58,21 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Intermediate, LanguageSelection.English);
+        var goals = new List<LearningPathGoalRequest> { new(goalId, 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Intermediate, LanguageSelection.English);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(subject);
-        _mockContext.Setup(x => x.Goals.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((CodeNexus.Domain.Entities.Goals)null);
+        _mockContext.Setup(x => x.Subjects).Returns(new[] { subject }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Goals).Returns(new List<CodeNexus.Domain.Entities.Goals>().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.False(result.IsSuccess);
-        Assert.Equal("GENERATION_FAILED", result.ErrorCode);
+        Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -82,7 +82,8 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Advanced, LanguageSelection.VietNamese);
+        var goals = new List<LearningPathGoalRequest> { new(goalId, 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Advanced, LanguageSelection.VietNamese);
 
         var subject = new Subject { SubjectId = subjectId, Name = "C#" };
         var goal = new CodeNexus.Domain.Entities.Goals 
@@ -96,10 +97,8 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(subject);
-        _mockContext.Setup(x => x.Goals.FindAsync(It.IsAny<object[]>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(goal);
+        _mockContext.Setup(x => x.Subjects).Returns(new[] { subject }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Goals).Returns(new[] { goal }.BuildMockDbSet().Object);
         _mockTimelineCalculationService.Setup(x => x.CalculateChapterTimelinesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<ComplexityLevel>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Timeline calculation error"));
 
@@ -118,7 +117,8 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
-        var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, ComplexityLevel.Intermediate, LanguageSelection.English);
+        var goals = new List<LearningPathGoalRequest> { new(goalId, 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Intermediate, LanguageSelection.English);
 
         var subject = new Subject { SubjectId = subjectId, Name = "JavaScript" };
         var goal = new CodeNexus.Domain.Entities.Goals 
@@ -154,10 +154,12 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockContext.Setup(x => x.Subjects).Returns(new[] { subject }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Goals).Returns(new[] { goal }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathGoals).Returns(new List<LearningPathGoal>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
         
         _mockTimelineCalculationService.Setup(x => x.CalculateChapterTimelinesAsync(It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<ComplexityLevel>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(chapterTimelines);
@@ -174,17 +176,18 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal(4, result.Value.ChapterCount); // 4 chapters for 30 days
         Assert.Equal(4, result.Value.ChapterDtos.Count);
-        Assert.Equal("Learning Path: JavaScript - Become Full Stack Developer", result.Value.Title);
+        Assert.Equal("JavaScript Learning Path", result.Value.Title);
         
         // Verify each chapter has the expected number of lessons (5 for intermediate)
         foreach (var chapter in result.Value.ChapterDtos)
         {
             Assert.Equal(5, chapter.Lessons.Count);
-            
-            // Verify each lesson has quizzes (1 quiz per lesson for intermediate)
+
+            // Response does not include quizzes yet (quizzes are created in DB)
             foreach (var lesson in chapter.Lessons)
             {
-                Assert.Single(lesson.Quizzes);
+                Assert.NotNull(lesson.Quizzes);
+                Assert.Empty(lesson.Quizzes);
             }
         }
 
@@ -199,10 +202,23 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockTimelineCalculationService.Verify(x => x.CalculateLessonSchedulesAsync(
             It.IsAny<DateTime>(), 
             It.IsAny<DateTime>(), 
-            0, // Not used anymore
+            5, // 5 lessons per chapter for intermediate
             ComplexityLevel.Intermediate, 
             It.IsAny<CancellationToken>()), Times.Exactly(4)); // Called for each chapter
         
         _mockTimelineCalculationService.Verify(x => x.GetQuizzesPerLesson(ComplexityLevel.Intermediate), Times.Exactly(20)); // Called for each lesson (4 chapters * 5 lessons)
+    }
+
+    private sealed class ThrowingAIGeneratorService : IAIGeneratorService
+    {
+        public Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
+        {
+            throw new Exception("AI not available");
+        }
+
+        public Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
+        {
+            throw new Exception("AI not available");
+        }
     }
 }

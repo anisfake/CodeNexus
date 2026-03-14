@@ -15,15 +15,18 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAIGeneratorService _aiGeneratorService;
+    private readonly ITimelineCalculationService _timelineCalculationService;
 
     public GenerateChapterSkeletonCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        IAIGeneratorService aiGeneratorService)
+        IAIGeneratorService aiGeneratorService,
+        ITimelineCalculationService timelineCalculationService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _aiGeneratorService = aiGeneratorService;
+        _timelineCalculationService = timelineCalculationService;
     }
 
     public async Task<Result<ChapterSkeletonDto>> Handle(GenerateChapterSkeletonCommand request, CancellationToken cancellationToken)
@@ -32,55 +35,110 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
         {
             var userId = _currentUserService.GetUserId();
 
-            var learningPath = await _context.LearningPaths
-                .Include(lp => lp.Subject)
-                .Include(lp => lp.Goal)
-                .FirstOrDefaultAsync(lp => lp.PathId == request.PathId, cancellationToken);
+            var chapter = await _context.Chapters
+                .Include(c => c.LearningPath)
+                    .ThenInclude(lp => lp.Subject)
+                .Include(c => c.LearningPath)
+                    .ThenInclude(lp => lp.LearningPathGoals)
+                        .ThenInclude(lpg => lpg.Goal)
+                .FirstOrDefaultAsync(c => c.PathId == request.PathId && c.OrderIndex == request.OrderIndex, cancellationToken);
 
-            if (learningPath == null)
-                return Result<ChapterSkeletonDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found");
+            if (chapter == null)
+                return Result<ChapterSkeletonDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
-            if (learningPath.UserId != userId)
+            if (chapter.LearningPath.UserId != userId)
                 return Result<ChapterSkeletonDto>.Failure("UNAUTHORIZED", "You do not have access to this learning path");
 
-            var (_, lessonsPerChapter, _, _) = CalculateStructureByComplexity(learningPath);
+            var existingLessons = await _context.Lessons
+                .Where(l => l.ChapterId == chapter.ChapterId)
+                .OrderBy(l => l.OrderIndex)
+                .ToListAsync(cancellationToken);
+
+            if (existingLessons.Any())
+            {
+                var existingLessonDtos = existingLessons.Select(l => new LessonSkeletonDto(
+                    l.LessonId,
+                    l.Title,
+                    l.OrderIndex,
+                    l.LessonDay
+                )).ToList();
+
+                return Result<ChapterSkeletonDto>.Success(
+                    new ChapterSkeletonDto(
+                        chapter.ChapterId,
+                        chapter.Title,
+                        chapter.OrderIndex,
+                        existingLessons.Count,
+                        0,
+                        existingLessonDtos
+                    )
+                );
+            }
+
+            var complexity = GetComplexityFromLearningPath(chapter.LearningPath);
+            var lessonsPerChapter = GetLessonsPerChapter(complexity);
 
             var chapterData = await GenerateChapterFromAI(
-                learningPath.Subject.Name,
-                learningPath.Goal.Title,
-                learningPath.Title,
+                chapter.LearningPath.Subject.Name,
+                BuildGoalSummary(chapter.LearningPath),
+                chapter.LearningPath.Title,
                 request.OrderIndex,
                 lessonsPerChapter,
-                learningPath.Language);
+                chapter.LearningPath.Language);
 
-            if (chapterData == null || string.IsNullOrEmpty(chapterData.Title))
-                return Result<ChapterSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid chapter structure");
-
-            var chapter = new Chapter
+            if (chapterData == null || !chapterData.LessonTitles.Any())
             {
-                ChapterId = NewId.NextGuid(),
-                PathId = learningPath.PathId,
-                Title = chapterData.Title,
-                OrderIndex = request.OrderIndex,
-                IsCompleted = false,
-                CreatedAt = DateTime.UtcNow
-            };
+                return Result<ChapterSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid lesson structure");
+            }
 
-            await _context.Chapters.AddAsync(chapter, cancellationToken);
+            var lessonSchedules = await _timelineCalculationService.CalculateLessonSchedulesAsync(
+                chapter.StartDate!.Value,
+                chapter.EndDate!.Value,
+                chapterData.LessonTitles.Count,
+                complexity,
+                cancellationToken);
 
-            foreach (var lessonTitle in chapterData.LessonTitles)
+            var createdLessons = new List<LessonSkeletonDto>();
+            for (int i = 0; i < chapterData.LessonTitles.Count && i < lessonSchedules.Count; i++)
             {
+                var lessonTitle = chapterData.LessonTitles[i];
+                var lessonSchedule = lessonSchedules[i];
+
                 var lesson = new Lesson
                 {
                     LessonId = NewId.NextGuid(),
                     ChapterId = chapter.ChapterId,
                     Title = lessonTitle,
                     Content = string.Empty,
-                    OrderIndex = chapterData.LessonTitles.IndexOf(lessonTitle),
+                    OrderIndex = i,
+                    LessonDay = lessonSchedule.LessonDay,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 await _context.Lessons.AddAsync(lesson, cancellationToken);
+
+                createdLessons.Add(new LessonSkeletonDto(
+                    lesson.LessonId,
+                    lesson.Title,
+                    lesson.OrderIndex,
+                    lesson.LessonDay
+                ));
+
+                var quizzesPerLesson = _timelineCalculationService.GetQuizzesPerLesson(complexity);
+                for (int k = 0; k < quizzesPerLesson; k++)
+                {
+                    var quiz = new Quiz
+                    {
+                        QuizId = NewId.NextGuid(),
+                        LessonId = lesson.LessonId,
+                        Title = $"Quiz {k + 1}: {lessonTitle}",
+                        Description = $"Assessment quiz for {lessonTitle}",
+                        DueDate = lessonSchedule.LessonDay.AddDays(2),
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _context.Quizzes.AddAsync(quiz, cancellationToken);
+                }
             }
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -91,7 +149,8 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
                     chapter.Title,
                     chapter.OrderIndex,
                     chapterData.LessonTitles.Count,
-                    0
+                    0,
+                    createdLessons
                 )
             );
         }
@@ -99,6 +158,25 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
         {
             return Result<ChapterSkeletonDto>.Failure("GENERATION_FAILED", $"Failed to generate chapter: {ex.Message}");
         }
+    }
+
+    private ComplexityLevel GetComplexityFromLearningPath(LearningPath learningPath)
+    {
+        if (Enum.TryParse<ComplexityLevel>(learningPath.Status, out var complexity))
+            return complexity;
+
+        return ComplexityLevel.Intermediate;
+    }
+
+    private int GetLessonsPerChapter(ComplexityLevel complexity)
+    {
+        return complexity switch
+        {
+            ComplexityLevel.Beginner => 4,
+            ComplexityLevel.Intermediate => 5,
+            ComplexityLevel.Advanced => 6,
+            _ => 4
+        };
     }
 
     private (int chapters, int lessonsPerChapter, int quizzPercentage, int estimatedDays) CalculateStructureByComplexity(LearningPath learningPath)
@@ -116,13 +194,13 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
     private async Task<ChapterGenerationData?> GenerateChapterFromAI(
         string subjectName,
-        string goalTitle,
+        string goalSummary,
         string learningPathTitle,
         int orderIndex,
         int lessonsPerChapter,
         LanguageSelection language)
     {
-        var prompt = BuildPrompt(subjectName, goalTitle, learningPathTitle, orderIndex, lessonsPerChapter, language);
+        var prompt = BuildPrompt(subjectName, goalSummary, learningPathTitle, orderIndex, lessonsPerChapter, language);
 
         var result = await _aiGeneratorService.GenerateStructureAsync<ChapterGenerationData>(prompt, AIUsageType.StructureGeneration);
 
@@ -131,7 +209,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
     private string BuildPrompt(
         string subjectName,
-        string goalTitle,
+        string goalSummary,
         string learningPathTitle,
         int orderIndex,
         int lessonsPerChapter,
@@ -161,7 +239,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalTitle}
+Goal: {goalSummary}
 Learning Path: {learningPathTitle}
 Chapter Position: {orderIndex + 1} ({chapterPosition})
 
@@ -189,5 +267,20 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     {
         public string Title { get; set; } = "";
         public List<string> LessonTitles { get; set; } = new();
+    }
+
+    private static string BuildGoalSummary(LearningPath learningPath)
+    {
+        if (learningPath.LearningPathGoals == null || learningPath.LearningPathGoals.Count == 0)
+        {
+            return "General Programming Goal";
+        }
+
+        var ordered = learningPath.LearningPathGoals
+            .OrderByDescending(g => g.Weight)
+            .Select(g => g.Goal.Title)
+            .ToList();
+
+        return ordered.Count == 1 ? ordered[0] : $"{ordered[0]} and {ordered[1]}";
     }
 }

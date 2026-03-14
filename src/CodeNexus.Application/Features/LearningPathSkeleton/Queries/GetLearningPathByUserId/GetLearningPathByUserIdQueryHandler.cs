@@ -26,7 +26,8 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
 
         var query = _context.LearningPaths
             .Include(lp => lp.Subject)
-            .Include(lp => lp.Goal)
+            .Include(lp => lp.LearningPathGoals)
+                .ThenInclude(lpg => lpg.Goal)
             .Include(lp => lp.User)
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
@@ -67,8 +68,14 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                 lp.PathId,
                 lp.SubjectId,
                 lp.Subject.Name,
-                lp.Goal.GoalId,
-                lp.Goal.Title,
+                lp.LearningPathGoals
+                    .OrderByDescending(g => g.Weight)
+                    .Select(g => new LearningPathGoalDto(
+                        g.GoalId,
+                        g.Goal.Title,
+                        g.Weight,
+                        g.Goal.DurationInDays
+                    )).ToList(),
                 lp.StartDate,
                 lp.EndDate,
                 lp.Title,
@@ -86,6 +93,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         l.LessonId,
                         l.Title,
                         l.Content,
+                        l.LessonDay,
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
@@ -99,6 +107,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         t.TaskType,
                         t.Priority,
                         t.Status,
+                        t.DueDate,
                         t.QuizQuestionsJson
                     )).ToList()
                 )).ToList(),

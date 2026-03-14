@@ -37,7 +37,7 @@ public class LearningPathController : ControllerBase
     {
         var command = new GenerateLearningPathSkeletonCommand(
             request.SubjectId,
-            request.GoalId,
+            request.Goals,
             request.ComplexityLevel,
             request.LanguageSelection
         );

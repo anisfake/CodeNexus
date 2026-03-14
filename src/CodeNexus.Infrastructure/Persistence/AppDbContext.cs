@@ -36,6 +36,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
+        public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
         public DbSet<Tasks> Tasks => Set<Tasks>();
@@ -244,6 +245,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
+            modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
@@ -328,6 +330,22 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.LearningPaths)
                       .HasForeignKey(p => p.UserId)
                       .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<LearningPathGoal>(entity =>
+            {
+                entity.Property(e => e.Weight)
+                      .HasPrecision(5, 2);
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany(lp => lp.LearningPathGoals)
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Goal)
+                      .WithMany(g => g.LearningPathGoals)
+                      .HasForeignKey(e => e.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Subject>()

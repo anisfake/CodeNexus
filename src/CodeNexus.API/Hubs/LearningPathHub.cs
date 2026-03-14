@@ -2,6 +2,7 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearn
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using System.Collections.Generic;
 
 namespace CodeNexus.API.Hubs;
 
@@ -17,7 +18,7 @@ public class LearningPathHub : Hub
 
     public async Task RequestLearningPathGeneration(
         Guid subjectId,
-        Guid goalId,
+        List<CodeNexus.Application.Features.LearningPaths.DTOs.LearningPathGoalRequest> goals,
         string complexityLevel,
         string languageSelection)
     {
@@ -45,7 +46,7 @@ public class LearningPathHub : Hub
                 return;
             }
 
-            var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, complexity, language);
+            var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, complexity, language);
             var result = await _sender.Send(command);
 
             if (!result.IsSuccess)
@@ -64,6 +65,7 @@ public class LearningPathHub : Hub
                 learningPath.PathId,
                 learningPath.Title,
                 learningPath.Description,
+                learningPath.Goals,
                 learningPath.ChapterCount,
                 learningPath.ChapterDtos,
                 Message = "Learning path with chapters and lessons created successfully!"

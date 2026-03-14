@@ -37,8 +37,8 @@ namespace CodeNexus.Application.Features.Goals.Commands.DeleteGoal
                 return Result<string>.Failure("CANNOT_DELETE_SYSTEM_GOAL", "Cannot delete system goal");
             }
 
-            var goalInLearningPath = await _context.LearningPaths
-                .AnyAsync(lp => lp.GoalId == request.GoalId, cancellationToken);
+            var goalInLearningPath = await _context.LearningPathGoals
+                .AnyAsync(lpg => lpg.GoalId == request.GoalId, cancellationToken);
 
             if (goalInLearningPath)
             {

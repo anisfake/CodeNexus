@@ -38,11 +38,19 @@ public class LearningPathHubTests
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
         var pathId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new LearningPathGoalRequest(goalId, 1m)
+        };
         
         var expectedResponse = new CreateLearningPathResponse(
             pathId,
             "Test Learning Path",
             "Test Description",
+            new List<LearningPathGoalDto>
+            {
+                new LearningPathGoalDto(goalId, "Goal 1", 1m, 30)
+            },
             new List<ChapterDto>
             {
                 new ChapterDto(Guid.NewGuid(), "Chapter 1", null, 0, new List<LessonDto>(), new List<TaskDto>())
@@ -56,7 +64,7 @@ public class LearningPathHubTests
             .ReturnsAsync(Result<CreateLearningPathResponse>.Success(expectedResponse));
 
         // Act
-        await _hub.RequestLearningPathGeneration(subjectId, goalId, "Beginner", "VietNamese");
+        await _hub.RequestLearningPathGeneration(subjectId, goals, "Beginner", "VietNamese");
 
         // Assert
         _mockClientProxy.Verify(x => x.SendCoreAsync(
@@ -81,9 +89,13 @@ public class LearningPathHubTests
         // Arrange
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new LearningPathGoalRequest(goalId, 1m)
+        };
 
         // Act
-        await _hub.RequestLearningPathGeneration(subjectId, goalId, "InvalidComplexity", "VietNamese");
+        await _hub.RequestLearningPathGeneration(subjectId, goals, "InvalidComplexity", "VietNamese");
 
         // Assert
         _mockClientProxy.Verify(x => x.SendCoreAsync(
@@ -98,12 +110,16 @@ public class LearningPathHubTests
         // Arrange
         var subjectId = Guid.NewGuid();
         var goalId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new LearningPathGoalRequest(goalId, 1m)
+        };
 
         _mockSender.Setup(x => x.Send(It.IsAny<GenerateLearningPathSkeletonCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<CreateLearningPathResponse>.Failure("TEST_ERROR", "Test error message"));
 
         // Act
-        await _hub.RequestLearningPathGeneration(subjectId, goalId, "Beginner", "VietNamese");
+        await _hub.RequestLearningPathGeneration(subjectId, goals, "Beginner", "VietNamese");
 
         // Assert
         _mockClientProxy.Verify(x => x.SendCoreAsync(

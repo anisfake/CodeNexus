@@ -11,6 +11,7 @@ public record LessonDto(
     Guid LessonId,
     string Title,
     string? Content,
+    DateTime LessonDay,
     List<QuizDto> Quizzes
 );
 public record TaskDto(
@@ -20,6 +21,7 @@ public record TaskDto(
     TaskType TaskType,
     TaskPriority? Priority,
     TaskStatus_ TaskStatus,
+    DateTime? DueDate,
     string? QuizQuestionsJson
 );
 public record ChapterDto(
@@ -36,9 +38,21 @@ public record LearningPathSkeletonDto(
     List<ChapterDto> Chapters
 );
 
+public record LearningPathGoalRequest(
+    Guid GoalId,
+    decimal Weight
+);
+
+public record LearningPathGoalDto(
+    Guid GoalId,
+    string Title,
+    decimal Weight,
+    int DurationInDays
+);
+
 public record GenerateLearningPathSkeletonRequest(
     Guid SubjectId,
-    Guid GoalId,
+    List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
     LanguageSelection LanguageSelection
 );
@@ -46,6 +60,7 @@ public record CreateLearningPathResponse(
     Guid PathId,
     string Title,
     string Description,
+    List<LearningPathGoalDto> Goals,
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
     DateTime CreatedAt,
@@ -56,8 +71,7 @@ public record LearningPathResponse(
     Guid PathId,
     Guid SubjectId,
     string SubjectName,
-    Guid GoalId,
-    string GoalTitle,
+    List<LearningPathGoalDto> Goals,
     DateTime? StartDate,
     DateTime? EndDate,
     string Title,
