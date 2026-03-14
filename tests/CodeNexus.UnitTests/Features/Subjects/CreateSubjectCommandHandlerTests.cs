@@ -13,13 +13,18 @@ public class CreateSubjectCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<ISubjectCacheService> _mockSubjectCacheService;
     private readonly CreateSubjectCommandHandler _handler;
 
     public CreateSubjectCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new CreateSubjectCommandHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockSubjectCacheService = new Mock<ISubjectCacheService>();
+        _mockSubjectCacheService
+            .Setup(x => x.InvalidateSubjectsAsync(It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new CreateSubjectCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockSubjectCacheService.Object);
     }
 
     [Fact]

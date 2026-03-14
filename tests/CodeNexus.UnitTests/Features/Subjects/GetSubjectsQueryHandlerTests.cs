@@ -12,13 +12,18 @@ namespace CodeNexus.UnitTests.Features.Subjects;
 public class GetSubjectsQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ISubjectCacheService> _mockSubjectCacheService;
     private readonly GetSubjectsQueryHandler _handler;
 
     public GetSubjectsQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockSubjectCacheService = new Mock<ISubjectCacheService>();
+        _mockSubjectCacheService
+            .Setup(x => x.GetSubjectsAsync(It.IsAny<global::SubjectCategory?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((List<CodeNexus.Application.Features.Subjects.DTOs.SubjectDto>?)null);
 
-        _handler = new GetSubjectsQueryHandler(_mockContext.Object);
+        _handler = new GetSubjectsQueryHandler(_mockContext.Object, _mockSubjectCacheService.Object);
     }
 
     [Fact]

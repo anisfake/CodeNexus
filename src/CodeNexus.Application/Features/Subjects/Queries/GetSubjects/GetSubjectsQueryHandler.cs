@@ -9,14 +9,22 @@ namespace CodeNexus.Application.Features.Subjects.Queries.GetSubjects;
 public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<List<SubjectDto>>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ISubjectCacheService _subjectCacheService;
 
-    public GetSubjectsQueryHandler(IApplicationDbContext context)
+    public GetSubjectsQueryHandler(IApplicationDbContext context, ISubjectCacheService subjectCacheService)
     {
         _context = context;
+        _subjectCacheService = subjectCacheService;
     }
 
     public async Task<Result<List<SubjectDto>>> Handle(GetSubjectsQuery request, CancellationToken cancellationToken)
     {
+        var cachedSubjects = await _subjectCacheService.GetSubjectsAsync(request.Category, cancellationToken);
+        if (cachedSubjects != null)
+        {
+            return Result<List<SubjectDto>>.Success(cachedSubjects);
+        }
+
         var query = _context.Subjects
             .Include(s => s.CreatedByUser)
             .AsNoTracking()
@@ -42,6 +50,8 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
                 s.CreatedAt
             ))
             .ToListAsync(cancellationToken);
+
+        await _subjectCacheService.SetSubjectsAsync(request.Category, subjects, TimeSpan.FromMinutes(10), cancellationToken);
 
         return Result<List<SubjectDto>>.Success(subjects);
     }

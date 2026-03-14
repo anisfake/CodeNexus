@@ -9,11 +9,13 @@ public class DeleteSubjectCommandHandler : IRequestHandler<DeleteSubjectCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ISubjectCacheService _subjectCacheService;
 
-    public DeleteSubjectCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public DeleteSubjectCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISubjectCacheService subjectCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _subjectCacheService = subjectCacheService;
     }
 
     public async Task<Result<string>> Handle(DeleteSubjectCommand request, CancellationToken cancellationToken)
@@ -38,6 +40,7 @@ public class DeleteSubjectCommandHandler : IRequestHandler<DeleteSubjectCommand,
             subject.IsDeleted = true;
             subject.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
+            await _subjectCacheService.InvalidateSubjectsAsync(cancellationToken);
         }
         catch (Exception ex)
         {

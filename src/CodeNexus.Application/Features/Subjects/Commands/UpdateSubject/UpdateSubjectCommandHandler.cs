@@ -10,11 +10,13 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ISubjectCacheService _subjectCacheService;
 
-    public UpdateSubjectCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public UpdateSubjectCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, ISubjectCacheService subjectCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _subjectCacheService = subjectCacheService;
     }
 
     public async Task<Result<SubjectDto>> Handle(UpdateSubjectCommand request, CancellationToken cancellationToken)
@@ -56,6 +58,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
         try
         {
             await _context.SaveChangesAsync(cancellationToken);
+            await _subjectCacheService.InvalidateSubjectsAsync(cancellationToken);
         }
         catch (Exception ex)
         {

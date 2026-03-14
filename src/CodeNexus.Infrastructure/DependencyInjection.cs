@@ -117,6 +117,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAIConfigCacheService, AIConfigCacheService>();
         services.AddScoped<IOTPCacheService, OTPCacheService>();
+        services.AddScoped<ISubjectCacheService, SubjectCacheService>();
 
         services.AddHttpClient<GroqServiceWithCache>();
         services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();
