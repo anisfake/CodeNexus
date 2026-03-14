@@ -57,6 +57,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
             goal.Title = request.Title.Trim();
             goal.Description = request.Description?.Trim();
             goal.IsActive = request.IsActive;
+            goal.Duration = request.Duration;
             goal.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
@@ -67,6 +68,8 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
                 goal.Description,
                 goal.IsSystemDefined,
                 goal.IsActive,
+                goal.Duration,
+                goal.DurationInDays,
                 goal.CreatedAt
             ));
         }

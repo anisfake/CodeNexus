@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Goals.Commands.CreateGoal;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 using Moq;
@@ -30,7 +31,7 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn C#", "Master C# programming");
+        var command = new CreateGoalCommand("Learn C#", "Master C# programming", GoalDuration.OneMonth);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -58,7 +59,7 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Python", null);
+        var command = new CreateGoalCommand("Learn Python", null, GoalDuration.TwoMonths);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -85,7 +86,7 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Java", "Master Java");
+        var command = new CreateGoalCommand("Learn Java", "Master Java", GoalDuration.ThreeMonths);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -111,7 +112,7 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Cooking", "Master cooking skills");
+        var command = new CreateGoalCommand("Learn Cooking", "Master cooking skills", GoalDuration.OneWeek);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))

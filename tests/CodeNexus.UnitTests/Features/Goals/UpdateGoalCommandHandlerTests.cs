@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Goals.Commands.UpdateGoal;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 using Moq;
@@ -38,6 +39,7 @@ public class UpdateGoalCommandHandlerTests
             Description = "Old Description",
             IsSystemDefined = false,
             IsActive = true,
+            Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -51,7 +53,8 @@ public class UpdateGoalCommandHandlerTests
             goalId,
             "New Title",
             "New Description",
-            true
+            true,
+            GoalDuration.TwoMonths
         );
 
         // Act
@@ -63,6 +66,7 @@ public class UpdateGoalCommandHandlerTests
         Assert.Equal("New Title", result.Value.Title);
         Assert.Equal("New Description", result.Value.Description);
         Assert.True(result.Value.IsActive);
+        Assert.Equal(GoalDuration.TwoMonths, result.Value.Duration);
     }
 
     [Fact]
@@ -76,7 +80,8 @@ public class UpdateGoalCommandHandlerTests
             goalId,
             "New Title",
             "New Description",
-            true
+            true,
+            GoalDuration.OneMonth
         );
 
         // Act
@@ -100,13 +105,14 @@ public class UpdateGoalCommandHandlerTests
             Title = "Old Title",
             IsSystemDefined = false,
             IsActive = true,
+            Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
 
-        var command = new UpdateGoalCommand(goalId, "New Title", null, true);
+        var command = new UpdateGoalCommand(goalId, "New Title", null, true, GoalDuration.TwoMonths);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -128,13 +134,14 @@ public class UpdateGoalCommandHandlerTests
             Title = "System Goal",
             IsSystemDefined = true,
             IsActive = true,
+            Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
 
-        var command = new UpdateGoalCommand(goalId, "Updated Title", null, true);
+        var command = new UpdateGoalCommand(goalId, "Updated Title", null, true, GoalDuration.ThreeMonths);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

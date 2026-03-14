@@ -55,6 +55,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             GoalId = NewId.NextGuid(),
             Title = request.Title.Trim(),
             Description = request.Description?.Trim(),
+            Duration = request.Duration,
             IsSystemDefined = false,
             CreatedByUserId = userId,
             IsActive = true,
@@ -77,7 +78,9 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             goal.GoalId,
             goal.Title,
             goal.Description,
-            goal.IsSystemDefined
+            goal.IsSystemDefined,
+            goal.Duration,
+            goal.DurationInDays
         );
 
         return Result<CreateGoalResponseDto>.Success(responseDto);

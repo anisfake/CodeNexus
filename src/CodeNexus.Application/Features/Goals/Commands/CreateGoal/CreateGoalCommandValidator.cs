@@ -13,6 +13,9 @@ namespace CodeNexus.Application.Features.Goals.Commands.CreateGoal
             
             RuleFor(x => x.Description)
                 .MaximumLength(500).WithMessage("Description must not exceed 500 characters.");
+
+            RuleFor(x => x.Duration)
+                .IsInEnum().WithMessage("Duration must be a valid predefined value.");
         }
     }
 }

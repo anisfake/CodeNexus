@@ -1,5 +1,6 @@
 ﻿using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 
 namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
@@ -8,5 +9,6 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
         Guid GoalId,
         string Title,
         string? Description,
-        bool IsActive) : IRequest<Result<GoalDto>>;
+        bool IsActive,
+        GoalDuration Duration) : IRequest<Result<GoalDto>>;
 }

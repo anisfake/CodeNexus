@@ -35,6 +35,8 @@ public class GetGoalsQueryHandler : IRequestHandler<GetGoalsQuery, Result<List<G
                 g.Description,
                 g.IsSystemDefined,
                 g.IsActive,
+                g.Duration,
+                g.DurationInDays,
                 g.CreatedAt
             ))
             .ToListAsync(cancellationToken);

@@ -123,6 +123,7 @@ public static class DependencyInjection
 
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IGoalValidationService, GoalValidationService>();
+        services.AddScoped<ITimelineCalculationService, TimelineCalculationService>();
         services.AddScoped<ITaskVerificationService, TaskVerificationService>();
 
         services.AddMemoryCache();
