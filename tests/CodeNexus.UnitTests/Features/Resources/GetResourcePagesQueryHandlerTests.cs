@@ -13,13 +13,21 @@ public class GetResourcePagesQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IResourceCacheService> _mockResourceCacheService;
     private readonly GetResourcePagesQueryHandler _handler;
 
     public GetResourcePagesQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new GetResourcePagesQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockResourceCacheService = new Mock<IResourceCacheService>();
+        _mockResourceCacheService
+            .Setup(x => x.GetResourcePagesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CodeNexus.Application.Features.Resources.DTOs.ResourcePagesResponse?)null);
+        _mockResourceCacheService
+            .Setup(x => x.SetResourcePagesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CodeNexus.Application.Features.Resources.DTOs.ResourcePagesResponse>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new GetResourcePagesQueryHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockResourceCacheService.Object);
     }
 
     [Fact]

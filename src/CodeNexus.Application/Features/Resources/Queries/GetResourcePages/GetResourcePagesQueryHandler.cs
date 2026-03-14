@@ -15,18 +15,27 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetResourcePages
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IResourceCacheService _resourceCacheService;
 
         public GetResourcePagesQueryHandler(
             IApplicationDbContext context,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IResourceCacheService resourceCacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _resourceCacheService = resourceCacheService;
         }
 
         public async Task<Result<ResourcePagesResponse>> Handle(GetResourcePagesQuery request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.GetUserId();
+
+            var cachedPages = await _resourceCacheService.GetResourcePagesAsync(userId, request.ResourceId, cancellationToken);
+            if (cachedPages != null)
+            {
+                return Result<ResourcePagesResponse>.Success(cachedPages);
+            }
 
             var resource = await _context.Resources
                 .Include(r => r.Pages)
@@ -59,6 +68,8 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetResourcePages
                 resource.TotalPages ?? 0,
                 pages
             );
+
+            await _resourceCacheService.SetResourcePagesAsync(userId, request.ResourceId, response, TimeSpan.FromMinutes(3), cancellationToken);
 
             return Result<ResourcePagesResponse>.Success(response);
         }

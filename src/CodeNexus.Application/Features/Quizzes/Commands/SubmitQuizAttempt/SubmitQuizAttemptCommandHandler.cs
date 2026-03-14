@@ -12,13 +12,16 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IQuizCacheService _quizCacheService;
 
     public SubmitQuizAttemptCommandHandler(
         IApplicationDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IQuizCacheService quizCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _quizCacheService = quizCacheService;
     }
 
     public async Task<Result<SubmitQuizResultDto>> Handle(SubmitQuizAttemptCommand request, CancellationToken cancellationToken)
@@ -81,6 +84,7 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         attempt.Answers = System.Text.Json.JsonSerializer.Serialize(request.Answers);
 
         await _context.SaveChangesAsync(cancellationToken);
+        await _quizCacheService.InvalidateQuizStatusAsync(attempt.QuizId, userId, cancellationToken);
 
         return Result<SubmitQuizResultDto>.Success(new SubmitQuizResultDto(
             attempt.AttemptId,

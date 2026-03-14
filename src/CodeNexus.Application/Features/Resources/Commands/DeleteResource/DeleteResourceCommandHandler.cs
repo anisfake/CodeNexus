@@ -11,15 +11,18 @@ public class DeleteResourceCommandHandler : IRequestHandler<DeleteResourceComman
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IResourceCacheService _resourceCacheService;
 
     public DeleteResourceCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ICloudinaryService cloudinaryService)
+        ICloudinaryService cloudinaryService,
+        IResourceCacheService resourceCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _cloudinaryService = cloudinaryService;
+        _resourceCacheService = resourceCacheService;
     }
 
     public async Task<Result<string>> Handle(DeleteResourceCommand request, CancellationToken cancellationToken)
@@ -49,6 +52,8 @@ public class DeleteResourceCommandHandler : IRequestHandler<DeleteResourceComman
             resource.IsDeleted = true;
             resource.DeletedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
+            await _resourceCacheService.InvalidateUserResourcesAsync(userId, cancellationToken);
+            await _resourceCacheService.InvalidateResourcePagesAsync(userId, resource.ResourceId, cancellationToken);
 
             return Result<string>.Success("Resource deleted successfully");
         }

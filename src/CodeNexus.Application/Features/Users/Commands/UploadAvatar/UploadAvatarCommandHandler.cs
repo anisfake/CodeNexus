@@ -11,13 +11,15 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICloudinaryService _cloudinaryService;
+    private readonly IUserCacheService _userCacheService;
 
     public UploadAvatarCommandHandler(IApplicationDbContext context, ICloudinaryService cloudinaryService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService, IUserCacheService userCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _cloudinaryService = cloudinaryService;
+        _userCacheService = userCacheService;
     }
 
     public async Task<Result<string>> Handle(UploadAvatarCommand request, CancellationToken cancellationToken)
@@ -46,6 +48,7 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
         {
             userProfile.AvatarUrl = uploadResult;
             await _context.SaveChangesAsync(cancellationToken);
+            await _userCacheService.InvalidateUserAsync(userId, cancellationToken);
             return Result<string>.Success(uploadResult);
         }
 

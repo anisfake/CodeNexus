@@ -8,10 +8,12 @@ namespace CodeNexus.Application.Features.Users.Commands.BanUser;
 public class BanUserCommandHandler : IRequestHandler<BanUserCommand, Result<string>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IUserCacheService _userCacheService;
 
-    public BanUserCommandHandler(IApplicationDbContext context)
+    public BanUserCommandHandler(IApplicationDbContext context, IUserCacheService userCacheService)
     {
         _context = context;
+        _userCacheService = userCacheService;
     }
 
     public async Task<Result<string>> Handle(BanUserCommand request, CancellationToken cancellationToken)
@@ -42,6 +44,7 @@ public class BanUserCommandHandler : IRequestHandler<BanUserCommand, Result<stri
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        await _userCacheService.InvalidateUserAsync(request.UserId, cancellationToken);
 
         return Result<string>.Success($"Successfully banned the user {user.Username}");
     }

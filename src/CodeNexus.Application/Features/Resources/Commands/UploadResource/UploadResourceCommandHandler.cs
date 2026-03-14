@@ -19,17 +19,20 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
         private readonly ICurrentUserService _currentUserService;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IPdfProcessingService _pdfProcessingService;
+        private readonly IResourceCacheService _resourceCacheService;
 
         public UploadResourceCommandHandler(
             IApplicationDbContext context,
             ICurrentUserService currentUserService,
             ICloudinaryService cloudinaryService,
-            IPdfProcessingService pdfProcessingService)
+            IPdfProcessingService pdfProcessingService,
+            IResourceCacheService resourceCacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
             _cloudinaryService = cloudinaryService;
             _pdfProcessingService = pdfProcessingService;
+            _resourceCacheService = resourceCacheService;
         }
 
         public async Task<Result<UploadResourceRespone>> Handle(UploadResourceCommand request, CancellationToken cancellationToken)
@@ -99,6 +102,7 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
 
             await _context.Resources.AddAsync(resource, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+            await _resourceCacheService.InvalidateUserResourcesAsync(userId, cancellationToken);
 
             return Result<UploadResourceRespone>.Success(
                 new UploadResourceRespone(

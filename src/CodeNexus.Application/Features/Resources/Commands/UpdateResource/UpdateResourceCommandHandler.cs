@@ -18,17 +18,20 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
     private readonly ICurrentUserService _currentUserService;
     private readonly ICloudinaryService _cloudinaryService;
     private readonly IPdfProcessingService _pdfProcessingService;
+    private readonly IResourceCacheService _resourceCacheService;
 
     public UpdateResourceCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         ICloudinaryService cloudinaryService,
-        IPdfProcessingService pdfProcessingService)
+        IPdfProcessingService pdfProcessingService,
+        IResourceCacheService resourceCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _cloudinaryService = cloudinaryService;
         _pdfProcessingService = pdfProcessingService;
+        _resourceCacheService = resourceCacheService;
     }
 
     public async Task<Result<string>> Handle(UpdateResourceCommand request, CancellationToken cancellationToken)
@@ -131,6 +134,8 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+            await _resourceCacheService.InvalidateUserResourcesAsync(userId, cancellationToken);
+            await _resourceCacheService.InvalidateResourcePagesAsync(userId, resource.ResourceId, cancellationToken);
 
             return Result<string>.Success("Update resource successfully");
         }

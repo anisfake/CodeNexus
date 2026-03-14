@@ -14,13 +14,21 @@ public class GetMyProfileQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IUserCacheService> _mockUserCacheService;
     private readonly GetMyProfileQueryHandler _handler;
 
     public GetMyProfileQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new GetMyProfileQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockUserCacheService = new Mock<IUserCacheService>();
+        _mockUserCacheService
+            .Setup(x => x.GetMyProfileAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserProfileRespone?)null);
+        _mockUserCacheService
+            .Setup(x => x.SetMyProfileAsync(It.IsAny<Guid>(), It.IsAny<UserProfileRespone>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new GetMyProfileQueryHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockUserCacheService.Object);
     }
 
     [Fact]

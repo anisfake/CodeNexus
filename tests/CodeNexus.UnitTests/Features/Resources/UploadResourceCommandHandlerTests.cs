@@ -17,6 +17,7 @@ public class UploadResourceCommandHandlerTests
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ICloudinaryService> _mockCloudinaryService;
     private readonly Mock<IPdfProcessingService> _mockPdfProcessingService;
+    private readonly Mock<IResourceCacheService> _mockResourceCacheService;
     private readonly UploadResourceCommandHandler _handler;
 
     public UploadResourceCommandHandlerTests()
@@ -25,7 +26,11 @@ public class UploadResourceCommandHandlerTests
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockCloudinaryService = new Mock<ICloudinaryService>();
         _mockPdfProcessingService = new Mock<IPdfProcessingService>();
-        _handler = new UploadResourceCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockCloudinaryService.Object, _mockPdfProcessingService.Object);
+        _mockResourceCacheService = new Mock<IResourceCacheService>();
+        _mockResourceCacheService
+            .Setup(x => x.InvalidateUserResourcesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new UploadResourceCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockCloudinaryService.Object, _mockPdfProcessingService.Object, _mockResourceCacheService.Object);
     }
 
     [Fact]

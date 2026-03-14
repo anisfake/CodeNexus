@@ -12,6 +12,7 @@ public class GetMyResourcesQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IResourceCacheService> _mockResourceCacheService;
     private readonly GetMyResourcesQueryHandler _handler;
     private readonly Guid _userId = Guid.NewGuid();
     private readonly Guid _subjectId = Guid.NewGuid();
@@ -20,7 +21,14 @@ public class GetMyResourcesQueryHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new GetMyResourcesQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockResourceCacheService = new Mock<IResourceCacheService>();
+        _mockResourceCacheService
+            .Setup(x => x.GetMyResourcesAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CodeNexus.Application.Common.Models.PaginationDto<CodeNexus.Application.Features.Resources.DTOs.ResourceResponse>?)null);
+        _mockResourceCacheService
+            .Setup(x => x.SetMyResourcesAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<bool>(), It.IsAny<CodeNexus.Application.Common.Models.PaginationDto<CodeNexus.Application.Features.Resources.DTOs.ResourceResponse>>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new GetMyResourcesQueryHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockResourceCacheService.Object);
     }
 
     private List<Resource> CreateTestResources()

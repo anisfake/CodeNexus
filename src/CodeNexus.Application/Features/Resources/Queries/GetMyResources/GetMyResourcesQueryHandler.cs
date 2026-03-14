@@ -16,18 +16,36 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IResourceCacheService _resourceCacheService;
 
         public GetMyResourcesQueryHandler(
             IApplicationDbContext context,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IResourceCacheService resourceCacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _resourceCacheService = resourceCacheService;
         }
 
         public async Task<PaginationDto<ResourceResponse>> Handle(GetMyResourcesQuery request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.GetUserId();
+
+            var cachedData = await _resourceCacheService.GetMyResourcesAsync(
+                userId,
+                request.PageNumber,
+                request.PageSize,
+                request.SubjectId,
+                request.SearchTerm,
+                (int)request.SortBy,
+                request.SortDescending,
+                cancellationToken);
+
+            if (cachedData != null)
+            {
+                return cachedData;
+            }
 
             var query = _context.Resources
                 .Where(r => r.UserId == userId && !r.IsDeleted)
@@ -79,13 +97,27 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetMyResources
                 ))
                 .ToListAsync(cancellationToken);
 
-            return new PaginationDto<ResourceResponse>
+            var response = new PaginationDto<ResourceResponse>
             {
                 Items = items,
                 PageNumber = request.PageNumber,
                 PageSize = request.PageSize,
                 TotalCount = totalCount
             };
+
+            await _resourceCacheService.SetMyResourcesAsync(
+                userId,
+                request.PageNumber,
+                request.PageSize,
+                request.SubjectId,
+                request.SearchTerm,
+                (int)request.SortBy,
+                request.SortDescending,
+                response,
+                TimeSpan.FromMinutes(3),
+                cancellationToken);
+
+            return response;
         }
     }
 }

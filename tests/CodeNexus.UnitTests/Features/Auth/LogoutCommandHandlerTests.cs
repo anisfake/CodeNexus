@@ -13,6 +13,7 @@ public class LogoutCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _contextMock;
     private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
+    private readonly Mock<ITokenBlacklistCacheService> _tokenBlacklistCacheServiceMock;
     private readonly LogoutCommandHandler _handler;
 
     public LogoutCommandHandlerTests()
@@ -20,10 +21,15 @@ public class LogoutCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenBlacklistCacheServiceMock = new Mock<ITokenBlacklistCacheService>();
+        _tokenBlacklistCacheServiceMock
+            .Setup(x => x.SetTokenStatusAsync(It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _handler = new LogoutCommandHandler(
             _contextMock.Object,
             _currentUserServiceMock.Object,
-            _tokenServiceMock.Object);
+            _tokenServiceMock.Object,
+            _tokenBlacklistCacheServiceMock.Object);
     }
 
     [Fact]

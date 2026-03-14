@@ -11,13 +11,16 @@ public class GetStudentDashboardStatsQueryHandler
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IDashboardCacheService _dashboardCacheService;
 
     public GetStudentDashboardStatsQueryHandler(
         IApplicationDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IDashboardCacheService dashboardCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _dashboardCacheService = dashboardCacheService;
     }
 
     public async Task<Result<StudentDashboardStatsResponse>> Handle(
@@ -25,6 +28,12 @@ public class GetStudentDashboardStatsQueryHandler
         CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetUserId();
+
+        var cachedStats = await _dashboardCacheService.GetStudentStatsAsync(userId, cancellationToken);
+        if (cachedStats != null)
+        {
+            return Result<StudentDashboardStatsResponse>.Success(cachedStats);
+        }
 
         var user = await _context.Users
             .AsNoTracking()
@@ -82,6 +91,8 @@ public class GetStudentDashboardStatsQueryHandler
             TotalStudyMinutes: totalStudyMinutes,
             CurrentStreak: currentStreak
         );
+
+        await _dashboardCacheService.SetStudentStatsAsync(userId, response, TimeSpan.FromSeconds(60), cancellationToken);
 
         return Result<StudentDashboardStatsResponse>.Success(response);
     }

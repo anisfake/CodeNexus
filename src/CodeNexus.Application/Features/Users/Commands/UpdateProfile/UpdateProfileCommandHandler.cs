@@ -15,10 +15,12 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
-        public UpdateProfileCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+        private readonly IUserCacheService _userCacheService;
+        public UpdateProfileCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService, IUserCacheService userCacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _userCacheService = userCacheService;
         }
         public async Task<Result<UserProfileRespone>> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
         {
@@ -38,6 +40,7 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
             user.UserProfile.Address = request.Address ?? user.UserProfile.Address;
 
             await _context.SaveChangesAsync(cancellationToken);
+            await _userCacheService.InvalidateUserAsync(userId, cancellationToken);
 
             return Result<UserProfileRespone>.Success(new UserProfileRespone(
                 user.Email,

@@ -14,6 +14,7 @@ public class UploadAvatarCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ICloudinaryService> _mockCloudinaryService;
+    private readonly Mock<IUserCacheService> _mockUserCacheService;
     private readonly UploadAvatarCommandHandler _handler;
 
     public UploadAvatarCommandHandlerTests()
@@ -21,7 +22,11 @@ public class UploadAvatarCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockCloudinaryService = new Mock<ICloudinaryService>();
-        _handler = new UploadAvatarCommandHandler(_mockContext.Object, _mockCloudinaryService.Object, _mockCurrentUserService.Object);
+        _mockUserCacheService = new Mock<IUserCacheService>();
+        _mockUserCacheService
+            .Setup(x => x.InvalidateUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new UploadAvatarCommandHandler(_mockContext.Object, _mockCloudinaryService.Object, _mockCurrentUserService.Object, _mockUserCacheService.Object);
     }
 
     [Fact]

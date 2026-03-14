@@ -11,18 +11,27 @@ public class GetQuizStatusQueryHandler : IRequestHandler<GetQuizStatusQuery, Res
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IQuizCacheService _quizCacheService;
 
     public GetQuizStatusQueryHandler(
         IApplicationDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IQuizCacheService quizCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _quizCacheService = quizCacheService;
     }
 
     public async Task<Result<QuizStatusDto>> Handle(GetQuizStatusQuery request, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetUserId();
+
+        var cachedStatus = await _quizCacheService.GetQuizStatusAsync(request.QuizId, userId, cancellationToken);
+        if (cachedStatus != null)
+        {
+            return Result<QuizStatusDto>.Success(cachedStatus);
+        }
 
         var quiz = await _context.Quizzes
                 .AsNoTracking()
@@ -63,7 +72,7 @@ public class GetQuizStatusQueryHandler : IRequestHandler<GetQuizStatusQuery, Res
             };
         }
 
-        return Result<QuizStatusDto>.Success(new QuizStatusDto(
+        var statusDto = new QuizStatusDto(
             quiz.QuizId,
             quiz.Title,
             quiz.TimeLimit,
@@ -73,6 +82,10 @@ public class GetQuizStatusQueryHandler : IRequestHandler<GetQuizStatusQuery, Res
             lastAttempt?.AttemptId,
             lastAttempt?.Score,
             lastAttempt?.EndTime
-        ));
+        );
+
+        await _quizCacheService.SetQuizStatusAsync(request.QuizId, userId, statusDto, TimeSpan.FromMinutes(2), cancellationToken);
+
+        return Result<QuizStatusDto>.Success(statusDto);
     }
 }

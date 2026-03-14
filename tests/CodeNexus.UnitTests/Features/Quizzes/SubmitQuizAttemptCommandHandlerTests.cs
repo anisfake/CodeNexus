@@ -15,16 +15,22 @@ public class SubmitQuizAttemptCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IQuizCacheService> _mockQuizCacheService;
     private readonly SubmitQuizAttemptCommandHandler _handler;
 
     public SubmitQuizAttemptCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockQuizCacheService = new Mock<IQuizCacheService>();
+        _mockQuizCacheService
+            .Setup(x => x.InvalidateQuizStatusAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
 
         _handler = new SubmitQuizAttemptCommandHandler(
             _mockContext.Object,
-            _mockCurrentUserService.Object
+            _mockCurrentUserService.Object,
+            _mockQuizCacheService.Object
         );
     }
 

@@ -13,13 +13,16 @@ public class StartQuizAttemptCommandHandler : IRequestHandler<StartQuizAttemptCo
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IQuizCacheService _quizCacheService;
 
     public StartQuizAttemptCommandHandler(
         IApplicationDbContext context,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        IQuizCacheService quizCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _quizCacheService = quizCacheService;
     }
 
     public async Task<Result<StartQuizAttemptDto>> Handle(StartQuizAttemptCommand request, CancellationToken cancellationToken)
@@ -68,6 +71,7 @@ public class StartQuizAttemptCommandHandler : IRequestHandler<StartQuizAttemptCo
                 existingAttempt.EndTime = existingAttempt.StartTime.AddMinutes(quiz.TimeLimit ?? 0);
                 existingAttempt.Score = 0;
                 await _context.SaveChangesAsync(cancellationToken);
+                await _quizCacheService.InvalidateQuizStatusAsync(request.QuizId, userId, cancellationToken);
 
                 return Result<StartQuizAttemptDto>.Failure("ATTEMPT_TIME_EXPIRED", "Your previous attempt has expired. You can start a new one.");
             }
@@ -86,6 +90,7 @@ public class StartQuizAttemptCommandHandler : IRequestHandler<StartQuizAttemptCo
 
         await _context.QuizAttempts.AddAsync(attempt, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
+        await _quizCacheService.InvalidateQuizStatusAsync(request.QuizId, userId, cancellationToken);
 
         var totalSeconds = (quiz.TimeLimit ?? 0) * 60;
         return Result<StartQuizAttemptDto>.Success(MapToDto(quiz, attempt, totalSeconds));

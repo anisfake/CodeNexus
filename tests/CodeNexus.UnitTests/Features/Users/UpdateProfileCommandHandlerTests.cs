@@ -12,6 +12,7 @@ public class UpdateProfileCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IUserCacheService> _mockUserCacheService;
     private readonly UpdateProfileCommandHandler _handler;
     private readonly Guid _userId = Guid.NewGuid();
 
@@ -19,7 +20,11 @@ public class UpdateProfileCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new UpdateProfileCommandHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockUserCacheService = new Mock<IUserCacheService>();
+        _mockUserCacheService
+            .Setup(x => x.InvalidateUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new UpdateProfileCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockUserCacheService.Object);
     }
 
     [Fact]

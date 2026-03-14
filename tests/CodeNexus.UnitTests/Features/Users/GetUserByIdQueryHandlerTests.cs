@@ -11,12 +11,20 @@ namespace CodeNexus.UnitTests.Features.Users;
 public class GetUserByIdQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<IUserCacheService> _mockUserCacheService;
     private readonly GetUserByIdQueryHandler _handler;
 
     public GetUserByIdQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
-        _handler = new GetUserByIdQueryHandler(_mockContext.Object);
+        _mockUserCacheService = new Mock<IUserCacheService>();
+        _mockUserCacheService
+            .Setup(x => x.GetUserByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CodeNexus.Application.Features.Users.DTOs.UserRespone?)null);
+        _mockUserCacheService
+            .Setup(x => x.SetUserByIdAsync(It.IsAny<Guid>(), It.IsAny<CodeNexus.Application.Features.Users.DTOs.UserRespone>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new GetUserByIdQueryHandler(_mockContext.Object, _mockUserCacheService.Object);
     }
 
     [Fact]

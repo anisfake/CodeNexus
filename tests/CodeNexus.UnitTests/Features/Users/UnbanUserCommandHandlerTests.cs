@@ -11,13 +11,18 @@ namespace CodeNexus.UnitTests.Features.Users;
 public class UnbanUserCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<IUserCacheService> _mockUserCacheService;
     private readonly UnbanUserCommandHandler _handler;
     private readonly Guid _userId = Guid.NewGuid();
 
     public UnbanUserCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
-        _handler = new UnbanUserCommandHandler(_mockContext.Object);
+        _mockUserCacheService = new Mock<IUserCacheService>();
+        _mockUserCacheService
+            .Setup(x => x.InvalidateUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new UnbanUserCommandHandler(_mockContext.Object, _mockUserCacheService.Object);
     }
 
     [Fact]

@@ -14,6 +14,7 @@ public class DeleteResourceCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ICloudinaryService> _mockCloudinaryService;
+    private readonly Mock<IResourceCacheService> _mockResourceCacheService;
     private readonly DeleteResourceCommandHandler _handler;
 
     public DeleteResourceCommandHandlerTests()
@@ -21,10 +22,18 @@ public class DeleteResourceCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockCloudinaryService = new Mock<ICloudinaryService>();
+        _mockResourceCacheService = new Mock<IResourceCacheService>();
+        _mockResourceCacheService
+            .Setup(x => x.InvalidateUserResourcesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _mockResourceCacheService
+            .Setup(x => x.InvalidateResourcePagesAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
         _handler = new DeleteResourceCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
-            _mockCloudinaryService.Object);
+            _mockCloudinaryService.Object,
+            _mockResourceCacheService.Object);
     }
 
     [Fact]

@@ -8,10 +8,12 @@ namespace CodeNexus.Application.Features.Users.Commands.UnbanUser;
 public class UnbanUserCommandHandler : IRequestHandler<UnbanUserCommand, Result<string>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IUserCacheService _userCacheService;
 
-    public UnbanUserCommandHandler(IApplicationDbContext context)
+    public UnbanUserCommandHandler(IApplicationDbContext context, IUserCacheService userCacheService)
     {
         _context = context;
+        _userCacheService = userCacheService;
     }
 
     public async Task<Result<string>> Handle(UnbanUserCommand request, CancellationToken cancellationToken)
@@ -31,6 +33,7 @@ public class UnbanUserCommandHandler : IRequestHandler<UnbanUserCommand, Result<
 
         user.Status = "Active";
         await _context.SaveChangesAsync(cancellationToken);
+        await _userCacheService.InvalidateUserAsync(request.UserId, cancellationToken);
 
         return Result<string>.Success($"Successfully lifted the ban on user {user.Username}");
     }

@@ -12,15 +12,18 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ITokenService _tokenService;
+    private readonly ITokenBlacklistCacheService _tokenBlacklistCacheService;
 
     public LogoutCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        ITokenBlacklistCacheService tokenBlacklistCacheService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _tokenService = tokenService;
+        _tokenBlacklistCacheService = tokenBlacklistCacheService;
     }
 
     public async Task<Result> Handle(LogoutCommand request, CancellationToken cancellationToken)
@@ -55,6 +58,12 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
                     };
 
                     _context.TokenBlacklist.Add(blacklist);
+                }
+
+                var remaining = expiresAt.Value - DateTime.UtcNow;
+                if (remaining > TimeSpan.Zero)
+                {
+                    await _tokenBlacklistCacheService.SetTokenStatusAsync(tokenId, true, remaining, cancellationToken);
                 }
             }
         }

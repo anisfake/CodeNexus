@@ -9,14 +9,22 @@ namespace CodeNexus.Application.Features.Users.Queries.GetUserById;
 public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, Result<UserRespone>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IUserCacheService _userCacheService;
 
-    public GetUserByIdQueryHandler(IApplicationDbContext context)
+    public GetUserByIdQueryHandler(IApplicationDbContext context, IUserCacheService userCacheService)
     {
         _context = context;
+        _userCacheService = userCacheService;
     }
 
     public async Task<Result<UserRespone>> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
     {
+        var cachedUser = await _userCacheService.GetUserByIdAsync(request.UserId, cancellationToken);
+        if (cachedUser != null)
+        {
+            return Result<UserRespone>.Success(cachedUser);
+        }
+
         var user = await _context.Users
             .Include(u => u.Role)
             .Include(u => u.UserProfile)
@@ -43,6 +51,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, Result<
             user.Role?.RoleName,
             user.CreatedAt
         );
+
+        await _userCacheService.SetUserByIdAsync(request.UserId, userResponse, TimeSpan.FromMinutes(5), cancellationToken);
 
         return Result<UserRespone>.Success(userResponse);
     }

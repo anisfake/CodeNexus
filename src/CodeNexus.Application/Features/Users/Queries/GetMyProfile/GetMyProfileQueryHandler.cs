@@ -15,23 +15,31 @@ namespace CodeNexus.Application.Features.Users.Queries.GetMyProfile
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
-        public GetMyProfileQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+        private readonly IUserCacheService _userCacheService;
+        public GetMyProfileQueryHandler(IApplicationDbContext context, ICurrentUserService currentUserService, IUserCacheService userCacheService)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _userCacheService = userCacheService;
         }
         public async Task<Result<UserProfileRespone>> Handle(GetMyProfileQuery request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.GetUserId();
 
-            var user = await _context.Users.Include(x => x.UserProfile).FirstOrDefaultAsync(x => x.UserId == userId);
+            var cachedProfile = await _userCacheService.GetMyProfileAsync(userId, cancellationToken);
+            if (cachedProfile != null)
+            {
+                return Result<UserProfileRespone>.Success(cachedProfile);
+            }
+
+            var user = await _context.Users.Include(x => x.UserProfile).FirstOrDefaultAsync(x => x.UserId == userId, cancellationToken);
 
             if (user == null)
             {
                 return Result<UserProfileRespone>.Failure("USER_NOT_FOUND", "User not found.");
             }
 
-            return Result<UserProfileRespone>.Success(new UserProfileRespone(
+            var profile = new UserProfileRespone(
                 user.Email,
                 user.FirstName ?? string.Empty,
                 user.LastName ?? string.Empty,
@@ -41,7 +49,11 @@ namespace CodeNexus.Application.Features.Users.Queries.GetMyProfile
                 user.UserProfile?.DateOfBirth,
                 user.UserProfile?.Phone,
                 user.UserProfile?.Address
-            ));
+            );
+
+            await _userCacheService.SetMyProfileAsync(userId, profile, TimeSpan.FromMinutes(5), cancellationToken);
+
+            return Result<UserProfileRespone>.Success(profile);
         }
     }
 }

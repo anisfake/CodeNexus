@@ -15,13 +15,21 @@ public class GetStudentDashboardStatsQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IDashboardCacheService> _mockDashboardCacheService;
     private readonly GetStudentDashboardStatsQueryHandler _handler;
 
     public GetStudentDashboardStatsQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new GetStudentDashboardStatsQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockDashboardCacheService = new Mock<IDashboardCacheService>();
+        _mockDashboardCacheService
+            .Setup(x => x.GetStudentStatsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((CodeNexus.Application.Features.Dashboard.DTOs.StudentDashboardStatsResponse?)null);
+        _mockDashboardCacheService
+            .Setup(x => x.SetStudentStatsAsync(It.IsAny<Guid>(), It.IsAny<CodeNexus.Application.Features.Dashboard.DTOs.StudentDashboardStatsResponse>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new GetStudentDashboardStatsQueryHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockDashboardCacheService.Object);
     }
 
     [Fact]
