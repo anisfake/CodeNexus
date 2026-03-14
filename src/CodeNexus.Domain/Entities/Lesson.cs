@@ -24,6 +24,7 @@ namespace CodeNexus.Domain.Entities
         public DateTime? UpdatedAt { get; set; }
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
+        public DateTime LessonDay { get; set; }
 
         public virtual ICollection<Quiz> Quizzes { get; set; } = new List<Quiz>();
     }
