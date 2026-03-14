@@ -131,23 +131,49 @@ Current lesson brief: {lesson.Content}
    * Inline comments on key lines
    * Simple → complex, real-world scenarios only
 4. Common Mistakes
-   * Render as a raw HTML table (it will be embedded in Markdown):
-   <table>
-     <thead>
-       <tr><th></th><th>Wrong</th><th>Correct</th></tr>
-     </thead>
-     <tbody>
-       <tr>
-         <td><strong>Mistake name</strong></td>
-         <td><pre><code class=""{lang}"">// wrong code</code></pre></td>
-         <td><pre><code class=""{lang}"">// correct code</code></pre></td>
-       </tr>
-     </tbody>
-   </table>
-   * Include 1-5 rows, one per common mistake
+   * Use strict Markdown format for easier parsing
+   * Include 1-5 mistakes
+   * For each mistake, follow this exact template:
+     #### Mistake <number>: <short name>
+     **Wrong**
+     ```{lang}
+     // wrong code
+     ```
+     **Correct**
+     ```{lang}
+     // correct code
+     ```
    * Keep code snippets short (3-8 lines each)
 5. Best Practices (3-5 short tips)
 6. Summary (bullet point takeaways)
+
+=== OUTPUT CONTRACT (STRICT) ===
+Return content in this exact section order and exact headings:
+## Overview
+## Core Concepts
+## Code Examples
+## Common Mistakes
+## Best Practices
+## Summary
+
+For easier frontend parsing, wrap each section with markers:
+<!-- SECTION:overview:start --> ... <!-- SECTION:overview:end -->
+<!-- SECTION:core-concepts:start --> ... <!-- SECTION:core-concepts:end -->
+<!-- SECTION:code-examples:start --> ... <!-- SECTION:code-examples:end -->
+<!-- SECTION:common-mistakes:start --> ... <!-- SECTION:common-mistakes:end -->
+<!-- SECTION:best-practices:start --> ... <!-- SECTION:best-practices:end -->
+<!-- SECTION:summary:start --> ... <!-- SECTION:summary:end -->
+
+Inside Common Mistakes, every item MUST use exactly this format:
+#### Mistake <number>: <short name>
+**Wrong**
+```{lang}
+// wrong code
+```
+**Correct**
+```{lang}
+// correct code
+```
 
 If this is a review/recap lesson, summarize and connect key concepts from all previous lessons shown in the outline above.
 
@@ -158,7 +184,8 @@ If this is a review/recap lesson, summarize and connect key concepts from all pr
 * Explain code step by step, not just show it
 * No foo/bar — use practical examples
 * Keep content concise and focused — easy to absorb for self-learners
-* For the Common Mistakes table, output raw HTML only — no Markdown fences around it
-Markdown only (except the Common Mistakes HTML table).";
+* Use the exact headings, order, and section markers from OUTPUT CONTRACT
+* In Common Mistakes, follow the exact Markdown template above for every mistake
+Markdown only.";
     }
 }
