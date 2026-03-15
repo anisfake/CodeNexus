@@ -7,6 +7,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
 {
     public record UpdateGoalCommand(
         Guid GoalId,
+        Guid SubjectId,
         string Title,
         string? Description,
         bool IsActive,

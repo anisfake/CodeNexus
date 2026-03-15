@@ -55,7 +55,13 @@ public class GoalController : ControllerBase
     [HttpPut("api/goals/{goalId}")]
     public async Task<IActionResult> UpdateGoal(Guid goalId, UpdateGoalRequest request, CancellationToken cancellationToken)
     {
-        var command = new UpdateGoalCommand(goalId, request.Title, request.Description, request.IsActive, request.Duration);
+        var command = new UpdateGoalCommand(
+            goalId,
+            request.SubjectId,
+            request.Title,
+            request.Description,
+            request.IsActive,
+            request.Duration);
 
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);

@@ -30,6 +30,7 @@ public record CreateGoalRequest(
 );
 
 public record UpdateGoalRequest(
+    Guid SubjectId,
     string Title,
     string? Description,
     bool IsActive,
