@@ -35,6 +35,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
+        public DbSet<GoalMapping> GoalMappings => Set<GoalMapping>();
         public DbSet<SubjectGoal> SubjectGoals => Set<SubjectGoal>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
         public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
@@ -246,6 +247,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
+            modelBuilder.Entity<GoalMapping>().HasKey(e => e.MappingId);
             modelBuilder.Entity<SubjectGoal>().HasKey(e => new { e.SubjectId, e.GoalId });
             modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
@@ -424,6 +426,25 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.Goals)
                       .HasForeignKey(g => g.CreatedByUserId)
                       .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<GoalMapping>(entity =>
+            {
+                entity.Property(e => e.Confidence)
+                      .HasPrecision(5, 2);
+
+                entity.HasIndex(e => new { e.UserGoalId, e.SystemGoalId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.UserGoal)
+                      .WithMany(g => g.UserGoalMappings)
+                      .HasForeignKey(e => e.UserGoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.SystemGoal)
+                      .WithMany(g => g.SystemGoalMappings)
+                      .HasForeignKey(e => e.SystemGoalId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Questions>(entity =>

@@ -12,6 +12,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
         private readonly IGoalValidationService _goalValidationService;
+        private const decimal MinGoalMappingConfidence = 0.75m;
 
         public UpdateGoalCommandHandler(
             IApplicationDbContext context,
@@ -110,6 +111,57 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
                     SubjectId = subject.SubjectId,
                     GoalId = goal.GoalId
                 }, cancellationToken);
+            }
+
+            if (isContentChanged || isSubjectChanged)
+            {
+                var existingGoalMappings = await _context.GoalMappings
+                    .Where(gm => gm.UserGoalId == goal.GoalId)
+                    .ToListAsync(cancellationToken);
+
+                if (existingGoalMappings.Count > 0)
+                {
+                    _context.GoalMappings.RemoveRange(existingGoalMappings);
+                }
+
+                var systemGoals = await _context.Goals
+                    .Where(g => g.IsSystemDefined && g.IsActive && !g.IsDeleted)
+                    .Join(
+                        _context.SubjectGoals.Where(sg => sg.SubjectId == subject.SubjectId),
+                        g => g.GoalId,
+                        sg => sg.GoalId,
+                        (g, sg) => g)
+                    .ToListAsync(cancellationToken);
+
+                if (systemGoals.Count > 0)
+                {
+                    var candidates = systemGoals
+                        .Select(g => new GoalMatchCandidate(g.GoalId, g.Title, g.Description))
+                        .ToList();
+
+                    var matchResult = await _goalValidationService.FindBestSystemGoalMatchAsync(
+                        goal.Title,
+                        goal.Description,
+                        subject.Name,
+                        subject.Description,
+                        candidates,
+                        cancellationToken);
+
+                    if (matchResult.GoalId.HasValue
+                        && matchResult.Confidence.HasValue
+                        && matchResult.Confidence.Value >= MinGoalMappingConfidence)
+                    {
+                        await _context.GoalMappings.AddAsync(new GoalMapping
+                        {
+                            MappingId = Guid.NewGuid(),
+                            UserGoalId = goal.GoalId,
+                            SystemGoalId = matchResult.GoalId.Value,
+                            Confidence = matchResult.Confidence.Value,
+                            VerifiedByAI = true,
+                            CreatedAt = DateTime.UtcNow
+                        }, cancellationToken);
+                    }
+                }
             }
 
             await _context.SaveChangesAsync(cancellationToken);

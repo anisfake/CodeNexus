@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.Commands.UpdateGoal;
 using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
@@ -64,6 +65,7 @@ public class UpdateGoalCommandHandlerTests
                 GoalId = goalId
             }
         });
+        SetupGoalMappingsDbSet(new List<GoalMapping>());
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -74,6 +76,14 @@ public class UpdateGoalCommandHandlerTests
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockGoalValidationService.Setup(x => x.FindBestSystemGoalMatchAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<IReadOnlyList<GoalMatchCandidate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GoalMatchResult(null, null));
 
         var command = new UpdateGoalCommand(
             goalId,
@@ -168,6 +178,7 @@ public class UpdateGoalCommandHandlerTests
                 GoalId = goalId
             }
         });
+        SetupGoalMappingsDbSet(new List<GoalMapping>());
 
         var command = new UpdateGoalCommand(goalId, subjectId, "New Title", null, true, GoalDuration.TwoMonths);
 
@@ -215,6 +226,7 @@ public class UpdateGoalCommandHandlerTests
                 GoalId = goalId
             }
         });
+        SetupGoalMappingsDbSet(new List<GoalMapping>());
 
         var command = new UpdateGoalCommand(goalId, subjectId, "Updated Title", null, true, GoalDuration.ThreeMonths);
 
@@ -263,5 +275,18 @@ public class UpdateGoalCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<SubjectGoal>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.SubjectGoals).Returns(dbSetMock.Object);
+    }
+
+    private void SetupGoalMappingsDbSet(List<GoalMapping> goalMappings)
+    {
+        var queryable = new TestAsyncEnumerable<GoalMapping>(goalMappings);
+        var dbSetMock = new Mock<DbSet<GoalMapping>>();
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<GoalMapping>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.GoalMappings).Returns(dbSetMock.Object);
     }
 }

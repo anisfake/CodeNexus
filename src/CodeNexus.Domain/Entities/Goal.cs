@@ -24,5 +24,7 @@ namespace CodeNexus.Domain.Entities
         // Navigation properties
         public virtual ICollection<LearningPathGoal> LearningPathGoals { get; set; } = new List<LearningPathGoal>();
         public virtual ICollection<SubjectGoal> SubjectGoals { get; set; } = new List<SubjectGoal>();
+        public virtual ICollection<GoalMapping> UserGoalMappings { get; set; } = new List<GoalMapping>();
+        public virtual ICollection<GoalMapping> SystemGoalMappings { get; set; } = new List<GoalMapping>();
     }
 }

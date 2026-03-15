@@ -4,6 +4,7 @@ using CodeNexus.Application.Features.Goals.Commands.DeleteGoal;
 using CodeNexus.Application.Features.Goals.Commands.UpdateGoal;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Application.Features.Goals.Queries.GetGoals;
+using CodeNexus.Application.Features.Goals.Queries.GetGoalMapping;
 using CodeNexus.Application.Features.Goals.Queries.GetMyGoal;
 using CodeNexus.Domain.Enums;
 using MediatR;
@@ -36,6 +37,14 @@ public class GoalController : ControllerBase
     public async Task<IActionResult> GetGoals(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetGoalsQuery(), cancellationToken);
+
+        return ToActionResult(result);
+    }
+
+    [HttpGet("api/goals/{goalId}/mapping")]
+    public async Task<IActionResult> GetGoalMapping(Guid goalId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetGoalMappingQuery(goalId), cancellationToken);
 
         return ToActionResult(result);
     }

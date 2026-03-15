@@ -13,6 +13,16 @@ public record GoalDto(
     DateTime CreatedAt
 );
 
+public record GoalMappingDto(
+    Guid UserGoalId,
+    Guid SystemGoalId,
+    decimal Confidence,
+    bool VerifiedByAI,
+    DateTime CreatedAt,
+    string SystemGoalTitle,
+    string? SystemGoalDescription
+);
+
 public record CreateGoalResponseDto(
     Guid GoalId,
     string Title,

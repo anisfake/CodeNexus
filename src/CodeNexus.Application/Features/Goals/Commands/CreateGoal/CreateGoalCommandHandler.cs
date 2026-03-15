@@ -13,6 +13,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IGoalValidationService _goalValidationService;
+    private const decimal MinGoalMappingConfidence = 0.75m;
 
     public CreateGoalCommandHandler(
         IApplicationDbContext context,
@@ -94,6 +95,46 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
                 SubjectId = subject.SubjectId,
                 GoalId = goal.GoalId
             }, cancellationToken);
+
+            var systemGoals = await _context.Goals
+                .Where(g => g.IsSystemDefined && g.IsActive && !g.IsDeleted)
+                .Join(
+                    _context.SubjectGoals.Where(sg => sg.SubjectId == subject.SubjectId),
+                    g => g.GoalId,
+                    sg => sg.GoalId,
+                    (g, sg) => g)
+                .ToListAsync(cancellationToken);
+
+            if (systemGoals.Count > 0)
+            {
+                var candidates = systemGoals
+                    .Select(g => new GoalMatchCandidate(g.GoalId, g.Title, g.Description))
+                    .ToList();
+
+                var matchResult = await _goalValidationService.FindBestSystemGoalMatchAsync(
+                    goal.Title,
+                    goal.Description,
+                    subject.Name,
+                    subject.Description,
+                    candidates,
+                    cancellationToken);
+
+                if (matchResult.GoalId.HasValue
+                    && matchResult.Confidence.HasValue
+                    && matchResult.Confidence.Value >= MinGoalMappingConfidence)
+                {
+                    await _context.GoalMappings.AddAsync(new GoalMapping
+                    {
+                        MappingId = NewId.NextGuid(),
+                        UserGoalId = goal.GoalId,
+                        SystemGoalId = matchResult.GoalId.Value,
+                        Confidence = matchResult.Confidence.Value,
+                        VerifiedByAI = true,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+            }
+
             await _context.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
