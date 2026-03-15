@@ -43,7 +43,11 @@ public class GoalController : ControllerBase
     [HttpPost("api/goals")]
     public async Task<IActionResult> CreateGoal(CreateGoalRequest request, CancellationToken cancellationToken)
     {
-        var command = new CreateGoalCommand(request.Title, request.Description, request.Duration);
+        var command = new CreateGoalCommand(
+            request.SubjectId,
+            request.Title,
+            request.Description,
+            request.Duration);
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }

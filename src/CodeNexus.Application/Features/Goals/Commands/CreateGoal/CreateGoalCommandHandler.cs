@@ -28,12 +28,36 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     {
         var userId = _currentUserService.GetUserId();
 
+        var subject = await _context.Subjects
+            .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId && !s.IsDeleted, cancellationToken);
+
+        if (subject == null)
+        {
+            return Result<CreateGoalResponseDto>.Failure(
+                "SUBJECT_NOT_FOUND",
+                "Subject not found.");
+        }
+
         var isValid = await _goalValidationService.IsRelatedToProgrammingAsync(request.Title, cancellationToken);
         if (!isValid)
         {
             return Result<CreateGoalResponseDto>.Failure(
                 "INVALID_GOAL",
                 "Goal must be related to programming or software development.");
+        }
+
+        var isRelevantToSubject = await _goalValidationService.IsGoalRelevantToSubjectAsync(
+            request.Title,
+            request.Description,
+            subject.Name,
+            subject.Description,
+            cancellationToken);
+
+        if (!isRelevantToSubject)
+        {
+            return Result<CreateGoalResponseDto>.Failure(
+                "GOAL_SUBJECT_MISMATCH",
+                "Goal is not relevant to the selected subject.");
         }
 
         var existingGoal = await _context.Goals
@@ -65,6 +89,11 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
         try
         {
             await _context.Goals.AddAsync(goal, cancellationToken);
+            await _context.SubjectGoals.AddAsync(new SubjectGoal
+            {
+                SubjectId = subject.SubjectId,
+                GoalId = goal.GoalId
+            }, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)

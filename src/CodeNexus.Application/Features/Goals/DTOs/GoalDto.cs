@@ -23,6 +23,7 @@ public record CreateGoalResponseDto(
 );
 
 public record CreateGoalRequest(
+    Guid SubjectId,
     string Title,
     string? Description,
     GoalDuration Duration

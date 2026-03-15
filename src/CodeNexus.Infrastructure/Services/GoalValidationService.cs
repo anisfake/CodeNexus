@@ -59,6 +59,43 @@ public class GoalValidationService : IGoalValidationService
         return await ValidateWithAI(goalTitle, cancellationToken);
     }
 
+    public async Task<bool> IsGoalRelevantToSubjectAsync(
+        string goalTitle,
+        string? goalDescription,
+        string subjectName,
+        string? subjectDescription,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(goalTitle) || string.IsNullOrWhiteSpace(subjectName))
+            return false;
+
+        try
+        {
+            var prompt = $@"Determine whether the learning goal is relevant to the specified subject.
+
+Subject: ""{subjectName}""
+Subject description: ""{subjectDescription ?? "N/A"}""
+
+Goal title: ""{goalTitle}""
+Goal description: ""{goalDescription ?? "N/A"}""
+
+Reply ONLY with 'YES' or 'NO'.
+- YES if the goal clearly relates to the subject's concepts, technologies, tools, or outcomes.
+- NO if the goal is unrelated or better suited for a different subject.
+
+Answer:";
+
+            var response = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.Verification);
+            var answer = response?.Trim().ToUpperInvariant();
+
+            return answer == "YES";
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
     private bool HasObviousProgrammingKeywords(string normalizedGoal)
     {
         return ProgrammingKeywords.Any(keyword =>

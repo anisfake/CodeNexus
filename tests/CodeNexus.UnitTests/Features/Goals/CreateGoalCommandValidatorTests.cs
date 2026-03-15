@@ -18,7 +18,7 @@ public class CreateGoalCommandValidatorTests
     public void Validate_WithValidCommand_ShouldNotHaveErrors()
     {
         // Arrange
-        var command = new CreateGoalCommand("Learn C# Programming", "Master C# programming", GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), "Learn C# Programming", "Master C# programming", GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -31,7 +31,7 @@ public class CreateGoalCommandValidatorTests
     public void Validate_WithEmptyTitle_ShouldHaveError()
     {
         // Arrange
-        var command = new CreateGoalCommand(string.Empty, "Description", GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), string.Empty, "Description", GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -45,7 +45,7 @@ public class CreateGoalCommandValidatorTests
     {
         // Arrange
         var longTitle = new string('a', 201);
-        var command = new CreateGoalCommand(longTitle, "Description", GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), longTitle, "Description", GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -59,7 +59,7 @@ public class CreateGoalCommandValidatorTests
     {
         // Arrange
         var longDescription = new string('a', 501);
-        var command = new CreateGoalCommand("Learn C# Programming", longDescription, GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), "Learn C# Programming", longDescription, GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -72,7 +72,7 @@ public class CreateGoalCommandValidatorTests
     public void Validate_WithNullDescription_ShouldNotHaveError()
     {
         // Arrange
-        var command = new CreateGoalCommand("Learn C# Programming", null, GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), "Learn C# Programming", null, GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -86,7 +86,7 @@ public class CreateGoalCommandValidatorTests
     {
         // Arrange
         var maxTitle = new string('a', 200);
-        var command = new CreateGoalCommand(maxTitle, "Description", GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), maxTitle, "Description", GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -100,7 +100,7 @@ public class CreateGoalCommandValidatorTests
     {
         // Arrange
         var maxDescription = new string('a', 500);
-        var command = new CreateGoalCommand("Learn C# Programming", maxDescription, GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), "Learn C# Programming", maxDescription, GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -113,12 +113,25 @@ public class CreateGoalCommandValidatorTests
     public void Validate_WithTitleTooShort_ShouldHaveError()
     {
         // Arrange
-        var command = new CreateGoalCommand("Short", "Description", GoalDuration.OneMonth);
+        var command = new CreateGoalCommand(Guid.NewGuid(), "Short", "Description", GoalDuration.OneMonth);
 
         // Act
         var result = _validator.TestValidate(command);
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.Title);
+    }
+
+    [Fact]
+    public void Validate_WithEmptySubjectId_ShouldHaveError()
+    {
+        // Arrange
+        var command = new CreateGoalCommand(Guid.Empty, "Learn C# Programming", "Description", GoalDuration.OneMonth);
+
+        // Act
+        var result = _validator.TestValidate(command);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x.SubjectId);
     }
 }
