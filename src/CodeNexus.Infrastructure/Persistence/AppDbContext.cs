@@ -35,6 +35,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
+        public DbSet<SubjectGoal> SubjectGoals => Set<SubjectGoal>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
         public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
@@ -245,6 +246,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
+            modelBuilder.Entity<SubjectGoal>().HasKey(e => new { e.SubjectId, e.GoalId });
             modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
@@ -353,6 +355,19 @@ namespace CodeNexus.Infrastructure.Persistence
                 .WithMany(u => u.Subjects)
                 .HasForeignKey(s => s.CreatedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SubjectGoal>(entity =>
+            {
+                entity.HasOne(sg => sg.Subject)
+                      .WithMany(s => s.SubjectGoals)
+                      .HasForeignKey(sg => sg.SubjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(sg => sg.Goal)
+                      .WithMany(g => g.SubjectGoals)
+                      .HasForeignKey(sg => sg.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<Resource>(entity =>
             {

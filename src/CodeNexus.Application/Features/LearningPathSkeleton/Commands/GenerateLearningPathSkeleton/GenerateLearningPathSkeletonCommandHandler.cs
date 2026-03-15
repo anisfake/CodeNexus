@@ -70,6 +70,26 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
             }
 
+            var systemGoalIds = goals
+                .Where(g => g.IsSystemDefined)
+                .Select(g => g.GoalId)
+                .ToList();
+
+            if (systemGoalIds.Count > 0)
+            {
+                var mappedSystemGoalIds = await _context.SubjectGoals
+                    .Where(sg => sg.SubjectId == request.SubjectId && systemGoalIds.Contains(sg.GoalId))
+                    .Select(sg => sg.GoalId)
+                    .ToListAsync(cancellationToken);
+
+                if (mappedSystemGoalIds.Count != systemGoalIds.Count)
+                {
+                    return Result<CreateLearningPathResponse>.Failure(
+                        "GOAL_SUBJECT_MISMATCH",
+                        "One or more system goals are not available for the selected subject");
+                }
+            }
+
             var normalizedGoals = NormalizeGoalWeights(request.Goals);
             var goalsWithWeights = normalizedGoals
                 .Join(goals, ng => ng.GoalId, g => g.GoalId, (ng, g) => new GoalWeightInfo(g, ng.Weight))
