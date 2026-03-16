@@ -1,5 +1,6 @@
 using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.DirectChats.Commands.CreateDirectConversation;
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageDelivered;
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageSeen;
 using CodeNexus.Application.Features.DirectChats.Commands.SendDirectMessage;
@@ -42,6 +43,15 @@ public class DirectChatController : ControllerBase
             new GetConversationMessagesQuery(conversationId, pageNumber, pageSize),
             cancellationToken);
 
+        return ToActionResult(result);
+    }
+
+    [HttpPost("conversations")]
+    public async Task<IActionResult> CreateConversation(
+        [FromBody] CreateDirectConversationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new CreateDirectConversationCommand(request.ParticipantId), cancellationToken);
         return ToActionResult(result);
     }
 

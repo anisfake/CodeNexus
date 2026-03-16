@@ -1,3 +1,4 @@
+using CodeNexus.Application.Features.DirectChats.Commands.CreateDirectConversation;
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageDelivered;
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageSeen;
 using CodeNexus.Application.Features.DirectChats.Commands.SendDirectMessage;
@@ -38,6 +39,23 @@ public class DirectChatHub : Hub
         }
 
         await Clients.Caller.SendAsync("ConversationMessagesLoaded", messagesResult.Value);
+    }
+
+    public async Task StartConversation(Guid participantId)
+    {
+        var result = await _sender.Send(new CreateDirectConversationCommand(participantId));
+
+        if (!result.IsSuccess)
+        {
+            await Clients.Caller.SendAsync("DirectChatError", new
+            {
+                result.ErrorCode,
+                result.ErrorMessage
+            });
+            return;
+        }
+
+        await Clients.Caller.SendAsync("ConversationStarted", result.Value);
     }
 
     public async Task LeaveConversation(Guid conversationId)

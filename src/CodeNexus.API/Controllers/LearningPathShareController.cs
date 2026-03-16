@@ -1,7 +1,9 @@
 using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPathShares.Commands.AcceptLearningPathShare;
+using CodeNexus.Application.Features.LearningPathShares.Commands.RejectLearningPathShare;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
+using CodeNexus.Application.Features.LearningPathShares.Queries.GetPendingLearningPathShares;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -36,6 +38,22 @@ public class LearningPathShareController : ControllerBase
     public async Task<IActionResult> AcceptShare(Guid shareId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new AcceptLearningPathShareCommand(shareId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("{shareId:guid}/reject")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> RejectShare(Guid shareId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new RejectLearningPathShareCommand(shareId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("pending")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetPendingShares(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPendingLearningPathSharesQuery(), cancellationToken);
         return ToActionResult(result);
     }
 
