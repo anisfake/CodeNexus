@@ -2,6 +2,7 @@ using CodeNexus.Application.Features.DirectChats.Commands.CreateDirectConversati
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageDelivered;
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageSeen;
 using CodeNexus.Application.Features.DirectChats.Commands.SendDirectMessage;
+using CodeNexus.Application.Features.DirectChats.Queries.GetDirectChatContacts;
 using CodeNexus.Application.Features.DirectChats.Queries.GetConversationMessages;
 using CodeNexus.Application.Features.DirectChats.Queries.GetConversations;
 using CodeNexus.Application.Features.DirectChats.Queries.GetUnreadCount;
@@ -78,6 +79,23 @@ public class DirectChatHub : Hub
         }
 
         await Clients.Caller.SendAsync("ConversationsLoaded", result.Value);
+    }
+
+    public async Task RequestChatContacts()
+    {
+        var result = await _sender.Send(new GetDirectChatContactsQuery());
+
+        if (!result.IsSuccess)
+        {
+            await Clients.Caller.SendAsync("DirectChatError", new
+            {
+                result.ErrorCode,
+                result.ErrorMessage
+            });
+            return;
+        }
+
+        await Clients.Caller.SendAsync("ChatContactsLoaded", result.Value);
     }
 
     public async Task RequestUnreadCount()

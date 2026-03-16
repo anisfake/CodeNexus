@@ -4,6 +4,7 @@ using CodeNexus.Application.Features.DirectChats.Commands.CreateDirectConversati
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageDelivered;
 using CodeNexus.Application.Features.DirectChats.Commands.MarkMessageSeen;
 using CodeNexus.Application.Features.DirectChats.Commands.SendDirectMessage;
+using CodeNexus.Application.Features.DirectChats.Queries.GetDirectChatContacts;
 using CodeNexus.Application.Features.DirectChats.Queries.GetConversationMessages;
 using CodeNexus.Application.Features.DirectChats.Queries.GetConversations;
 using CodeNexus.Application.Features.DirectChats.Queries.GetUnreadCount;
@@ -29,6 +30,13 @@ public class DirectChatController : ControllerBase
     public async Task<IActionResult> GetConversations(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetConversationsQuery(), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("contacts")]
+    public async Task<IActionResult> GetContacts(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetDirectChatContactsQuery(), cancellationToken);
         return ToActionResult(result);
     }
 
