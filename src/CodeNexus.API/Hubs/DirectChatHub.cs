@@ -148,6 +148,16 @@ public class DirectChatHub : Hub
                     {
                         updatedConversation.ConversationId
                     });
+
+                    await Clients.User(recipientId.ToString()).SendAsync("NewMessageNotification", new
+                    {
+                        ConversationId = updatedConversation.ConversationId,
+                        MessageId = result.Value?.MessageId,
+                        Preview = updatedConversation.LastMessagePreview,
+                        SentAt = updatedConversation.LastMessageAt,
+                        BadgeIncrement = 1,
+                        PlaySound = true
+                    });
                 }
             }
         }
