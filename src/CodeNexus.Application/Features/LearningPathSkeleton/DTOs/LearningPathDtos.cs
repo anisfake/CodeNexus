@@ -67,6 +67,15 @@ public record CreateLearningPathResponse(
     bool IsContentGenerating = true
 );
 
+public record LearningPathSuggestionDto(
+    Guid PathId,
+    string Title,
+    string Description,
+    decimal Score,
+    List<LearningPathGoalDto> Goals,
+    int? ChapterCount
+);
+
 public record LearningPathResponse(
     Guid PathId,
     Guid SubjectId,

@@ -7,6 +7,7 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearn
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
@@ -49,6 +50,21 @@ public class LearningPathController : ControllerBase
             return BadRequest(new { errorCode = result.ErrorCode, errorMessage = result.ErrorMessage });
         }
 
+        return ToActionResult(result);
+    }
+
+    [HttpPost("suggestions")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetSuggestions([FromBody] GenerateLearningPathSkeletonRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathSuggestionsQuery(
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection
+        );
+
+        var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }
 

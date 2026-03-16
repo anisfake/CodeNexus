@@ -114,7 +114,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 EndDate = DateTime.UtcNow.AddDays(durationDays),
                 CreatedAt = DateTime.UtcNow,
                 CreatedByType = true,
-                Language = request.LanguageSelection
+                Language = request.LanguageSelection,
+                ComplexityLevel = request.ComplexityLevel
             };
 
             await _context.LearningPaths.AddAsync(learningPath, cancellationToken);

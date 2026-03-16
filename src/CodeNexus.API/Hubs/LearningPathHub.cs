@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -80,6 +81,64 @@ public class LearningPathHub : Hub
         catch (Exception ex)
         {
             await Clients.Caller.SendAsync("LearningPathGenerationError", new
+            {
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    public async Task RequestLearningPathSuggestions(
+        Guid subjectId,
+        List<CodeNexus.Application.Features.LearningPaths.DTOs.LearningPathGoalRequest> goals,
+        string complexityLevel,
+        string languageSelection)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("LearningPathSuggestionsStarted");
+
+            if (!Enum.TryParse<Domain.Enums.ComplexityLevel>(complexityLevel, out var complexity))
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+                {
+                    ErrorCode = "INVALID_COMPLEXITY",
+                    ErrorMessage = "Invalid complexity level"
+                });
+                return;
+            }
+
+            if (!Enum.TryParse<Domain.Enums.LanguageSelection>(languageSelection, out var language))
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+                {
+                    ErrorCode = "INVALID_LANGUAGE",
+                    ErrorMessage = "Invalid language selection"
+                });
+                return;
+            }
+
+            var query = new GetLearningPathSuggestionsQuery(subjectId, goals, complexity, language);
+            var result = await _sender.Send(query);
+
+            if (!result.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+                {
+                    result.ErrorCode,
+                    result.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("LearningPathSuggestionsLoaded", new
+            {
+                Suggestions = result.Value
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
             {
                 ErrorCode = "UNEXPECTED_ERROR",
                 ErrorMessage = ex.Message

@@ -1,5 +1,6 @@
 using CodeNexus.API.Hubs;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using MediatR;
@@ -124,6 +125,90 @@ public class LearningPathHubTests
         // Assert
         _mockClientProxy.Verify(x => x.SendCoreAsync(
             "LearningPathGenerationError",
+            It.IsAny<object[]>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestLearningPathSuggestions_WithValidInput_ShouldEmitLoaded()
+    {
+        // Arrange
+        var subjectId = Guid.NewGuid();
+        var goalId = Guid.NewGuid();
+        var pathId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new LearningPathGoalRequest(goalId, 1m)
+        };
+
+        var suggestions = new List<LearningPathSuggestionDto>
+        {
+            new LearningPathSuggestionDto(
+                pathId,
+                "Suggested Path",
+                "Description",
+                0.9m,
+                new List<LearningPathGoalDto>
+                {
+                    new LearningPathGoalDto(goalId, "Goal 1", 1m, 30)
+                },
+                3)
+        };
+
+        _mockSender.Setup(x => x.Send(It.IsAny<GetLearningPathSuggestionsQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<List<LearningPathSuggestionDto>>.Success(suggestions));
+
+        // Act
+        await _hub.RequestLearningPathSuggestions(subjectId, goals, "Beginner", "VietNamese");
+
+        // Assert
+        _mockClientProxy.Verify(x => x.SendCoreAsync(
+            "LearningPathSuggestionsLoaded",
+            It.IsAny<object[]>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestLearningPathSuggestions_WithInvalidLanguage_ShouldEmitError()
+    {
+        // Arrange
+        var subjectId = Guid.NewGuid();
+        var goalId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new LearningPathGoalRequest(goalId, 1m)
+        };
+
+        // Act
+        await _hub.RequestLearningPathSuggestions(subjectId, goals, "Beginner", "InvalidLang");
+
+        // Assert
+        _mockClientProxy.Verify(x => x.SendCoreAsync(
+            "LearningPathSuggestionsError",
+            It.IsAny<object[]>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RequestLearningPathSuggestions_WithFailedQuery_ShouldEmitError()
+    {
+        // Arrange
+        var subjectId = Guid.NewGuid();
+        var goalId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new LearningPathGoalRequest(goalId, 1m)
+        };
+
+        _mockSender.Setup(x => x.Send(It.IsAny<GetLearningPathSuggestionsQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<List<LearningPathSuggestionDto>>.Failure("TEST_ERROR", "Test error message"));
+
+        // Act
+        await _hub.RequestLearningPathSuggestions(subjectId, goals, "Beginner", "VietNamese");
+
+        // Assert
+        _mockClientProxy.Verify(x => x.SendCoreAsync(
+            "LearningPathSuggestionsError",
             It.IsAny<object[]>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }

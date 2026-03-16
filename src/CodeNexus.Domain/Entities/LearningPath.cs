@@ -26,6 +26,7 @@ namespace CodeNexus.Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool CreatedByType { get; set; } // 0: User, 1: AI
         public LanguageSelection Language { get; set; } = LanguageSelection.VietNamese; // Default Vietnamese
+        public ComplexityLevel ComplexityLevel { get; set; } = ComplexityLevel.Beginner;
 
         public virtual ICollection<Chapter> Chapters { get; set; } = new List<Chapter>();
         public virtual ICollection<Tasks> Tasks { get; set; } = new List<Tasks>();

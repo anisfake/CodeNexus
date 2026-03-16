@@ -325,6 +325,9 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<LearningPath>(entity =>
             {
+                entity.Property(p => p.ComplexityLevel)
+                      .HasConversion<string>();
+
                 entity.HasOne(p => p.Subject)
                       .WithMany(s => s.LearningPaths)
                       .HasForeignKey(p => p.SubjectId)
