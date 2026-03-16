@@ -52,6 +52,10 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AISummary> AISummaries => Set<AISummary>();
         public DbSet<Conversation> Conversations => Set<Conversation>();
         public DbSet<Message> Messages => Set<Message>();
+        public DbSet<DirectConversation> DirectConversations => Set<DirectConversation>();
+        public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
+        public DbSet<DirectMessageReceipt> DirectMessageReceipts => Set<DirectMessageReceipt>();
+        public DbSet<LearningPathShare> LearningPathShares => Set<LearningPathShare>();
         public DbSet<Quiz> Quizzes => Set<Quiz>();
         public DbSet<Questions> Questions => Set<Questions>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
@@ -254,6 +258,10 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
             modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
+            modelBuilder.Entity<DirectConversation>().HasKey(e => e.ConversationId);
+            modelBuilder.Entity<DirectMessage>().HasKey(e => e.MessageId);
+            modelBuilder.Entity<DirectMessageReceipt>().HasKey(e => e.ReceiptId);
+            modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -516,6 +524,92 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(c => c.Messages)
                       .HasForeignKey(m => m.ConversationId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DirectConversation>(entity =>
+            {
+                entity.HasKey(e => e.ConversationId);
+
+                entity.HasIndex(e => new { e.MentorId, e.StudentId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasMany(e => e.Messages)
+                      .WithOne(m => m.Conversation)
+                      .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DirectMessage>(entity =>
+            {
+                entity.HasKey(e => e.MessageId);
+
+                entity.Property(e => e.MessageType)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.ConversationId, e.SentAt });
+
+                entity.HasOne(e => e.Conversation)
+                      .WithMany(c => c.Messages)
+                      .HasForeignKey(e => e.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Sender)
+                      .WithMany()
+                      .HasForeignKey(e => e.SenderId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<DirectMessageReceipt>(entity =>
+            {
+                entity.HasKey(e => e.ReceiptId);
+
+                entity.HasIndex(e => new { e.MessageId, e.UserId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.Message)
+                      .WithMany(m => m.Receipts)
+                      .HasForeignKey(e => e.MessageId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<LearningPathShare>(entity =>
+            {
+                entity.HasKey(e => e.ShareId);
+
+                entity.Property(e => e.Status)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.StudentId, e.Status, e.SentAt });
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
         }
     }

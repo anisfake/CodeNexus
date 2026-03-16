@@ -1,0 +1,11 @@
+using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.DirectChats.DTOs;
+using MediatR;
+
+namespace CodeNexus.Application.Features.DirectChats.Queries.GetConversationMessages;
+
+public record GetConversationMessagesQuery(
+    Guid ConversationId,
+    int PageNumber = 1,
+    int PageSize = 30
+) : IRequest<Result<PaginationDto<DirectMessageDto>>>;

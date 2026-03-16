@@ -111,6 +111,7 @@ app.MapHub<QuizHub>("/hubs/quiz");
 app.MapHub<TaskHub>("/hubs/task");
 app.MapHub<SummaryHub>("/hubs/summary");
 app.MapHub<AuditLogHub>("/hubs/audit-log");
+app.MapHub<DirectChatHub>("/hubs/direct-chat");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
