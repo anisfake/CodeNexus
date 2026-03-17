@@ -14,13 +14,21 @@ public class CompleteSessionCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ITaskVerificationService> _mockVerificationService;
+    private readonly Mock<IAchievementService> _mockAchievementService;
+    private readonly Mock<IAchievementHelperService> _mockAchievementHelperService;
     private readonly CompleteSessionCommandHandler _handler;
 
     public CompleteSessionCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockVerificationService = new Mock<ITaskVerificationService>();
-        _handler = new CompleteSessionCommandHandler(_mockContext.Object, _mockVerificationService.Object);
+        _mockAchievementService = new Mock<IAchievementService>();
+        _mockAchievementHelperService = new Mock<IAchievementHelperService>();
+        _handler = new CompleteSessionCommandHandler(
+            _mockContext.Object,
+            _mockVerificationService.Object,
+            _mockAchievementService.Object,
+            _mockAchievementHelperService.Object);
     }
 
     [Fact]
@@ -38,8 +46,10 @@ public class CompleteSessionCommandHandlerTests
             Description = "Write a hello world program",
             TaskType = TaskType.Practice,
             Status = TaskStatus_.InProgress,
-            VerificationPrompt = "Check if code prints hello world"
+            VerificationPrompt = "Check if code prints hello world",
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -92,8 +102,10 @@ public class CompleteSessionCommandHandlerTests
             Description = "Learn about variables",
             TaskType = TaskType.Theory,
             Status = TaskStatus_.InProgress,
-            VerificationPrompt = "Check if summary covers key concepts"
+            VerificationPrompt = "Check if summary covers key concepts",
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -146,8 +158,10 @@ public class CompleteSessionCommandHandlerTests
             Description = "Complete the quiz",
             TaskType = TaskType.Quizz,
             Status = TaskStatus_.InProgress,
-            QuizQuestionsJson = "[{\"question\":\"Test?\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":0}]"
+            QuizQuestionsJson = "[{\"question\":\"Test?\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":0}]",
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -192,8 +206,10 @@ public class CompleteSessionCommandHandlerTests
             Title = "Practice Task",
             TaskType = TaskType.Practice,
             Status = TaskStatus_.InProgress,
-            VerificationPrompt = "Check code"
+            VerificationPrompt = "Check code",
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -258,8 +274,10 @@ public class CompleteSessionCommandHandlerTests
         {
             TaskId = taskId,
             Title = "Practice Task",
-            TaskType = TaskType.Practice
+            TaskType = TaskType.Practice,
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -295,8 +313,10 @@ public class CompleteSessionCommandHandlerTests
             TaskId = taskId,
             Title = "Practice Task",
             TaskType = TaskType.Practice,
-            Status = TaskStatus_.InProgress
+            Status = TaskStatus_.InProgress,
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -332,8 +352,10 @@ public class CompleteSessionCommandHandlerTests
             TaskId = taskId,
             Title = "Theory Task",
             TaskType = TaskType.Theory,
-            Status = TaskStatus_.InProgress
+            Status = TaskStatus_.InProgress,
+            LearningPath = BuildLearningPath()
         };
+        task.PathId = task.LearningPath.PathId;
 
         var session = new FocusSession
         {
@@ -367,5 +389,23 @@ public class CompleteSessionCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<FocusSession>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.FocusSessions).Returns(dbSetMock.Object);
+    }
+
+    private static LearningPath BuildLearningPath()
+    {
+        var subjectId = Guid.NewGuid();
+        return new LearningPath
+        {
+            PathId = Guid.NewGuid(),
+            UserId = Guid.NewGuid(),
+            SubjectId = subjectId,
+            Subject = new Subject
+            {
+                SubjectId = subjectId,
+                Name = "Test Subject"
+            },
+            Title = "Test Learning Path",
+            CreatedByType = false
+        };
     }
 }
