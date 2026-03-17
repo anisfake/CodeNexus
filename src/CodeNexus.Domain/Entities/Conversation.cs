@@ -5,6 +5,9 @@
         public Guid ConversationId { get; set; }
         public Guid UserId { get; set; }
         public Guid ConfigId { get; set; }
+        public Guid? LearningPathId { get; set; }
+        public Guid? ChapterId { get; set; }
+        public Guid? LessonId { get; set; }
         public string Title { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public int MessageCount { get; set; } = 0;

@@ -61,6 +61,8 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
         public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
         public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
+        public DbSet<Achievement> Achievements => Set<Achievement>();
+        public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();

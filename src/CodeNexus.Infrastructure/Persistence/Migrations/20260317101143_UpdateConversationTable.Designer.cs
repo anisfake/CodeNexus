@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260317101143_UpdateConversationTable")]
+    partial class UpdateConversationTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,44 +89,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasIndex("ResourceId");
 
                     b.ToTable("AISummaries");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.Achievement", b =>
-                {
-                    b.Property<Guid>("AchievementId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Icon")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Points")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.HasKey("AchievementId");
-
-                    b.ToTable("Achievements");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.AuditLog", b =>
@@ -1227,36 +1192,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.UserAchievement", b =>
-                {
-                    b.Property<Guid>("UserAchievementId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("AchievementId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsUnlocked")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("UnlockedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("UserAchievementId");
-
-                    b.HasIndex("AchievementId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UserAchievements");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserProfile", b =>
                 {
                     b.Property<Guid>("ProfileId")
@@ -1714,25 +1649,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.UserAchievement", b =>
-                {
-                    b.HasOne("CodeNexus.Domain.Entities.Achievement", "Achievement")
-                        .WithMany("UserAchievements")
-                        .HasForeignKey("AchievementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CodeNexus.Domain.Entities.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Achievement");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserProfile", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.User", "User")
@@ -1747,11 +1663,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.AIProviderConfig", b =>
                 {
                     b.Navigation("Conversations");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.Achievement", b =>
-                {
-                    b.Navigation("UserAchievements");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Chapter", b =>

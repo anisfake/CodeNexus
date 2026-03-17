@@ -1,6 +1,7 @@
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.Infrastructure.Persistence;
+using CodeNexus.Seeder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -810,6 +811,17 @@ static class Program
             await db.SaveChangesAsync();
         }
         Console.WriteLine("Save completed!");
+
+        // Seed achievements
+        Console.WriteLine("Seeding achievements...");
+        if (!dryRun)
+        {
+            await AchievementSeeder.SeedAchievementsAsync(db);
+        }
+        else
+        {
+            Console.WriteLine("Dry run: Skipping achievement seeding");
+        }
 
         Console.WriteLine($"Seed complete. Created goals: {createdGoals}, Created links: {createdLinks}");
         Console.WriteLine($"Cross-cutting goals: {CrossCuttingGoals.Count}, Subject-specific goals: {SubjectGoalsMap.SelectMany(x => x.Value).Distinct().Count()}");

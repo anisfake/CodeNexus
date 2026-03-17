@@ -39,6 +39,8 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<Questions> Questions { get; }
         public DbSet<QuizAttempt> QuizAttempts { get; }
         public DbSet<TokenBlacklist> TokenBlacklist { get; }
+        public DbSet<Achievement> Achievements { get; }
+        public DbSet<UserAchievement> UserAchievements { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }
