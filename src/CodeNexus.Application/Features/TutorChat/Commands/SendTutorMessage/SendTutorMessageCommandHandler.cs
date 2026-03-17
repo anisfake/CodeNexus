@@ -198,6 +198,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
 
             chapter = lesson.Chapter;
             learningPath = chapter.LearningPath;
+        }
         else if (chapterId.HasValue)
         {
             chapter = await _context.Chapters
@@ -212,6 +213,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 return Result<TutorContext>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
             learningPath = chapter.LearningPath;
+        }
         else if (learningPathId.HasValue)
         {
             learningPath = await _context.LearningPaths
