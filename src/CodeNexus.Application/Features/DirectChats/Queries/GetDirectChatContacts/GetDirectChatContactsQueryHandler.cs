@@ -43,28 +43,47 @@ public class GetDirectChatContactsQueryHandler : IRequestHandler<GetDirectChatCo
 
         if (string.Equals(roleName, "Student", StringComparison.OrdinalIgnoreCase))
         {
-            var mentors = await _context.Users
+            var mentorRows = await _context.Users
                 .AsNoTracking()
                 .Include(u => u.Role)
                 .Include(u => u.UserProfile)
                 .Where(u => u.Role != null && u.Role.RoleName == "Mentor")
-                .Select(u => new DirectChatContactDto(
+                .Select(u => new
+                {
                     u.UserId,
                     u.Username,
-                    u.UserProfile != null ? u.UserProfile.AvatarUrl : null,
-                    "Mentor",
-                    _context.DirectConversations
-                        .Where(c => c.MentorId == u.UserId && c.StudentId == currentUserId)
-                        .Select(c => (Guid?)c.ConversationId)
-                        .FirstOrDefault(),
-                    _context.DirectConversations
-                        .Where(c => c.MentorId == u.UserId && c.StudentId == currentUserId)
-                        .Select(c => c.LastMessageAt)
-                        .FirstOrDefault()
-                ))
+                    AvatarUrl = u.UserProfile != null ? u.UserProfile.AvatarUrl : null
+                })
+                .ToListAsync(cancellationToken);
+
+            var conversationByMentorId = await _context.DirectConversations
+                .AsNoTracking()
+                .Where(c => c.StudentId == currentUserId)
+                .Select(c => new
+                {
+                    c.MentorId,
+                    c.ConversationId,
+                    c.LastMessageAt
+                })
+                .ToDictionaryAsync(x => x.MentorId, x => new { x.ConversationId, x.LastMessageAt }, cancellationToken);
+
+            var mentors = mentorRows
+                .Select(u =>
+                {
+                    var hasConversation = conversationByMentorId.TryGetValue(u.UserId, out var conversationData);
+
+                    return new DirectChatContactDto(
+                        u.UserId,
+                        u.Username,
+                        u.AvatarUrl,
+                        "Mentor",
+                        hasConversation ? conversationData!.ConversationId : null,
+                        hasConversation ? conversationData!.LastMessageAt : null
+                    );
+                })
                 .OrderByDescending(x => x.LastMessageAt ?? DateTime.MinValue)
                 .ThenBy(x => x.Username)
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             return Result<List<DirectChatContactDto>>.Success(mentors);
         }

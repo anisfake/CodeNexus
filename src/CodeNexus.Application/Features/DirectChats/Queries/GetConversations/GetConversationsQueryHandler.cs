@@ -29,27 +29,48 @@ public class GetConversationsQueryHandler : IRequestHandler<GetConversationsQuer
             return Result<List<DirectConversationDto>>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
-        var conversations = await _context.DirectConversations
+        var conversationRows = await _context.DirectConversations
             .AsNoTracking()
             .Include(c => c.Mentor)
             .Include(c => c.Student)
             .Where(c => c.MentorId == currentUserId || c.StudentId == currentUserId)
+            .OrderByDescending(c => c.LastMessageAt ?? DateTime.MinValue)
+            .ThenByDescending(c => c.ConversationId)
+            .Select(c => new
+            {
+                c.ConversationId,
+                c.MentorId,
+                MentorName = c.Mentor.Username,
+                c.StudentId,
+                StudentName = c.Student.Username,
+                c.LastMessagePreview,
+                c.LastMessageAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var unreadCounts = await _context.DirectMessageReceipts
+            .AsNoTracking()
+            .Where(r => r.UserId == currentUserId && !r.SeenAt.HasValue)
+            .GroupBy(r => r.Message.ConversationId)
+            .Select(g => new
+            {
+                ConversationId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.ConversationId, x => x.Count, cancellationToken);
+
+        var conversations = conversationRows
             .Select(c => new DirectConversationDto(
                 c.ConversationId,
                 c.MentorId,
-                c.Mentor.Username,
+                c.MentorName,
                 c.StudentId,
-                c.Student.Username,
+                c.StudentName,
                 c.LastMessagePreview,
                 c.LastMessageAt,
-                _context.DirectMessageReceipts.Count(r =>
-                    r.UserId == currentUserId &&
-                    !r.SeenAt.HasValue &&
-                    r.Message.ConversationId == c.ConversationId)
+                unreadCounts.TryGetValue(c.ConversationId, out var count) ? count : 0
             ))
-            .OrderByDescending(c => c.LastMessageAt ?? DateTime.MinValue)
-            .ThenByDescending(c => c.ConversationId)
-            .ToListAsync(cancellationToken);
+            .ToList();
 
         return Result<List<DirectConversationDto>>.Success(conversations);
     }
