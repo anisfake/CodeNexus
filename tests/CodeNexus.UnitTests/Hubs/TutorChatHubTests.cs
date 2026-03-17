@@ -73,4 +73,18 @@ public class TutorChatHubTests
             It.IsAny<object[]>(),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task SendTutorMessage_WithFailure_ShouldEmitError()
+    {
+        _mockSender.Setup(x => x.Send(It.IsAny<SendTutorMessageCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result<TutorChatResponseDto>.Failure("TEST_ERROR", "Error"));
+
+        await _hub.SendTutorMessage(null, null, null, null, "Hello");
+
+        _mockClientProxy.Verify(x => x.SendCoreAsync(
+            "TutorMessageError",
+            It.IsAny<object[]>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

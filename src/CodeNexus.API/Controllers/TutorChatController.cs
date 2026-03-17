@@ -45,7 +45,6 @@ public class TutorChatController : ControllerBase
         var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }
-
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)
