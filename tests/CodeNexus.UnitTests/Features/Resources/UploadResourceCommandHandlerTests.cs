@@ -17,7 +17,6 @@ public class UploadResourceCommandHandlerTests
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ICloudinaryService> _mockCloudinaryService;
     private readonly Mock<IPdfProcessingService> _mockPdfProcessingService;
-    private readonly Mock<IAchievementService> _mockAchievementService;
     private readonly UploadResourceCommandHandler _handler;
 
     public UploadResourceCommandHandlerTests()
@@ -26,13 +25,11 @@ public class UploadResourceCommandHandlerTests
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockCloudinaryService = new Mock<ICloudinaryService>();
         _mockPdfProcessingService = new Mock<IPdfProcessingService>();
-        _mockAchievementService = new Mock<IAchievementService>();
         _handler = new UploadResourceCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
             _mockCloudinaryService.Object,
-            _mockPdfProcessingService.Object,
-            _mockAchievementService.Object);
+            _mockPdfProcessingService.Object);
     }
 
     [Fact]

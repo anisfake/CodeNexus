@@ -19,20 +19,17 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
         private readonly ICurrentUserService _currentUserService;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IPdfProcessingService _pdfProcessingService;
-        private readonly IAchievementService _achievementService;
 
         public UploadResourceCommandHandler(
             IApplicationDbContext context,
             ICurrentUserService currentUserService,
             ICloudinaryService cloudinaryService,
-            IPdfProcessingService pdfProcessingService,
-            IAchievementService achievementService)
+            IPdfProcessingService pdfProcessingService)
         {
             _context = context;
             _currentUserService = currentUserService;
             _cloudinaryService = cloudinaryService;
             _pdfProcessingService = pdfProcessingService;
-            _achievementService = achievementService;
         }
 
         public async Task<Result<UploadResourceRespone>> Handle(UploadResourceCommand request, CancellationToken cancellationToken)
@@ -102,9 +99,6 @@ namespace CodeNexus.Application.Features.Resources.Commands.UploadResource
 
             await _context.Resources.AddAsync(resource, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
-
-            // Achievement: First resource share
-            await _achievementService.TryUnlockAsync(userId, "helpful");
 
             return Result<UploadResourceRespone>.Success(
                 new UploadResourceRespone(

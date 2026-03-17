@@ -16,7 +16,6 @@ public class CreateGoalCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<IGoalValidationService> _mockGoalValidationService;
-    private readonly Mock<IAchievementHelperService> _mockAchievementHelperService;
     private readonly CreateGoalCommandHandler _handler;
 
     public CreateGoalCommandHandlerTests()
@@ -24,12 +23,10 @@ public class CreateGoalCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockGoalValidationService = new Mock<IGoalValidationService>();
-        _mockAchievementHelperService = new Mock<IAchievementHelperService>();
         _handler = new CreateGoalCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
-            _mockGoalValidationService.Object,
-            _mockAchievementHelperService.Object);
+            _mockGoalValidationService.Object);
     }
 
     [Fact]

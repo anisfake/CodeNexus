@@ -15,7 +15,6 @@ public class CompleteSessionCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ITaskVerificationService> _mockVerificationService;
     private readonly Mock<IAchievementService> _mockAchievementService;
-    private readonly Mock<IAchievementHelperService> _mockAchievementHelperService;
     private readonly CompleteSessionCommandHandler _handler;
 
     public CompleteSessionCommandHandlerTests()
@@ -23,12 +22,10 @@ public class CompleteSessionCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockVerificationService = new Mock<ITaskVerificationService>();
         _mockAchievementService = new Mock<IAchievementService>();
-        _mockAchievementHelperService = new Mock<IAchievementHelperService>();
         _handler = new CompleteSessionCommandHandler(
             _mockContext.Object,
             _mockVerificationService.Object,
-            _mockAchievementService.Object,
-            _mockAchievementHelperService.Object);
+            _mockAchievementService.Object);
     }
 
     [Fact]

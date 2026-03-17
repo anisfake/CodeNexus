@@ -12,18 +12,15 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
     private readonly IApplicationDbContext _context;
     private readonly ITaskVerificationService _verificationService;
     private readonly IAchievementService _achievementService;
-    private readonly IAchievementHelperService _achievementHelperService;
 
     public CompleteSessionCommandHandler(
         IApplicationDbContext context,
         ITaskVerificationService verificationService,
-        IAchievementService achievementService,
-        IAchievementHelperService achievementHelperService)
+        IAchievementService achievementService)
     {
         _context = context;
         _verificationService = verificationService;
         _achievementService = achievementService;
-        _achievementHelperService = achievementHelperService;
     }
 
     public async Task<Result<CompleteSessionResponseDto>> Handle(CompleteSessionCommand request, CancellationToken cancellationToken)
@@ -138,26 +135,19 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Achievement unlocking - cực kỳ đơn giản!
             var userId = session.Task.LearningPath.UserId;
-            await _achievementService.TryUnlockAsync(userId, "focused_learner"); // First focus session
-            if (actualDurationMinutes >= 90) await _achievementService.TryUnlockAsync(userId, "deep_focus"); // Long session
-            if (DateTime.UtcNow.Hour >= 5 && DateTime.UtcNow.Hour < 8) await _achievementService.TryUnlockAsync(userId, "early_bird"); // Early bird
-            if (DateTime.UtcNow.Hour >= 22 || DateTime.UtcNow.Hour < 2) await _achievementService.TryUnlockAsync(userId, "night_owl"); // Night owl
-            
-            // NEW: Speed Demon - complete 30+ minutes early
+            await _achievementService.TryUnlockAsync(userId, "focused_learner");
+            if (actualDurationMinutes >= 90) await _achievementService.TryUnlockAsync(userId, "deep_focus");
+            if (DateTime.UtcNow.Hour >= 5 && DateTime.UtcNow.Hour < 8) await _achievementService.TryUnlockAsync(userId, "early_bird");
+            if (DateTime.UtcNow.Hour >= 22 || DateTime.UtcNow.Hour < 2) await _achievementService.TryUnlockAsync(userId, "night_owl");
+
             var minutesEarly = session.PlannedDurationMinutes - actualDurationMinutes;
             if (minutesEarly >= 30) await _achievementService.TryUnlockAsync(userId, "speed_demon");
-            
-            // NEW: Weekend Warrior - complete session on weekend
-            if (endTime.DayOfWeek == DayOfWeek.Saturday || endTime.DayOfWeek == DayOfWeek.Sunday) 
+
+            if (endTime.DayOfWeek == DayOfWeek.Saturday || endTime.DayOfWeek == DayOfWeek.Sunday)
                 await _achievementService.TryUnlockAsync(userId, "weekend_warrior");
-            
-            // NEW: Perfectionist - get 100% score
+
             if (verificationScore == 100) await _achievementService.TryUnlockAsync(userId, "perfectionist");
-            
-            // NEW: Check complex achievements
-            await _achievementHelperService.CheckConsistentAchievementAsync(userId);
 
             var message = GetCompletionMessage(session, request.SubmissionType, actualDurationMinutes, taskCompleted);
 

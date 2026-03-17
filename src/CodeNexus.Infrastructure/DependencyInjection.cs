@@ -126,7 +126,6 @@ public static class DependencyInjection
         services.AddScoped<ITimelineCalculationService, TimelineCalculationService>();
         services.AddScoped<ITaskVerificationService, TaskVerificationService>();
         services.AddScoped<IAchievementService, AchievementService>();
-        services.AddScoped<IAchievementHelperService, AchievementHelperService>();
 
         services.AddMemoryCache();
 

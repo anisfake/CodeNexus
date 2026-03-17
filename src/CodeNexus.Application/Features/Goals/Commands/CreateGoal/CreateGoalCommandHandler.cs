@@ -13,19 +13,16 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IGoalValidationService _goalValidationService;
-    private readonly IAchievementHelperService _achievementHelperService;
     private const decimal MinGoalMappingConfidence = 0.75m;
 
     public CreateGoalCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        IGoalValidationService goalValidationService,
-        IAchievementHelperService achievementHelperService)
+        IGoalValidationService goalValidationService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _goalValidationService = goalValidationService;
-        _achievementHelperService = achievementHelperService;
     }
 
     public async Task<Result<CreateGoalResponseDto>> Handle(CreateGoalCommand request, CancellationToken cancellationToken)
@@ -139,9 +136,6 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             }
 
             await _context.SaveChangesAsync(cancellationToken);
-
-            // Check Multi Tasker achievement after creating new goal
-            await _achievementHelperService.CheckMultiTaskerAchievementAsync(userId);
         }
         catch (Exception ex)
         {
