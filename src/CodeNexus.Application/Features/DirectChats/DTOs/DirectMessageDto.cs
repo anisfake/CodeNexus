@@ -10,5 +10,6 @@ public record DirectMessageDto(
     DirectMessageType MessageType,
     DateTime SentAt,
     DateTime? DeliveredAt,
-    DateTime? SeenAt
+    DateTime? SeenAt,
+    Guid? LearningPathShareId
 );

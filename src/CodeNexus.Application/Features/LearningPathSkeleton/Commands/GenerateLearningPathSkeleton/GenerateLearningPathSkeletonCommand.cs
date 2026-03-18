@@ -9,4 +9,5 @@ public record GenerateLearningPathSkeletonCommand(
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
-    LanguageSelection LanguageSelection) : IRequest<Result<CreateLearningPathResponse>>;
+    LanguageSelection LanguageSelection,
+    bool SaveAsDraft = false) : IRequest<Result<CreateLearningPathResponse>>;

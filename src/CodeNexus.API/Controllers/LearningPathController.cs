@@ -3,10 +3,15 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
+using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDraftDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningPathDrafts;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
@@ -40,7 +45,8 @@ public class LearningPathController : ControllerBase
             request.SubjectId,
             request.Goals,
             request.ComplexityLevel,
-            request.LanguageSelection
+            request.LanguageSelection,
+            request.SaveAsDraft
         );
 
         var result = await _sender.Send(command, cancellationToken);
@@ -50,6 +56,90 @@ public class LearningPathController : ControllerBase
             return BadRequest(new { errorCode = result.ErrorCode, errorMessage = result.ErrorMessage });
         }
 
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-drafts")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetMyDrafts([FromQuery] GetMyLearningPathDraftsRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetMyLearningPathDraftsQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.SortDescending);
+
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-drafts/{pathId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetMyDraftById(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathDraftDetailQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("ai-draft")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GenerateAIDraft([FromBody] GenerateLearningPathSkeletonRequest request, CancellationToken cancellationToken)
+    {
+        var command = new GenerateLearningPathSkeletonCommand(
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            true
+        );
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { errorCode = result.ErrorCode, errorMessage = result.ErrorMessage });
+        }
+
+        return ToActionResult(result);
+    }
+
+    [HttpPost("manual-draft")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> CreateManualDraft([FromBody] CreateMentorLearningPathDraftRequest request, CancellationToken cancellationToken)
+    {
+        var command = new CreateMentorLearningPathDraftCommand(
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.Title,
+            request.Description,
+            request.StartDate,
+            request.EndDate,
+            request.Chapters);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("manual-draft/{pathId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UpdateManualDraft(Guid pathId, [FromBody] UpdateMentorLearningPathDraftRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateMentorLearningPathDraftCommand(
+            pathId,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.Title,
+            request.Description,
+            request.StartDate,
+            request.EndDate,
+            request.Chapters);
+
+        var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
 
@@ -146,6 +236,14 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("{pathId:guid}/share/{studentId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> ShareLearningPathViaChat(Guid pathId, Guid studentId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new SendLearningPathShareCommand(pathId, studentId), cancellationToken);
+        return ToActionResult(result);
+    }
+
 
     private IActionResult ToActionResult(Result result)
     {
@@ -154,7 +252,10 @@ public class LearningPathController : ControllerBase
 
         return result.ErrorCode switch
         {
+            "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "EMAIL_EXISTS" or "USERNAME_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
@@ -167,7 +268,10 @@ public class LearningPathController : ControllerBase
 
         return result.ErrorCode switch
         {
+            "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
+            "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
