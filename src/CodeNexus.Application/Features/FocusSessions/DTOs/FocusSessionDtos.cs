@@ -75,6 +75,26 @@ public record ActiveSessionDto(
     bool IsOvertime
 );
 
+public record PauseSessionResponseDto(
+    Guid SessionId,
+    string SessionStatus,
+    int ElapsedMinutes,
+    int RemainingMinutes,
+    bool IsOvertime,
+    int ElapsedSeconds,
+    int RemainingSeconds
+);
+
+public record ResumeSessionResponseDto(
+    Guid SessionId,
+    string SessionStatus,
+    int ElapsedMinutes,
+    int RemainingMinutes,
+    bool IsOvertime,
+    int ElapsedSeconds,
+    int RemainingSeconds
+);
+
 public record ReviewSessionRequest(
     string? SubmittedCode = null,
     string? SubmittedSummary = null,
