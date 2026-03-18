@@ -92,7 +92,8 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 focusSession.SessionId,
                 focusSession.StartTime,
                 focusSession.PlannedDurationMinutes,
-                $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} session started successfully"
+                $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} session started successfully",
+                focusSession.SessionType
             );
 
             return Result<StartSessionResponseDto>.Success(responseDto);

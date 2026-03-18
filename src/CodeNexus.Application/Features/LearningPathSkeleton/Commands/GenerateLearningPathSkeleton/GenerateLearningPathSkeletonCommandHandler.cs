@@ -11,6 +11,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
@@ -156,11 +157,17 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", $"AI returned invalid chapter structure for chapter {i + 1}");
                 }
 
+                var normalizedChapterTitle = NormalizeChapterTitle(
+                    chapterData.Title,
+                    i,
+                    request.LanguageSelection,
+                    subject.Name);
+
                 var chapter = new Chapter
                 {
                     ChapterId = NewId.NextGuid(),
                     PathId = learningPath.PathId,
-                    Title = chapterData.Title,
+                    Title = normalizedChapterTitle,
                     OrderIndex = i,
                     IsCompleted = false,
                     StartDate = chapterTimeline.StartDate,
@@ -421,6 +428,8 @@ Chapter Position: {orderIndex + 1} ({chapterPosition})
 
 REQUIREMENTS:
 - Generate {lessonsPerChapter} lesson titles for this chapter
+- Chapter title should be short and descriptive
+- Do NOT include chapter number prefixes like ""Chapter 1"" or ""Chương 1""
 - Chapter should be appropriate for position {orderIndex + 1}
 - Lessons should progress logically
 
@@ -491,6 +500,51 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     {
         public string Title { get; set; } = "";
         public string Description { get; set; } = "";
+    }
+
+    private static readonly Regex ChapterPrefixRegex = new(
+        @"^(chapter|chương)\s*\d+[\.\:\-]?\s*",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex LeadingNumberRegex = new(
+        @"^\d+[\.\:\-]\s*",
+        RegexOptions.CultureInvariant);
+
+    private static string NormalizeChapterTitle(
+        string title,
+        int orderIndex,
+        LanguageSelection language,
+        string subjectName)
+    {
+        var core = (title ?? string.Empty).Trim();
+        core = ChapterPrefixRegex.Replace(core, string.Empty);
+        core = LeadingNumberRegex.Replace(core, string.Empty);
+
+        if (string.IsNullOrWhiteSpace(core))
+        {
+            core = BuildFallbackChapterCore(subjectName, orderIndex, language);
+        }
+
+        var prefix = language switch
+        {
+            LanguageSelection.VietNamese => "Chương",
+            _ => "Chapter"
+        };
+
+        return $"{prefix} {orderIndex + 1}: {core}";
+    }
+
+    private static string BuildFallbackChapterCore(string subjectName, int orderIndex, LanguageSelection language)
+    {
+        return language switch
+        {
+            LanguageSelection.VietNamese => orderIndex == 0
+                ? $"Giới thiệu về {subjectName}"
+                : $"{subjectName} nâng cao {orderIndex + 1}",
+            _ => orderIndex == 0
+                ? $"Introduction to {subjectName}"
+                : $"{subjectName} Topic {orderIndex + 1}"
+        };
     }
 }
 
