@@ -109,7 +109,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 SubjectId = request.SubjectId,
                 Title = pathTitle,
                 Description = pathDescription,
-                Status = "Active",
+                Status = request.SaveAsDraft
+                    ? LearningPathStatus.Draft.ToString()
+                    : LearningPathStatus.Active.ToString(),
                 StartDate = DateTime.UtcNow,
                 EndDate = DateTime.UtcNow.AddDays(durationDays),
                 CreatedAt = DateTime.UtcNow,

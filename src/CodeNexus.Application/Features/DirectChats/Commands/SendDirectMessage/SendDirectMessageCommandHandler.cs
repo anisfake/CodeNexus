@@ -83,7 +83,8 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             message.MessageType,
             message.SentAt,
             null,
-            null
+            null,
+            message.LearningPathShareId
         ));
     }
 }

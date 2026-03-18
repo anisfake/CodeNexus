@@ -54,8 +54,47 @@ public record GenerateLearningPathSkeletonRequest(
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
-    LanguageSelection LanguageSelection
+    LanguageSelection LanguageSelection,
+    bool SaveAsDraft = false
 );
+
+public record ManualLessonRequest(
+    string Title,
+    DateTime LessonDay
+);
+
+public record ManualChapterRequest(
+    string Title,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    int? EstimatedDays,
+    List<ManualLessonRequest> Lessons
+);
+
+public record CreateMentorLearningPathDraftRequest(
+    Guid SubjectId,
+    List<LearningPathGoalRequest> Goals,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection,
+    string Title,
+    string? Description,
+    DateTime StartDate,
+    DateTime EndDate,
+    List<ManualChapterRequest> Chapters
+);
+
+public record UpdateMentorLearningPathDraftRequest(
+    Guid SubjectId,
+    List<LearningPathGoalRequest> Goals,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection,
+    string Title,
+    string? Description,
+    DateTime StartDate,
+    DateTime EndDate,
+    List<ManualChapterRequest> Chapters
+);
+
 public record CreateLearningPathResponse(
     Guid PathId,
     string Title,
@@ -107,5 +146,13 @@ public record GetLearningPathByUserIdRequest(
     string? SearchTerm = null,
     Guid? SubjectId = null,
     LearningPathStatus? Status = null,
+    bool SortDescending = true
+);
+
+public record GetMyLearningPathDraftsRequest(
+    int PageNumber = 1,
+    int PageSize = 10,
+    string? SearchTerm = null,
+    Guid? SubjectId = null,
     bool SortDescending = true
 );
