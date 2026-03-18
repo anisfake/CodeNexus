@@ -47,7 +47,9 @@ public record StartSessionResponseDto(
     DateTime StartTime,
     int PlannedDurationMinutes,
     string Message,
-    SessionType SessionType
+    SessionType SessionType,
+    SessionStatus SessionStatus,
+    string Title
 );
 
 public record CompleteSessionResponseDto(

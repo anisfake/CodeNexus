@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
+using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -38,7 +39,8 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                 "Session not found");
         }
 
-        if (session.SessionStatus != SessionStatus.Running)
+        if (session.SessionStatus != SessionStatus.Running &&
+            session.SessionStatus != SessionStatus.Paused)
         {
             return Result<CompleteSessionResponseDto>.Failure(
                 "SESSION_NOT_RUNNING",
@@ -48,7 +50,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         try
         {
             var endTime = DateTime.UtcNow;
-            var actualDurationMinutes = (int)(endTime - session.StartTime).TotalMinutes;
+            var actualDurationMinutes = CalculateElapsedMinutes(session, endTime, finalizePause: true);
 
             session.EndTime = endTime;
             session.ActualDurationMinutes = actualDurationMinutes;
@@ -60,9 +62,15 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             {
                 session.SessionStatus = SessionStatus.CompletedEarly;
             }
-            else if (actualDurationMinutes <= session.PlannedDurationMinutes * 0.6)
+            else if (session.PlannedDurationMinutes > 0 &&
+                     actualDurationMinutes <= session.PlannedDurationMinutes * 0.6)
             {
                 session.SessionStatus = SessionStatus.CompletedEarly;
+            }
+            else if (session.PlannedDurationMinutes > 0 &&
+                     actualDurationMinutes > session.PlannedDurationMinutes)
+            {
+                session.SessionStatus = SessionStatus.CompletedLate;
             }
             else
             {
@@ -174,6 +182,27 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         }
     }
 
+    private static int CalculateElapsedMinutes(FocusSession session, DateTime now, bool finalizePause)
+    {
+        var pausedMinutes = session.TotalPausedMinutes;
+        if (session.PausedAt.HasValue)
+        {
+            var extra = (int)(now - session.PausedAt.Value).TotalMinutes;
+            if (extra > 0)
+            {
+                pausedMinutes += extra;
+                if (finalizePause)
+                {
+                    session.TotalPausedMinutes = pausedMinutes;
+                    session.PausedAt = null;
+                }
+            }
+        }
+
+        var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
+        return Math.Max(0, elapsed);
+    }
+
     private static ValidationResult ValidateSubmission(CompleteSessionCommand request, TaskType taskType)
     {
         if (request.SubmissionType == SubmissionType.Progress)
@@ -225,9 +254,12 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
     private static string GetCompletionMessage(Domain.Entities.FocusSession session, SubmissionType submissionType, int actualDurationMinutes, bool taskCompleted)
     {
-        var baseMessage = session.SessionStatus == SessionStatus.CompletedEarly
-            ? $"Session completed early! You finished {session.PlannedDurationMinutes - actualDurationMinutes} minutes ahead of schedule."
-            : "Session completed successfully!";
+        var baseMessage = session.SessionStatus switch
+        {
+            SessionStatus.CompletedEarly => $"Session completed early! You finished {session.PlannedDurationMinutes - actualDurationMinutes} minutes ahead of schedule.",
+            SessionStatus.CompletedLate => $"Session completed late. You exceeded the planned duration by {actualDurationMinutes - session.PlannedDurationMinutes} minutes.",
+            _ => "Session completed successfully!"
+        };
 
         return submissionType switch
         {

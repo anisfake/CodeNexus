@@ -32,7 +32,8 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
 
         var activeSession = await _context.FocusSessions
             .FirstOrDefaultAsync(fs => fs.TaskId == request.TaskId &&
-                                      fs.SessionStatus == SessionStatus.Running,
+                                      (fs.SessionStatus == SessionStatus.Running ||
+                                       fs.SessionStatus == SessionStatus.Paused),
                                 cancellationToken);
 
         if (activeSession != null)
@@ -93,7 +94,9 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 focusSession.StartTime,
                 focusSession.PlannedDurationMinutes,
                 $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} session started successfully",
-                focusSession.SessionType
+                focusSession.SessionType,
+                focusSession.SessionStatus,
+                focusSession.Title
             );
 
             return Result<StartSessionResponseDto>.Success(responseDto);

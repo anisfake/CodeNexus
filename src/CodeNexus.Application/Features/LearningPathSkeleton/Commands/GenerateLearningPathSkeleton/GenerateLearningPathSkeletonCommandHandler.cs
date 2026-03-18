@@ -141,6 +141,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 cancellationToken);
 
             var chapters = new List<ChapterDto>();
+            var usedChapterKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var usedChapterCores = new List<string>();
             for (int i = 0; i < chapterTimelines.Count; i++)
             {
                 var chapterTimeline = chapterTimelines[i];
@@ -164,6 +166,38 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     i,
                     request.LanguageSelection,
                     subject.Name);
+
+                var distinctTitleResult = EnsureDistinctChapterTitle(
+                    normalizedChapterTitle,
+                    i,
+                    request.LanguageSelection,
+                    subject.Name,
+                    usedChapterKeys,
+                    usedChapterCores);
+
+                normalizedChapterTitle = distinctTitleResult.Title;
+
+                if (distinctTitleResult.WasAdjusted)
+                {
+                    var regenerated = await GenerateChapterFromAIWithFixedTitle(
+                        subject.Name,
+                        FormatGoalTitles(goalsWithWeights),
+                        learningPath.Title,
+                        distinctTitleResult.CoreTitle,
+                        i,
+                        request.ComplexityLevel,
+                        request.LanguageSelection,
+                        cancellationToken);
+
+                    if (regenerated != null && regenerated.LessonTitles.Count > 0)
+                    {
+                        chapterData = new ChapterGenerationData
+                        {
+                            Title = normalizedChapterTitle,
+                            LessonTitles = regenerated.LessonTitles
+                        };
+                    }
+                }
 
                 var chapter = new Chapter
                 {
@@ -298,6 +332,43 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         }
     }
 
+    private async Task<ChapterGenerationData?> GenerateChapterFromAIWithFixedTitle(
+        string subjectName,
+        string goalSummary,
+        string learningPathTitle,
+        string fixedTitle,
+        int orderIndex,
+        ComplexityLevel complexity,
+        LanguageSelection language,
+        CancellationToken cancellationToken)
+    {
+        var lessonsPerChapter = GetLessonsPerChapter(complexity);
+        var prompt = BuildChapterPromptWithFixedTitle(
+            subjectName,
+            goalSummary,
+            learningPathTitle,
+            fixedTitle,
+            orderIndex,
+            lessonsPerChapter,
+            language);
+
+        try
+        {
+            var result = await _aiGeneratorService.GenerateStructureAsync<ChapterGenerationData>(prompt, AIUsageType.StructureGeneration);
+            return result;
+        }
+        catch
+        {
+            return new ChapterGenerationData
+            {
+                Title = fixedTitle,
+                LessonTitles = Enumerable.Range(1, lessonsPerChapter)
+                    .Select(i => $"{fixedTitle} - Lesson {i}")
+                    .ToList()
+            };
+        }
+    }
+
     private int GetLessonsPerChapter(ComplexityLevel complexity)
     {
         return complexity switch
@@ -355,7 +426,9 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             var meta = await _aiGeneratorService.GenerateStructureAsync<LearningPathMeta>(prompt, AIUsageType.StructureGeneration);
             if (!string.IsNullOrWhiteSpace(meta?.Title) && !string.IsNullOrWhiteSpace(meta.Description))
             {
-                return (meta.Title.Trim(), meta.Description.Trim());
+                var normalizedTitle = NormalizeLearningPathTitle(meta.Title, subjectName, goals, language);
+                var normalizedDescription = NormalizeLearningPathDescription(meta.Description, subjectName, goals, language);
+                return (normalizedTitle, normalizedDescription);
             }
         }
         catch
@@ -371,21 +444,21 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         List<GoalWeightInfo> goals,
         LanguageSelection language)
     {
-        var goalTitles = FormatGoalTitles(goals);
+        var compactGoals = BuildCompactGoalTags(goals, language);
 
         return language switch
         {
             LanguageSelection.VietNamese => (
-                $"Lộ trình học {subjectName}",
-                $"Tập trung vào mục tiêu: {goalTitles}."
+                $"Lộ trình học {subjectName} tập trung vào {compactGoals}.",
+                $"Tập trung phát triển kỹ năng {compactGoals} với {subjectName}."
             ),
             LanguageSelection.English => (
-                $"{subjectName} Learning Path",
-                $"Focused on goals: {goalTitles}."
+                $"{subjectName}: {compactGoals}",
+                $"A {subjectName} learning path focused on {compactGoals}."
             ),
             _ => (
-                $"{subjectName} Learning Path",
-                $"Focused on goals: {goalTitles}."
+                $"{subjectName}: {compactGoals}",
+                $"Focused on {compactGoals}."
             )
         };
     }
@@ -432,12 +505,64 @@ REQUIREMENTS:
 - Generate {lessonsPerChapter} lesson titles for this chapter
 - Chapter title should be short and descriptive
 - Do NOT include chapter number prefixes like ""Chapter 1"" or ""Chương 1""
+- Chapter titles across the whole learning path MUST be distinct (no repeated titles)
 - Chapter should be appropriate for position {orderIndex + 1}
 - Lessons should progress logically
 
 JSON FORMAT:
 {{
   ""title"": ""Chapter title"",
+  ""lessonTitles"": [
+    ""Lesson 1 title"",
+    ""Lesson 2 title"",
+    ""Lesson 3 title""
+  ]
+}}
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+    }
+
+    private string BuildChapterPromptWithFixedTitle(
+        string subjectName,
+        string goalSummary,
+        string learningPathTitle,
+        string fixedTitle,
+        int orderIndex,
+        int lessonsPerChapter,
+        LanguageSelection language)
+    {
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE ===
+- Use Vietnamese for descriptions
+- Keep technical terms in English (Array, Stack, Queue, API, JSON, etc.)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE ===
+- Use English
+",
+            _ => ""
+        };
+
+        return $@"Generate lesson titles for a chapter in JSON format.
+
+Subject: {subjectName}
+Goal: {goalSummary}
+Learning Path: {learningPathTitle}
+Chapter Position: {orderIndex + 1}
+Fixed Chapter Title: {fixedTitle}
+
+{languageInstruction}
+
+REQUIREMENTS:
+- Chapter title MUST be exactly ""{fixedTitle}"" (do not change it)
+- Generate {lessonsPerChapter} lesson titles that fit this fixed title
+- Lessons should progress logically
+
+JSON FORMAT:
+{{
+  ""title"": ""{fixedTitle}"",
   ""lessonTitles"": [
     ""Lesson 1 title"",
     ""Lesson 2 title"",
@@ -504,6 +629,102 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         public string Description { get; set; } = "";
     }
 
+    private static string NormalizeLearningPathTitle(
+        string title,
+        string subjectName,
+        List<GoalWeightInfo> goals,
+        LanguageSelection language)
+    {
+        var trimmed = (title ?? string.Empty).Trim();
+        var compactGoals = BuildCompactGoalTags(goals, language);
+
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return BuildLearningPathMetaFallback(subjectName, goals, language).Title;
+        }
+
+        var maxLength = language == LanguageSelection.VietNamese ? 70 : 80;
+        var lower = trimmed.ToLowerInvariant();
+        var hasAnd = lower.Contains(" và ") || lower.Contains(" and ");
+        var hasSubject = lower.Contains(subjectName.ToLowerInvariant());
+
+        if (trimmed.Length > maxLength || (hasAnd && trimmed.Length > 55))
+        {
+            return language == LanguageSelection.VietNamese
+                ? $"Lộ trình học {subjectName} tập trung vào {compactGoals}."
+                : $"{subjectName}: {compactGoals}";
+        }
+
+        if (!hasSubject)
+        {
+            return $"{subjectName}: {trimmed}";
+        }
+
+        return trimmed;
+    }
+
+    private static string NormalizeLearningPathDescription(
+        string description,
+        string subjectName,
+        List<GoalWeightInfo> goals,
+        LanguageSelection language)
+    {
+        var trimmed = (description ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return BuildLearningPathMetaFallback(subjectName, goals, language).Description;
+        }
+
+        return trimmed;
+    }
+
+    private static string BuildCompactGoalTags(List<GoalWeightInfo> goals, LanguageSelection language)
+    {
+        if (goals.Count == 0)
+        {
+            return language == LanguageSelection.VietNamese ? "mục tiêu cá nhân" : "personal goals";
+        }
+
+        var ordered = goals
+            .OrderByDescending(g => g.Weight)
+            .Select(g => CompactGoalTitle(g.Goal.Title, language))
+            .ToList();
+
+        if (ordered.Count == 1)
+        {
+            return ordered[0];
+        }
+
+        var separator = language == LanguageSelection.VietNamese ? " & " : " & ";
+        return $"{ordered[0]}{separator}{ordered[1]}";
+    }
+
+    private static string CompactGoalTitle(string title, LanguageSelection language)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return language == LanguageSelection.VietNamese ? "mục tiêu" : "goal";
+
+        var normalized = title.Trim();
+
+        normalized = Regex.Replace(normalized, @"\((.*?)\)", string.Empty).Trim();
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+
+        if (language == LanguageSelection.VietNamese)
+        {
+            if (normalized.Contains("Code Quality", StringComparison.OrdinalIgnoreCase))
+                return "Code Quality & Review";
+            if (normalized.Contains("ML Pipeline", StringComparison.OrdinalIgnoreCase))
+                return "ML Pipeline";
+        }
+
+        if (normalized.Length > 38)
+        {
+            return normalized[..38].Trim();
+        }
+
+        return normalized;
+    }
+
     private static readonly Regex ChapterPrefixRegex = new(
         @"^(chapter|chương)\s*\d+[\.\:\-]?\s*",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
@@ -534,6 +755,150 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         };
 
         return $"{prefix} {orderIndex + 1}: {core}";
+    }
+
+    private static (string Title, string CoreTitle, bool WasAdjusted) EnsureDistinctChapterTitle(
+        string title,
+        int orderIndex,
+        LanguageSelection language,
+        string subjectName,
+        HashSet<string> usedKeys,
+        List<string> usedCores)
+    {
+        var core = ExtractCoreTitle(title);
+        var key = BuildTitleKey(core);
+
+        if (usedKeys.Add(key) && !IsTooSimilarToExisting(core, usedCores))
+        {
+            usedCores.Add(core);
+            return (title, core, false);
+        }
+
+        var updatedCore = BuildThemeChapterCore(orderIndex, language, subjectName);
+        var updatedKey = BuildTitleKey(updatedCore);
+        if (!usedKeys.Add(updatedKey))
+        {
+            updatedCore = $"{updatedCore} {orderIndex + 1}";
+            usedKeys.Add(BuildTitleKey(updatedCore));
+        }
+        usedCores.Add(updatedCore);
+
+        var prefix = language switch
+        {
+            LanguageSelection.VietNamese => "Chương",
+            _ => "Chapter"
+        };
+
+        return ($"{prefix} {orderIndex + 1}: {updatedCore}", updatedCore, true);
+    }
+
+    private static string ExtractCoreTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        var trimmed = title.Trim();
+        var withoutPrefix = ChapterPrefixRegex.Replace(trimmed, string.Empty);
+        withoutPrefix = LeadingNumberRegex.Replace(withoutPrefix, string.Empty);
+
+        var colonIndex = withoutPrefix.IndexOf(':');
+        if (colonIndex >= 0 && colonIndex < withoutPrefix.Length - 1)
+        {
+            return withoutPrefix[(colonIndex + 1)..].Trim();
+        }
+
+        return withoutPrefix.Trim();
+    }
+
+    private static string BuildTitleKey(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return string.Empty;
+
+        var normalized = Regex.Replace(title.ToLowerInvariant(), @"[\p{P}\p{S}]", " ");
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        return normalized;
+    }
+
+    private static bool IsTooSimilarToExisting(string core, List<string> existingCores)
+    {
+        if (string.IsNullOrWhiteSpace(core) || existingCores.Count == 0)
+            return false;
+
+        var currentTokens = Tokenize(core);
+        if (currentTokens.Count == 0)
+            return false;
+
+        foreach (var existing in existingCores)
+        {
+            var existingTokens = Tokenize(existing);
+            if (existingTokens.Count == 0)
+                continue;
+
+            var intersection = currentTokens.Intersect(existingTokens).Count();
+            var union = currentTokens.Union(existingTokens).Count();
+            if (union == 0)
+                continue;
+
+            var similarity = (double)intersection / union;
+            if (similarity >= 0.7)
+                return true;
+        }
+
+        return false;
+    }
+
+    private static HashSet<string> Tokenize(string text)
+    {
+        var normalized = Regex.Replace(text.ToLowerInvariant(), @"[\p{P}\p{S}]", " ");
+        var tokens = normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return new HashSet<string>(tokens);
+    }
+
+    private static string GetChapterTheme(int orderIndex, LanguageSelection language, string subjectName)
+    {
+        if (language == LanguageSelection.VietNamese)
+        {
+            var themes = new[]
+            {
+                "Tổng quan và mục tiêu",
+                "Nguyên tắc thiết kế",
+                "Chuẩn hoá chất lượng mã",
+                "Kiến trúc và thành phần",
+                "Pipeline dữ liệu",
+                "Huấn luyện và đánh giá",
+                "Triển khai và vận hành",
+                "Giám sát và tối ưu",
+                "Mở rộng và cải tiến"
+            };
+
+            return themes[Math.Min(orderIndex, themes.Length - 1)];
+        }
+
+        var enThemes = new[]
+        {
+            "Overview and goals",
+            "Design principles",
+            "Code quality standards",
+            "Architecture and components",
+            "Data pipeline",
+            "Training and evaluation",
+            "Deployment and operations",
+            "Monitoring and optimization",
+            "Scaling and improvement"
+        };
+
+        return enThemes[Math.Min(orderIndex, enThemes.Length - 1)];
+    }
+
+    private static string BuildThemeChapterCore(int orderIndex, LanguageSelection language, string subjectName)
+    {
+        var theme = GetChapterTheme(orderIndex, language, subjectName);
+        return language switch
+        {
+            LanguageSelection.VietNamese => $"{theme} với {subjectName}",
+            _ => $"{theme} with {subjectName}"
+        };
     }
 
     private static string BuildFallbackChapterCore(string subjectName, int orderIndex, LanguageSelection language)

@@ -1,7 +1,9 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.Commands.AbandonSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
+using CodeNexus.Application.Features.FocusSessions.Commands.PauseSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.ReviewSession;
+using CodeNexus.Application.Features.FocusSessions.Commands.ResumeSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.StartSession;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
 using CodeNexus.Application.Features.FocusSessions.Queries.GetActiveSession;
@@ -54,26 +56,6 @@ public class FocusSessionController : ControllerBase
     }
 
     [HttpPost("api/focus-sessions/{sessionId}/complete")]
-    public async Task<IActionResult> CompleteSessionWithForm(
-        Guid sessionId,
-        [FromForm] string? submittedCode = null,
-        [FromForm] string? submittedSummary = null,
-        [FromForm] bool isEarlyCompletion = false,
-        [FromForm] SubmissionType submissionType = SubmissionType.Progress,
-        CancellationToken cancellationToken = default)
-    {
-        var command = new CompleteSessionCommand(
-            sessionId,
-            submittedCode,
-            submittedSummary,
-            null,
-            isEarlyCompletion,
-            submissionType);
-        var result = await _sender.Send(command, cancellationToken);
-        return ToActionResult(result);
-    }
-
-    [HttpPost("api/focus-sessions/{sessionId}/complete-json")]
     public async Task<IActionResult> CompleteSessionWithJson(
         Guid sessionId,
         [FromBody] CompleteSessionRequest request,
@@ -106,6 +88,22 @@ public class FocusSessionController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("api/focus-sessions/{sessionId}/pause")]
+    public async Task<IActionResult> PauseSession(Guid sessionId, CancellationToken cancellationToken)
+    {
+        var command = new PauseSessionCommand(sessionId);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("api/focus-sessions/{sessionId}/resume")]
+    public async Task<IActionResult> ResumeSession(Guid sessionId, CancellationToken cancellationToken)
+    {
+        var command = new ResumeSessionCommand(sessionId);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpGet("api/focus-sessions/history")]
     public async Task<IActionResult> GetSessionHistory(
         [FromQuery] Guid? taskId = null,
@@ -127,6 +125,7 @@ public class FocusSessionController : ControllerBase
         {
             "SESSION_ALREADY_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SESSION_NOT_RUNNING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "SESSION_NOT_PAUSED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "TASK_NOT_FOUND" or "SESSION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_DURATION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { result.ErrorCode, result.ErrorMessage })
@@ -142,6 +141,7 @@ public class FocusSessionController : ControllerBase
         {
             "SESSION_ALREADY_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SESSION_NOT_RUNNING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "SESSION_NOT_PAUSED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "TASK_NOT_FOUND" or "SESSION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_DURATION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             "MISSING_CODE_SUBMISSION" or "MISSING_SUMMARY_SUBMISSION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
