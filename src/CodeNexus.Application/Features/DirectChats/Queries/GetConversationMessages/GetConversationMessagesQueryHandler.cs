@@ -80,7 +80,8 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
                 m.MessageType,
                 m.SentAt,
                 receipt?.DeliveredAt,
-                receipt?.SeenAt
+                receipt?.SeenAt,
+                m.LearningPathShareId
             );
         }).ToList();
 

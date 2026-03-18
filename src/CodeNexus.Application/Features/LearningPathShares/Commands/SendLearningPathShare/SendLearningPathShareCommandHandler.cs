@@ -63,7 +63,6 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         }
 
         var path = await _context.LearningPaths
-            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.PathId == request.PathId, cancellationToken);
 
         if (path == null)
@@ -74,6 +73,12 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         if (path.UserId != mentorId)
         {
             return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "You can only share your own learning path.");
+        }
+
+        if (string.Equals(path.Status, LearningPathStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(path.Status, LearningPathStatus.Completed.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            return Result<LearningPathShareDto>.Failure("INVALID_STATUS", "Only active or draft learning paths can be shared.");
         }
 
         var existingPendingShare = await _context.LearningPathShares
@@ -99,7 +104,53 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             SentAt = DateTime.UtcNow
         };
 
+        if (string.Equals(path.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
+            path.Status = LearningPathStatus.Active.ToString();
+        }
+
+        var conversation = await _context.DirectConversations
+            .FirstOrDefaultAsync(c => c.MentorId == mentorId && c.StudentId == request.StudentId, cancellationToken);
+
+        if (conversation == null)
+        {
+            conversation = new DirectConversation
+            {
+                ConversationId = NewId.NextGuid(),
+                MentorId = mentorId,
+                StudentId = request.StudentId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.DirectConversations.Add(conversation);
+        }
+
+        var message = new DirectMessage
+        {
+            MessageId = NewId.NextGuid(),
+            ConversationId = conversation.ConversationId,
+            SenderId = mentorId,
+            Content = $"Shared learning path: {path.Title}",
+            MessageType = DirectMessageType.LearningPathShare,
+            LearningPathShareId = share.ShareId,
+            SentAt = DateTime.UtcNow
+        };
+
+        var receipt = new DirectMessageReceipt
+        {
+            ReceiptId = NewId.NextGuid(),
+            MessageId = message.MessageId,
+            UserId = request.StudentId
+        };
+
+        conversation.LastMessagePreview = message.Content.Length > 120
+            ? message.Content[..120]
+            : message.Content;
+        conversation.LastMessageAt = message.SentAt;
+
         _context.LearningPathShares.Add(share);
+        _context.DirectMessages.Add(message);
+        _context.DirectMessageReceipts.Add(receipt);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<LearningPathShareDto>.Success(new LearningPathShareDto(

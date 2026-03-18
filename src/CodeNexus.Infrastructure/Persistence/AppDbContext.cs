@@ -569,6 +569,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany()
                       .HasForeignKey(e => e.SenderId)
                       .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.LearningPathShare)
+                      .WithMany()
+                      .HasForeignKey(e => e.LearningPathShareId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<DirectMessageReceipt>(entity =>
@@ -597,6 +602,9 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasConversion<string>();
 
                 entity.HasIndex(e => new { e.StudentId, e.Status, e.SentAt });
+                entity.HasIndex(e => new { e.PathId, e.MentorId, e.StudentId })
+                      .IsUnique()
+                      .HasFilter("[Status] = 'Pending'");
 
                 entity.HasOne(e => e.LearningPath)
                       .WithMany()
