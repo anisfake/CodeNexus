@@ -27,6 +27,8 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
     {
         var session = await _context.FocusSessions
             .Include(fs => fs.Task)
+            .ThenInclude(lp => lp.LearningPath)
+            .ThenInclude(lp => lp.User)
             .FirstOrDefaultAsync(fs => fs.SessionId == request.SessionId, cancellationToken);
 
         if (session == null)
@@ -136,7 +138,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             await _context.SaveChangesAsync(cancellationToken);
 
             var userId = session.Task.LearningPath.UserId;
-            await _achievementService.TryUnlockAsync(userId, "focused_learner");
+            await _achievementService.TryUnlockAsync(userId, "Focused Learner");
             if (actualDurationMinutes >= 90) await _achievementService.TryUnlockAsync(userId, "deep_focus");
             if (DateTime.UtcNow.Hour >= 5 && DateTime.UtcNow.Hour < 8) await _achievementService.TryUnlockAsync(userId, "early_bird");
             if (DateTime.UtcNow.Hour >= 22 || DateTime.UtcNow.Hour < 2) await _achievementService.TryUnlockAsync(userId, "night_owl");

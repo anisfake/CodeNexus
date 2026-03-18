@@ -66,47 +66,7 @@ public class GetActiveSessionQueryHandlerTests
         Assert.False(result.Value.IsOvertime);
     }
 
-    [Fact]
-    public async Task Handle_WithActivePausedSession_ShouldReturnSessionDetails()
-    {
-        // Arrange
-        var taskId = Guid.NewGuid();
-        var sessionId = Guid.NewGuid();
-        var query = new GetActiveSessionQuery(taskId);
-        var startTime = DateTime.UtcNow.AddMinutes(-10);
 
-        var task = new TaskEntity
-        {
-            TaskId = taskId,
-            Title = "Test Task",
-            TaskType = TaskType.Theory
-        };
-
-        var session = new FocusSession
-        {
-            SessionId = sessionId,
-            TaskId = taskId,
-            Task = task,
-            Title = "Theory Session",
-            SessionStatus = SessionStatus.Paused,
-            StartTime = startTime,
-            PlannedDurationMinutes = 30
-        };
-
-        SetupFocusSessionsDbSet(new List<FocusSession> { session });
-
-        // Act
-        var result = await _handler.Handle(query, CancellationToken.None);
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Value);
-        Assert.Equal(sessionId, result.Value.SessionId);
-        Assert.Equal(SessionStatus.Paused.ToString(), result.Value.SessionStatus);
-        Assert.Equal(10, result.Value.ElapsedMinutes);
-        Assert.Equal(20, result.Value.RemainingMinutes);
-        Assert.False(result.Value.IsOvertime);
-    }
 
     [Fact]
     public async Task Handle_WithOvertimeSession_ShouldReturnOvertimeStatus()

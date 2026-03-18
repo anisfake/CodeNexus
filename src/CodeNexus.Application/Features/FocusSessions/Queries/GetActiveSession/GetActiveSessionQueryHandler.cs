@@ -21,8 +21,8 @@ public class GetActiveSessionQueryHandler : IRequestHandler<GetActiveSessionQuer
         try
         {
             var activeSession = await _context.FocusSessions
-                .Where(fs => fs.TaskId == request.TaskId && 
-                            (fs.SessionStatus == SessionStatus.Running || fs.SessionStatus == SessionStatus.Paused))
+                .Where(fs => fs.TaskId == request.TaskId &&
+                            (fs.SessionStatus == SessionStatus.Running))
                 .OrderByDescending(fs => fs.StartTime)
                 .FirstOrDefaultAsync(cancellationToken);
 

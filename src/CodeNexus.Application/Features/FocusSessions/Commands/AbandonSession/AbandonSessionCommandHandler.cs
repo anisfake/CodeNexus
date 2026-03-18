@@ -25,7 +25,7 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
             return Result.Failure("SESSION_NOT_FOUND", "Session not found");
         }
 
-        if (session.SessionStatus != SessionStatus.Running && session.SessionStatus != SessionStatus.Paused)
+        if (session.SessionStatus != SessionStatus.Running)
         {
             return Result.Failure("SESSION_NOT_ACTIVE", "Session is not active");
         }
