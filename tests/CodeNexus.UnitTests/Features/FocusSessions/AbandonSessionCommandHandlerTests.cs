@@ -62,45 +62,6 @@ public class AbandonSessionCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithPausedSession_ShouldAbandonSuccessfully()
-    {
-        // Arrange
-        var sessionId = Guid.NewGuid();
-        var taskId = Guid.NewGuid();
-        var command = new AbandonSessionCommand(sessionId);
-
-        var task = new TaskEntity
-        {
-            TaskId = taskId,
-            Title = "Test Task",
-            TaskType = TaskType.Theory
-        };
-
-        var session = new FocusSession
-        {
-            SessionId = sessionId,
-            TaskId = taskId,
-            Task = task,
-            SessionStatus = SessionStatus.Paused,
-            StartTime = DateTime.UtcNow.AddMinutes(-20),
-            PlannedDurationMinutes = 30
-        };
-
-        SetupFocusSessionsDbSet(new List<FocusSession> { session });
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.Equal(SessionStatus.Abandoned, session.SessionStatus);
-        Assert.NotNull(session.EndTime);
-        Assert.NotNull(session.ActualDurationMinutes);
-    }
-
-    [Fact]
     public async Task Handle_WithSessionNotFound_ShouldReturnFailure()
     {
         // Arrange

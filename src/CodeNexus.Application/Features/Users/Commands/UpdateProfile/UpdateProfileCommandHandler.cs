@@ -45,7 +45,6 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            // Check if profile is complete and unlock achievement
             var isProfileComplete = !string.IsNullOrEmpty(user.FirstName) && 
                                    !string.IsNullOrEmpty(user.LastName) &&
                                    !string.IsNullOrEmpty(user.UserProfile.Bio) &&

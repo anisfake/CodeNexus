@@ -14,12 +14,12 @@ namespace CodeNexus.API.Controllers
     [Authorize]
     public class AchievementController : ControllerBase
     {
-        private readonly IMediator _mediator;
+        private readonly ISender _sender;
         private readonly IAchievementService _achievementService;
 
-        public AchievementController(IMediator mediator, IAchievementService achievementService)
+        public AchievementController(ISender sender, IAchievementService achievementService)
         {
-            _mediator = mediator;
+            _sender = sender;
             _achievementService = achievementService;
         }
 
@@ -29,7 +29,7 @@ namespace CodeNexus.API.Controllers
             [FromQuery] string? category = null)
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            
+
             var query = new GetUserAchievementsQuery
             {
                 UserId = userId,
@@ -37,7 +37,7 @@ namespace CodeNexus.API.Controllers
                 Category = category
             };
 
-            var result = await _mediator.Send(query);
+            var result = await _sender.Send(query);
             return Ok(result);
         }
 
@@ -45,10 +45,10 @@ namespace CodeNexus.API.Controllers
         public async Task<ActionResult<AchievementStatsDto>> GetAchievementStats()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            
+
             var query = new GetAchievementStatsQuery { UserId = userId };
-            var result = await _mediator.Send(query);
-            
+            var result = await _sender.Send(query);
+
             return Ok(result);
         }
 
@@ -64,7 +64,7 @@ namespace CodeNexus.API.Controllers
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             await _achievementService.InitializeUserAchievementsAsync(userId);
-            
+
             return Ok(new { message = "Achievements initialized successfully" });
         }
 
@@ -72,14 +72,13 @@ namespace CodeNexus.API.Controllers
         public async Task<ActionResult<List<AchievementNotificationDto>>> GetAchievementNotifications()
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            
-            // Get recently unlocked achievements (last 24 hours)
-            var recentlyUnlocked = await _mediator.Send(new GetUserAchievementsQuery 
-            { 
-                UserId = userId, 
-                UnlockedOnly = true 
+
+            var recentlyUnlocked = await _sender.Send(new GetUserAchievementsQuery
+            {
+                UserId = userId,
+                UnlockedOnly = true
             });
-            
+
             var notifications = recentlyUnlocked
                 .Where(ua => ua.UnlockedAt.HasValue && ua.UnlockedAt.Value > DateTime.UtcNow.AddDays(-1))
                 .Select(ua => new AchievementNotificationDto(
@@ -90,7 +89,7 @@ namespace CodeNexus.API.Controllers
                     ua.Points,
                     ua.UnlockedAt!.Value
                 )).ToList();
-            
+
             return Ok(notifications);
         }
 
@@ -99,7 +98,7 @@ namespace CodeNexus.API.Controllers
         {
             var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await _achievementService.GetUserAchievementsByCategoryAsync(userId, category);
-            
+
             return Ok(result);
         }
     }

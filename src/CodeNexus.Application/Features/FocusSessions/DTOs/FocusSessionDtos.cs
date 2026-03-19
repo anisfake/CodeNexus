@@ -46,7 +46,10 @@ public record StartSessionResponseDto(
     Guid SessionId,
     DateTime StartTime,
     int PlannedDurationMinutes,
-    string Message
+    string Message,
+    SessionType SessionType,
+    SessionStatus SessionStatus,
+    string Title
 );
 
 public record CompleteSessionResponseDto(
@@ -70,6 +73,26 @@ public record ActiveSessionDto(
     int RemainingMinutes,
     string SessionStatus,
     bool IsOvertime
+);
+
+public record PauseSessionResponseDto(
+    Guid SessionId,
+    string SessionStatus,
+    int ElapsedMinutes,
+    int RemainingMinutes,
+    bool IsOvertime,
+    int ElapsedSeconds,
+    int RemainingSeconds
+);
+
+public record ResumeSessionResponseDto(
+    Guid SessionId,
+    string SessionStatus,
+    int ElapsedMinutes,
+    int RemainingMinutes,
+    bool IsOvertime,
+    int ElapsedSeconds,
+    int RemainingSeconds
 );
 
 public record ReviewSessionRequest(

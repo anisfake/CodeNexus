@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260318145607_UpdateFocussSessionTable")]
+    partial class UpdateFocussSessionTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,46 +89,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasIndex("ResourceId");
 
                     b.ToTable("AISummaries");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.AIUsageLog", b =>
-                {
-                    b.Property<Guid>("UsageLogId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("CostUsd")
-                        .HasPrecision(18, 6)
-                        .HasColumnType("decimal(18,6)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("InputTokens")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Model")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("OutputTokens")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ProviderName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("TotalTokens")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UsageType")
-                        .HasColumnType("int");
-
-                    b.HasKey("UsageLogId");
-
-                    b.HasIndex("UsageType", "CreatedAt");
-
-                    b.ToTable("AIUsageLogs");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Achievement", b =>

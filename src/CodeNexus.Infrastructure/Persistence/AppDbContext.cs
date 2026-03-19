@@ -61,6 +61,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
         public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
         public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
+        public DbSet<AIUsageLog> AIUsageLogs => Set<AIUsageLog>();
         public DbSet<Achievement> Achievements => Set<Achievement>();
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -264,6 +265,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<DirectMessage>().HasKey(e => e.MessageId);
             modelBuilder.Entity<DirectMessageReceipt>().HasKey(e => e.ReceiptId);
             modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
+            modelBuilder.Entity<AIUsageLog>().HasKey(e => e.UsageLogId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -496,6 +498,12 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithOne(c => c.Provider)
                       .HasForeignKey(c => c.ConfigId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AIUsageLog>(entity =>
+            {
+                entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
+                entity.Property(e => e.CostUsd).HasPrecision(18, 6);
             });
 
             modelBuilder.Entity<Conversation>(entity =>
