@@ -10,7 +10,7 @@ using System.Security.Claims;
 namespace CodeNexus.API.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/achievement")]
     [Authorize]
     public class AchievementController : ControllerBase
     {

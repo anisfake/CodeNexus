@@ -25,18 +25,11 @@ public interface ITimelineCalculationService
         int totalTasks,
         ComplexityLevel complexity,
         CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Calculate quiz schedules for lessons
-    /// </summary>
     Task<List<QuizScheduleDto>> CalculateQuizSchedulesAsync(
         List<LessonScheduleDto> lessonSchedules,
         int totalQuizzes,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Get number of quizzes per lesson based on complexity
-    /// </summary>
     int GetQuizzesPerLesson(ComplexityLevel complexity);
 }
 
@@ -49,7 +42,7 @@ public record ChapterTimelineDto(
 
 public record LessonScheduleDto(
     int OrderIndex,
-    DateTime LessonDay // Changed from ScheduledDate to LessonDay, removed EstimatedMinutes
+    DateTime LessonDay
 );
 
 public record TaskScheduleDto(

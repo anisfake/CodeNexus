@@ -15,3 +15,8 @@ public record TutorMessageDto(
     string Content,
     DateTime CreatedAt
 );
+
+public record ResolveTutorConversationResponseDto(
+    Guid ConversationId,
+    bool Created
+);

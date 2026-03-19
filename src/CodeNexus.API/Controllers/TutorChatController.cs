@@ -2,6 +2,7 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.TutorChat.Commands.SendTutorMessage;
 using CodeNexus.Application.Features.TutorChat.Queries.GetTutorConversationMessages;
+using CodeNexus.Application.Features.TutorChat.Queries.ResolveTutorConversation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,6 +43,19 @@ public class TutorChatController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetTutorConversationMessagesQuery(conversationId, pageNumber, pageSize);
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("conversations/resolve")]
+    public async Task<IActionResult> ResolveConversation([FromBody] ResolveTutorConversationRequest request, CancellationToken cancellationToken)
+    {
+        var query = new ResolveTutorConversationQuery(
+            request.LearningPathId,
+            request.ChapterId,
+            request.LessonId,
+            request.CreateIfMissing);
+
         var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }

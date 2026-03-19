@@ -58,6 +58,13 @@ public record GenerateLearningPathSkeletonRequest(
     bool SaveAsDraft = false
 );
 
+public record AdoptSuggestedLearningPathRequest(
+    Guid SubjectId,
+    List<LearningPathGoalRequest> Goals,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection
+);
+
 public record ManualLessonRequest(
     string Title,
     DateTime LessonDay

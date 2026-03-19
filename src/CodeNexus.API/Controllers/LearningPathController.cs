@@ -5,6 +5,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
@@ -155,6 +156,25 @@ public class LearningPathController : ControllerBase
         );
 
         var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("suggestions/{suggestedPathId:guid}/adopt")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> AdoptSuggestedLearningPath(
+        Guid suggestedPathId,
+        [FromBody] AdoptSuggestedLearningPathRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new AdoptSuggestedLearningPathCommand(
+            suggestedPathId,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection
+        );
+
+        var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
 
