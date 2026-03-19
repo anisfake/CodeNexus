@@ -4,6 +4,8 @@ using CodeNexus.Application.Features.LearningPathShares.Commands.AcceptLearningP
 using CodeNexus.Application.Features.LearningPathShares.Commands.RejectLearningPathShare;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
 using CodeNexus.Application.Features.LearningPathShares.Queries.GetPendingLearningPathShares;
+using CodeNexus.Application.Features.LearningPathShares.Queries.GetLearningPathSharePreview;
+using CodeNexus.Application.Features.LearningPathShares.Queries.GetSentLearningPathShares;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -57,6 +59,22 @@ public class LearningPathShareController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("{shareId:guid}/preview")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> PreviewShare(Guid shareId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathSharePreviewQuery(shareId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("sent")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetSentShares([FromQuery] GetSentLearningPathSharesRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetSentLearningPathSharesQuery(request.Status, request.StudentId), cancellationToken);
+        return ToActionResult(result);
+    }
+
     private IActionResult ToActionResult(Result result)
     {
         if (result.IsSuccess)
@@ -66,7 +84,7 @@ public class LearningPathShareController : ControllerBase
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" or "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
@@ -81,7 +99,7 @@ public class LearningPathShareController : ControllerBase
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" or "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
