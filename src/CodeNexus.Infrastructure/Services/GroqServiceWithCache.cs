@@ -472,7 +472,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         return null;
     }
-
+    
     private static int FindMatchingCloseBrace(string text, int openBraceIndex)
     {
         int depth = 0;
