@@ -68,7 +68,7 @@ public class LearningPathShareController : ControllerBase
     }
 
     [HttpGet("sent")]
-    [Authorize(Roles = "Mentor")]
+    [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GetSentShares([FromQuery] GetSentLearningPathSharesRequest request, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetSentLearningPathSharesQuery(request.Status, request.StudentId), cancellationToken);
