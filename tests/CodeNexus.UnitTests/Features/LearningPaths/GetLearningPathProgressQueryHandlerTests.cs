@@ -23,6 +23,7 @@ public class GetLearningPathProgressQueryHandlerTests
         _handler = new GetLearningPathProgressQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
     }
 
+
     [Fact]
     public async Task Handle_ValidData_ReturnsProgressUsingEverPassedAndCompletedTasks()
     {
