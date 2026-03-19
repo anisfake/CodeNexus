@@ -108,10 +108,10 @@ public class GroqServiceWithCache : IAIGeneratorService
 
     private async Task<(string apiKey, GroqConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
     {
-        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType);
+        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType, CancellationToken.None);
 
         var dbConfig = await _context.AIProviderConfigs
-            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive);
+            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive, CancellationToken.None);
 
         if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
         {
@@ -533,7 +533,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         return null;
     }
-
+    
     private static int FindMatchingCloseBrace(string text, int openBraceIndex)
     {
         int depth = 0;

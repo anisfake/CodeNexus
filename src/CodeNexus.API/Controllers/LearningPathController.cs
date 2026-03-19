@@ -38,7 +38,7 @@ public class LearningPathController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "Mentor, Student")]
+    [Authorize(Roles = "Student")]
     public async Task<IActionResult> GenerateSkeleton([FromBody] GenerateLearningPathSkeletonRequest request, CancellationToken cancellationToken)
     {
         var command = new GenerateLearningPathSkeletonCommand(
