@@ -45,11 +45,11 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             try
             {
-                var (apiKey, config) = await GetConfigAsync(usageType);
+                var (apiKey, config, providerName) = await GetConfigAsync(usageType);
 
                 var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
 
-                var responseText = await CallGroqApiAsync(prompt, apiKey, adjustedConfig, jsonMode: true);
+                var responseText = await CallGroqApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
 
                 var jsonContent = ExtractJsonFromResponse(responseText);
@@ -102,40 +102,45 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config) = await GetConfigAsync(usageType);
-        return await CallGroqApiAsync(prompt, apiKey, config, jsonMode: false);
+        var (apiKey, config, providerName) = await GetConfigAsync(usageType);
+        return await CallGroqApiAsync(prompt, apiKey, config, usageType, providerName, jsonMode: false);
     }
 
-    private async Task<(string apiKey, GroqConfig config)> GetConfigAsync(AIUsageType usageType)
+    private async Task<(string apiKey, GroqConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
     {
         var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType);
-
-        if (!string.IsNullOrEmpty(cachedApiKey))
-        {
-            return (cachedApiKey, new GroqConfig
-            {
-                Model = DefaultModel,
-                MaxTokens = DefaultMaxTokens,
-                Temperature = DefaultTemperature,
-                RequestTimeoutSeconds = DefaultRequestTimeoutSeconds
-            });
-        }
 
         var dbConfig = await _context.AIProviderConfigs
             .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive);
 
         if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
         {
+            if (!string.IsNullOrEmpty(cachedApiKey))
+            {
+                return (cachedApiKey, new GroqConfig
+                {
+                    Model = DefaultModel,
+                    MaxTokens = DefaultMaxTokens,
+                    Temperature = DefaultTemperature,
+                    RequestTimeoutSeconds = DefaultRequestTimeoutSeconds
+                }, "Groq");
+            }
+
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
         }
 
-        var decryptedApiKey = _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
+        var apiKey = !string.IsNullOrEmpty(cachedApiKey)
+            ? cachedApiKey
+            : _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
 
         var config = ParseConfigJson(dbConfig.ConfigJson);
 
-        await _cacheService.SetApiKeyAsync(usageType, decryptedApiKey, TimeSpan.FromHours(1));
+        if (string.IsNullOrEmpty(cachedApiKey))
+        {
+            await _cacheService.SetApiKeyAsync(usageType, apiKey, TimeSpan.FromHours(1));
+        }
 
-        return (decryptedApiKey, config);
+        return (apiKey, config, string.IsNullOrWhiteSpace(dbConfig.ProviderName) ? "Groq" : dbConfig.ProviderName);
     }
 
     private GroqConfig ParseConfigJson(string? configJson)
@@ -176,7 +181,13 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    private async Task<string> CallGroqApiAsync(string prompt, string apiKey, GroqConfig config, bool jsonMode = false)
+    private async Task<string> CallGroqApiAsync(
+        string prompt,
+        string apiKey,
+        GroqConfig config,
+        AIUsageType usageType,
+        string providerName,
+        bool jsonMode = false)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.RequestTimeoutSeconds));
 
@@ -229,6 +240,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         try
         {
             var responseJson = JsonDocument.Parse(responseContent);
+            await TryLogUsageAsync(responseJson, usageType, providerName, config.Model);
             var text = responseJson.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("message")
@@ -253,6 +265,44 @@ public class GroqServiceWithCache : IAIGeneratorService
         catch (JsonException ex)
         {
             throw new InvalidOperationException($"Failed to parse Groq response: {ex.Message}. Response: {responseContent.Substring(0, Math.Min(500, responseContent.Length))}...", ex);
+        }
+    }
+
+    private async Task TryLogUsageAsync(JsonDocument responseJson, AIUsageType usageType, string providerName, string model)
+    {
+        try
+        {
+            if (!responseJson.RootElement.TryGetProperty("usage", out var usage))
+            {
+                return;
+            }
+
+            var inputTokens = usage.TryGetProperty("prompt_tokens", out var promptTokens)
+                ? promptTokens.GetInt32()
+                : 0;
+            var outputTokens = usage.TryGetProperty("completion_tokens", out var completionTokens)
+                ? completionTokens.GetInt32()
+                : 0;
+            var totalTokens = usage.TryGetProperty("total_tokens", out var total)
+                ? total.GetInt32()
+                : inputTokens + outputTokens;
+
+            _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
+            {
+                UsageType = usageType,
+                ProviderName = providerName,
+                Model = model,
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = totalTokens,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Avoid blocking AI response if logging fails.
         }
     }
 

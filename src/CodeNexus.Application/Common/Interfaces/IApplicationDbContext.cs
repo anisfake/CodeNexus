@@ -35,6 +35,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<DirectMessageReceipt> DirectMessageReceipts { get; }
         public DbSet<LearningPathShare> LearningPathShares { get; }
         public DbSet<AIProviderConfig> AIProviderConfigs { get; }
+        public DbSet<AIUsageLog> AIUsageLogs { get; }
         public DbSet<Quiz> Quizzes { get; }
         public DbSet<Questions> Questions { get; }
         public DbSet<QuizAttempt> QuizAttempts { get; }
