@@ -108,7 +108,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
     private async Task<(string apiKey, GroqConfig config)> GetConfigAsync(AIUsageType usageType)
     {
-        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType);
+        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType, CancellationToken.None);
 
         if (!string.IsNullOrEmpty(cachedApiKey))
         {
@@ -121,8 +121,13 @@ public class GroqServiceWithCache : IAIGeneratorService
             });
         }
 
+        if (_context.AIProviderConfigs == null)
+        {
+            throw new InvalidOperationException($"AIProviderConfigs DbSet is not configured. Cannot resolve configuration for {usageType}.");
+        }
+
         var dbConfig = await _context.AIProviderConfigs
-            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive);
+            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive, CancellationToken.None);
 
         if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
         {
@@ -133,7 +138,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         var config = ParseConfigJson(dbConfig.ConfigJson);
 
-        await _cacheService.SetApiKeyAsync(usageType, decryptedApiKey, TimeSpan.FromHours(1));
+        await _cacheService.SetApiKeyAsync(usageType, decryptedApiKey, TimeSpan.FromHours(1), CancellationToken.None);
 
         return (decryptedApiKey, config);
     }
