@@ -129,9 +129,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
         }
 
-        var apiKey = !string.IsNullOrEmpty(cachedApiKey)
-            ? cachedApiKey
-            : _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
+        var apiKey = _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
 
         var config = ParseConfigJson(dbConfig.ConfigJson);
 
@@ -533,7 +531,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         return null;
     }
-    
+
     private static int FindMatchingCloseBrace(string text, int openBraceIndex)
     {
         int depth = 0;
