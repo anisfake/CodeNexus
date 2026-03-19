@@ -36,7 +36,8 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
                 g.Count(),
                 g.Sum(x => (long)x.InputTokens),
                 g.Sum(x => (long)x.OutputTokens),
-                g.Sum(x => (long)x.TotalTokens)))
+                g.Sum(x => (long)x.TotalTokens),
+                g.Sum(x => x.CostUsd)))
             .ToListAsync(cancellationToken);
 
         return Result<List<AIUsageSummaryResponse>>.Success(summary);

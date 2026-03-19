@@ -240,7 +240,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         try
         {
             var responseJson = JsonDocument.Parse(responseContent);
-            await TryLogUsageAsync(responseJson, usageType, providerName, config.Model);
+            await TryLogUsageAsync(responseJson, usageType, providerName, config);
             var text = responseJson.RootElement
                 .GetProperty("choices")[0]
                 .GetProperty("message")
@@ -268,7 +268,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    private async Task TryLogUsageAsync(JsonDocument responseJson, AIUsageType usageType, string providerName, string model)
+    private async Task TryLogUsageAsync(JsonDocument responseJson, AIUsageType usageType, string providerName, GroqConfig config)
     {
         try
         {
@@ -287,14 +287,17 @@ public class GroqServiceWithCache : IAIGeneratorService
                 ? total.GetInt32()
                 : inputTokens + outputTokens;
 
+            var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
+
             _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
             {
                 UsageType = usageType,
                 ProviderName = providerName,
-                Model = model,
+                Model = config.Model,
                 InputTokens = inputTokens,
                 OutputTokens = outputTokens,
                 TotalTokens = totalTokens,
+                CostUsd = costUsd,
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -304,6 +307,19 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             // Avoid blocking AI response if logging fails.
         }
+    }
+
+    private static decimal CalculateCostUsd(GroqConfig config, int inputTokens, int outputTokens)
+    {
+        if (config.InputCostPer1M <= 0 && config.OutputCostPer1M <= 0)
+        {
+            return 0m;
+        }
+
+        const decimal OneMillion = 1_000_000m;
+        var inputCost = (inputTokens / OneMillion) * config.InputCostPer1M;
+        var outputCost = (outputTokens / OneMillion) * config.OutputCostPer1M;
+        return Math.Round(inputCost + outputCost, 6);
     }
 
     private static GroqConfig AdjustConfigForAttempt(GroqConfig baseConfig, int attempt)
@@ -612,5 +628,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         public int MaxTokens { get; set; } = DefaultMaxTokens;
         public float Temperature { get; set; } = DefaultTemperature;
         public int RequestTimeoutSeconds { get; set; } = DefaultRequestTimeoutSeconds;
+        public decimal InputCostPer1M { get; set; } = 0m;
+        public decimal OutputCostPer1M { get; set; } = 0m;
     }
 }

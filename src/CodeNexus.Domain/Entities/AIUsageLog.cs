@@ -11,6 +11,7 @@ namespace CodeNexus.Domain.Entities
         public int InputTokens { get; set; }
         public int OutputTokens { get; set; }
         public int TotalTokens { get; set; }
+        public decimal CostUsd { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

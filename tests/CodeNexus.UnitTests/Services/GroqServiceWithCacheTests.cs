@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Enums;
 using CodeNexus.Infrastructure.Services;
+using CodeNexus.UnitTests.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Moq.Protected;
@@ -29,6 +30,8 @@ public class GroqServiceWithCacheTests
         
         _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
         _service = new GroqServiceWithCache(_httpClient, _mockContext.Object, _mockCacheService.Object, _mockEncryptionService.Object);
+
+        SetupAIProviderConfigsDbSet();
     }
 
     [Fact]
@@ -194,6 +197,13 @@ public class GroqServiceWithCacheTests
         _mockCacheService
             .Setup(x => x.GetApiKeyAsync(It.IsAny<AIUsageType>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("test-api-key");
+    }
+
+    private void SetupAIProviderConfigsDbSet()
+    {
+        _mockContext
+            .Setup(x => x.AIProviderConfigs)
+            .Returns(new List<CodeNexus.Domain.Entities.AIProviderConfig>().BuildMockDbSet().Object);
     }
 
     private static string CreateGroqResponse(string content, string finishReason = "stop")

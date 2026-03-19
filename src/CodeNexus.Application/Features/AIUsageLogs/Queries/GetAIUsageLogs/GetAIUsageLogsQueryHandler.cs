@@ -69,6 +69,7 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
                 x.InputTokens,
                 x.OutputTokens,
                 x.TotalTokens,
+                x.CostUsd,
                 x.CreatedAt))
             .ToListAsync(cancellationToken);
 

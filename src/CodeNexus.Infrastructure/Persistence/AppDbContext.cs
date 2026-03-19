@@ -503,6 +503,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<AIUsageLog>(entity =>
             {
                 entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
+                entity.Property(e => e.CostUsd).HasPrecision(18, 6);
             });
 
             modelBuilder.Entity<Conversation>(entity =>

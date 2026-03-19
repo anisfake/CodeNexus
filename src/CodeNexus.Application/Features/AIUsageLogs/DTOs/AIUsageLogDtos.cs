@@ -10,6 +10,7 @@ public record AIUsageLogResponse(
     int InputTokens,
     int OutputTokens,
     int TotalTokens,
+    decimal CostUsd,
     DateTime CreatedAt
 );
 
@@ -18,5 +19,6 @@ public record AIUsageSummaryResponse(
     int TotalRequests,
     long TotalInputTokens,
     long TotalOutputTokens,
-    long TotalTokens
+    long TotalTokens,
+    decimal TotalCostUsd
 );
