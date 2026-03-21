@@ -14,20 +14,33 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ITimelineCalculationService _timelineCalculationService;
+    private readonly ISubscriptionAccessService _subscriptionAccessService;
+    private readonly IPlanUsageLimitService _planUsageLimitService;
 
     public AdoptSuggestedLearningPathCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ITimelineCalculationService timelineCalculationService)
+        ITimelineCalculationService timelineCalculationService,
+        ISubscriptionAccessService subscriptionAccessService,
+        IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _timelineCalculationService = timelineCalculationService;
+        _subscriptionAccessService = subscriptionAccessService;
+        _planUsageLimitService = planUsageLimitService;
     }
 
     public async Task<Result<CreateLearningPathResponse>> Handle(AdoptSuggestedLearningPathCommand request, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetUserId();
+        var learningPathLimitCheck = await _planUsageLimitService.CheckLearningPathCreationAllowedAsync(userId, cancellationToken);
+        if (!learningPathLimitCheck.IsSuccess)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                learningPathLimitCheck.ErrorCode!,
+                learningPathLimitCheck.ErrorMessage!);
+        }
 
         var subject = await _context.Subjects
             .AsNoTracking()
@@ -76,6 +89,14 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
         if (invalidUserGoals.Count > 0)
         {
             return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
+        }
+
+        var hasPersonalGoals = goals.Any(g => !g.IsSystemDefined);
+        if (hasPersonalGoals && !await _subscriptionAccessService.CanUsePersonalGoalsAsync(userId, cancellationToken))
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                "SUBSCRIPTION_REQUIRED",
+                "Your current plan does not allow using personal goals in learning path generation.");
         }
 
         var systemGoalIds = goals

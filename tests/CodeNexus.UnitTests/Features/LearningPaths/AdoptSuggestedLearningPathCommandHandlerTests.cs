@@ -14,6 +14,8 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ITimelineCalculationService> _mockTimelineCalculationService;
+    private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
+    private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
     private readonly AdoptSuggestedLearningPathCommandHandler _handler;
 
     public AdoptSuggestedLearningPathCommandHandlerTests()
@@ -21,11 +23,43 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockTimelineCalculationService = new Mock<ITimelineCalculationService>();
+        _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
+        _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockSubscriptionAccessService.Setup(x => x.CanUsePersonalGoalsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
 
         _handler = new AdoptSuggestedLearningPathCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
-            _mockTimelineCalculationService.Object);
+            _mockTimelineCalculationService.Object,
+            _mockSubscriptionAccessService.Object,
+            _mockPlanUsageLimitService.Object);
+    }
+
+    [Fact]
+    public async Task Handle_WhenLearningPathLimitExceeded_ShouldReturnFailure()
+    {
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var suggestedPathId = Guid.NewGuid();
+        var goalId = Guid.NewGuid();
+        var command = new AdoptSuggestedLearningPathCommand(
+            suggestedPathId,
+            subjectId,
+            new List<LearningPathGoalRequest> { new(goalId, 1m) },
+            ComplexityLevel.Beginner,
+            LanguageSelection.English);
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("LEARNING_PATH_LIMIT_EXCEEDED", "Limit reached"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("LEARNING_PATH_LIMIT_EXCEEDED", result.ErrorCode);
     }
 
     [Fact]

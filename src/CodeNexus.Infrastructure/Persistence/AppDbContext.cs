@@ -1,6 +1,7 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AuditLogs.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -64,6 +65,8 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AIUsageLog> AIUsageLogs => Set<AIUsageLog>();
         public DbSet<Achievement> Achievements => Set<Achievement>();
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+        public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+        public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -266,6 +269,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<DirectMessageReceipt>().HasKey(e => e.ReceiptId);
             modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
             modelBuilder.Entity<AIUsageLog>().HasKey(e => e.UsageLogId);
+            modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -291,6 +295,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithOne(p => p.User)
                       .HasForeignKey<UserProfile>(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(u => u.SubscriptionPlan)
+                      .WithMany()
+                      .HasForeignKey(u => u.SubscriptionPlanId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<NoteTags>(entity =>
@@ -492,7 +501,14 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasKey(e => e.ConfigId);
 
-                entity.HasIndex(e => new { e.UsageType, e.IsActive });
+                entity.Property(e => e.AccessTier)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.UsageType, e.AccessTier, e.IsActive });
+
+                entity.HasIndex(e => new { e.UsageType, e.AccessTier })
+                      .IsUnique()
+                      .HasFilter("[IsActive] = 1");
 
                 entity.HasMany(e => e.Conversations)
                       .WithOne(c => c.Provider)
@@ -504,6 +520,47 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
                 entity.Property(e => e.CostUsd).HasPrecision(18, 8);
+            });
+
+            modelBuilder.Entity<PaymentTransaction>(entity =>
+            {
+                entity.HasKey(e => e.PaymentTransactionId);
+
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.Status).HasConversion<string>();
+
+                entity.HasIndex(e => e.TxnRef).IsUnique();
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.SubscriptionPlan)
+                      .WithMany()
+                      .HasForeignKey(e => e.SubscriptionPlanId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<SubscriptionPlan>(entity =>
+            {
+                entity.Property(e => e.PlanType)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.Name)
+                      .HasMaxLength(120);
+
+                entity.Property(e => e.Description)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.PriceVnd)
+                      .HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.PlanType)
+                      .IsUnique();
+
+                entity.HasIndex(e => e.DisplayOrder);
+
             });
 
             modelBuilder.Entity<Conversation>(entity =>

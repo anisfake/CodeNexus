@@ -14,15 +14,18 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAIGeneratorService _aiGeneratorService;
+    private readonly IPlanUsageLimitService _planUsageLimitService;
 
     public SendTutorMessageCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        IAIGeneratorService aiGeneratorService)
+        IAIGeneratorService aiGeneratorService,
+        IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _aiGeneratorService = aiGeneratorService;
+        _planUsageLimitService = planUsageLimitService;
     }
 
     public async Task<Result<TutorChatResponseDto>> Handle(SendTutorMessageCommand request, CancellationToken cancellationToken)
@@ -36,6 +39,14 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         if (string.IsNullOrWhiteSpace(request.Message))
         {
             return Result<TutorChatResponseDto>.Failure("EMPTY_MESSAGE", "Message is required");
+        }
+
+        var tutorLimitCheck = await _planUsageLimitService.CheckTutorMessageAllowedAsync(userId, cancellationToken);
+        if (!tutorLimitCheck.IsSuccess)
+        {
+            return Result<TutorChatResponseDto>.Failure(
+                tutorLimitCheck.ErrorCode!,
+                tutorLimitCheck.ErrorMessage!);
         }
 
         var config = await _context.AIProviderConfigs

@@ -69,6 +69,7 @@ public class TutorChatController : ControllerBase
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "CONVERSATION_NOT_FOUND" or "LEARNING_PATH_NOT_FOUND" or "CHAPTER_NOT_FOUND" or "LESSON_NOT_FOUND"
                 => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "TUTOR_MESSAGE_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }
@@ -83,6 +84,7 @@ public class TutorChatController : ControllerBase
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "CONVERSATION_NOT_FOUND" or "LEARNING_PATH_NOT_FOUND" or "CHAPTER_NOT_FOUND" or "LESSON_NOT_FOUND"
                 => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "TUTOR_MESSAGE_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }

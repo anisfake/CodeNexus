@@ -60,6 +60,26 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
                 config.UsageType = request.UsageType.Value;
             }
 
+            if (request.AccessTier.HasValue)
+            {
+                config.AccessTier = request.AccessTier.Value;
+            }
+
+            if (config.IsActive)
+            {
+                var configsToDeactivate = await _context.AIProviderConfigs
+                    .Where(x => x.ConfigId != config.ConfigId
+                        && x.UsageType == config.UsageType
+                        && x.AccessTier == config.AccessTier
+                        && x.IsActive)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var c in configsToDeactivate)
+                {
+                    c.IsActive = false;
+                }
+            }
+
             config.LastUpdated = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);

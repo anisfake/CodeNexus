@@ -42,6 +42,8 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<TokenBlacklist> TokenBlacklist { get; }
         public DbSet<Achievement> Achievements { get; }
         public DbSet<UserAchievement> UserAchievements { get; }
+        public DbSet<PaymentTransaction> PaymentTransactions { get; }
+        public DbSet<SubscriptionPlan> SubscriptionPlans { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

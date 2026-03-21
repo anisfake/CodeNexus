@@ -29,5 +29,8 @@ namespace CodeNexus.Domain.Entities
         public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
         public virtual ICollection<QuizAttempt> QuizAttempts { get; set; } = new List<QuizAttempt>();
         public virtual ICollection<Goals> Goals { get; set; } = new List<Goals>();
+        public Guid? SubscriptionPlanId { get; set; }
+        public virtual SubscriptionPlan? SubscriptionPlan { get; set; }
+        public DateTime? PlanExpiresAt { get; set; }
     }
 }

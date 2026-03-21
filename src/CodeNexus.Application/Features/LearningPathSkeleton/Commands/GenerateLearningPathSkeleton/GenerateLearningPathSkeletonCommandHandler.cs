@@ -21,17 +21,23 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
     private readonly ICurrentUserService _currentUserService;
     private readonly ITimelineCalculationService _timelineCalculationService;
     private readonly IAIGeneratorService _aiGeneratorService;
+    private readonly ISubscriptionAccessService _subscriptionAccessService;
+    private readonly IPlanUsageLimitService _planUsageLimitService;
 
     public GenerateLearningPathSkeletonCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         ITimelineCalculationService timelineCalculationService,
-        IAIGeneratorService aiGeneratorService)
+        IAIGeneratorService aiGeneratorService,
+        ISubscriptionAccessService subscriptionAccessService,
+        IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _timelineCalculationService = timelineCalculationService;
         _aiGeneratorService = aiGeneratorService;
+        _subscriptionAccessService = subscriptionAccessService;
+        _planUsageLimitService = planUsageLimitService;
     }
 
     public async Task<Result<CreateLearningPathResponse>> Handle(GenerateLearningPathSkeletonCommand request, CancellationToken cancellationToken)
@@ -39,6 +45,15 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         try
         {
             var userId = _currentUserService.GetUserId();
+            var learningPathLimitCheck = await _planUsageLimitService.CheckLearningPathCreationAllowedAsync(userId, cancellationToken);
+            if (!learningPathLimitCheck.IsSuccess)
+            {
+                return Result<CreateLearningPathResponse>.Failure(
+                    learningPathLimitCheck.ErrorCode!,
+                    learningPathLimitCheck.ErrorMessage!);
+            }
+
+            var canUsePersonalGoals = await _subscriptionAccessService.CanUsePersonalGoalsAsync(userId, cancellationToken);
 
             var subject = await _context.Subjects.FirstOrDefaultAsync(x => x.SubjectId == request.SubjectId, cancellationToken: cancellationToken);
             if (subject == null)
@@ -75,6 +90,14 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 .Where(g => g.IsSystemDefined)
                 .Select(g => g.GoalId)
                 .ToList();
+
+            var hasPersonalGoals = goals.Any(g => !g.IsSystemDefined);
+            if (hasPersonalGoals && !canUsePersonalGoals)
+            {
+                return Result<CreateLearningPathResponse>.Failure(
+                    "SUBSCRIPTION_REQUIRED",
+                    "Your current plan does not allow using personal goals in learning path generation.");
+            }
 
             if (systemGoalIds.Count > 0)
             {
@@ -194,6 +217,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                         chapterData = new ChapterGenerationData
                         {
                             Title = normalizedChapterTitle,
+                            Content = regenerated.Content,
                             LessonTitles = regenerated.LessonTitles
                         };
                     }
@@ -204,12 +228,14 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     ChapterId = NewId.NextGuid(),
                     PathId = learningPath.PathId,
                     Title = normalizedChapterTitle,
+                    Content = chapterData.Content,
                     OrderIndex = i,
                     IsCompleted = false,
                     StartDate = chapterTimeline.StartDate,
                     EndDate = chapterTimeline.EndDate,
                     EstimatedDays = chapterTimeline.EstimatedDays,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = string.IsNullOrWhiteSpace(chapterData.Content) ? null : DateTime.UtcNow
                 };
 
                 await _context.Chapters.AddAsync(chapter, cancellationToken);
@@ -268,7 +294,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 chapters.Add(new ChapterDto(
                     chapter.ChapterId,
                     chapter.Title,
-                    null,
+                    chapter.Content,
                     chapter.OrderIndex,
                     lessonDtos,
                     new List<TaskDto>()
@@ -325,6 +351,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             return new ChapterGenerationData
             {
                 Title = $"Chapter {orderIndex + 1}: {subjectName} Fundamentals {orderIndex + 1}",
+                Content = BuildFallbackChapterContent(subjectName, learningPathTitle, orderIndex, language),
                 LessonTitles = Enumerable.Range(1, lessonsPerChapter)
                     .Select(i => $"Lesson {i}: {subjectName} Topic {i}")
                     .ToList()
@@ -362,6 +389,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             return new ChapterGenerationData
             {
                 Title = fixedTitle,
+                Content = BuildFallbackChapterContent(subjectName, learningPathTitle, orderIndex, language),
                 LessonTitles = Enumerable.Range(1, lessonsPerChapter)
                     .Select(i => $"{fixedTitle} - Lesson {i}")
                     .ToList()
@@ -512,6 +540,7 @@ REQUIREMENTS:
 JSON FORMAT:
 {{
   ""title"": ""Chapter title"",
+  ""content"": ""A single short sentence describing what this chapter helps the learner achieve."",
   ""lessonTitles"": [
     ""Lesson 1 title"",
     ""Lesson 2 title"",
@@ -563,6 +592,7 @@ REQUIREMENTS:
 JSON FORMAT:
 {{
   ""title"": ""{fixedTitle}"",
+  ""content"": ""A single short sentence describing what this chapter helps the learner achieve."",
   ""lessonTitles"": [
     ""Lesson 1 title"",
     ""Lesson 2 title"",
@@ -576,6 +606,7 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     private class ChapterGenerationData
     {
         public string Title { get; set; } = "";
+        public string Content { get; set; } = "";
         public List<string> LessonTitles { get; set; } = new();
     }
 
@@ -911,6 +942,23 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             _ => orderIndex == 0
                 ? $"Introduction to {subjectName}"
                 : $"{subjectName} Topic {orderIndex + 1}"
+        };
+    }
+
+    private static string BuildFallbackChapterContent(
+        string subjectName,
+        string learningPathTitle,
+        int orderIndex,
+        LanguageSelection language)
+    {
+        return language switch
+        {
+            LanguageSelection.VietNamese => orderIndex == 0
+                ? $"Chương này giới thiệu nền tảng cốt lõi của {subjectName} trong lộ trình {learningPathTitle}."
+                : $"Chương này giúp bạn mở rộng kiến thức {subjectName} để tiến gần hơn tới mục tiêu của lộ trình {learningPathTitle}.",
+            _ => orderIndex == 0
+                ? $"This chapter introduces the core foundations of {subjectName} in the learning path {learningPathTitle}."
+                : $"This chapter helps you deepen your {subjectName} skills and move closer to the goals of {learningPathTitle}."
         };
     }
 }

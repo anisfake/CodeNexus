@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.Infrastructure.Services;
 using CodeNexus.UnitTests.Helpers;
@@ -20,6 +21,8 @@ public class GroqServiceWithCacheTests
     private readonly Mock<IEncryptionService> _mockEncryptionService;
     private readonly HttpClient _httpClient;
     private readonly GroqServiceWithCache _service;
+    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
 
     public GroqServiceWithCacheTests()
     {
@@ -27,11 +30,16 @@ public class GroqServiceWithCacheTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCacheService = new Mock<IAIConfigCacheService>();
         _mockEncryptionService = new Mock<IEncryptionService>();
+        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
+        _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         
         _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
-        _service = new GroqServiceWithCache(_httpClient, _mockContext.Object, _mockCacheService.Object, _mockEncryptionService.Object);
+        _service = new GroqServiceWithCache(_httpClient, _mockContext.Object, _mockCacheService.Object, _mockEncryptionService.Object, _mockCurrentUserService.Object, _mockSubscriptionAccessService.Object);
 
         SetupAIProviderConfigsDbSet();
+        SetupUsersDbSet();
     }
 
     [Fact]
@@ -195,15 +203,46 @@ public class GroqServiceWithCacheTests
     private void SetupCacheService()
     {
         _mockCacheService
-            .Setup(x => x.GetApiKeyAsync(It.IsAny<AIUsageType>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync("test-api-key");
+            .Setup(x => x.GetApiKeyAsync(It.IsAny<AIUsageType>(), It.IsAny<AIAccessTier>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
     }
 
     private void SetupAIProviderConfigsDbSet()
     {
+        _mockEncryptionService.Setup(x => x.Decrypt("encrypted-api-key")).Returns("test-api-key");
+
         _mockContext
             .Setup(x => x.AIProviderConfigs)
-            .Returns(new List<CodeNexus.Domain.Entities.AIProviderConfig>().BuildMockDbSet().Object);
+            .Returns(new List<AIProviderConfig>
+            {
+                new()
+                {
+                    ConfigId = Guid.NewGuid(),
+                    ProviderName = "Groq",
+                    UsageType = AIUsageType.StructureGeneration,
+                    AccessTier = AIAccessTier.Free,
+                    EncryptedApiKey = "encrypted-api-key",
+                    ConfigJson = "{\"Model\":\"openai/gpt-oss-120b\",\"MaxTokens\":8192,\"Temperature\":0.3,\"RequestTimeoutSeconds\":30}",
+                    IsActive = true
+                }
+            }.BuildMockDbSet().Object);
+    }
+
+    private void SetupUsersDbSet()
+    {
+        var userId = Guid.NewGuid();
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+
+        _mockContext
+            .Setup(x => x.Users)
+            .Returns(new List<User>
+            {
+                new()
+                {
+                    UserId = userId,
+                    PlanExpiresAt = null
+                }
+            }.BuildMockDbSet().Object);
     }
 
     private static string CreateGroqResponse(string content, string finishReason = "stop")

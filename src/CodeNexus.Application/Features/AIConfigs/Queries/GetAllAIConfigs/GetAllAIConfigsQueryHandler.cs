@@ -53,6 +53,7 @@ namespace CodeNexus.Application.Features.AIConfigs.Queries.GetAllAIConfigs
                         ApiKey: config.EncryptedApiKey,
                         ProviderName: config.ProviderName,
                         UsageType: config.UsageType,
+                        AccessTier: config.AccessTier,
                         IsActive: config.IsActive,
                         LastUpdated: config.LastUpdated,
                         ConfigJson: configData

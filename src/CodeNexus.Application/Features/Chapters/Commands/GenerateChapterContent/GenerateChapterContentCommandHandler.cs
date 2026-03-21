@@ -83,10 +83,11 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
             _ => ""
         };
 
-        return $@"Given a programming chapter titled ""{chapter.Title}"" in a {subject} learning path (""{learningPath.Title}""), which contains the following lessons: {lessons}.
+        return $@"Given a chapter titled ""{chapter.Title}"" in the learning path ""{learningPath.Title}"" for the subject {subject}, which contains the following lessons: {lessons}.
 
-Write a single short sentence (max 20 words) that describes the main goal/outcome of this chapter. 
+Write a single short sentence describing what this chapter helps the learner achieve.
 The sentence should summarize what the learner will be able to do after completing this chapter.
+Keep it concise, natural, and aligned with the chapter summary format used in the learning path skeleton.
 {languageInstruction}
 Return ONLY the sentence, no quotes, no markdown, no extra text.";
     }

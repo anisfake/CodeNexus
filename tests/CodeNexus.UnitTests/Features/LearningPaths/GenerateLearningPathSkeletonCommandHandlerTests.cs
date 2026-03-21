@@ -14,6 +14,8 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ITimelineCalculationService> _mockTimelineCalculationService;
+    private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
+    private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
     private readonly GenerateLearningPathSkeletonCommandHandler _handler;
 
     public GenerateLearningPathSkeletonCommandHandlerTests()
@@ -21,12 +23,20 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockTimelineCalculationService = new Mock<ITimelineCalculationService>();
+        _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
+        _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockSubscriptionAccessService.Setup(x => x.CanUsePersonalGoalsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
         
         _handler = new GenerateLearningPathSkeletonCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
             _mockTimelineCalculationService.Object,
-            new ThrowingAIGeneratorService()
+            new ThrowingAIGeneratorService(),
+            _mockSubscriptionAccessService.Object,
+            _mockPlanUsageLimitService.Object
         );
     }
 
@@ -181,6 +191,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         // Verify each chapter has the expected number of lessons (5 for intermediate)
         foreach (var chapter in result.Value.ChapterDtos)
         {
+            Assert.False(string.IsNullOrWhiteSpace(chapter.Content));
             Assert.Equal(5, chapter.Lessons.Count);
 
             // Response does not include quizzes yet (quizzes are created in DB)
@@ -207,6 +218,25 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
             It.IsAny<CancellationToken>()), Times.Exactly(4)); // Called for each chapter
         
         _mockTimelineCalculationService.Verify(x => x.GetQuizzesPerLesson(ComplexityLevel.Intermediate), Times.Exactly(20)); // Called for each lesson (4 chapters * 5 lessons)
+    }
+
+    [Fact]
+    public async Task Handle_WhenLearningPathLimitExceeded_ShouldReturnFailure()
+    {
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var goalId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest> { new(goalId, 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("LEARNING_PATH_LIMIT_EXCEEDED", "Limit reached"));
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("LEARNING_PATH_LIMIT_EXCEEDED", result.ErrorCode);
     }
 
     private sealed class ThrowingAIGeneratorService : IAIGeneratorService

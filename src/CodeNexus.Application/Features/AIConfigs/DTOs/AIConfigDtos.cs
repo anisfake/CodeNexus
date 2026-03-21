@@ -12,7 +12,8 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         string ApiKey,
         Dictionary<string, object> ConfigJson,
         bool IsEnabel,
-        AIUsageType AIUsageType
+        AIUsageType AIUsageType,
+        AIAccessTier AccessTier
     );
     public record CreateAIConfigResponse(
         string Message,
@@ -25,7 +26,8 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         string? ProviderName,
         Dictionary<string, object>? ConfigJson,
         bool? IsActive,
-        AIUsageType? UsageType
+        AIUsageType? UsageType,
+        AIAccessTier? AccessTier
     );
 
     public record UpdateAIConfigResponse(
@@ -35,7 +37,8 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
     );
 
     public record SetActiveConfigRequest(
-        AIUsageType UsageType
+        AIUsageType UsageType,
+        AIAccessTier AccessTier
     );
 
     public record AIConfigResponse(
@@ -49,6 +52,7 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         string ApiKey,
         string ProviderName,
         AIUsageType UsageType,
+        AIAccessTier AccessTier,
         bool IsActive,
         DateTime LastUpdated,
         Dictionary<string, object> ConfigJson

@@ -14,6 +14,7 @@ public class SendTutorMessageCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<IAIGeneratorService> _mockAiGenerator;
+    private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
     private readonly SendTutorMessageCommandHandler _handler;
 
     public SendTutorMessageCommandHandlerTests()
@@ -21,11 +22,15 @@ public class SendTutorMessageCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockAiGenerator = new Mock<IAIGeneratorService>();
+        _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
 
         _handler = new SendTutorMessageCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
-            _mockAiGenerator.Object);
+            _mockAiGenerator.Object,
+            _mockPlanUsageLimitService.Object);
     }
 
     [Fact]
@@ -97,5 +102,21 @@ public class SendTutorMessageCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(conversations[0].ConversationId, result.Value!.ConversationId);
         Assert.Equal("This is a tutor response.", result.Value.AssistantMessage);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTutorLimitExceeded_ReturnsFailure()
+    {
+        var userId = Guid.NewGuid();
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("TUTOR_MESSAGE_LIMIT_EXCEEDED", "Limit reached"));
+
+        var command = new SendTutorMessageCommand(null, Guid.NewGuid(), null, null, "Explain async/await");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("TUTOR_MESSAGE_LIMIT_EXCEEDED", result.ErrorCode);
     }
 }

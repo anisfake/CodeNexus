@@ -188,6 +188,40 @@ public class GenerateChapterContentCommandHandlerTests
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Fact]
+    public async Task Handle_GeneratesPrompt_UsingSkeletonSummaryFormat()
+    {
+        // Arrange
+        var userId = NewId.NextGuid();
+        var command = new GenerateChapterContentCommand(NewId.NextGuid());
+
+        var (chapter, _) = CreateChapterGraph(command.ChapterId, userId);
+        chapter.Content = string.Empty;
+        chapter.UpdatedAt = null;
+
+        string? capturedPrompt = null;
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Chapters).Returns(
+            new[] { chapter }.BuildMockDbSet().Object);
+        _mockAIGeneratorService
+            .Setup(x => x.GenerateContentAsync(It.IsAny<string>(), It.IsAny<AIUsageType>()))
+            .Callback<string, AIUsageType>((prompt, _) => capturedPrompt = prompt)
+            .ReturnsAsync("This chapter helps you build confidence with Python variables and data types.");
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        capturedPrompt.Should().NotBeNull();
+        capturedPrompt.Should().Contain("Write a single short sentence describing what this chapter helps the learner achieve.");
+        capturedPrompt.Should().Contain("aligned with the chapter summary format used in the learning path skeleton");
+        capturedPrompt.Should().Contain("Return ONLY the sentence, no quotes, no markdown, no extra text.");
+    }
+
     private static (Chapter chapter, LearningPath learningPath) CreateChapterGraph(Guid chapterId, Guid userId)
     {
         var subject = new Subject

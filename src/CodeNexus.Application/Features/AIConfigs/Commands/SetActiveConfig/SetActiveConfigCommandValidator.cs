@@ -11,5 +11,8 @@ public class SetActiveConfigCommandValidator : AbstractValidator<SetActiveConfig
 
         RuleFor(x => x.UsageType)
             .IsInEnum().WithMessage("Invalid UsageType");
+
+        RuleFor(x => x.AccessTier)
+            .IsInEnum().WithMessage("Invalid AccessTier");
     }
 }

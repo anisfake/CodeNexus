@@ -13,6 +13,8 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly IApplicationDbContext _context;
     private readonly IAIConfigCacheService _cacheService;
     private readonly IEncryptionService _encryptionService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ISubscriptionAccessService _subscriptionAccessService;
     private const string GroqApiUrl = "https://api.groq.com/openai/v1/chat/completions";
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
@@ -24,12 +26,16 @@ public class GroqServiceWithCache : IAIGeneratorService
         HttpClient httpClient,
         IApplicationDbContext context,
         IAIConfigCacheService cacheService,
-        IEncryptionService encryptionService)
+        IEncryptionService encryptionService,
+        ICurrentUserService currentUserService,
+        ISubscriptionAccessService subscriptionAccessService)
     {
         _httpClient = httpClient;
         _context = context;
         _cacheService = cacheService;
         _encryptionService = encryptionService;
+        _currentUserService = currentUserService;
+        _subscriptionAccessService = subscriptionAccessService;
     }
 
     public async Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
@@ -108,37 +114,48 @@ public class GroqServiceWithCache : IAIGeneratorService
 
     private async Task<(string apiKey, GroqConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
     {
-        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType, CancellationToken.None);
+        var preferredTier = await ResolvePreferredTierAsync();
+        var selectedConfig = await ResolveConfigByTierAsync(usageType, preferredTier)
+            ?? await ResolveConfigByTierAsync(usageType, preferredTier == AIAccessTier.Paid ? AIAccessTier.Free : AIAccessTier.Paid);
 
-        var dbConfig = await _context.AIProviderConfigs
-            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive, CancellationToken.None);
-
-        if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
+        if (selectedConfig == null)
         {
-            if (!string.IsNullOrEmpty(cachedApiKey))
-            {
-                return (cachedApiKey, new GroqConfig
-                {
-                    Model = DefaultModel,
-                    MaxTokens = DefaultMaxTokens,
-                    Temperature = DefaultTemperature,
-                    RequestTimeoutSeconds = DefaultRequestTimeoutSeconds
-                }, "Groq");
-            }
-
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
         }
 
-        var apiKey = _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
+        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType, selectedConfig.AccessTier, CancellationToken.None);
+        var apiKey = string.IsNullOrWhiteSpace(cachedApiKey)
+            ? _encryptionService.Decrypt(selectedConfig.EncryptedApiKey)
+            : cachedApiKey;
 
-        var config = ParseConfigJson(dbConfig.ConfigJson);
-
-        if (string.IsNullOrEmpty(cachedApiKey))
+        if (string.IsNullOrWhiteSpace(cachedApiKey))
         {
-            await _cacheService.SetApiKeyAsync(usageType, apiKey, TimeSpan.FromHours(1));
+            await _cacheService.SetApiKeyAsync(usageType, selectedConfig.AccessTier, apiKey, TimeSpan.FromHours(1));
         }
 
-        return (apiKey, config, string.IsNullOrWhiteSpace(dbConfig.ProviderName) ? "Groq" : dbConfig.ProviderName);
+        var config = ParseConfigJson(selectedConfig.ConfigJson);
+        return (apiKey, config, string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName);
+    }
+
+    private async Task<AIAccessTier> ResolvePreferredTierAsync()
+    {
+        try
+        {
+            var userId = _currentUserService.GetUserId();
+            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId);
+            return canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+        }
+        catch
+        {
+            return AIAccessTier.Free;
+        }
+    }
+
+    private async Task<CodeNexus.Domain.Entities.AIProviderConfig?> ResolveConfigByTierAsync(AIUsageType usageType, AIAccessTier tier)
+    {
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.AccessTier == tier && c.IsActive, CancellationToken.None);
     }
 
     private GroqConfig ParseConfigJson(string? configJson)

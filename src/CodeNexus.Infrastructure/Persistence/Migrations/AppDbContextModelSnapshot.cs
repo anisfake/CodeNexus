@@ -28,6 +28,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccessTier")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("ConfigJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -51,7 +55,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasKey("ConfigId");
 
-                    b.HasIndex("UsageType", "IsActive");
+                    b.HasIndex("UsageType", "AccessTier")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.HasIndex("UsageType", "AccessTier", "IsActive");
 
                     b.ToTable("AIProviderConfigs");
                 });
@@ -834,6 +842,68 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.PaymentTransaction", b =>
+                {
+                    b.Property<Guid>("PaymentTransactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("BankCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("OrderInfo")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("PaidAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ResponseCode")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SubscriptionPlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TransactionNo")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TxnRef")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("PaymentTransactionId");
+
+                    b.HasIndex("SubscriptionPlanId");
+
+                    b.HasIndex("TxnRef")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PaymentTransactions");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Questions", b =>
                 {
                     b.Property<Guid>("QuestionId")
@@ -1133,6 +1203,83 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("SubjectGoals");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.SubscriptionPlan", b =>
+                {
+                    b.Property<Guid>("SubscriptionPlanId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("PlanType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<decimal>("PriceVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("SubscriptionPlanId");
+
+                    b.HasIndex("DisplayOrder");
+
+                    b.HasIndex("PlanType")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionPlans");
+
+                    b.HasData(
+                        new
+                        {
+                            SubscriptionPlanId = new Guid("b06ea0a8-d6d1-4cc4-9ef0-b53659956d11"),
+                            Description = "Dung model free va chi duoc su dung system goals.",
+                            DisplayOrder = 1,
+                            DurationDays = 0,
+                            IsActive = true,
+                            Name = "Free",
+                            PlanType = "Free",
+                            PriceVnd = 0m
+                        },
+                        new
+                        {
+                            SubscriptionPlanId = new Guid("8be8f5d9-9c78-4d96-8d0f-2a8a3dcfa9fb"),
+                            Description = "Mo khoa personal goals va model tra phi cho hoc tap ca nhan.",
+                            DisplayOrder = 2,
+                            DurationDays = 30,
+                            IsActive = true,
+                            Name = "Standard",
+                            PlanType = "Standard",
+                            PriceVnd = 99000m
+                        },
+                        new
+                        {
+                            SubscriptionPlanId = new Guid("cd0c6d3b-a7e7-48e5-a746-d6e16f9f39d4"),
+                            Description = "Toan bo quyen Standard voi thoi han dai hon va uu tien tinh nang AI nang cao.",
+                            DisplayOrder = 3,
+                            DurationDays = 90,
+                            IsActive = true,
+                            Name = "Pro",
+                            PlanType = "Pro",
+                            PriceVnd = 249000m
+                        });
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Tag", b =>
                 {
                     b.Property<Guid>("TagId")
@@ -1257,11 +1404,17 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime?>("PlanExpiresAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid?>("RoleId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Status")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SubscriptionPlanId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -1273,6 +1426,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("RoleId");
+
+                    b.HasIndex("SubscriptionPlanId");
 
                     b.HasIndex("Username")
                         .IsUnique();
@@ -1636,6 +1791,24 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.PaymentTransaction", b =>
+                {
+                    b.HasOne("CodeNexus.Domain.Entities.SubscriptionPlan", "SubscriptionPlan")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("CodeNexus.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("SubscriptionPlan");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Questions", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.Quiz", "Quiz")
@@ -1771,7 +1944,14 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .WithMany("Users")
                         .HasForeignKey("RoleId");
 
+                    b.HasOne("CodeNexus.Domain.Entities.SubscriptionPlan", "SubscriptionPlan")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionPlanId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Role");
+
+                    b.Navigation("SubscriptionPlan");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserAchievement", b =>

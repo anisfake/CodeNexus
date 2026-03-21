@@ -38,6 +38,7 @@ public class CreateAIConfigCommandHandlerTests
             "test-api-key",
             new Dictionary<string, object> { { "model", "gpt-4" } },
             AIUsageType.StructureGeneration,
+            AIAccessTier.Free,
             true
         );
 
@@ -74,6 +75,7 @@ public class CreateAIConfigCommandHandlerTests
             "existing-api-key",
             new Dictionary<string, object>(),
             AIUsageType.ContentGeneration,
+            AIAccessTier.Free,
             true
         );
 
@@ -104,6 +106,7 @@ public class CreateAIConfigCommandHandlerTests
             "groq-api-key",
             configJson,
             AIUsageType.Verification,
+            AIAccessTier.Paid,
             false
         );
 
@@ -129,6 +132,7 @@ public class CreateAIConfigCommandHandlerTests
             "test-key",
             new Dictionary<string, object>(),
             AIUsageType.Assistant,
+            AIAccessTier.Free,
             true
         );
 
@@ -155,6 +159,7 @@ public class CreateAIConfigCommandHandlerTests
             "api-key",
             new Dictionary<string, object>(),
             AIUsageType.StructureGeneration,
+            AIAccessTier.Free,
             true
         );
 

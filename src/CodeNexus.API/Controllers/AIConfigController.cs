@@ -36,7 +36,7 @@ namespace CodeNexus.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAIConfig(CreateAIConfigRequest request, CancellationToken cancellationToken)
         {
-            var command = new CreateAIConfigCommand(request.ProviderName, request.ApiKey, request.ConfigJson, request.AIUsageType, request.IsEnabel);
+            var command = new CreateAIConfigCommand(request.ProviderName, request.ApiKey, request.ConfigJson, request.AIUsageType, request.AccessTier, request.IsEnabel);
 
             var result = await _sender.Send(command, cancellationToken);
 
@@ -55,7 +55,8 @@ namespace CodeNexus.API.Controllers
                 request.ApiKey,
                 request.ConfigJson,
                 request.IsActive,
-                request.UsageType
+                request.UsageType,
+                request.AccessTier
             );
 
             var result = await _sender.Send(command, cancellationToken);
@@ -89,7 +90,7 @@ namespace CodeNexus.API.Controllers
             [FromBody] SetActiveConfigRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new SetActiveConfigCommand(configId, request.UsageType);
+            var command = new SetActiveConfigCommand(configId, request.UsageType, request.AccessTier);
             var result = await _sender.Send(command, cancellationToken);
 
             return ToActionResult(result);
