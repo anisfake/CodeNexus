@@ -47,7 +47,7 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
             .ToList();
 
         var isFreePlan = string.Equals(
-            effectivePlan.PlanType,
+            effectivePlan.PlanType.ToString(),
             SubscriptionPlanType.Free.ToString(),
             StringComparison.OrdinalIgnoreCase);
 

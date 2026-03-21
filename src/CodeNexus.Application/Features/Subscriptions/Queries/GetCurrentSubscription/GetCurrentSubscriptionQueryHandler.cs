@@ -32,7 +32,7 @@ public class GetCurrentSubscriptionQueryHandler : IRequestHandler<GetCurrentSubs
             .Select(x => x.PlanExpiresAt)
             .FirstOrDefaultAsync(cancellationToken);
         var isFreePlan = string.Equals(
-            plan.PlanType,
+            plan.PlanType.ToString(),
             SubscriptionPlanType.Free.ToString(),
             StringComparison.OrdinalIgnoreCase);
 

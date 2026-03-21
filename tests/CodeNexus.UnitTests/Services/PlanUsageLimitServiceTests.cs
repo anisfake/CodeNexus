@@ -30,7 +30,7 @@ public class PlanUsageLimitServiceTests
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = "Free", Name = "Free", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
             },
             new[]
             {
@@ -62,7 +62,7 @@ public class PlanUsageLimitServiceTests
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = standardPlanId, PlanType = "Standard", Name = "Standard", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = standardPlanId, PlanType = SubscriptionPlanType.Standard, Name = "Standard", IsActive = true }
             },
             new[]
             {
@@ -102,7 +102,7 @@ public class PlanUsageLimitServiceTests
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = "Free", Name = "Free", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
             },
             new[]
             {
@@ -144,7 +144,7 @@ public class PlanUsageLimitServiceTests
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = proPlanId, PlanType = "Pro", Name = "Pro", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = proPlanId, PlanType = SubscriptionPlanType.Pro, Name = "Pro", IsActive = true }
             },
             new[]
             {
