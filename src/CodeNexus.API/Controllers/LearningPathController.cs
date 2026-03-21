@@ -14,6 +14,7 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPat
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningPathDrafts;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
+using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
@@ -261,6 +262,14 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> ShareLearningPathViaChat(Guid pathId, Guid studentId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new SendLearningPathShareCommand(pathId, studentId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("{pathId:guid}/progress")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathProgress(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathProgressQuery(pathId), cancellationToken);
         return ToActionResult(result);
     }
 
