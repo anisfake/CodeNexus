@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Subscriptions.DTOs;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -29,7 +30,7 @@ public class CreateSubscriptionPlanCommandHandler : IRequestHandler<CreateSubscr
 
         var plan = new SubscriptionPlan
         {
-            SubscriptionPlanId = Guid.NewGuid(),
+            SubscriptionPlanId = NewId.NextGuid(),
             PlanType = request.PlanType,
             Name = request.Name.Trim(),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),

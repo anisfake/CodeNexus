@@ -31,12 +31,16 @@ public class GetCurrentSubscriptionQueryHandler : IRequestHandler<GetCurrentSubs
             .Where(x => x.UserId == userId)
             .Select(x => x.PlanExpiresAt)
             .FirstOrDefaultAsync(cancellationToken);
+        var isFreePlan = string.Equals(
+            plan.PlanType,
+            SubscriptionPlanType.Free.ToString(),
+            StringComparison.OrdinalIgnoreCase);
 
         return new CurrentSubscriptionDto(
             plan.SubscriptionPlanId,
             plan.PlanType,
             plan.Name,
-            plan.PlanType == SubscriptionPlanType.Free ? null : expiresAt,
-            plan.PlanType == SubscriptionPlanType.Free);
+            isFreePlan ? null : expiresAt,
+            isFreePlan);
     }
 }

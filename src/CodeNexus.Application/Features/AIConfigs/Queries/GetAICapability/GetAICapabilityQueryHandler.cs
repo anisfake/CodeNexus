@@ -46,10 +46,15 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
                 activeConfigs.Any(x => x.UsageType == usageType && x.AccessTier == AIAccessTier.Paid)))
             .ToList();
 
+        var isFreePlan = string.Equals(
+            effectivePlan.PlanType,
+            SubscriptionPlanType.Free.ToString(),
+            StringComparison.OrdinalIgnoreCase);
+
         return new GetAICapabilityResponse(
-            HasPaidAccess: effectivePlan.PlanType != SubscriptionPlanType.Free,
+            HasPaidAccess: !isFreePlan,
             CurrentPlan: effectivePlan.Name,
-            PlanExpiresAt: effectivePlan.PlanType == SubscriptionPlanType.Free ? null : planExpiresAt,
+            PlanExpiresAt: isFreePlan ? null : planExpiresAt,
             Capabilities: capabilities);
     }
 }

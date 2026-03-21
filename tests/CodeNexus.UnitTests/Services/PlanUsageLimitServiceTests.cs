@@ -30,7 +30,7 @@ public class PlanUsageLimitServiceTests
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = "Free", Name = "Free", IsActive = true }
             },
             new[]
             {
@@ -62,7 +62,7 @@ public class PlanUsageLimitServiceTests
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = standardPlanId, PlanType = SubscriptionPlanType.Standard, Name = "Standard", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = standardPlanId, PlanType = "Standard", Name = "Standard", IsActive = true }
             },
             new[]
             {
@@ -97,11 +97,12 @@ public class PlanUsageLimitServiceTests
         var userId = Guid.NewGuid();
         var freePlanId = Guid.NewGuid();
         var conversationId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
 
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = "Free", Name = "Free", IsActive = true }
             },
             new[]
             {
@@ -123,7 +124,7 @@ public class PlanUsageLimitServiceTests
             MessageId = Guid.NewGuid(),
             ConversationId = conversationId,
             Content = $"USER: message {i}",
-            CreatedAt = DateTime.UtcNow.AddMinutes(-i)
+            CreatedAt = now
         }).BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
@@ -138,11 +139,12 @@ public class PlanUsageLimitServiceTests
         var userId = Guid.NewGuid();
         var proPlanId = Guid.NewGuid();
         var conversationId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
 
         SeedPlansAndUsers(
             new[]
             {
-                new SubscriptionPlan { SubscriptionPlanId = proPlanId, PlanType = SubscriptionPlanType.Pro, Name = "Pro", IsActive = true }
+                new SubscriptionPlan { SubscriptionPlanId = proPlanId, PlanType = "Pro", Name = "Pro", IsActive = true }
             },
             new[]
             {
@@ -164,7 +166,7 @@ public class PlanUsageLimitServiceTests
             MessageId = Guid.NewGuid(),
             ConversationId = conversationId,
             Content = $"USER: message {i}",
-            CreatedAt = DateTime.UtcNow.AddMinutes(-i)
+            CreatedAt = now
         }).BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);

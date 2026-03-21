@@ -89,16 +89,21 @@ public class PlanUsageLimitService : IPlanUsageLimitService
             return Result.Success();
         }
 
-        var usedMessages = await (
-            from message in _context.Messages.AsNoTracking()
-            join conversation in _context.Conversations.AsNoTracking()
-                on message.ConversationId equals conversation.ConversationId
-            where conversation.UserId == userId
-                  && !conversation.IsDeleted
-                  && message.CreatedAt >= windowStartUtc
-                  && message.Content.StartsWith("USER:")
-            select message.MessageId
-        ).CountAsync(cancellationToken);
+        var tutorConversationIds = await _context.Conversations
+            .AsNoTracking()
+            .Where(c => c.UserId == userId && !c.IsDeleted)
+            .Select(c => c.ConversationId)
+            .ToListAsync(cancellationToken);
+
+        var usedMessages = tutorConversationIds.Count == 0
+            ? 0
+            : await _context.Messages
+                .AsNoTracking()
+                .CountAsync(
+                    message => tutorConversationIds.Contains(message.ConversationId)
+                               && message.CreatedAt >= windowStartUtc
+                               && message.Content.StartsWith("USER:"),
+                    cancellationToken);
 
         return usedMessages >= limit
             ? Result.Failure(
