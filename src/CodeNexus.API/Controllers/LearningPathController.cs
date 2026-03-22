@@ -17,6 +17,8 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPat
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
+using CodeNexus.Application.Features.Lessons.Commands.MarkLessonContentRead;
+using CodeNexus.Application.Features.Lessons.Queries.GetLessonReadStatus;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using CodeNexus.Application.Features.Tasks.Commands.GenerateChapterTasks;
 using CodeNexus.Application.Features.AISummaries.Commands.GenerateResourceSummary;
@@ -223,6 +225,22 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("lessons/{lessonId:guid}/read")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> MarkLessonContentRead(Guid lessonId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new MarkLessonContentReadCommand(lessonId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("lessons/{lessonId:guid}/read-status")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLessonReadStatus(Guid lessonId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLessonReadStatusQuery(lessonId), cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpPost("chapters/{chapterId:guid}/generate-content")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateChapterContent(Guid chapterId, CancellationToken cancellationToken)
@@ -284,7 +302,7 @@ public class LearningPathController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "EMAIL_EXISTS" or "USERNAME_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
@@ -300,7 +318,7 @@ public class LearningPathController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

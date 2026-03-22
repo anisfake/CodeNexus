@@ -42,6 +42,24 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
         if (learningPathOwnerId.Value != userId)
             return Result<LearningPathCompletionProgressDto>.Failure("ACCESS_DENIED", "You do not have access to this learning path.");
 
+        var totalLessonContents = await _context.Lessons
+            .AsNoTracking()
+            .CountAsync(l =>
+                !l.IsDeleted &&
+                !l.Chapter.IsDeleted &&
+                l.Chapter.PathId == request.PathId,
+                cancellationToken);
+
+        var completedLessonContents = await _context.LearnProgresses
+            .AsNoTracking()
+            .CountAsync(p =>
+                p.UserId == userId &&
+                p.IsLessonContentRead &&
+                !p.Lesson.IsDeleted &&
+                !p.Lesson.Chapter.IsDeleted &&
+                p.Lesson.Chapter.PathId == request.PathId,
+                cancellationToken);
+
         var totalQuizzes = await _context.Quizzes
             .AsNoTracking()
             .CountAsync(q =>
@@ -80,8 +98,16 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
                 t.Status == TaskStatus_.Completed,
                 cancellationToken);
 
-        var totalItems = totalQuizzes + totalTasks;
-        var completedItems = completedQuizzes + completedTasks;
+        var totalItems = totalLessonContents + totalQuizzes + totalTasks;
+        var completedItems = completedLessonContents + completedQuizzes + completedTasks;
+
+        var contentProgressPercent = totalLessonContents == 0
+            ? 0m
+            : Math.Round(completedLessonContents * 100m / totalLessonContents, 2);
+
+        var quizProgressPercent = totalQuizzes == 0
+            ? 0m
+            : Math.Round(completedQuizzes * 100m / totalQuizzes, 2);
 
         var rawPercent = totalItems == 0
             ? 0m
@@ -98,8 +124,12 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
 
         var dto = new LearningPathCompletionProgressDto(
             request.PathId,
+            completedLessonContents,
+            totalLessonContents,
+            contentProgressPercent,
             completedQuizzes,
             totalQuizzes,
+            quizProgressPercent,
             completedTasks,
             totalTasks,
             progressPercent,

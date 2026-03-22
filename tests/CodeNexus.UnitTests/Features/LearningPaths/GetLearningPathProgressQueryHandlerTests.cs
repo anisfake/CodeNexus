@@ -124,6 +124,18 @@ public class GetLearningPathProgressQueryHandlerTests
         {
             new() { PathId = pathId, UserId = userId, SubjectId = NewId.NextGuid(), Title = "Path" }
         }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson> { lesson }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearnProgresses).Returns(new List<LearnProgress>
+        {
+            new()
+            {
+                ProgressId = NewId.NextGuid(),
+                LessonId = lesson.LessonId,
+                Lesson = lesson,
+                UserId = userId,
+                IsLessonContentRead = true
+            }
+        }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz> { quiz1, quiz2 }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(attempts.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity> { task1, task2 }.BuildMockDbSet().Object);
@@ -132,11 +144,15 @@ public class GetLearningPathProgressQueryHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
+        result.Value!.CompletedLessonContents.Should().Be(1);
+        result.Value.TotalLessonContents.Should().Be(1);
+        result.Value.ContentProgressPercent.Should().Be(100m);
         result.Value!.CompletedQuizzes.Should().Be(1);
         result.Value.TotalQuizzes.Should().Be(2);
+        result.Value.QuizProgressPercent.Should().Be(50m);
         result.Value.CompletedTasks.Should().Be(1);
         result.Value.TotalTasks.Should().Be(2);
-        result.Value.ProgressPercent.Should().Be(50m);
+        result.Value.ProgressPercent.Should().Be(60m);
         result.Value.Status.Should().Be("InProgress");
     }
 
@@ -148,6 +164,8 @@ public class GetLearningPathProgressQueryHandlerTests
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearnProgresses).Returns(new List<LearnProgress>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity>().BuildMockDbSet().Object);
@@ -170,6 +188,8 @@ public class GetLearningPathProgressQueryHandlerTests
         {
             new() { PathId = pathId, UserId = ownerId, SubjectId = NewId.NextGuid(), Title = "Path" }
         }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearnProgresses).Returns(new List<LearnProgress>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity>().BuildMockDbSet().Object);
