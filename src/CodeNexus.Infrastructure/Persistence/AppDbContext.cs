@@ -42,6 +42,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
+        public DbSet<LearnProgress> LearnProgresses => Set<LearnProgress>();
         public DbSet<Tasks> Tasks => Set<Tasks>();
         public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
         public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
@@ -245,6 +246,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<LearningPath>().HasKey(e => e.PathId);
             modelBuilder.Entity<Chapter>().HasKey(e => e.ChapterId);
             modelBuilder.Entity<Lesson>().HasKey(e => e.LessonId);
+            modelBuilder.Entity<LearnProgress>().HasKey(e => e.ProgressId);
             modelBuilder.Entity<Tasks>().HasKey(e => e.TaskId);
             modelBuilder.Entity<FocusSession>().HasKey(e => e.SessionId);
             modelBuilder.Entity<DailyCheckins>().HasKey(e => e.CheckinId);
@@ -437,6 +439,24 @@ namespace CodeNexus.Infrastructure.Persistence
                 .WithMany(c => c.Lessons)
                 .HasForeignKey(l => l.ChapterId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LearnProgress>(entity =>
+            {
+                entity.ToTable("LearnProgress");
+
+                entity.HasIndex(e => new { e.LessonId, e.UserId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.Lesson)
+                      .WithMany(l => l.LearnProgresses)
+                      .HasForeignKey(e => e.LessonId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.LearnProgresses)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
 
             modelBuilder.Entity<AISummary>()
                .HasOne(s => s.Resource)
