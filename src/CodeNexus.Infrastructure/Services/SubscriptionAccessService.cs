@@ -36,9 +36,25 @@ public class SubscriptionAccessService : ISubscriptionAccessService
             }
         }
 
-        return await _context.SubscriptionPlans
+        var freePlan = await _context.SubscriptionPlans
             .AsNoTracking()
-            .FirstAsync(x => x.PlanType == SubscriptionPlanType.Free, cancellationToken);
+            .FirstOrDefaultAsync(x => x.PlanType == SubscriptionPlanType.Free, cancellationToken);
+
+        if (freePlan != null)
+        {
+            return freePlan;
+        }
+
+        // Safety fallback when DB seed is missing to avoid runtime crash.
+        return new SubscriptionPlan
+        {
+            SubscriptionPlanId = Guid.Empty,
+            PlanType = SubscriptionPlanType.Free,
+            Name = "Free",
+            IsActive = true,
+            DurationDays = 0,
+            PriceVnd = 0m
+        };
     }
 
     public async Task<bool> CanUsePersonalGoalsAsync(Guid userId, CancellationToken cancellationToken = default)

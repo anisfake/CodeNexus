@@ -49,7 +49,6 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
     );
     public record GetAllAIConfigResponse(
         Guid ConfigId,
-        string ApiKey,
         string ProviderName,
         AIUsageType UsageType,
         AIAccessTier AccessTier,

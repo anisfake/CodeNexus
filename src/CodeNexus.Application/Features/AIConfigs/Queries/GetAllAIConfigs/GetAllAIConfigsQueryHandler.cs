@@ -50,7 +50,6 @@ namespace CodeNexus.Application.Features.AIConfigs.Queries.GetAllAIConfigs
 
                     return new GetAllAIConfigResponse(
                         ConfigId: config.ConfigId,
-                        ApiKey: config.EncryptedApiKey,
                         ProviderName: config.ProviderName,
                         UsageType: config.UsageType,
                         AccessTier: config.AccessTier,

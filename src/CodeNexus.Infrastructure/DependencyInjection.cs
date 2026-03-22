@@ -1,6 +1,7 @@
 using CloudinaryDotNet;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Infrastructure.Persistence;
+using CodeNexus.Infrastructure.Services.AIProviders;
 using CodeNexus.Infrastructure.Services;
 using CodeNexus.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -118,6 +119,8 @@ public static class DependencyInjection
 
         services.AddScoped<IAIConfigCacheService, AIConfigCacheService>();
         services.AddScoped<IOTPCacheService, OTPCacheService>();
+        services.AddScoped<IAIProviderAdapter, GroqProviderAdapter>();
+        services.AddScoped<IAIProviderAdapter, GeminiProviderAdapter>();
 
         services.AddHttpClient<GroqServiceWithCache>();
         services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();

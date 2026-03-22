@@ -1,7 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Enums;
+using CodeNexus.Infrastructure.Services.AIProviders;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -15,7 +15,7 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly IEncryptionService _encryptionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISubscriptionAccessService _subscriptionAccessService;
-    private const string GroqApiUrl = "https://api.groq.com/openai/v1/chat/completions";
+    private readonly IReadOnlyCollection<IAIProviderAdapter> _providerAdapters;
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
     private const int DefaultMaxTokens = 8192;
@@ -28,7 +28,8 @@ public class GroqServiceWithCache : IAIGeneratorService
         IAIConfigCacheService cacheService,
         IEncryptionService encryptionService,
         ICurrentUserService currentUserService,
-        ISubscriptionAccessService subscriptionAccessService)
+        ISubscriptionAccessService subscriptionAccessService,
+        IEnumerable<IAIProviderAdapter>? providerAdapters = null)
     {
         _httpClient = httpClient;
         _context = context;
@@ -36,6 +37,12 @@ public class GroqServiceWithCache : IAIGeneratorService
         _encryptionService = encryptionService;
         _currentUserService = currentUserService;
         _subscriptionAccessService = subscriptionAccessService;
+        _providerAdapters = providerAdapters?.ToList()
+            ?? new List<IAIProviderAdapter>
+            {
+                new GroqProviderAdapter(_httpClient),
+                new GeminiProviderAdapter(_httpClient)
+            };
     }
 
     public async Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
@@ -55,7 +62,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
                 var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
 
-                var responseText = await CallGroqApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, jsonMode: true);
+                var responseText = await CallProviderApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
 
                 var jsonContent = ExtractJsonFromResponse(responseText);
@@ -109,10 +116,10 @@ public class GroqServiceWithCache : IAIGeneratorService
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
         var (apiKey, config, providerName) = await GetConfigAsync(usageType);
-        return await CallGroqApiAsync(prompt, apiKey, config, usageType, providerName, jsonMode: false);
+        return await CallProviderApiAsync(prompt, apiKey, config, usageType, providerName, jsonMode: false);
     }
 
-    private async Task<(string apiKey, GroqConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
+    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
     {
         var preferredTier = await ResolvePreferredTierAsync();
         var selectedConfig = await ResolveConfigByTierAsync(usageType, preferredTier)
@@ -158,11 +165,11 @@ public class GroqServiceWithCache : IAIGeneratorService
             .FirstOrDefaultAsync(c => c.UsageType == usageType && c.AccessTier == tier && c.IsActive, CancellationToken.None);
     }
 
-    private GroqConfig ParseConfigJson(string? configJson)
+    private AIProviderRuntimeConfig ParseConfigJson(string? configJson)
     {
         if (string.IsNullOrWhiteSpace(configJson))
         {
-            return new GroqConfig
+            return new AIProviderRuntimeConfig
             {
                 Model = DefaultModel,
                 MaxTokens = DefaultMaxTokens,
@@ -174,9 +181,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         try
         {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var config = JsonSerializer.Deserialize<GroqConfig>(configJson, options);
+            var config = JsonSerializer.Deserialize<AIProviderRuntimeConfig>(configJson, options);
 
-            return config ?? new GroqConfig
+            return config ?? new AIProviderRuntimeConfig
             {
                 Model = DefaultModel,
                 MaxTokens = DefaultMaxTokens,
@@ -186,7 +193,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
         catch
         {
-            return new GroqConfig
+            return new AIProviderRuntimeConfig
             {
                 Model = DefaultModel,
                 MaxTokens = DefaultMaxTokens,
@@ -196,112 +203,62 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    private async Task<string> CallGroqApiAsync(
+    private async Task<string> CallProviderApiAsync(
         string prompt,
         string apiKey,
-        GroqConfig config,
+        AIProviderRuntimeConfig config,
         AIUsageType usageType,
         string providerName,
         bool jsonMode = false)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.RequestTimeoutSeconds));
-
-        var messages = new List<object>();
-
-        if (jsonMode)
+        var adapter = ResolveProviderAdapter(providerName);
+        var invocation = await adapter.GenerateAsync(prompt, apiKey, config, jsonMode, CancellationToken.None);
+        if (string.Equals(invocation.FinishReason, "length", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(invocation.FinishReason, "max_tokens", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(invocation.FinishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
         {
-            messages.Add(new { role = "system", content = "You are a helpful assistant. You must respond with valid, complete JSON only. No markdown, no extra text, no truncated responses. Ensure the JSON is properly closed with all brackets and braces." });
+            throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
         }
 
-        messages.Add(new { role = "user", content = prompt });
+        await TryLogUsageAsync(
+            usageType,
+            providerName,
+            config,
+            invocation.InputTokens,
+            invocation.OutputTokens,
+            invocation.TotalTokens);
 
-        var requestBody = new Dictionary<string, object>
-        {
-            ["model"] = config.Model,
-            ["messages"] = messages,
-            ["max_tokens"] = config.MaxTokens,
-            ["temperature"] = config.Temperature,
-            ["top_p"] = 0.9,
-            ["stream"] = false
-        };
-
-        if (jsonMode)
-        {
-            requestBody["response_format"] = new { type = "json_object" };
-        }
-
-        var jsonContent = new StringContent(
-            JsonSerializer.Serialize(requestBody),
-            Encoding.UTF8,
-            "application/json"
-        );
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, GroqApiUrl)
-        {
-            Content = jsonContent
-        };
-        request.Headers.Add("Authorization", $"Bearer {apiKey}");
-
-        var response = await _httpClient.SendAsync(request, cts.Token);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync(cts.Token);
-            throw new InvalidOperationException($"Groq API error ({response.StatusCode}): {errorContent}");
-        }
-
-        var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
-
-        try
-        {
-            var responseJson = JsonDocument.Parse(responseContent);
-            await TryLogUsageAsync(responseJson, usageType, providerName, config);
-            var text = responseJson.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString();
-
-            if (string.IsNullOrEmpty(text))
-                throw new InvalidOperationException("Groq API returned empty response");
-
-            var finishReason = responseJson.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("finish_reason")
-                .GetString();
-
-            if (finishReason == "length")
-            {
-                throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
-            }
-
-            return text;
-        }
-        catch (JsonException ex)
-        {
-            throw new InvalidOperationException($"Failed to parse Groq response: {ex.Message}. Response: {responseContent.Substring(0, Math.Min(500, responseContent.Length))}...", ex);
-        }
+        return invocation.Content;
     }
 
-    private async Task TryLogUsageAsync(JsonDocument responseJson, AIUsageType usageType, string providerName, GroqConfig config)
+    private IAIProviderAdapter ResolveProviderAdapter(string providerName)
+    {
+        var provider = string.IsNullOrWhiteSpace(providerName) ? "Groq" : providerName;
+        var adapter = _providerAdapters.FirstOrDefault(x => x.CanHandle(provider));
+        if (adapter != null)
+        {
+            return adapter;
+        }
+
+        var fallbackAdapter = _providerAdapters.FirstOrDefault(x => x.CanHandle("Groq"));
+        if (fallbackAdapter != null)
+        {
+            return fallbackAdapter;
+        }
+
+        throw new InvalidOperationException($"No AI provider adapter registered for provider '{provider}'.");
+    }
+
+    private async Task TryLogUsageAsync(
+        AIUsageType usageType,
+        string providerName,
+        AIProviderRuntimeConfig config,
+        int inputTokens,
+        int outputTokens,
+        int totalTokens)
     {
         try
         {
-            if (!responseJson.RootElement.TryGetProperty("usage", out var usage))
-            {
-                return;
-            }
-
-            var inputTokens = usage.TryGetProperty("prompt_tokens", out var promptTokens)
-                ? promptTokens.GetInt32()
-                : 0;
-            var outputTokens = usage.TryGetProperty("completion_tokens", out var completionTokens)
-                ? completionTokens.GetInt32()
-                : 0;
-            var totalTokens = usage.TryGetProperty("total_tokens", out var total)
-                ? total.GetInt32()
-                : inputTokens + outputTokens;
-
             var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
 
             _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
@@ -324,7 +281,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    private static decimal CalculateCostUsd(GroqConfig config, int inputTokens, int outputTokens)
+    private static decimal CalculateCostUsd(AIProviderRuntimeConfig config, int inputTokens, int outputTokens)
     {
         if (config.InputCostPer1M <= 0 && config.OutputCostPer1M <= 0)
         {
@@ -337,14 +294,17 @@ public class GroqServiceWithCache : IAIGeneratorService
         return Math.Round(inputCost + outputCost, 6);
     }
 
-    private static GroqConfig AdjustConfigForAttempt(GroqConfig baseConfig, int attempt)
+    private static AIProviderRuntimeConfig AdjustConfigForAttempt(AIProviderRuntimeConfig baseConfig, int attempt)
     {
-        return new GroqConfig
+        return new AIProviderRuntimeConfig
         {
             Model = baseConfig.Model,
             MaxTokens = Math.Min(baseConfig.MaxTokens + (attempt * 1024), 24576),
             Temperature = Math.Min(baseConfig.Temperature + (attempt * 0.05f), 0.6f),
-            RequestTimeoutSeconds = baseConfig.RequestTimeoutSeconds + (attempt * 15)
+            RequestTimeoutSeconds = baseConfig.RequestTimeoutSeconds + (attempt * 15),
+            InputCostPer1M = baseConfig.InputCostPer1M,
+            OutputCostPer1M = baseConfig.OutputCostPer1M,
+            BaseUrl = baseConfig.BaseUrl
         };
     }
 
@@ -637,13 +597,4 @@ public class GroqServiceWithCache : IAIGeneratorService
         return -1;
     }
 
-    private class GroqConfig
-    {
-        public string Model { get; set; } = DefaultModel;
-        public int MaxTokens { get; set; } = DefaultMaxTokens;
-        public float Temperature { get; set; } = DefaultTemperature;
-        public int RequestTimeoutSeconds { get; set; } = DefaultRequestTimeoutSeconds;
-        public decimal InputCostPer1M { get; set; } = 0m;
-        public decimal OutputCostPer1M { get; set; } = 0m;
-    }
 }
