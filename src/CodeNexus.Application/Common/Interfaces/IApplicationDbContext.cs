@@ -19,6 +19,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<LearningPathGoal> LearningPathGoals { get; }
         public DbSet<Chapter> Chapters { get; }
         public DbSet<Lesson> Lessons { get; }
+        public DbSet<LearnProgress> LearnProgresses { get; }
         public DbSet<Tasks> Tasks { get; }
         public DbSet<FocusSession> FocusSessions { get; }
         public DbSet<DailyCheckins> DailyCheckins { get; }
