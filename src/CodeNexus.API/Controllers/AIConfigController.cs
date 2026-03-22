@@ -1,4 +1,3 @@
-using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig;
 using CodeNexus.Application.Features.AIConfigs.Commands.UpdateAIConfig;
@@ -19,6 +18,7 @@ namespace CodeNexus.API.Controllers
     public class AIConfigController : ControllerBase
     {
         private readonly ISender _sender;
+
         public AIConfigController(ISender sender)
         {
             _sender = sender;
@@ -95,6 +95,7 @@ namespace CodeNexus.API.Controllers
 
             return ToActionResult(result);
         }
+
         private IActionResult ToActionResult(Result result)
         {
             if (result.IsSuccess)
@@ -118,5 +119,6 @@ namespace CodeNexus.API.Controllers
                 _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
             };
         }
+
     }
 }

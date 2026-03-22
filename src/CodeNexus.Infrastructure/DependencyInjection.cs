@@ -121,7 +121,7 @@ public static class DependencyInjection
         services.AddScoped<IOTPCacheService, OTPCacheService>();
         services.AddScoped<IAIProviderAdapter, GroqProviderAdapter>();
         services.AddScoped<IAIProviderAdapter, GeminiProviderAdapter>();
-        services.AddScoped<IAIProviderAdapter, DeepSeekProviderAdapter>();
+        services.AddScoped<IAIProviderAdapter, MistralProviderAdapter>();
 
         services.AddHttpClient<GroqServiceWithCache>();
         services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();

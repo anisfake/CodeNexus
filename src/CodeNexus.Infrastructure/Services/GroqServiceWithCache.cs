@@ -41,7 +41,8 @@ public class GroqServiceWithCache : IAIGeneratorService
             ?? new List<IAIProviderAdapter>
             {
                 new GroqProviderAdapter(_httpClient),
-                new GeminiProviderAdapter(_httpClient)
+                new GeminiProviderAdapter(_httpClient),
+                new MistralProviderAdapter(_httpClient)
             };
     }
 

@@ -3,21 +3,20 @@ using System.Text.Json;
 
 namespace CodeNexus.Infrastructure.Services.AIProviders;
 
-public class DeepSeekProviderAdapter : IAIProviderAdapter
+public class MistralProviderAdapter : IAIProviderAdapter
 {
-    private const string DefaultDeepSeekApiUrl = "https://api.deepseek.com/chat/completions";
-    private const string DefaultDeepSeekModel = "deepseek-chat";
+    private const string DefaultMistralApiUrl = "https://api.mistral.ai/v1/chat/completions";
+    private const string DefaultMistralModel = "mistral-small-latest";
     private readonly HttpClient _httpClient;
 
-    public DeepSeekProviderAdapter(HttpClient httpClient)
+    public MistralProviderAdapter(HttpClient httpClient)
     {
         _httpClient = httpClient;
     }
 
     public bool CanHandle(string providerName)
     {
-        return providerName.Contains("deepseek", StringComparison.OrdinalIgnoreCase)
-            || providerName.Contains("deep-seek", StringComparison.OrdinalIgnoreCase);
+        return providerName.Contains("mistral", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<AIProviderInvocationResult> GenerateAsync(
@@ -44,11 +43,10 @@ public class DeepSeekProviderAdapter : IAIProviderAdapter
 
         var requestBody = new Dictionary<string, object>
         {
-            ["model"] = string.IsNullOrWhiteSpace(config.Model) ? DefaultDeepSeekModel : config.Model,
+            ["model"] = string.IsNullOrWhiteSpace(config.Model) ? DefaultMistralModel : config.Model,
             ["messages"] = messages,
             ["max_tokens"] = config.MaxTokens,
-            ["temperature"] = config.Temperature,
-            ["stream"] = false
+            ["temperature"] = config.Temperature
         };
 
         if (jsonMode)
@@ -58,7 +56,7 @@ public class DeepSeekProviderAdapter : IAIProviderAdapter
 
         using var request = new HttpRequestMessage(
             HttpMethod.Post,
-            string.IsNullOrWhiteSpace(config.BaseUrl) ? DefaultDeepSeekApiUrl : config.BaseUrl)
+            string.IsNullOrWhiteSpace(config.BaseUrl) ? DefaultMistralApiUrl : config.BaseUrl)
         {
             Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
         };
@@ -68,7 +66,7 @@ public class DeepSeekProviderAdapter : IAIProviderAdapter
         var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
         if (!response.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"DeepSeek API error ({response.StatusCode}): {responseContent}");
+            throw new InvalidOperationException($"Mistral API error ({response.StatusCode}): {responseContent}");
         }
 
         using var responseJson = JsonDocument.Parse(responseContent);
@@ -80,7 +78,7 @@ public class DeepSeekProviderAdapter : IAIProviderAdapter
 
         if (string.IsNullOrWhiteSpace(content))
         {
-            throw new InvalidOperationException("DeepSeek API returned empty response");
+            throw new InvalidOperationException("Mistral API returned empty response");
         }
 
         var finishReason = responseJson.RootElement
