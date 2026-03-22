@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Services.AIProviders;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CodeNexus.Domain.Entities;
 
 namespace CodeNexus.Infrastructure.Services;
 
@@ -123,8 +124,7 @@ public class GroqServiceWithCache : IAIGeneratorService
     private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
     {
         var preferredTier = await ResolvePreferredTierAsync();
-        var selectedConfig = await ResolveConfigByTierAsync(usageType, preferredTier)
-            ?? await ResolveConfigByTierAsync(usageType, preferredTier == AIAccessTier.Paid ? AIAccessTier.Free : AIAccessTier.Paid);
+        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, preferredTier);
 
         if (selectedConfig == null)
         {
@@ -145,6 +145,27 @@ public class GroqServiceWithCache : IAIGeneratorService
         return (apiKey, config, string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName);
     }
 
+    private async Task<AIProviderConfig?> ResolveConfigWithTierPreferenceAsync(
+        AIUsageType usageType,
+        AIAccessTier preferredTier)
+    {
+        var config = await ResolveConfigByTierAsync(usageType, preferredTier);
+        if (config != null)
+            return config;
+
+        config = await ResolveAnyUsageConfigByTierAsync(preferredTier);
+        if (config != null)
+            return config;
+
+        var secondaryTier = preferredTier == AIAccessTier.Paid ? AIAccessTier.Free : AIAccessTier.Paid;
+
+        config = await ResolveConfigByTierAsync(usageType, secondaryTier);
+        if (config != null)
+            return config;
+
+        return await ResolveAnyUsageConfigByTierAsync(secondaryTier);
+    }
+
     private async Task<AIAccessTier> ResolvePreferredTierAsync()
     {
         try
@@ -159,11 +180,21 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    private async Task<CodeNexus.Domain.Entities.AIProviderConfig?> ResolveConfigByTierAsync(AIUsageType usageType, AIAccessTier tier)
+    private async Task<AIProviderConfig?> ResolveConfigByTierAsync(AIUsageType usageType, AIAccessTier tier)
     {
         return await _context.AIProviderConfigs
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.UsageType == usageType && c.AccessTier == tier && c.IsActive, CancellationToken.None);
+    }
+
+    private async Task<AIProviderConfig?> ResolveAnyUsageConfigByTierAsync(AIAccessTier tier)
+    {
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.AccessTier == tier && c.IsActive)
+            .OrderBy(c => c.UsageType == AIUsageType.StructureGeneration ? 0 : 1)
+            .ThenByDescending(c => c.LastUpdated)
+            .FirstOrDefaultAsync(CancellationToken.None);
     }
 
     private AIProviderRuntimeConfig ParseConfigJson(string? configJson)

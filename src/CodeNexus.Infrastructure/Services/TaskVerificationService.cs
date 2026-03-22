@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Infrastructure.Services;
 
@@ -138,7 +139,7 @@ IMPORTANT: Respond ONLY with valid JSON in this exact format:
     {
         try
         {
-            var response = await _aiService.GenerateStructureAsync<AIVerificationResponse>(prompt);
+            var response = await _aiService.GenerateStructureAsync<AIVerificationResponse>(prompt, AIUsageType.Verification);
 
             return new VerificationResult
             {
