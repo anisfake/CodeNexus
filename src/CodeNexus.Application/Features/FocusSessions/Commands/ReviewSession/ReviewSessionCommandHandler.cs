@@ -10,11 +10,19 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly ITaskVerificationService _verificationService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly IPlanUsageLimitService _planUsageLimitService;
 
-    public ReviewSessionCommandHandler(IApplicationDbContext context, ITaskVerificationService verificationService)
+    public ReviewSessionCommandHandler(
+        IApplicationDbContext context,
+        ITaskVerificationService verificationService,
+        ICurrentUserService currentUserService,
+        IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _verificationService = verificationService;
+        _currentUserService = currentUserService;
+        _planUsageLimitService = planUsageLimitService;
     }
 
     public async Task<Result<ReviewSessionResponseDto>> Handle(ReviewSessionCommand request, CancellationToken cancellationToken)
@@ -46,6 +54,15 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
         if (session.Task.TaskType == TaskType.Quizz && string.IsNullOrWhiteSpace(request.SubmittedQuizAnswers))
         {
             return Result<ReviewSessionResponseDto>.Failure("MISSING_QUIZ_ANSWERS", "Quiz answers submission is required for quiz tasks");
+        }
+
+        var userId = _currentUserService.GetUserId();
+        var limitCheck = await _planUsageLimitService.CheckFocusSessionReviewAllowedAsync(userId, cancellationToken);
+        if (!limitCheck.IsSuccess)
+        {
+            return Result<ReviewSessionResponseDto>.Failure(
+                limitCheck.ErrorCode!,
+                limitCheck.ErrorMessage!);
         }
 
         string? aiFeedback = null;
@@ -82,6 +99,7 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
 
             aiFeedback = verificationResult.Feedback;
             verificationScore = verificationResult.Score;
+            await _planUsageLimitService.RecordFocusSessionReviewUsageAsync(userId, cancellationToken);
         }
         catch (Exception)
         {

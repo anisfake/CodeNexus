@@ -12,4 +12,5 @@ public class SubscriptionPlan
     public int DurationDays { get; set; }
     public bool IsActive { get; set; } = true;
     public int DisplayOrder { get; set; }
+    public virtual ICollection<SubscriptionPlanLimit> Limits { get; set; } = new List<SubscriptionPlanLimit>();
 }

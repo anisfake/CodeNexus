@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Infrastructure.Services;
@@ -22,112 +23,169 @@ public class PlanUsageLimitService : IPlanUsageLimitService
     public async Task<Result> CheckLearningPathCreationAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
-
-        if (plan.PlanType == SubscriptionPlanType.Free)
-        {
-            var totalLearningPaths = await _context.LearningPaths
-                .AsNoTracking()
-                .CountAsync(lp => lp.UserId == userId, cancellationToken);
-
-            return totalLearningPaths >= 4
-                ? Result.Failure(
-                    "LEARNING_PATH_LIMIT_EXCEEDED",
-                    "Free plan only allows up to 4 learning paths in total. Upgrade your plan to create more.")
-                : Result.Success();
-        }
-
-        var (windowStartUtc, windowLabel) = GetCurrentMonthlyWindowUtc();
-        var monthlyLimit = plan.PlanType switch
-        {
-            SubscriptionPlanType.Standard => 10,
-            SubscriptionPlanType.Pro => 50,
-            _ => 0
-        };
-
-        if (monthlyLimit <= 0)
-        {
+        var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.LearningPathCreation, cancellationToken);
+        if (!limit.IsEnabled || !limit.LimitCount.HasValue)
             return Result.Success();
-        }
 
-        var monthlyLearningPaths = await _context.LearningPaths
-            .AsNoTracking()
-            .CountAsync(lp => lp.UserId == userId && lp.CreatedAt >= windowStartUtc, cancellationToken);
-
-        return monthlyLearningPaths >= monthlyLimit
+        var used = await CountLearningPathUsageAsync(userId, limit.WindowType, cancellationToken);
+        return used >= limit.LimitCount.Value
             ? Result.Failure(
                 "LEARNING_PATH_LIMIT_EXCEEDED",
-                $"{plan.Name} plan allows up to {monthlyLimit} learning paths per {windowLabel}.")
+                $"{plan.Name} plan allows up to {limit.LimitCount.Value} learning paths per {WindowLabel(limit.WindowType)}.")
             : Result.Success();
     }
 
     public async Task<Result> CheckTutorMessageAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
         var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
-
-        int limit;
-        DateTime windowStartUtc;
-        string windowLabel;
-
-        if (plan.PlanType == SubscriptionPlanType.Free)
-        {
-            (windowStartUtc, windowLabel) = GetCurrentDailyWindowUtc();
-            limit = 30;
-        }
-        else
-        {
-            (windowStartUtc, windowLabel) = GetCurrentMonthlyWindowUtc();
-            limit = plan.PlanType switch
-            {
-                SubscriptionPlanType.Standard => 500,
-                SubscriptionPlanType.Pro => 2000,
-                _ => 0
-            };
-        }
-
-        if (limit <= 0)
-        {
+        var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.TutorMessages, cancellationToken);
+        if (!limit.IsEnabled || !limit.LimitCount.HasValue)
             return Result.Success();
-        }
 
-        var tutorConversationIds = await _context.Conversations
+        var used = await CountTutorMessageUsageAsync(userId, limit.WindowType, cancellationToken);
+        return used >= limit.LimitCount.Value
+            ? Result.Failure(
+                "TUTOR_MESSAGE_LIMIT_EXCEEDED",
+                $"{plan.Name} plan allows up to {limit.LimitCount.Value} tutor messages per {WindowLabel(limit.WindowType)}.")
+            : Result.Success();
+    }
+
+    public async Task<Result> CheckFocusSessionReviewAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
+        var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.FocusSessionReview, cancellationToken);
+        if (!limit.IsEnabled || !limit.LimitCount.HasValue)
+            return Result.Success();
+
+        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.FocusSessionReview, limit.WindowType, cancellationToken);
+        return used >= limit.LimitCount.Value
+            ? Result.Failure(
+                "FOCUS_REVIEW_LIMIT_EXCEEDED",
+                $"{plan.Name} plan allows up to {limit.LimitCount.Value} focus review requests per {WindowLabel(limit.WindowType)}.")
+            : Result.Success();
+    }
+
+    public async Task RecordFocusSessionReviewUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await _context.FeatureUsageLogs.AddAsync(new FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.FocusSessionReview,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<PlanLimitSetting> ResolveLimitAsync(
+        SubscriptionPlan plan,
+        SubscriptionFeatureKey featureKey,
+        CancellationToken cancellationToken)
+    {
+        var configured = await _context.SubscriptionPlanLimits
+            .AsNoTracking()
+            .Where(x => x.SubscriptionPlanId == plan.SubscriptionPlanId && x.FeatureKey == featureKey)
+            .Select(x => new PlanLimitSetting(x.LimitCount, x.WindowType, x.IsEnabled))
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return configured ?? BuildFallbackLimit(plan.PlanType, featureKey);
+    }
+
+    private async Task<int> CountLearningPathUsageAsync(Guid userId, UsageWindowType windowType, CancellationToken cancellationToken)
+    {
+        var windowStartUtc = GetWindowStartUtc(windowType);
+        return windowStartUtc.HasValue
+            ? await _context.LearningPaths.AsNoTracking().CountAsync(x => x.UserId == userId && x.CreatedAt >= windowStartUtc.Value, cancellationToken)
+            : await _context.LearningPaths.AsNoTracking().CountAsync(x => x.UserId == userId, cancellationToken);
+    }
+
+    private async Task<int> CountTutorMessageUsageAsync(Guid userId, UsageWindowType windowType, CancellationToken cancellationToken)
+    {
+        var conversationIds = await _context.Conversations
             .AsNoTracking()
             .Where(c => c.UserId == userId && !c.IsDeleted)
             .Select(c => c.ConversationId)
             .ToListAsync(cancellationToken);
 
-        var usedMessages = tutorConversationIds.Count == 0
-            ? 0
+        if (conversationIds.Count == 0)
+            return 0;
+
+        var windowStartUtc = GetWindowStartUtc(windowType);
+        return windowStartUtc.HasValue
+            ? await _context.Messages
+                .AsNoTracking()
+                .CountAsync(
+                    m => conversationIds.Contains(m.ConversationId)
+                         && m.Content.StartsWith("USER:")
+                         && m.CreatedAt >= windowStartUtc.Value,
+                    cancellationToken)
             : await _context.Messages
                 .AsNoTracking()
                 .CountAsync(
-                    message => tutorConversationIds.Contains(message.ConversationId)
-                               && message.CreatedAt >= windowStartUtc
-                               && message.Content.StartsWith("USER:"),
+                    m => conversationIds.Contains(m.ConversationId)
+                         && m.Content.StartsWith("USER:"),
                     cancellationToken);
-
-        return usedMessages >= limit
-            ? Result.Failure(
-                "TUTOR_MESSAGE_LIMIT_EXCEEDED",
-                $"{plan.Name} plan allows up to {limit} tutor messages per {windowLabel}.")
-            : Result.Success();
     }
 
-    private static (DateTime WindowStartUtc, string WindowLabel) GetCurrentDailyWindowUtc()
+    private async Task<int> CountFeatureUsageLogAsync(
+        Guid userId,
+        SubscriptionFeatureKey featureKey,
+        UsageWindowType windowType,
+        CancellationToken cancellationToken)
     {
-        var timezone = ResolveVietnamTimeZone();
-        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timezone);
-        var dayStartLocal = new DateTime(nowLocal.Year, nowLocal.Month, nowLocal.Day, 0, 0, 0, DateTimeKind.Unspecified);
-        var dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal, timezone);
-        return (dayStartUtc, "day");
+        var windowStartUtc = GetWindowStartUtc(windowType);
+        return windowStartUtc.HasValue
+            ? await _context.FeatureUsageLogs
+                .AsNoTracking()
+                .CountAsync(x => x.UserId == userId && x.FeatureKey == featureKey && x.CreatedAt >= windowStartUtc.Value, cancellationToken)
+            : await _context.FeatureUsageLogs
+                .AsNoTracking()
+                .CountAsync(x => x.UserId == userId && x.FeatureKey == featureKey, cancellationToken);
     }
 
-    private static (DateTime WindowStartUtc, string WindowLabel) GetCurrentMonthlyWindowUtc()
+    private static DateTime? GetWindowStartUtc(UsageWindowType windowType)
     {
+        if (windowType == UsageWindowType.Lifetime)
+            return null;
+
         var timezone = ResolveVietnamTimeZone();
         var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timezone);
-        var monthStartLocal = new DateTime(nowLocal.Year, nowLocal.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
-        var monthStartUtc = TimeZoneInfo.ConvertTimeToUtc(monthStartLocal, timezone);
-        return (monthStartUtc, "month");
+        var startLocal = windowType == UsageWindowType.Daily
+            ? new DateTime(nowLocal.Year, nowLocal.Month, nowLocal.Day, 0, 0, 0, DateTimeKind.Unspecified)
+            : new DateTime(nowLocal.Year, nowLocal.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+
+        return TimeZoneInfo.ConvertTimeToUtc(startLocal, timezone);
+    }
+
+    private static string WindowLabel(UsageWindowType windowType)
+    {
+        return windowType switch
+        {
+            UsageWindowType.Daily => "day",
+            UsageWindowType.Monthly => "month",
+            _ => "lifetime"
+        };
+    }
+
+    private static PlanLimitSetting BuildFallbackLimit(SubscriptionPlanType planType, SubscriptionFeatureKey featureKey)
+    {
+        return (planType, featureKey) switch
+        {
+            (SubscriptionPlanType.Free, SubscriptionFeatureKey.LearningPathCreation) => new PlanLimitSetting(4, UsageWindowType.Lifetime, true),
+            (SubscriptionPlanType.Standard, SubscriptionFeatureKey.LearningPathCreation) => new PlanLimitSetting(10, UsageWindowType.Monthly, true),
+            (SubscriptionPlanType.Pro, SubscriptionFeatureKey.LearningPathCreation) => new PlanLimitSetting(50, UsageWindowType.Monthly, true),
+
+            (SubscriptionPlanType.Free, SubscriptionFeatureKey.TutorMessages) => new PlanLimitSetting(30, UsageWindowType.Daily, true),
+            (SubscriptionPlanType.Standard, SubscriptionFeatureKey.TutorMessages) => new PlanLimitSetting(500, UsageWindowType.Monthly, true),
+            (SubscriptionPlanType.Pro, SubscriptionFeatureKey.TutorMessages) => new PlanLimitSetting(2000, UsageWindowType.Monthly, true),
+
+            (SubscriptionPlanType.Free, SubscriptionFeatureKey.FocusSessionReview) => new PlanLimitSetting(20, UsageWindowType.Daily, true),
+            (SubscriptionPlanType.Standard, SubscriptionFeatureKey.FocusSessionReview) => new PlanLimitSetting(300, UsageWindowType.Monthly, true),
+            (SubscriptionPlanType.Pro, SubscriptionFeatureKey.FocusSessionReview) => new PlanLimitSetting(1000, UsageWindowType.Monthly, true),
+
+            _ => new PlanLimitSetting(null, UsageWindowType.Monthly, true)
+        };
     }
 
     private static TimeZoneInfo ResolveVietnamTimeZone()
@@ -141,4 +199,7 @@ public class PlanUsageLimitService : IPlanUsageLimitService
             return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
         }
     }
+
+    private sealed record PlanLimitSetting(int? LimitCount, UsageWindowType WindowType, bool IsEnabled);
 }
+

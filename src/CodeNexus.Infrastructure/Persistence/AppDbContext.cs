@@ -68,6 +68,8 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
         public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
+        public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -272,6 +274,8 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
             modelBuilder.Entity<AIUsageLog>().HasKey(e => e.UsageLogId);
             modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
+            modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
+            modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -581,6 +585,36 @@ namespace CodeNexus.Infrastructure.Persistence
 
                 entity.HasIndex(e => e.DisplayOrder);
 
+            });
+
+            modelBuilder.Entity<SubscriptionPlanLimit>(entity =>
+            {
+                entity.Property(e => e.FeatureKey)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.WindowType)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.SubscriptionPlanId, e.FeatureKey })
+                      .IsUnique();
+
+                entity.HasOne(e => e.SubscriptionPlan)
+                      .WithMany(p => p.Limits)
+                      .HasForeignKey(e => e.SubscriptionPlanId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FeatureUsageLog>(entity =>
+            {
+                entity.Property(e => e.FeatureKey)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.UserId, e.FeatureKey, e.CreatedAt });
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.FeatureUsageLogs)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Conversation>(entity =>

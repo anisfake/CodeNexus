@@ -13,15 +13,21 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
     private readonly IApplicationDbContext _context;
     private readonly ITaskVerificationService _verificationService;
     private readonly IAchievementService _achievementService;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly IPlanUsageLimitService _planUsageLimitService;
 
     public CompleteSessionCommandHandler(
         IApplicationDbContext context,
         ITaskVerificationService verificationService,
-        IAchievementService achievementService)
+        IAchievementService achievementService,
+        ICurrentUserService currentUserService,
+        IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _verificationService = verificationService;
         _achievementService = achievementService;
+        _currentUserService = currentUserService;
+        _planUsageLimitService = planUsageLimitService;
     }
 
     public async Task<Result<CompleteSessionResponseDto>> Handle(CompleteSessionCommand request, CancellationToken cancellationToken)
@@ -93,6 +99,15 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
             if (request.SubmissionType == SubmissionType.Final)
             {
+                var userIdForLimit = _currentUserService.GetUserId();
+                var focusReviewLimitCheck = await _planUsageLimitService.CheckFocusSessionReviewAllowedAsync(userIdForLimit, cancellationToken);
+                if (!focusReviewLimitCheck.IsSuccess)
+                {
+                    return Result<CompleteSessionResponseDto>.Failure(
+                        focusReviewLimitCheck.ErrorCode!,
+                        focusReviewLimitCheck.ErrorMessage!);
+                }
+
                 try
                 {
                     VerificationResult verificationResult;
@@ -128,6 +143,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
                     aiFeedback = verificationResult.Feedback;
                     verificationScore = verificationResult.Score;
+                    await _planUsageLimitService.RecordFocusSessionReviewUsageAsync(userIdForLimit, cancellationToken);
 
                     if (verificationResult.IsPass)
                     {

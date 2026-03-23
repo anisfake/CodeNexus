@@ -46,6 +46,7 @@ public class PlanUsageLimitServiceTests
 
         _mockContext.Setup(x => x.Messages).Returns(new List<Message>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Conversations).Returns(new List<Conversation>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
 
@@ -85,6 +86,7 @@ public class PlanUsageLimitServiceTests
         _mockContext.Setup(x => x.LearningPaths).Returns(learningPaths.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Messages).Returns(new List<Message>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Conversations).Returns(new List<Conversation>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
 
@@ -126,6 +128,7 @@ public class PlanUsageLimitServiceTests
             Content = $"USER: message {i}",
             CreatedAt = now
         }).BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
 
@@ -168,6 +171,7 @@ public class PlanUsageLimitServiceTests
             Content = $"USER: message {i}",
             CreatedAt = now
         }).BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
 
@@ -178,5 +182,6 @@ public class PlanUsageLimitServiceTests
     {
         _mockContext.Setup(x => x.SubscriptionPlans).Returns(plans.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SubscriptionPlanLimits).Returns(new List<SubscriptionPlanLimit>().BuildMockDbSet().Object);
     }
 }

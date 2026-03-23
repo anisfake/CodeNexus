@@ -1,4 +1,5 @@
 using CodeNexus.Domain.Enums;
+using CodeNexus.Application.Features.Subscriptions.DTOs;
 
 namespace CodeNexus.API.Models.Requests;
 
@@ -9,5 +10,6 @@ public record CreateSubscriptionPlanRequest(
     decimal PriceVnd,
     int DurationDays,
     bool IsActive,
-    int DisplayOrder
+    int DisplayOrder,
+    List<SubscriptionPlanLimitInputDto>? Limits
 );

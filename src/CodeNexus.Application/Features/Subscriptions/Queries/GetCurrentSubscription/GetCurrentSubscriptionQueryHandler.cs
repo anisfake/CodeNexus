@@ -35,12 +35,23 @@ public class GetCurrentSubscriptionQueryHandler : IRequestHandler<GetCurrentSubs
             plan.PlanType.ToString(),
             SubscriptionPlanType.Free.ToString(),
             StringComparison.OrdinalIgnoreCase);
+        var limits = await _context.SubscriptionPlanLimits
+            .AsNoTracking()
+            .Where(x => x.SubscriptionPlanId == plan.SubscriptionPlanId)
+            .OrderBy(x => x.FeatureKey)
+            .Select(x => new SubscriptionPlanLimitDto(
+                x.FeatureKey,
+                x.LimitCount,
+                x.WindowType,
+                x.IsEnabled))
+            .ToListAsync(cancellationToken);
 
         return new CurrentSubscriptionDto(
             plan.SubscriptionPlanId,
             plan.PlanType,
             plan.Name,
             isFreePlan ? null : expiresAt,
-            isFreePlan);
+            isFreePlan,
+            limits);
     }
 }

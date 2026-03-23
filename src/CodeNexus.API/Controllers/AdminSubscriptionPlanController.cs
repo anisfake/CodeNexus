@@ -40,7 +40,8 @@ public class AdminSubscriptionPlanController : ControllerBase
             request.PriceVnd,
             request.DurationDays,
             request.IsActive,
-            request.DisplayOrder), cancellationToken);
+            request.DisplayOrder,
+            request.Limits), cancellationToken);
 
         return ToActionResult(result);
     }
@@ -56,7 +57,8 @@ public class AdminSubscriptionPlanController : ControllerBase
             request.PriceVnd,
             request.DurationDays,
             request.IsActive,
-            request.DisplayOrder), cancellationToken);
+            request.DisplayOrder,
+            request.Limits), cancellationToken);
 
         return ToActionResult(result);
     }

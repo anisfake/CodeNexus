@@ -33,5 +33,6 @@ namespace CodeNexus.Domain.Entities
         public Guid? SubscriptionPlanId { get; set; }
         public virtual SubscriptionPlan? SubscriptionPlan { get; set; }
         public DateTime? PlanExpiresAt { get; set; }
+        public virtual ICollection<FeatureUsageLog> FeatureUsageLogs { get; set; } = new List<FeatureUsageLog>();
     }
 }

@@ -2,6 +2,20 @@ using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Subscriptions.DTOs;
 
+public record SubscriptionPlanLimitDto(
+    SubscriptionFeatureKey FeatureKey,
+    int? LimitCount,
+    UsageWindowType WindowType,
+    bool IsEnabled
+);
+
+public record SubscriptionPlanLimitInputDto(
+    SubscriptionFeatureKey FeatureKey,
+    int? LimitCount,
+    UsageWindowType WindowType,
+    bool IsEnabled
+);
+
 public record SubscriptionPlanDto(
     Guid SubscriptionPlanId,
     SubscriptionPlanType PlanType,
@@ -10,7 +24,8 @@ public record SubscriptionPlanDto(
     decimal PriceVnd,
     int DurationDays,
     bool IsActive,
-    int DisplayOrder
+    int DisplayOrder,
+    List<SubscriptionPlanLimitDto> Limits
 );
 
 public record CurrentSubscriptionDto(
@@ -18,5 +33,7 @@ public record CurrentSubscriptionDto(
     SubscriptionPlanType PlanType,
     string Name,
     DateTime? ExpiresAt,
-    bool IsFreeFallback
+    bool IsFreeFallback,
+    List<SubscriptionPlanLimitDto> Limits
 );
+

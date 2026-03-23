@@ -14,13 +14,26 @@ public class ReviewSessionCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ITaskVerificationService> _mockVerificationService;
+    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
     private readonly ReviewSessionCommandHandler _handler;
 
     public ReviewSessionCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockVerificationService = new Mock<ITaskVerificationService>();
-        _handler = new ReviewSessionCommandHandler(_mockContext.Object, _mockVerificationService.Object);
+        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(Guid.NewGuid());
+        _mockPlanUsageLimitService.Setup(x => x.CheckFocusSessionReviewAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
+        _mockPlanUsageLimitService.Setup(x => x.RecordFocusSessionReviewUsageAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _handler = new ReviewSessionCommandHandler(
+            _mockContext.Object,
+            _mockVerificationService.Object,
+            _mockCurrentUserService.Object,
+            _mockPlanUsageLimitService.Object);
     }
 
     [Fact]

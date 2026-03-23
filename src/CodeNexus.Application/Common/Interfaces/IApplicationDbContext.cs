@@ -45,6 +45,8 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<UserAchievement> UserAchievements { get; }
         public DbSet<PaymentTransaction> PaymentTransactions { get; }
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; }
+        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits { get; }
+        public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

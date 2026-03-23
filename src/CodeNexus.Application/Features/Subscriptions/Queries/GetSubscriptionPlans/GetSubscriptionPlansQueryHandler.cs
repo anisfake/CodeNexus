@@ -22,9 +22,13 @@ public class GetSubscriptionPlansQueryHandler : IRequestHandler<GetSubscriptionP
             query = query.Where(x => x.IsActive);
         }
 
-        return await query
+        var plans = await query
+            .Include(x => x.Limits)
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.PriceVnd)
+            .ToListAsync(cancellationToken);
+
+        return plans
             .Select(x => new SubscriptionPlanDto(
                 x.SubscriptionPlanId,
                 x.PlanType,
@@ -33,7 +37,15 @@ public class GetSubscriptionPlansQueryHandler : IRequestHandler<GetSubscriptionP
                 x.PriceVnd,
                 x.DurationDays,
                 x.IsActive,
-                x.DisplayOrder))
-            .ToListAsync(cancellationToken);
+                x.DisplayOrder,
+                x.Limits
+                    .OrderBy(l => l.FeatureKey)
+                    .Select(l => new SubscriptionPlanLimitDto(
+                        l.FeatureKey,
+                        l.LimitCount,
+                        l.WindowType,
+                        l.IsEnabled))
+                    .ToList()))
+            .ToList();
     }
 }

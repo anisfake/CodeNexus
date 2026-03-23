@@ -13,4 +13,5 @@ public record UpdateSubscriptionPlanCommand(
     decimal PriceVnd,
     int DurationDays,
     bool IsActive,
-    int DisplayOrder) : IRequest<Result<SubscriptionPlanDto>>;
+    int DisplayOrder,
+    List<SubscriptionPlanLimitInputDto>? Limits) : IRequest<Result<SubscriptionPlanDto>>;
