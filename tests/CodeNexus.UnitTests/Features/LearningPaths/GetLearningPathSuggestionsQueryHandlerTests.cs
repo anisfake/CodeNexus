@@ -165,4 +165,73 @@ public class GetLearningPathSuggestionsQueryHandlerTests
         result.Value.Should().HaveCount(1);
         result.Value![0].Score.Should().Be(1m);
     }
+
+    [Fact]
+    public async Task Handle_WhenCandidateBelongsToCurrentUser_ShouldNotSuggestOwnPath()
+    {
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var systemGoalId = Guid.NewGuid();
+        var ownPathId = Guid.NewGuid();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+
+        _mockContext.Setup(x => x.Subjects).Returns(new[]
+        {
+            new Subject { SubjectId = subjectId, Name = "Python", Description = "Python subject" }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Goals).Returns(new[]
+        {
+            new CodeNexus.Domain.Entities.Goals
+            {
+                GoalId = systemGoalId,
+                Title = "Build API",
+                IsSystemDefined = true,
+                IsActive = true
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.SubjectGoals).Returns(new[]
+        {
+            new SubjectGoal { SubjectId = subjectId, GoalId = systemGoalId }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.GoalMappings).Returns(new List<GoalMapping>().BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.LearningPaths).Returns(new[]
+        {
+            new LearningPath
+            {
+                PathId = ownPathId,
+                UserId = userId,
+                SubjectId = subjectId,
+                Title = "My Path",
+                Description = "Desc",
+                Language = LanguageSelection.English,
+                ComplexityLevel = ComplexityLevel.Beginner
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.LearningPathGoals).Returns(new[]
+        {
+            new LearningPathGoal
+            {
+                PathId = ownPathId,
+                GoalId = systemGoalId,
+                Weight = 1m
+            }
+        }.BuildMockDbSet().Object);
+
+        var query = new GetLearningPathSuggestionsQuery(
+            subjectId,
+            new List<LearningPathGoalRequest> { new(systemGoalId, 1m) },
+            ComplexityLevel.Beginner,
+            LanguageSelection.English);
+
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().BeEmpty();
+    }
 }

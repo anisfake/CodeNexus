@@ -120,6 +120,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
             .AsNoTracking()
             .Where(lp =>
                 lp.SubjectId == request.SubjectId
+                && lp.UserId != userId
                 && lp.Language == request.LanguageSelection
                 && lp.ComplexityLevel == request.ComplexityLevel)
             .Select(lp => new CandidatePath(lp.PathId, lp.Title, lp.Description, lp.CreatedAt))

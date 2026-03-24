@@ -128,6 +128,13 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
             return Result<CreateLearningPathResponse>.Failure("LEARNING_PATH_NOT_FOUND", "Suggested learning path not found");
         }
 
+        if (candidatePath.UserId == userId)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                "CANNOT_ADOPT_OWN_PATH",
+                "You cannot adopt your own learning path.");
+        }
+
         if (candidatePath.SubjectId != request.SubjectId
             || candidatePath.Language != request.LanguageSelection
             || candidatePath.ComplexityLevel != request.ComplexityLevel)
