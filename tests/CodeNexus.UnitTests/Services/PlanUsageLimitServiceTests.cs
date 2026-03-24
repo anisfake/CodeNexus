@@ -178,6 +178,44 @@ public class PlanUsageLimitServiceTests
         Assert.True(result.IsSuccess);
     }
 
+    [Fact]
+    public async Task CheckLearningPathCreationAllowedAsync_Mentor_ShouldBypassPlanLimit()
+    {
+        var userId = Guid.NewGuid();
+        var freePlanId = Guid.NewGuid();
+
+        SeedPlansAndUsers(
+            new[]
+            {
+                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
+            },
+            new[]
+            {
+                new User
+                {
+                    UserId = userId,
+                    SubscriptionPlanId = freePlanId,
+                    PlanExpiresAt = null,
+                    Role = new Role { RoleName = "Mentor" }
+                }
+            });
+
+        _mockContext.Setup(x => x.LearningPaths).Returns(Enumerable.Range(1, 50).Select(i => new LearningPath
+        {
+            PathId = Guid.NewGuid(),
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow.AddDays(-i)
+        }).BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Messages).Returns(new List<Message>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Conversations).Returns(new List<Conversation>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
+
+        var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+    }
+
     private void SeedPlansAndUsers(IEnumerable<SubscriptionPlan> plans, IEnumerable<User> users)
     {
         _mockContext.Setup(x => x.SubscriptionPlans).Returns(plans.BuildMockDbSet().Object);

@@ -16,6 +16,7 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly IEncryptionService _encryptionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISubscriptionAccessService _subscriptionAccessService;
+    private readonly IAIAccessPolicyService _aiAccessPolicyService;
     private readonly IReadOnlyCollection<IAIProviderAdapter> _providerAdapters;
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
@@ -30,6 +31,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         IEncryptionService encryptionService,
         ICurrentUserService currentUserService,
         ISubscriptionAccessService subscriptionAccessService,
+        IAIAccessPolicyService aiAccessPolicyService,
         IEnumerable<IAIProviderAdapter>? providerAdapters = null)
     {
         _httpClient = httpClient;
@@ -38,6 +40,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         _encryptionService = encryptionService;
         _currentUserService = currentUserService;
         _subscriptionAccessService = subscriptionAccessService;
+        _aiAccessPolicyService = aiAccessPolicyService;
         _providerAdapters = providerAdapters?.ToList()
             ?? new List<IAIProviderAdapter>
             {
@@ -60,11 +63,11 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             try
             {
-                var (apiKey, config, providerName) = await GetConfigAsync(usageType);
+                var (apiKey, config, providerName, accessTier, userId, isMentor) = await GetConfigAsync(usageType);
 
                 var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
 
-                var responseText = await CallProviderApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, jsonMode: true);
+                var responseText = await CallProviderApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, accessTier, userId, isMentor, jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
 
                 var jsonContent = ExtractJsonFromResponse(responseText);
@@ -117,14 +120,14 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config, providerName) = await GetConfigAsync(usageType);
-        return await CallProviderApiAsync(prompt, apiKey, config, usageType, providerName, jsonMode: false);
+        var (apiKey, config, providerName, accessTier, userId, isMentor) = await GetConfigAsync(usageType);
+        return await CallProviderApiAsync(prompt, apiKey, config, usageType, providerName, accessTier, userId, isMentor, jsonMode: false);
     }
 
-    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
+    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName, AIAccessTier accessTier, Guid userId, bool isMentor)> GetConfigAsync(AIUsageType usageType)
     {
-        var preferredTier = await ResolvePreferredTierAsync();
-        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, preferredTier);
+        var accessResolution = await ResolveAccessResolutionAsync(CancellationToken.None);
+        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, accessResolution.PreferredTier);
 
         if (selectedConfig == null)
         {
@@ -141,8 +144,19 @@ public class GroqServiceWithCache : IAIGeneratorService
             await _cacheService.SetApiKeyAsync(usageType, selectedConfig.AccessTier, apiKey, TimeSpan.FromHours(1));
         }
 
+        if (accessResolution.ForceFreeDueToMentorLimit)
+        {
+            await TryCreateMentorDowngradeNotificationAsync(accessResolution.UserId, usageType, CancellationToken.None);
+        }
+
         var config = ParseConfigJson(selectedConfig.ConfigJson);
-        return (apiKey, config, string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName);
+        return (
+            apiKey,
+            config,
+            string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName,
+            selectedConfig.AccessTier,
+            accessResolution.UserId,
+            accessResolution.IsMentor);
     }
 
     private async Task<AIProviderConfig?> ResolveConfigWithTierPreferenceAsync(
@@ -166,17 +180,45 @@ public class GroqServiceWithCache : IAIGeneratorService
         return await ResolveAnyUsageConfigByTierAsync(secondaryTier);
     }
 
-    private async Task<AIAccessTier> ResolvePreferredTierAsync()
+    private async Task<AccessResolution> ResolveAccessResolutionAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             var userId = _currentUserService.GetUserId();
-            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId);
-            return canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+            var roleName = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.UserId == userId)
+                .Select(u => u.Role != null ? u.Role.RoleName : null)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (IsPrivilegedRole(roleName))
+            {
+                return new AccessResolution(userId, false, true, AIAccessTier.Paid, false);
+            }
+
+            if (IsMentorRole(roleName))
+            {
+                var mentorLimit = await _aiAccessPolicyService.GetMentorPaidRequestsMonthlyLimitAsync(cancellationToken);
+                if (mentorLimit <= 0)
+                {
+                    return new AccessResolution(userId, true, false, AIAccessTier.Paid, false);
+                }
+
+                var used = await CountMentorPaidAiUsageThisMonthAsync(userId, cancellationToken);
+                if (used >= mentorLimit)
+                {
+                    return new AccessResolution(userId, true, false, AIAccessTier.Free, true);
+                }
+
+                return new AccessResolution(userId, true, false, AIAccessTier.Paid, false);
+            }
+
+            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId, cancellationToken);
+            return new AccessResolution(userId, false, false, canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free, false);
         }
         catch
         {
-            return AIAccessTier.Free;
+            return new AccessResolution(Guid.Empty, false, false, AIAccessTier.Free, false);
         }
     }
 
@@ -241,6 +283,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         AIProviderRuntimeConfig config,
         AIUsageType usageType,
         string providerName,
+        AIAccessTier accessTier,
+        Guid userId,
+        bool isMentor,
         bool jsonMode = false)
     {
         var adapter = ResolveProviderAdapter(providerName);
@@ -256,6 +301,9 @@ public class GroqServiceWithCache : IAIGeneratorService
             usageType,
             providerName,
             config,
+            accessTier,
+            userId,
+            isMentor,
             invocation.InputTokens,
             invocation.OutputTokens,
             invocation.TotalTokens);
@@ -285,6 +333,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         AIUsageType usageType,
         string providerName,
         AIProviderRuntimeConfig config,
+        AIAccessTier accessTier,
+        Guid userId,
+        bool isMentor,
         int inputTokens,
         int outputTokens,
         int totalTokens)
@@ -305,6 +356,17 @@ public class GroqServiceWithCache : IAIGeneratorService
                 CreatedAt = DateTime.UtcNow
             });
 
+            if (isMentor && accessTier == AIAccessTier.Paid && userId != Guid.Empty)
+            {
+                _context.FeatureUsageLogs.Add(new FeatureUsageLog
+                {
+                    FeatureUsageLogId = Guid.NewGuid(),
+                    UserId = userId,
+                    FeatureKey = SubscriptionFeatureKey.MentorPaidAiRequests,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
             await _context.SaveChangesAsync();
         }
         catch
@@ -324,6 +386,88 @@ public class GroqServiceWithCache : IAIGeneratorService
         var inputCost = (inputTokens / OneMillion) * config.InputCostPer1M;
         var outputCost = (outputTokens / OneMillion) * config.OutputCostPer1M;
         return Math.Round(inputCost + outputCost, 6);
+    }
+
+    private async Task<int> CountMentorPaidAiUsageThisMonthAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var windowStartUtc = GetCurrentMonthStartUtc();
+        return await _context.FeatureUsageLogs
+            .AsNoTracking()
+            .CountAsync(x =>
+                x.UserId == userId
+                && x.FeatureKey == SubscriptionFeatureKey.MentorPaidAiRequests
+                && x.CreatedAt >= windowStartUtc, cancellationToken);
+    }
+
+    private async Task TryCreateMentorDowngradeNotificationAsync(Guid userId, AIUsageType usageType, CancellationToken cancellationToken)
+    {
+        if (userId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var cooldownHours = await _aiAccessPolicyService.GetMentorDowngradeNotifyCooldownHoursAsync(cancellationToken);
+            var cooldownBoundaryUtc = DateTime.UtcNow.AddHours(-cooldownHours);
+            var title = "AI downgraded to free tier";
+
+            var hasRecentNotification = await _context.Notifications
+                .AsNoTracking()
+                .AnyAsync(
+                    n => n.UserId == userId
+                         && n.Title == title
+                         && n.CreatedAt >= cooldownBoundaryUtc,
+                    cancellationToken);
+
+            if (hasRecentNotification)
+            {
+                return;
+            }
+
+            await _context.Notifications.AddAsync(new Notification
+            {
+                NotificationId = Guid.NewGuid(),
+                UserId = userId,
+                Title = title,
+                Message = $"Paid AI quota for this month has been reached. Requests for {usageType} are now served by free-tier model.",
+                Type = NotificationType.Alert,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+
+        }
+    }
+
+    private static bool IsMentorRole(string? roleName)
+        => string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPrivilegedRole(string? roleName)
+        => string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static DateTime GetCurrentMonthStartUtc()
+    {
+        var timezone = ResolveVietnamTimeZone();
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timezone);
+        var startLocal = new DateTime(nowLocal.Year, nowLocal.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(startLocal, timezone);
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
     }
 
     private static AIProviderRuntimeConfig AdjustConfigForAttempt(AIProviderRuntimeConfig baseConfig, int attempt)
@@ -628,5 +772,12 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         return -1;
     }
+
+    private sealed record AccessResolution(
+        Guid UserId,
+        bool IsMentor,
+        bool IsPrivilegedRole,
+        AIAccessTier PreferredTier,
+        bool ForceFreeDueToMentorLimit);
 
 }

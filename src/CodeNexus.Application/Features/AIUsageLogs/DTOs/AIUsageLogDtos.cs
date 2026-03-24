@@ -22,3 +22,15 @@ public record AIUsageSummaryResponse(
     long TotalTokens,
     decimal TotalCostUsd
 );
+
+public record MentorAiQuotaStatusResponse(
+    Guid MentorId,
+    string Username,
+    string Email,
+    int UsedPaidRequestsThisMonth,
+    int MonthlyLimit,
+    decimal UsageRatio,
+    bool IsNearLimit,
+    bool IsReachedLimit,
+    DateTime WindowStartUtc
+);

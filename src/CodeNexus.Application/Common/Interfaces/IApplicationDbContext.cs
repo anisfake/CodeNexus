@@ -47,6 +47,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; }
         public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
+        public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies { get; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

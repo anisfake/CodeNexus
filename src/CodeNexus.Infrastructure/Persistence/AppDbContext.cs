@@ -70,6 +70,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
         public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
+        public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies => Set<MentorAiAccessPolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -276,6 +277,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
             modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
+            modelBuilder.Entity<MentorAiAccessPolicy>().HasKey(e => e.MentorAiAccessPolicyId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -615,6 +617,17 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.FeatureUsageLogs)
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<MentorAiAccessPolicy>(entity =>
+            {
+                entity.Property(e => e.MentorPaidRequestsMonthlyLimit)
+                      .IsRequired();
+
+                entity.Property(e => e.MentorDowngradeNotifyCooldownHours)
+                      .IsRequired();
+
+                entity.HasIndex(e => e.UpdatedAt);
             });
 
             modelBuilder.Entity<Conversation>(entity =>

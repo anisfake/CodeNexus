@@ -59,13 +59,35 @@ public class SubscriptionAccessService : ISubscriptionAccessService
 
     public async Task<bool> CanUsePersonalGoalsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+        {
+            return true;
+        }
+
         var plan = await GetEffectivePlanAsync(userId, cancellationToken);
         return plan.PlanType != SubscriptionPlanType.Free;
     }
 
     public async Task<bool> CanUsePaidModelsAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+        {
+            return true;
+        }
+
         var plan = await GetEffectivePlanAsync(userId, cancellationToken);
         return plan.PlanType != SubscriptionPlanType.Free;
+    }
+
+    private async Task<bool> IsPlanLimitExemptRoleAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var roleName = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => u.Role != null ? u.Role.RoleName : null)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
     }
 }
