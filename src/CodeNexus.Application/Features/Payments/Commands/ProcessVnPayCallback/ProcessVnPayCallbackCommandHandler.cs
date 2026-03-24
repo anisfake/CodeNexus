@@ -33,6 +33,30 @@ public class ProcessVnPayCallbackCommandHandler
             return Result<VnPayCallbackResponseDto>.Failure("INVALID_SIGNATURE", "Invalid VNPAY signature");
         }
 
+        if (_context is DbContext dbContext)
+        {
+            await using var tx = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+            var transactionalResult = await ProcessInternalAsync(txnRef, request.Parameters, cancellationToken);
+            if (transactionalResult.IsSuccess)
+            {
+                await tx.CommitAsync(cancellationToken);
+            }
+            else
+            {
+                await tx.RollbackAsync(cancellationToken);
+            }
+
+            return transactionalResult;
+        }
+
+        return await ProcessInternalAsync(txnRef, request.Parameters, cancellationToken);
+    }
+
+    private async Task<Result<VnPayCallbackResponseDto>> ProcessInternalAsync(
+        string txnRef,
+        IDictionary<string, string> parameters,
+        CancellationToken cancellationToken)
+    {
         var payment = await _context.PaymentTransactions
             .Include(p => p.User)
             .FirstOrDefaultAsync(p => p.TxnRef == txnRef, cancellationToken);
@@ -42,22 +66,24 @@ public class ProcessVnPayCallbackCommandHandler
             return Result<VnPayCallbackResponseDto>.Failure("PAYMENT_NOT_FOUND", "Payment transaction not found");
         }
 
-        if (!request.Parameters.TryGetValue("vnp_ResponseCode", out var responseCode))
+        if (!parameters.TryGetValue("vnp_ResponseCode", out var responseCode))
         {
             responseCode = "99";
         }
 
         payment.ResponseCode = responseCode;
-        payment.TransactionNo = request.Parameters.TryGetValue("vnp_TransactionNo", out var transNo) ? transNo : null;
-        payment.BankCode = request.Parameters.TryGetValue("vnp_BankCode", out var bankCode) ? bankCode : null;
+        payment.TransactionNo = parameters.TryGetValue("vnp_TransactionNo", out var transNo) ? transNo : null;
+        payment.BankCode = parameters.TryGetValue("vnp_BankCode", out var bankCode) ? bankCode : null;
 
-        if (TryParsePayDate(request.Parameters, out var paidAt))
+        if (TryParsePayDate(parameters, out var paidAt))
         {
             payment.PaidAt = paidAt;
         }
 
         if (payment.Status == PaymentStatus.Success)
         {
+            payment.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync(cancellationToken);
             return Result<VnPayCallbackResponseDto>.Success(new VnPayCallbackResponseDto(
                 payment.PaymentTransactionId,
                 payment.Status,

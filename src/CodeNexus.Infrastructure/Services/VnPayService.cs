@@ -26,7 +26,8 @@ public class VnPayService : IVnPayService
         decimal amount,
         string orderInfo,
         string ipAddress,
-        string? returnUrl = null)
+        string? returnUrl = null,
+        string? ipnUrl = null)
     {
         if (string.IsNullOrWhiteSpace(_settings.TmnCode) || string.IsNullOrWhiteSpace(_settings.HashSecret))
         {
@@ -52,6 +53,7 @@ public class VnPayService : IVnPayService
             ["vnp_TxnRef"] = txnRef,
             ["vnp_ExpireDate"] = expire.ToString("yyyyMMddHHmmss")
         };
+
 
         var hashData = BuildQueryString(data);
         var hash = ComputeHash(hashData);

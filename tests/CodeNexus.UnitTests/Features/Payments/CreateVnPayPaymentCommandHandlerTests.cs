@@ -52,7 +52,13 @@ public class CreateVnPayPaymentCommandHandlerTests
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         _mockVnPayService
-            .Setup(x => x.CreatePaymentUrl(It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+            .Setup(x => x.CreatePaymentUrl(
+                It.IsAny<string>(),
+                It.IsAny<decimal>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()))
             .Returns("https://vnpay.test/pay");
 
         var command = new CreateVnPayPaymentCommand(
@@ -95,7 +101,13 @@ public class CreateVnPayPaymentCommandHandlerTests
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         _mockVnPayService
-            .Setup(x => x.CreatePaymentUrl(It.IsAny<string>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
+            .Setup(x => x.CreatePaymentUrl(
+                It.IsAny<string>(),
+                It.IsAny<decimal>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>()))
             .Returns("https://vnpay.test/pay");
 
         var command = new CreateVnPayPaymentCommand(
@@ -112,6 +124,7 @@ public class CreateVnPayPaymentCommandHandlerTests
             99000m,
             It.IsAny<string>(),
             "127.0.0.1",
-            "https://localhost:5001/api/payments/vnpay/return"), Times.Once);
+            "https://localhost:5001/api/payments/vnpay/return",
+            It.IsAny<string?>()), Times.Once);
     }
 }

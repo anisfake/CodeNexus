@@ -37,16 +37,42 @@ public class PaymentsController : ControllerBase
         var callbackUrl = Url.Action(nameof(VnPayReturn), "Payments", values: null, protocol: Request.Scheme)
             ?? $"{Request.Scheme}://{Request.Host}/api/payments/vnpay/return";
         callbackUrl = QueryHelpers.AddQueryString(callbackUrl, "clientReturnUrl", request.ReturnUrl);
+        var ipnUrl = Url.Action(nameof(VnPayIpn), "Payments", values: null, protocol: Request.Scheme)
+            ?? $"{Request.Scheme}://{Request.Host}/api/payments/vnpay/ipn";
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "127.0.0.1";
         var command = new CreateVnPayPaymentCommand(
             request.SubscriptionPlanId,
             request.OrderInfo,
             callbackUrl,
-            ipAddress);
+            ipAddress,
+            ipnUrl);
 
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
+    }
+
+    [HttpGet("vnpay/ipn")]
+    public async Task<IActionResult> VnPayIpn(CancellationToken cancellationToken)
+    {
+        var parameters = Request.Query.ToDictionary(k => k.Key, v => v.Value.ToString());
+        var command = new ProcessVnPayCallbackCommand(parameters);
+        var result = await _sender.Send(command, cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            return Ok(new { RspCode = "00", Message = "Confirm Success" });
+        }
+
+        var rspCode = result.ErrorCode switch
+        {
+            "INVALID_SIGNATURE" => "97",
+            "PAYMENT_NOT_FOUND" => "01",
+            "INVALID_REQUEST" => "02",
+            _ => "99"
+        };
+
+        return Ok(new { RspCode = rspCode, Message = result.ErrorMessage ?? "Confirm Fail" });
     }
 
     [HttpGet("vnpay/return")]

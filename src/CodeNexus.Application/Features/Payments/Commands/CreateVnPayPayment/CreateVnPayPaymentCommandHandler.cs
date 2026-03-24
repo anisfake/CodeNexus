@@ -82,7 +82,13 @@ public class CreateVnPayPaymentCommandHandler
         await _context.SaveChangesAsync(cancellationToken);
 
         var ipAddress = string.IsNullOrWhiteSpace(request.IpAddress) ? "127.0.0.1" : request.IpAddress;
-        var paymentUrl = _vnPayService.CreatePaymentUrl(txnRef, amount, orderInfo, ipAddress, request.ReturnUrl);
+        var paymentUrl = _vnPayService.CreatePaymentUrl(
+            txnRef,
+            amount,
+            orderInfo,
+            ipAddress,
+            request.ReturnUrl,
+            request.IpnUrl);
 
         return Result<VnPayCreatePaymentResponseDto>.Success(new VnPayCreatePaymentResponseDto(
             payment.PaymentTransactionId,

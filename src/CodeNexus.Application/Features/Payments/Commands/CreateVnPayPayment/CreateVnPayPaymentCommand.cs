@@ -8,4 +8,5 @@ public record CreateVnPayPaymentCommand(
     Guid? SubscriptionPlanId,
     string? OrderInfo,
     string ReturnUrl,
-    string IpAddress) : IRequest<Result<VnPayCreatePaymentResponseDto>>;
+    string IpAddress,
+    string? IpnUrl = null) : IRequest<Result<VnPayCreatePaymentResponseDto>>;

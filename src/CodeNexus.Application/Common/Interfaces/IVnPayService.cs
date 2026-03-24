@@ -7,7 +7,8 @@ public interface IVnPayService
         decimal amount,
         string orderInfo,
         string ipAddress,
-        string? returnUrl = null);
+        string? returnUrl = null,
+        string? ipnUrl = null);
 
     bool ValidateSignature(IDictionary<string, string> parameters);
 }
