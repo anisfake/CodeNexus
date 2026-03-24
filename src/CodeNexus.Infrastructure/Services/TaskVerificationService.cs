@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Infrastructure.Services;
 
@@ -12,9 +13,9 @@ public class TaskVerificationService : ITaskVerificationService
     }
 
     public async Task<VerificationResult> VerifyCodeSubmissionAsync(
-        string taskTitle, 
-        string taskDescription, 
-        string submittedCode, 
+        string taskTitle,
+        string taskDescription,
+        string submittedCode,
         string? verificationPrompt = null)
     {
         var prompt = BuildCodeVerificationPrompt(taskTitle, taskDescription, submittedCode, verificationPrompt);
@@ -22,9 +23,9 @@ public class TaskVerificationService : ITaskVerificationService
     }
 
     public async Task<VerificationResult> VerifySummarySubmissionAsync(
-        string taskTitle, 
-        string taskDescription, 
-        string submittedSummary, 
+        string taskTitle,
+        string taskDescription,
+        string submittedSummary,
         string? verificationPrompt = null)
     {
         var prompt = BuildSummaryVerificationPrompt(taskTitle, taskDescription, submittedSummary, verificationPrompt);
@@ -32,9 +33,9 @@ public class TaskVerificationService : ITaskVerificationService
     }
 
     public async Task<VerificationResult> VerifyQuizSubmissionAsync(
-        string taskTitle, 
-        string taskDescription, 
-        string quizQuestionsJson, 
+        string taskTitle,
+        string taskDescription,
+        string quizQuestionsJson,
         string submittedAnswersJson)
     {
         try
@@ -44,7 +45,6 @@ public class TaskVerificationService : ITaskVerificationService
         }
         catch (Exception)
         {
-            // Fallback: Try to manually calculate quiz score
             return await FallbackQuizVerification(quizQuestionsJson, submittedAnswersJson);
         }
     }
@@ -139,8 +139,8 @@ IMPORTANT: Respond ONLY with valid JSON in this exact format:
     {
         try
         {
-            var response = await _aiService.GenerateStructureAsync<AIVerificationResponse>(prompt);
-            
+            var response = await _aiService.GenerateStructureAsync<AIVerificationResponse>(prompt, AIUsageType.Verification);
+
             return new VerificationResult
             {
                 Score = response.Score,
@@ -187,8 +187,8 @@ IMPORTANT: Respond ONLY with valid JSON in this exact format:
                 }
                 else
                 {
-                    var correctOption = question.Options.Length > question.CorrectAnswer 
-                        ? question.Options[question.CorrectAnswer] 
+                    var correctOption = question.Options.Length > question.CorrectAnswer
+                        ? question.Options[question.CorrectAnswer]
                         : "N/A";
                     feedback.AppendLine($"Câu {i + 1}: ✗ Sai (Đáp án đúng: {correctOption})");
                 }

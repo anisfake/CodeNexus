@@ -18,9 +18,6 @@ namespace CodeNexus.Domain.Entities
         public Guid SubjectId { get; set; }
         public virtual Subject Subject { get; set; } = null!;
 
-        public Guid? GoalId { get; set; }
-        public virtual Goals? Goal { get; set; }
-
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTime? StartDate { get; set; }
@@ -29,8 +26,10 @@ namespace CodeNexus.Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool CreatedByType { get; set; } // 0: User, 1: AI
         public LanguageSelection Language { get; set; } = LanguageSelection.VietNamese; // Default Vietnamese
+        public ComplexityLevel ComplexityLevel { get; set; } = ComplexityLevel.Beginner;
 
         public virtual ICollection<Chapter> Chapters { get; set; } = new List<Chapter>();
         public virtual ICollection<Tasks> Tasks { get; set; } = new List<Tasks>();
+        public virtual ICollection<LearningPathGoal> LearningPathGoals { get; set; } = new List<LearningPathGoal>();
     }
 }

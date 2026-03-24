@@ -1,6 +1,9 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.Commands.UpdateGoal;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
+using CodeNexus.Domain.Entities;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 using Moq;
 using Xunit;
@@ -30,6 +33,7 @@ public class UpdateGoalCommandHandlerTests
     {
         // Arrange
         var goalId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
@@ -38,20 +42,56 @@ public class UpdateGoalCommandHandlerTests
             Description = "Old Description",
             IsSystemDefined = false,
             IsActive = true,
+            Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "C#",
+                Description = "C# language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                GoalId = goalId
+            }
+        });
+        SetupGoalMappingsDbSet(new List<GoalMapping>());
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockGoalValidationService.Setup(x => x.IsGoalRelevantToSubjectAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockGoalValidationService.Setup(x => x.FindBestSystemGoalMatchAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<IReadOnlyList<GoalMatchCandidate>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GoalMatchResult(null, null));
 
         var command = new UpdateGoalCommand(
             goalId,
+            subjectId,
             "New Title",
             "New Description",
-            true
+            true,
+            GoalDuration.TwoMonths
         );
 
         // Act
@@ -63,6 +103,7 @@ public class UpdateGoalCommandHandlerTests
         Assert.Equal("New Title", result.Value.Title);
         Assert.Equal("New Description", result.Value.Description);
         Assert.True(result.Value.IsActive);
+        Assert.Equal(GoalDuration.TwoMonths, result.Value.Duration);
     }
 
     [Fact]
@@ -70,13 +111,26 @@ public class UpdateGoalCommandHandlerTests
     {
         // Arrange
         var goalId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
         SetupGoalsDbSet(new List<GoalEntity>());
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "C#",
+                Description = "C# language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>());
 
         var command = new UpdateGoalCommand(
             goalId,
+            subjectId,
             "New Title",
             "New Description",
-            true
+            true,
+            GoalDuration.OneMonth
         );
 
         // Act
@@ -92,6 +146,7 @@ public class UpdateGoalCommandHandlerTests
     {
         // Arrange
         var goalId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
         var anotherUserId = Guid.NewGuid();
         var existingGoal = new GoalEntity
         {
@@ -100,13 +155,32 @@ public class UpdateGoalCommandHandlerTests
             Title = "Old Title",
             IsSystemDefined = false,
             IsActive = true,
+            Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "C#",
+                Description = "C# language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                GoalId = goalId
+            }
+        });
+        SetupGoalMappingsDbSet(new List<GoalMapping>());
 
-        var command = new UpdateGoalCommand(goalId, "New Title", null, true);
+        var command = new UpdateGoalCommand(goalId, subjectId, "New Title", null, true, GoalDuration.TwoMonths);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -121,6 +195,7 @@ public class UpdateGoalCommandHandlerTests
     {
         // Arrange
         var goalId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
         var existingGoal = new GoalEntity
         {
             GoalId = goalId,
@@ -128,13 +203,32 @@ public class UpdateGoalCommandHandlerTests
             Title = "System Goal",
             IsSystemDefined = true,
             IsActive = true,
+            Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
 
         var goals = new List<GoalEntity> { existingGoal };
         SetupGoalsDbSet(goals);
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "C#",
+                Description = "C# language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                GoalId = goalId
+            }
+        });
+        SetupGoalMappingsDbSet(new List<GoalMapping>());
 
-        var command = new UpdateGoalCommand(goalId, "Updated Title", null, true);
+        var command = new UpdateGoalCommand(goalId, subjectId, "Updated Title", null, true, GoalDuration.ThreeMonths);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -155,5 +249,44 @@ public class UpdateGoalCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<GoalEntity>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.Goals).Returns(dbSetMock.Object);
+    }
+
+    private void SetupSubjectsDbSet(List<Subject> subjects)
+    {
+        var queryable = new TestAsyncEnumerable<Subject>(subjects);
+        var dbSetMock = new Mock<DbSet<Subject>>();
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<Subject>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.Subjects).Returns(dbSetMock.Object);
+    }
+
+    private void SetupSubjectGoalsDbSet(List<SubjectGoal> subjectGoals)
+    {
+        var queryable = new TestAsyncEnumerable<SubjectGoal>(subjectGoals);
+        var dbSetMock = new Mock<DbSet<SubjectGoal>>();
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<SubjectGoal>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.SubjectGoals).Returns(dbSetMock.Object);
+    }
+
+    private void SetupGoalMappingsDbSet(List<GoalMapping> goalMappings)
+    {
+        var queryable = new TestAsyncEnumerable<GoalMapping>(goalMappings);
+        var dbSetMock = new Mock<DbSet<GoalMapping>>();
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<GoalMapping>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<GoalMapping>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.GoalMappings).Returns(dbSetMock.Object);
     }
 }

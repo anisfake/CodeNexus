@@ -49,6 +49,8 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
                 g.Description,
                 g.IsSystemDefined,
                 g.IsActive,
+                g.Duration,
+                g.DurationInDays,
                 g.CreatedAt
             )).ToListAsync(cancellationToken);
 

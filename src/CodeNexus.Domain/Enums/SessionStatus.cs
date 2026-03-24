@@ -3,9 +3,10 @@ namespace CodeNexus.Domain.Enums
     public enum SessionStatus
     {
         Running = 0,
-        CompletedEarly = 1,
-        CompletedOnTime = 2,
-        Abandoned = 3,
-        Paused = 4
+        Paused = 1,
+        CompletedEarly = 2,
+        CompletedOnTime = 3,
+        CompletedLate = 4,
+        Abandoned = 5
     }
 }

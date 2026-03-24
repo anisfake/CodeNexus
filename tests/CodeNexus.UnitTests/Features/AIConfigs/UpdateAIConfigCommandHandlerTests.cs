@@ -39,7 +39,8 @@ public class UpdateAIConfigCommandHandlerTests
             newApiKey,
             new Dictionary<string, object> { { "model", "gpt-4" } },
             true,  // IsActive
-            null   // UsageType
+            null,  // UsageType
+            null   // AccessTier
         );
 
         var existingConfig = new AIProviderConfig
@@ -72,7 +73,7 @@ public class UpdateAIConfigCommandHandlerTests
     public async Task Handle_WithNonExistentConfig_ShouldReturnNotFound()
     {
         // Arrange
-        var command = new UpdateAIConfigCommand(Guid.NewGuid(), null, "api-key", null, null, null);
+        var command = new UpdateAIConfigCommand(Guid.NewGuid(), null, "api-key", null, null, null, null);
         SetupAIProviderConfigsDbSet(new List<AIProviderConfig>());
 
         // Act
@@ -90,7 +91,7 @@ public class UpdateAIConfigCommandHandlerTests
         // Arrange
         var configId = Guid.NewGuid();
         var newApiKey = "new-api-key";
-        var command = new UpdateAIConfigCommand(configId, null, newApiKey, null, null, null);
+        var command = new UpdateAIConfigCommand(configId, null, newApiKey, null, null, null, null);
 
         var existingConfig = new AIProviderConfig
         {
@@ -119,7 +120,7 @@ public class UpdateAIConfigCommandHandlerTests
     {
         // Arrange
         var configId = Guid.NewGuid();
-        var command = new UpdateAIConfigCommand(configId, null, null, null, false, null);
+        var command = new UpdateAIConfigCommand(configId, null, null, null, false, null, null);
 
         var existingConfig = new AIProviderConfig
         {
@@ -148,7 +149,7 @@ public class UpdateAIConfigCommandHandlerTests
     {
         // Arrange
         var configId = Guid.NewGuid();
-        var command = new UpdateAIConfigCommand(configId, null, "new-key", null, null, null);
+        var command = new UpdateAIConfigCommand(configId, null, "new-key", null, null, null, null);
         var existingConfig = new AIProviderConfig
         {
             ConfigId = configId,

@@ -111,10 +111,11 @@ app.MapHub<QuizHub>("/hubs/quiz");
 app.MapHub<TaskHub>("/hubs/task");
 app.MapHub<SummaryHub>("/hubs/summary");
 app.MapHub<AuditLogHub>("/hubs/audit-log");
+app.MapHub<DirectChatHub>("/hubs/direct-chat");
+app.MapHub<TutorChatHub>("/hubs/tutor-chat");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
 
-// Make Program class accessible for testing
 public partial class Program { }

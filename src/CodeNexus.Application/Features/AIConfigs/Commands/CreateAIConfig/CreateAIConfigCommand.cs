@@ -10,6 +10,7 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
         string ApiKey,
         Dictionary<string, object> ConfigJson,
         AIUsageType AIUsageType,
+        AIAccessTier AccessTier,
         bool IsEnabled
     ) : IRequest<Result<CreateAIConfigResponse>>;
 }

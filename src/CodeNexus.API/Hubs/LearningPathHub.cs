@@ -1,7 +1,10 @@
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using System.Collections.Generic;
 
 namespace CodeNexus.API.Hubs;
 
@@ -17,7 +20,7 @@ public class LearningPathHub : Hub
 
     public async Task RequestLearningPathGeneration(
         Guid subjectId,
-        Guid goalId,
+        List<CodeNexus.Application.Features.LearningPaths.DTOs.LearningPathGoalRequest> goals,
         string complexityLevel,
         string languageSelection)
     {
@@ -45,7 +48,7 @@ public class LearningPathHub : Hub
                 return;
             }
 
-            var command = new GenerateLearningPathSkeletonCommand(subjectId, goalId, complexity, language);
+            var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, complexity, language);
             var result = await _sender.Send(command);
 
             if (!result.IsSuccess)
@@ -64,6 +67,7 @@ public class LearningPathHub : Hub
                 learningPath.PathId,
                 learningPath.Title,
                 learningPath.Description,
+                learningPath.Goals,
                 learningPath.ChapterCount,
                 learningPath.ChapterDtos,
                 Message = "Learning path with chapters and lessons created successfully!"
@@ -78,6 +82,134 @@ public class LearningPathHub : Hub
         catch (Exception ex)
         {
             await Clients.Caller.SendAsync("LearningPathGenerationError", new
+            {
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    public async Task RequestLearningPathSuggestions(
+        Guid subjectId,
+        List<CodeNexus.Application.Features.LearningPaths.DTOs.LearningPathGoalRequest> goals,
+        string complexityLevel,
+        string languageSelection)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("LearningPathSuggestionsStarted");
+
+            if (!Enum.TryParse<Domain.Enums.ComplexityLevel>(complexityLevel, out var complexity))
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+                {
+                    ErrorCode = "INVALID_COMPLEXITY",
+                    ErrorMessage = "Invalid complexity level"
+                });
+                return;
+            }
+
+            if (!Enum.TryParse<Domain.Enums.LanguageSelection>(languageSelection, out var language))
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+                {
+                    ErrorCode = "INVALID_LANGUAGE",
+                    ErrorMessage = "Invalid language selection"
+                });
+                return;
+            }
+
+            var query = new GetLearningPathSuggestionsQuery(subjectId, goals, complexity, language);
+            var result = await _sender.Send(query);
+
+            if (!result.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+                {
+                    result.ErrorCode,
+                    result.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("LearningPathSuggestionsLoaded", new
+            {
+                Suggestions = result.Value
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+            {
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    public async Task RequestAdoptSuggestedLearningPath(
+        Guid suggestedPathId,
+        Guid subjectId,
+        List<CodeNexus.Application.Features.LearningPaths.DTOs.LearningPathGoalRequest> goals,
+        string complexityLevel,
+        string languageSelection)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("AdoptSuggestedLearningPathStarted");
+
+            if (!Enum.TryParse<Domain.Enums.ComplexityLevel>(complexityLevel, out var complexity))
+            {
+                await Clients.Caller.SendAsync("AdoptSuggestedLearningPathError", new
+                {
+                    ErrorCode = "INVALID_COMPLEXITY",
+                    ErrorMessage = "Invalid complexity level"
+                });
+                return;
+            }
+
+            if (!Enum.TryParse<Domain.Enums.LanguageSelection>(languageSelection, out var language))
+            {
+                await Clients.Caller.SendAsync("AdoptSuggestedLearningPathError", new
+                {
+                    ErrorCode = "INVALID_LANGUAGE",
+                    ErrorMessage = "Invalid language selection"
+                });
+                return;
+            }
+
+            var command = new AdoptSuggestedLearningPathCommand(
+                suggestedPathId,
+                subjectId,
+                goals,
+                complexity,
+                language);
+
+            var result = await _sender.Send(command);
+            if (!result.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("AdoptSuggestedLearningPathError", new
+                {
+                    result.ErrorCode,
+                    result.ErrorMessage
+                });
+                return;
+            }
+
+            var learningPath = result.Value;
+            await Clients.Caller.SendAsync("SuggestedLearningPathAdopted", new
+            {
+                learningPath.PathId,
+                learningPath.Title,
+                learningPath.Description,
+                learningPath.Goals,
+                learningPath.ChapterCount,
+                learningPath.ChapterDtos
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("AdoptSuggestedLearningPathError", new
             {
                 ErrorCode = "UNEXPECTED_ERROR",
                 ErrorMessage = ex.Message

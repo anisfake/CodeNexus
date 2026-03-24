@@ -15,10 +15,16 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
-        public UpdateProfileCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+        private readonly IAchievementService _achievementService;
+
+        public UpdateProfileCommandHandler(
+            IApplicationDbContext context, 
+            ICurrentUserService currentUserService,
+            IAchievementService achievementService)
         {
             _context = context;
             _currentUserService = currentUserService;
+            _achievementService = achievementService;
         }
         public async Task<Result<UserProfileRespone>> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
         {
@@ -38,6 +44,17 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
             user.UserProfile.Address = request.Address ?? user.UserProfile.Address;
 
             await _context.SaveChangesAsync(cancellationToken);
+
+            var isProfileComplete = !string.IsNullOrEmpty(user.FirstName) && 
+                                   !string.IsNullOrEmpty(user.LastName) &&
+                                   !string.IsNullOrEmpty(user.UserProfile.Bio) &&
+                                   user.UserProfile.DateOfBirth.HasValue &&
+                                   !string.IsNullOrEmpty(user.UserProfile.Phone);
+
+            if (isProfileComplete)
+            {
+                await _achievementService.TryUnlockAsync(userId, "profile_complete");
+            }
 
             return Result<UserProfileRespone>.Success(new UserProfileRespone(
                 user.Email,

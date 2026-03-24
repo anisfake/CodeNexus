@@ -55,8 +55,23 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
                     ConfigJson = configJsonString,
                     IsActive = request.IsEnabled,
                     LastUpdated = DateTime.UtcNow,
-                    UsageType = request.AIUsageType
+                    UsageType = request.AIUsageType,
+                    AccessTier = request.AccessTier
                 };
+
+                if (config.IsActive)
+                {
+                    var configsToDeactivate = await _context.AIProviderConfigs
+                        .Where(x => x.UsageType == request.AIUsageType
+                            && x.AccessTier == request.AccessTier
+                            && x.IsActive)
+                        .ToListAsync(cancellationToken);
+
+                    foreach (var activeConfig in configsToDeactivate)
+                    {
+                        activeConfig.IsActive = false;
+                    }
+                }
 
                 _context.AIProviderConfigs.Add(config);
                 await _context.SaveChangesAsync(cancellationToken);

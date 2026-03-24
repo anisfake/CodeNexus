@@ -13,6 +13,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IGoalValidationService _goalValidationService;
+    private const decimal MinGoalMappingConfidence = 0.75m;
 
     public CreateGoalCommandHandler(
         IApplicationDbContext context,
@@ -28,12 +29,36 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     {
         var userId = _currentUserService.GetUserId();
 
+        var subject = await _context.Subjects
+            .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId && !s.IsDeleted, cancellationToken);
+
+        if (subject == null)
+        {
+            return Result<CreateGoalResponseDto>.Failure(
+                "SUBJECT_NOT_FOUND",
+                "Subject not found.");
+        }
+
         var isValid = await _goalValidationService.IsRelatedToProgrammingAsync(request.Title, cancellationToken);
         if (!isValid)
         {
             return Result<CreateGoalResponseDto>.Failure(
                 "INVALID_GOAL",
                 "Goal must be related to programming or software development.");
+        }
+
+        var isRelevantToSubject = await _goalValidationService.IsGoalRelevantToSubjectAsync(
+            request.Title,
+            request.Description,
+            subject.Name,
+            subject.Description,
+            cancellationToken);
+
+        if (!isRelevantToSubject)
+        {
+            return Result<CreateGoalResponseDto>.Failure(
+                "GOAL_SUBJECT_MISMATCH",
+                "Goal is not relevant to the selected subject.");
         }
 
         var existingGoal = await _context.Goals
@@ -55,6 +80,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             GoalId = NewId.NextGuid(),
             Title = request.Title.Trim(),
             Description = request.Description?.Trim(),
+            Duration = request.Duration,
             IsSystemDefined = false,
             CreatedByUserId = userId,
             IsActive = true,
@@ -64,6 +90,51 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
         try
         {
             await _context.Goals.AddAsync(goal, cancellationToken);
+            await _context.SubjectGoals.AddAsync(new SubjectGoal
+            {
+                SubjectId = subject.SubjectId,
+                GoalId = goal.GoalId
+            }, cancellationToken);
+
+            var systemGoals = await _context.Goals
+                .Where(g => g.IsSystemDefined && g.IsActive && !g.IsDeleted)
+                .Join(
+                    _context.SubjectGoals.Where(sg => sg.SubjectId == subject.SubjectId),
+                    g => g.GoalId,
+                    sg => sg.GoalId,
+                    (g, sg) => g)
+                .ToListAsync(cancellationToken);
+
+            if (systemGoals.Count > 0)
+            {
+                var candidates = systemGoals
+                    .Select(g => new GoalMatchCandidate(g.GoalId, g.Title, g.Description))
+                    .ToList();
+
+                var matchResult = await _goalValidationService.FindBestSystemGoalMatchAsync(
+                    goal.Title,
+                    goal.Description,
+                    subject.Name,
+                    subject.Description,
+                    candidates,
+                    cancellationToken);
+
+                if (matchResult.GoalId.HasValue
+                    && matchResult.Confidence.HasValue
+                    && matchResult.Confidence.Value >= MinGoalMappingConfidence)
+                {
+                    await _context.GoalMappings.AddAsync(new GoalMapping
+                    {
+                        MappingId = NewId.NextGuid(),
+                        UserGoalId = goal.GoalId,
+                        SystemGoalId = matchResult.GoalId.Value,
+                        Confidence = matchResult.Confidence.Value,
+                        VerifiedByAI = true,
+                        CreatedAt = DateTime.UtcNow
+                    }, cancellationToken);
+                }
+            }
+
             await _context.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)
@@ -77,7 +148,9 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             goal.GoalId,
             goal.Title,
             goal.Description,
-            goal.IsSystemDefined
+            goal.IsSystemDefined,
+            goal.Duration,
+            goal.DurationInDays
         );
 
         return Result<CreateGoalResponseDto>.Success(responseDto);

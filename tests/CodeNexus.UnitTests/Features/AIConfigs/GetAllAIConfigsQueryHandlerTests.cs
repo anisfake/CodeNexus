@@ -35,6 +35,7 @@ public class GetAllAIConfigsQueryHandlerTests
                 EncryptedApiKey = "encrypted_key_1",
                 ConfigJson = "{\"Model\":\"llama-3.3-70b-versatile\",\"MaxTokens\":8000}",
                 UsageType = AIUsageType.StructureGeneration,
+                AccessTier = AIAccessTier.Free,
                 IsActive = true,
                 LastUpdated = DateTime.UtcNow
             },
@@ -45,6 +46,7 @@ public class GetAllAIConfigsQueryHandlerTests
                 EncryptedApiKey = "encrypted_key_2",
                 ConfigJson = "{\"Model\":\"gpt-4\",\"MaxTokens\":4000}",
                 UsageType = AIUsageType.ContentGeneration,
+                AccessTier = AIAccessTier.Paid,
                 IsActive = false,
                 LastUpdated = DateTime.UtcNow.AddDays(-1)
             }
@@ -68,9 +70,11 @@ public class GetAllAIConfigsQueryHandlerTests
         Assert.Equal("Groq", result.Value[0].ProviderName);
         Assert.True(result.Value[0].IsActive);
         Assert.Equal(AIUsageType.StructureGeneration, result.Value[0].UsageType);
+        Assert.Equal(AIAccessTier.Free, result.Value[0].AccessTier);
         Assert.Equal("OpenAI", result.Value[1].ProviderName);
         Assert.False(result.Value[1].IsActive);
         Assert.Equal(AIUsageType.ContentGeneration, result.Value[1].UsageType);
+        Assert.Equal(AIAccessTier.Paid, result.Value[1].AccessTier);
     }
 
     [Fact]
@@ -109,6 +113,7 @@ public class GetAllAIConfigsQueryHandlerTests
                 EncryptedApiKey = "encrypted_key",
                 ConfigJson = "invalid json",
                 UsageType = AIUsageType.Assistant,
+                AccessTier = AIAccessTier.Free,
                 IsActive = true,
                 LastUpdated = DateTime.UtcNow
             }

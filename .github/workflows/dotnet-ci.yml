@@ -32,12 +32,13 @@ jobs:
     - name: Publish API
       run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
 
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: web-deploy-package
-        path: ./publish/
-        retention-days: 1
+    # Temporarily disabled due to storage quota
+    # - name: Upload Artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: web-deploy-package
+    #     path: ./publish/
+    #     retention-days: 1
 
   # JOB 2: DEPLOY 
   deploy:
@@ -46,11 +47,24 @@ jobs:
     if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
 
     steps:
-    - name: Download Artifact
-      uses: actions/download-artifact@v4
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
       with:
-        name: web-deploy-package
-        path: ./publish/
+        dotnet-version: 8.0.x
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Publish API
+      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
+
+    # - name: Download Artifact
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     name: web-deploy-package
+    #     path: ./publish/
 
     - name: Deploy with WebDeploy
       run: |

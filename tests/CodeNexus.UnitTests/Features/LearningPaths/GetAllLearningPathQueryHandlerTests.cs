@@ -200,6 +200,13 @@ public class GetAllLearningPathQueryHandlerTests
             IsActive = true
         };
 
+        var goalLink = new LearningPathGoal
+        {
+            GoalId = goalId,
+            Goal = goal,
+            Weight = 1m
+        };
+
         return new List<LearningPath>
         {
             new LearningPath
@@ -207,7 +214,6 @@ public class GetAllLearningPathQueryHandlerTests
                 PathId = Guid.NewGuid(),
                 UserId = _studentUserId,
                 SubjectId = subjectId,
-                GoalId = goalId,
                 Title = "Calculus Path",
                 Description = "Learn calculus step by step",
                 Status = LearningPathStatus.Active.ToString(),
@@ -215,7 +221,7 @@ public class GetAllLearningPathQueryHandlerTests
                 CreatedByType = true,
                 User = studentUser,
                 Subject = subject,
-                Goal = goal,
+                LearningPathGoals = new List<LearningPathGoal> { goalLink },
                 Chapters = new List<Chapter>()
             },
             new LearningPath
@@ -223,7 +229,6 @@ public class GetAllLearningPathQueryHandlerTests
                 PathId = Guid.NewGuid(),
                 UserId = _studentUserId,
                 SubjectId = subjectId,
-                GoalId = goalId,
                 Title = "Algebra Path",
                 Description = "Learn algebra fundamentals",
                 Status = LearningPathStatus.InProgress.ToString(),
@@ -231,7 +236,7 @@ public class GetAllLearningPathQueryHandlerTests
                 CreatedByType = false,
                 User = studentUser,
                 Subject = subject,
-                Goal = goal,
+                LearningPathGoals = new List<LearningPathGoal> { goalLink },
                 Chapters = new List<Chapter>()
             }
         };

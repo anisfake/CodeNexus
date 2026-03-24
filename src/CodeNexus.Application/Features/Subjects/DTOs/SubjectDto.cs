@@ -9,9 +9,19 @@ public record SubjectDto(
     string? Color,
     string? Icon,
     SubjectCategory Category,
+    List<SubjectGoalDto> Goals,
     string CreatedBy,
     Guid CreatedByUserId,
     DateTime CreatedAt
+);
+
+public record SubjectGoalDto(
+    Guid GoalId,
+    string Title,
+    string? Description,
+    bool IsSystemDefined,
+    bool IsActive,
+    int DurationInDays
 );
 
 public record CreateSubjectRequest(

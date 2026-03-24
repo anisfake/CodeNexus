@@ -15,5 +15,11 @@ public class UpdateAIConfigCommandValidator : AbstractValidator<UpdateAIConfigCo
                 .NotEmpty().WithMessage("API key cannot be empty if provided.");
         });
 
+        When(x => x.AccessTier.HasValue, () =>
+        {
+            RuleFor(x => x.AccessTier)
+                .IsInEnum().WithMessage("Invalid AI access tier.");
+        });
+
     }
 }

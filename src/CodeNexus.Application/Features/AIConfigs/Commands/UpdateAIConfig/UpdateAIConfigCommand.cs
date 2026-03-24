@@ -11,5 +11,6 @@ public record UpdateAIConfigCommand(
     string? ApiKey,
     Dictionary<string, object>? ConfigJson,
     bool? IsActive,
-    AIUsageType? UsageType
+    AIUsageType? UsageType,
+    AIAccessTier? AccessTier
 ) : IRequest<Result<UpdateAIConfigResponse>>;

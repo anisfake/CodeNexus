@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AuditLogs.DTOs;
+using CodeNexus.Application.Features.AuditLogs.Queries.GetAuditLogTableNames;
 using CodeNexus.Application.Features.AuditLogs.Queries.GetAuditLogs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -28,6 +29,17 @@ public class AuditLogController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var result = await _sender.Send(query, cancellationToken);
+
+        return ToActionResult(result);
+    }
+
+    [HttpGet("table-names")]
+    [ProducesResponseType(typeof(List<string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetAuditLogTableNames(CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetAuditLogTableNamesQuery(), cancellationToken);
 
         return ToActionResult(result);
     }

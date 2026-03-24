@@ -17,6 +17,8 @@ namespace CodeNexus.Domain.Entities
         public DateTime? EndTime { get; set; }
         public int PlannedDurationMinutes { get; set; } = 0; // 0 means unlimited for Study sessions
         public int? ActualDurationMinutes { get; set; }
+        public DateTime? PausedAt { get; set; }
+        public int TotalPausedMinutes { get; set; } = 0;
         public SessionStatus SessionStatus { get; set; } = SessionStatus.Running;
         public SessionType SessionType { get; set; } = SessionType.Study; // Default to Study session
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

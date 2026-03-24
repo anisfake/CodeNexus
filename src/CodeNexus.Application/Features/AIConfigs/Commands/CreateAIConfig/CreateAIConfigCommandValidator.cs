@@ -20,6 +20,9 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
 
             RuleFor(x => x.AIUsageType)
                 .IsInEnum().WithMessage("Invalid AI usage type");
+
+            RuleFor(x => x.AccessTier)
+                .IsInEnum().WithMessage("Invalid AI access tier");
         }
     }
 }

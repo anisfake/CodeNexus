@@ -12,13 +12,17 @@ namespace CodeNexus.UnitTests.Features.Subjects;
 public class GetSubjectsQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
+    private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly GetSubjectsQueryHandler _handler;
+    private readonly Guid _userId = Guid.NewGuid();
 
     public GetSubjectsQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(_userId);
 
-        _handler = new GetSubjectsQueryHandler(_mockContext.Object);
+        _handler = new GetSubjectsQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
     }
 
     [Fact]
@@ -78,6 +82,9 @@ public class GetSubjectsQueryHandlerTests
         _mockContext.Setup(x => x.Subjects).Returns(
             subjects.BuildMockDbSet().Object);
 
+        _mockContext.Setup(x => x.SubjectGoals).Returns(
+            new List<SubjectGoal>().BuildMockDbSet().Object);
+
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -98,6 +105,9 @@ public class GetSubjectsQueryHandlerTests
 
         _mockContext.Setup(x => x.Subjects).Returns(
             new List<Subject>().BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.SubjectGoals).Returns(
+            new List<SubjectGoal>().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -154,6 +164,9 @@ public class GetSubjectsQueryHandlerTests
         _mockContext.Setup(x => x.Subjects).Returns(
             subjects.BuildMockDbSet().Object);
 
+        _mockContext.Setup(x => x.SubjectGoals).Returns(
+            new List<SubjectGoal>().BuildMockDbSet().Object);
+
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -197,6 +210,9 @@ public class GetSubjectsQueryHandlerTests
 
         _mockContext.Setup(x => x.Subjects).Returns(
             subjects.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.SubjectGoals).Returns(
+            new List<SubjectGoal>().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -245,6 +261,9 @@ public class GetSubjectsQueryHandlerTests
 
         _mockContext.Setup(x => x.Subjects).Returns(
             subjects.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.SubjectGoals).Returns(
+            new List<SubjectGoal>().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -322,6 +341,9 @@ public class GetSubjectsQueryHandlerTests
 
         _mockContext.Setup(x => x.Subjects).Returns(
             subjects.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.SubjectGoals).Returns(
+            new List<SubjectGoal>().BuildMockDbSet().Object);
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);

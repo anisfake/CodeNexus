@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Enums;
 using System.Text.RegularExpressions;
 
@@ -57,6 +58,110 @@ public class GoalValidationService : IGoalValidationService
             return false;
 
         return await ValidateWithAI(goalTitle, cancellationToken);
+    }
+
+    public async Task<bool> IsGoalRelevantToSubjectAsync(
+        string goalTitle,
+        string? goalDescription,
+        string subjectName,
+        string? subjectDescription,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(goalTitle) || string.IsNullOrWhiteSpace(subjectName))
+            return false;
+
+        try
+        {
+            var prompt = $@"Determine whether the learning goal is relevant to the specified subject.
+
+Subject: ""{subjectName}""
+Subject description: ""{subjectDescription ?? "N/A"}""
+
+Goal title: ""{goalTitle}""
+Goal description: ""{goalDescription ?? "N/A"}""
+
+Reply ONLY with 'YES' or 'NO'.
+- YES if the goal clearly relates to the subject's concepts, technologies, tools, or outcomes.
+- NO if the goal is unrelated or better suited for a different subject.
+
+Answer:";
+
+            var response = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.Verification);
+            var answer = response?.Trim().ToUpperInvariant();
+
+            return answer == "YES";
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    public async Task<GoalMatchResult> FindBestSystemGoalMatchAsync(
+        string goalTitle,
+        string? goalDescription,
+        string subjectName,
+        string? subjectDescription,
+        IReadOnlyList<GoalMatchCandidate> systemGoals,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(goalTitle) || string.IsNullOrWhiteSpace(subjectName) || systemGoals.Count == 0)
+        {
+            return new GoalMatchResult(null, null);
+        }
+
+        try
+        {
+            var goalsText = string.Join("\n", systemGoals.Select(g =>
+                $"- {g.GoalId}: {g.Title} | {g.Description ?? "N/A"}"));
+
+            var prompt = $@"You are matching a user's custom learning goal to the closest system-defined goal for the same subject.
+
+Subject: ""{subjectName}""
+Subject description: ""{subjectDescription ?? "N/A"}""
+
+User goal title: ""{goalTitle}""
+User goal description: ""{goalDescription ?? "N/A"}""
+
+System goals:
+{goalsText}
+
+Pick the SINGLE best matching system goal, if any. If none are relevant, respond with NONE.
+Reply ONLY in this format:
+BEST: <goalId or NONE>
+CONFIDENCE: <number between 0 and 1>
+
+Answer:";
+
+            var response = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.Verification);
+            if (string.IsNullOrWhiteSpace(response))
+                return new GoalMatchResult(null, null);
+
+            var bestMatch = Regex.Match(response, @"BEST:\s*(?<id>[0-9a-fA-F\-]{36}|NONE)", RegexOptions.IgnoreCase);
+            var confidenceMatch = Regex.Match(response, @"CONFIDENCE:\s*(?<conf>0(\.\d+)?|1(\.0+)?)", RegexOptions.IgnoreCase);
+
+            if (!bestMatch.Success)
+                return new GoalMatchResult(null, null);
+
+            var idValue = bestMatch.Groups["id"].Value.Trim();
+            if (idValue.Equals("NONE", StringComparison.OrdinalIgnoreCase))
+                return new GoalMatchResult(null, null);
+
+            if (!Guid.TryParse(idValue, out var goalId))
+                return new GoalMatchResult(null, null);
+
+            decimal? confidence = null;
+            if (confidenceMatch.Success && decimal.TryParse(confidenceMatch.Groups["conf"].Value, out var confValue))
+            {
+                confidence = confValue;
+            }
+
+            return new GoalMatchResult(goalId, confidence);
+        }
+        catch
+        {
+            return new GoalMatchResult(null, null);
+        }
     }
 
     private bool HasObviousProgrammingKeywords(string normalizedGoal)

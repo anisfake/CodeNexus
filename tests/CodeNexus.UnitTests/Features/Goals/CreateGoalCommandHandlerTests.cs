@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Goals.Commands.CreateGoal;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 using Moq;
@@ -22,7 +23,10 @@ public class CreateGoalCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockGoalValidationService = new Mock<IGoalValidationService>();
-        _handler = new CreateGoalCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockGoalValidationService.Object);
+        _handler = new CreateGoalCommandHandler(
+            _mockContext.Object,
+            _mockCurrentUserService.Object,
+            _mockGoalValidationService.Object);
     }
 
     [Fact]
@@ -30,15 +34,36 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn C#", "Master C# programming");
+        var subjectId = Guid.NewGuid();
+        var command = new CreateGoalCommand(subjectId, "Learn C#", "Master C# programming", GoalDuration.OneMonth);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockGoalValidationService.Setup(x => x.IsGoalRelevantToSubjectAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         SetupGoalsDbSet(new List<GoalEntity>());
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "C#",
+                Description = "C# programming language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
+        _mockContext.Setup(x => x.SubjectGoals.AddAsync(It.IsAny<SubjectGoal>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SubjectGoal>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SubjectGoal>)null!));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
@@ -58,15 +83,36 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Python", null);
+        var subjectId = Guid.NewGuid();
+        var command = new CreateGoalCommand(subjectId, "Learn Python", null, GoalDuration.TwoMonths);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockGoalValidationService.Setup(x => x.IsGoalRelevantToSubjectAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         SetupGoalsDbSet(new List<GoalEntity>());
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "Python",
+                Description = "Python language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
+        _mockContext.Setup(x => x.SubjectGoals.AddAsync(It.IsAny<SubjectGoal>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SubjectGoal>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SubjectGoal>)null!));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(1);
 
@@ -85,15 +131,36 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Java", "Master Java");
+        var subjectId = Guid.NewGuid();
+        var command = new CreateGoalCommand(subjectId, "Learn Java", "Master Java", GoalDuration.ThreeMonths);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _mockGoalValidationService.Setup(x => x.IsGoalRelevantToSubjectAsync(
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<string>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         SetupGoalsDbSet(new List<GoalEntity>());
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "Java",
+                Description = "Java language"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
+        _mockContext.Setup(x => x.SubjectGoals.AddAsync(It.IsAny<SubjectGoal>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SubjectGoal>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<SubjectGoal>)null!));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
@@ -111,12 +178,23 @@ public class CreateGoalCommandHandlerTests
     {
         // Arrange
         var userId = Guid.NewGuid();
-        var command = new CreateGoalCommand("Learn Cooking", "Master cooking skills");
+        var subjectId = Guid.NewGuid();
+        var command = new CreateGoalCommand(subjectId, "Learn Cooking", "Master cooking skills", GoalDuration.OneWeek);
         
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockGoalValidationService.Setup(x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         SetupGoalsDbSet(new List<GoalEntity>());
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "General",
+                Description = "General"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -138,5 +216,31 @@ public class CreateGoalCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<GoalEntity>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.Goals).Returns(dbSetMock.Object);
+    }
+
+    private void SetupSubjectsDbSet(List<Subject> subjects)
+    {
+        var queryable = new TestAsyncEnumerable<Subject>(subjects);
+        var dbSetMock = new Mock<DbSet<Subject>>();
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<Subject>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<Subject>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.Subjects).Returns(dbSetMock.Object);
+    }
+
+    private void SetupSubjectGoalsDbSet(List<SubjectGoal> subjectGoals)
+    {
+        var queryable = new TestAsyncEnumerable<SubjectGoal>(subjectGoals);
+        var dbSetMock = new Mock<DbSet<SubjectGoal>>();
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<SubjectGoal>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<SubjectGoal>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.SubjectGoals).Returns(dbSetMock.Object);
     }
 }

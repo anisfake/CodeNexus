@@ -33,8 +33,13 @@ public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigComm
             if (config.UsageType != request.UsageType)
                 return Result<string>.Failure("USAGE_TYPE_MISMATCH", $"Config usage type does not match the requested usage type");
 
+            if (config.AccessTier != request.AccessTier)
+                return Result<string>.Failure("ACCESS_TIER_MISMATCH", "Config access tier does not match the requested access tier");
+
             var configsToDeactivate = await _context.AIProviderConfigs
-                .Where(x => x.UsageType == request.UsageType && x.IsActive)
+                .Where(x => x.UsageType == request.UsageType
+                    && x.AccessTier == request.AccessTier
+                    && x.IsActive)
                 .ToListAsync(cancellationToken);
 
             foreach (var c in configsToDeactivate)
@@ -49,7 +54,7 @@ public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigComm
 
             _cache.Remove(CACHE_KEY_ALL);
 
-            return Result<string>.Success($"Config '{config.ProviderName}' is now active for {request.UsageType}");
+            return Result<string>.Success($"Config '{config.ProviderName}' is now active for {request.UsageType} ({request.AccessTier})");
         }
         catch (Exception ex)
         {

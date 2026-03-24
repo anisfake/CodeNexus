@@ -1,6 +1,7 @@
 using CloudinaryDotNet;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Infrastructure.Persistence;
+using CodeNexus.Infrastructure.Services.AIProviders;
 using CodeNexus.Infrastructure.Services;
 using CodeNexus.Infrastructure.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -31,6 +32,7 @@ public static class DependencyInjection
         services.AddScoped<ITokenService, TokenService>();
         services.Configure<GoogleAuthSettings>(configuration.GetSection(GoogleAuthSettings.SectionName));
         services.AddScoped<IGoogleAuthService, GoogleAuthService>();
+        services.Configure<VnPaySettings>(configuration.GetSection(VnPaySettings.SectionName));
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
@@ -117,13 +119,21 @@ public static class DependencyInjection
 
         services.AddScoped<IAIConfigCacheService, AIConfigCacheService>();
         services.AddScoped<IOTPCacheService, OTPCacheService>();
+        services.AddScoped<IAIProviderAdapter, GroqProviderAdapter>();
+        services.AddScoped<IAIProviderAdapter, GeminiProviderAdapter>();
+        services.AddScoped<IAIProviderAdapter, MistralProviderAdapter>();
 
         services.AddHttpClient<GroqServiceWithCache>();
         services.AddScoped<IAIGeneratorService, GroqServiceWithCache>();
+        services.AddScoped<IVnPayService, VnPayService>();
 
         services.AddScoped<IEncryptionService, EncryptionService>();
         services.AddScoped<IGoalValidationService, GoalValidationService>();
+        services.AddScoped<ITimelineCalculationService, TimelineCalculationService>();
         services.AddScoped<ITaskVerificationService, TaskVerificationService>();
+        services.AddScoped<IAchievementService, AchievementService>();
+        services.AddScoped<ISubscriptionAccessService, SubscriptionAccessService>();
+        services.AddScoped<IPlanUsageLimitService, PlanUsageLimitService>();
 
         services.AddMemoryCache();
 

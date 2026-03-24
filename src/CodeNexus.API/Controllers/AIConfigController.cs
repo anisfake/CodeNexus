@@ -1,4 +1,3 @@
-using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig;
 using CodeNexus.Application.Features.AIConfigs.Commands.UpdateAIConfig;
@@ -19,6 +18,7 @@ namespace CodeNexus.API.Controllers
     public class AIConfigController : ControllerBase
     {
         private readonly ISender _sender;
+
         public AIConfigController(ISender sender)
         {
             _sender = sender;
@@ -36,7 +36,7 @@ namespace CodeNexus.API.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateAIConfig(CreateAIConfigRequest request, CancellationToken cancellationToken)
         {
-            var command = new CreateAIConfigCommand(request.ProviderName, request.ApiKey, request.ConfigJson, request.AIUsageType, request.IsEnabel);
+            var command = new CreateAIConfigCommand(request.ProviderName, request.ApiKey, request.ConfigJson, request.AIUsageType, request.AccessTier, request.IsEnabel);
 
             var result = await _sender.Send(command, cancellationToken);
 
@@ -55,7 +55,8 @@ namespace CodeNexus.API.Controllers
                 request.ApiKey,
                 request.ConfigJson,
                 request.IsActive,
-                request.UsageType
+                request.UsageType,
+                request.AccessTier
             );
 
             var result = await _sender.Send(command, cancellationToken);
@@ -89,11 +90,12 @@ namespace CodeNexus.API.Controllers
             [FromBody] SetActiveConfigRequest request,
             CancellationToken cancellationToken)
         {
-            var command = new SetActiveConfigCommand(configId, request.UsageType);
+            var command = new SetActiveConfigCommand(configId, request.UsageType, request.AccessTier);
             var result = await _sender.Send(command, cancellationToken);
 
             return ToActionResult(result);
         }
+
         private IActionResult ToActionResult(Result result)
         {
             if (result.IsSuccess)
@@ -117,5 +119,6 @@ namespace CodeNexus.API.Controllers
                 _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
             };
         }
+
     }
 }

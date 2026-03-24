@@ -23,5 +23,6 @@ namespace CodeNexus.Domain.Entities
 
         public virtual ICollection<LearningPath> LearningPaths { get; set; } = new List<LearningPath>();
         public virtual ICollection<Resource> Resources { get; set; } = new List<Resource>();
+        public virtual ICollection<SubjectGoal> SubjectGoals { get; set; } = new List<SubjectGoal>();
     }
 }

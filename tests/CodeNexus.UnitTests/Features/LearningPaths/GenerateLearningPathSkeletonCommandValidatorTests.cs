@@ -1,6 +1,8 @@
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
+using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Enums;
 using FluentValidation.TestHelper;
+using System.Collections.Generic;
 using Xunit;
 
 namespace CodeNexus.UnitTests.Features.LearningPaths;
@@ -18,7 +20,8 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithValidCommand_ShouldNotHaveErrors()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.NewGuid(), ComplexityLevel.Beginner, LanguageSelection.VietNamese);
+        var goals = new List<LearningPathGoalRequest> { new(Guid.NewGuid(), 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), goals, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -31,7 +34,8 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     public void Validate_WithEmptySubjectId_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, Guid.NewGuid(), ComplexityLevel.Intermediate, LanguageSelection.English);
+        var goals = new List<LearningPathGoalRequest> { new(Guid.NewGuid(), 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, goals, ComplexityLevel.Intermediate, LanguageSelection.English);
 
         // Act
         var result = _validator.TestValidate(command);
@@ -41,37 +45,38 @@ public class GenerateLearningPathSkeletonCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_WithEmptyGoalId_ShouldHaveError()
+    public void Validate_WithEmptyGoals_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.Empty, ComplexityLevel.Advanced, LanguageSelection.VietNamese);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), new List<LearningPathGoalRequest>(), ComplexityLevel.Advanced, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x.GoalId);
+        result.ShouldHaveValidationErrorFor(x => x.Goals);
     }
 
     [Fact]
-    public void Validate_WithBothEmptyIds_ShouldHaveErrors()
+    public void Validate_WithEmptySubjectAndGoals_ShouldHaveErrors()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, Guid.Empty, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
+        var command = new GenerateLearningPathSkeletonCommand(Guid.Empty, new List<LearningPathGoalRequest>(), ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);
 
         // Assert
         result.ShouldHaveValidationErrorFor(x => x.SubjectId);
-        result.ShouldHaveValidationErrorFor(x => x.GoalId);
+        result.ShouldHaveValidationErrorFor(x => x.Goals);
     }
 
     [Fact]
     public void Validate_WithInvalidComplexityLevel_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), Guid.NewGuid(), (ComplexityLevel)999, LanguageSelection.VietNamese);
+        var goals = new List<LearningPathGoalRequest> { new(Guid.NewGuid(), 1m) };
+        var command = new GenerateLearningPathSkeletonCommand(Guid.NewGuid(), goals, (ComplexityLevel)999, LanguageSelection.VietNamese);
 
         // Act
         var result = _validator.TestValidate(command);

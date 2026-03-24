@@ -1,6 +1,7 @@
 ﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AuditLogs.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -35,9 +36,13 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
+        public DbSet<GoalMapping> GoalMappings => Set<GoalMapping>();
+        public DbSet<SubjectGoal> SubjectGoals => Set<SubjectGoal>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
+        public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
+        public DbSet<LearnProgress> LearnProgresses => Set<LearnProgress>();
         public DbSet<Tasks> Tasks => Set<Tasks>();
         public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
         public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
@@ -49,11 +54,22 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AISummary> AISummaries => Set<AISummary>();
         public DbSet<Conversation> Conversations => Set<Conversation>();
         public DbSet<Message> Messages => Set<Message>();
+        public DbSet<DirectConversation> DirectConversations => Set<DirectConversation>();
+        public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
+        public DbSet<DirectMessageReceipt> DirectMessageReceipts => Set<DirectMessageReceipt>();
+        public DbSet<LearningPathShare> LearningPathShares => Set<LearningPathShare>();
         public DbSet<Quiz> Quizzes => Set<Quiz>();
         public DbSet<Questions> Questions => Set<Questions>();
         public DbSet<QuizAttempt> QuizAttempts => Set<QuizAttempt>();
         public DbSet<TokenBlacklist> TokenBlacklist => Set<TokenBlacklist>();
         public DbSet<AIProviderConfig> AIProviderConfigs => Set<AIProviderConfig>();
+        public DbSet<AIUsageLog> AIUsageLogs => Set<AIUsageLog>();
+        public DbSet<Achievement> Achievements => Set<Achievement>();
+        public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+        public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+        public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
+        public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -232,6 +248,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<LearningPath>().HasKey(e => e.PathId);
             modelBuilder.Entity<Chapter>().HasKey(e => e.ChapterId);
             modelBuilder.Entity<Lesson>().HasKey(e => e.LessonId);
+            modelBuilder.Entity<LearnProgress>().HasKey(e => e.ProgressId);
             modelBuilder.Entity<Tasks>().HasKey(e => e.TaskId);
             modelBuilder.Entity<FocusSession>().HasKey(e => e.SessionId);
             modelBuilder.Entity<DailyCheckins>().HasKey(e => e.CheckinId);
@@ -244,10 +261,21 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
+            modelBuilder.Entity<GoalMapping>().HasKey(e => e.MappingId);
+            modelBuilder.Entity<SubjectGoal>().HasKey(e => new { e.SubjectId, e.GoalId });
+            modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
             modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
+            modelBuilder.Entity<DirectConversation>().HasKey(e => e.ConversationId);
+            modelBuilder.Entity<DirectMessage>().HasKey(e => e.MessageId);
+            modelBuilder.Entity<DirectMessageReceipt>().HasKey(e => e.ReceiptId);
+            modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
+            modelBuilder.Entity<AIUsageLog>().HasKey(e => e.UsageLogId);
+            modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
+            modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
+            modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -273,6 +301,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithOne(p => p.User)
                       .HasForeignKey<UserProfile>(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(u => u.SubscriptionPlan)
+                      .WithMany()
+                      .HasForeignKey(u => u.SubscriptionPlanId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<NoteTags>(entity =>
@@ -319,6 +352,9 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<LearningPath>(entity =>
             {
+                entity.Property(p => p.ComplexityLevel)
+                      .HasConversion<string>();
+
                 entity.HasOne(p => p.Subject)
                       .WithMany(s => s.LearningPaths)
                       .HasForeignKey(p => p.SubjectId)
@@ -330,11 +366,40 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.NoAction);
             });
 
+            modelBuilder.Entity<LearningPathGoal>(entity =>
+            {
+                entity.Property(e => e.Weight)
+                      .HasPrecision(5, 2);
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany(lp => lp.LearningPathGoals)
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Goal)
+                      .WithMany(g => g.LearningPathGoals)
+                      .HasForeignKey(e => e.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<Subject>()
                 .HasOne(s => s.CreatedByUser)
                 .WithMany(u => u.Subjects)
                 .HasForeignKey(s => s.CreatedByUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<SubjectGoal>(entity =>
+            {
+                entity.HasOne(sg => sg.Subject)
+                      .WithMany(s => s.SubjectGoals)
+                      .HasForeignKey(sg => sg.SubjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(sg => sg.Goal)
+                      .WithMany(g => g.SubjectGoals)
+                      .HasForeignKey(sg => sg.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<Resource>(entity =>
             {
@@ -379,6 +444,24 @@ namespace CodeNexus.Infrastructure.Persistence
                 .HasForeignKey(l => l.ChapterId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<LearnProgress>(entity =>
+            {
+                entity.ToTable("LearnProgress");
+
+                entity.HasIndex(e => new { e.LessonId, e.UserId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.Lesson)
+                      .WithMany(l => l.LearnProgresses)
+                      .HasForeignKey(e => e.LessonId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.LearnProgresses)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
             modelBuilder.Entity<AISummary>()
                .HasOne(s => s.Resource)
                .WithMany(r => r.AISummaries)
@@ -391,6 +474,25 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.Goals)
                       .HasForeignKey(g => g.CreatedByUserId)
                       .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<GoalMapping>(entity =>
+            {
+                entity.Property(e => e.Confidence)
+                      .HasPrecision(5, 2);
+
+                entity.HasIndex(e => new { e.UserGoalId, e.SystemGoalId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.UserGoal)
+                      .WithMany(g => g.UserGoalMappings)
+                      .HasForeignKey(e => e.UserGoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.SystemGoal)
+                      .WithMany(g => g.SystemGoalMappings)
+                      .HasForeignKey(e => e.SystemGoalId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Questions>(entity =>
@@ -423,12 +525,96 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasKey(e => e.ConfigId);
 
-                entity.HasIndex(e => new { e.UsageType, e.IsActive });
+                entity.Property(e => e.AccessTier)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.UsageType, e.AccessTier, e.IsActive });
+
+                entity.HasIndex(e => new { e.UsageType, e.AccessTier })
+                      .IsUnique()
+                      .HasFilter("[IsActive] = 1");
 
                 entity.HasMany(e => e.Conversations)
                       .WithOne(c => c.Provider)
                       .HasForeignKey(c => c.ConfigId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<AIUsageLog>(entity =>
+            {
+                entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
+                entity.Property(e => e.CostUsd).HasPrecision(18, 8);
+            });
+
+            modelBuilder.Entity<PaymentTransaction>(entity =>
+            {
+                entity.HasKey(e => e.PaymentTransactionId);
+
+                entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.Status).HasConversion<string>();
+
+                entity.HasIndex(e => e.TxnRef).IsUnique();
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.SubscriptionPlan)
+                      .WithMany()
+                      .HasForeignKey(e => e.SubscriptionPlanId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<SubscriptionPlan>(entity =>
+            {
+                entity.Property(e => e.PlanType)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.Name)
+                      .HasMaxLength(120);
+
+                entity.Property(e => e.Description)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.PriceVnd)
+                      .HasPrecision(18, 2);
+
+                entity.HasIndex(e => e.PlanType)
+                      .IsUnique();
+
+                entity.HasIndex(e => e.DisplayOrder);
+
+            });
+
+            modelBuilder.Entity<SubscriptionPlanLimit>(entity =>
+            {
+                entity.Property(e => e.FeatureKey)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.WindowType)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.SubscriptionPlanId, e.FeatureKey })
+                      .IsUnique();
+
+                entity.HasOne(e => e.SubscriptionPlan)
+                      .WithMany(p => p.Limits)
+                      .HasForeignKey(e => e.SubscriptionPlanId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<FeatureUsageLog>(entity =>
+            {
+                entity.Property(e => e.FeatureKey)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.UserId, e.FeatureKey, e.CreatedAt });
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.FeatureUsageLogs)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<Conversation>(entity =>
@@ -459,6 +645,100 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(c => c.Messages)
                       .HasForeignKey(m => m.ConversationId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DirectConversation>(entity =>
+            {
+                entity.HasKey(e => e.ConversationId);
+
+                entity.HasIndex(e => new { e.MentorId, e.StudentId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasMany(e => e.Messages)
+                      .WithOne(m => m.Conversation)
+                      .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DirectMessage>(entity =>
+            {
+                entity.HasKey(e => e.MessageId);
+
+                entity.Property(e => e.MessageType)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.ConversationId, e.SentAt });
+
+                entity.HasOne(e => e.Conversation)
+                      .WithMany(c => c.Messages)
+                      .HasForeignKey(e => e.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Sender)
+                      .WithMany()
+                      .HasForeignKey(e => e.SenderId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.LearningPathShare)
+                      .WithMany()
+                      .HasForeignKey(e => e.LearningPathShareId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<DirectMessageReceipt>(entity =>
+            {
+                entity.HasKey(e => e.ReceiptId);
+
+                entity.HasIndex(e => new { e.MessageId, e.UserId })
+                      .IsUnique();
+
+                entity.HasOne(e => e.Message)
+                      .WithMany(m => m.Receipts)
+                      .HasForeignKey(e => e.MessageId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<LearningPathShare>(entity =>
+            {
+                entity.HasKey(e => e.ShareId);
+
+                entity.Property(e => e.Status)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.StudentId, e.Status, e.SentAt });
+                entity.HasIndex(e => new { e.PathId, e.MentorId, e.StudentId })
+                      .IsUnique()
+                      .HasFilter("[Status] = 'Pending'");
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
         }
     }

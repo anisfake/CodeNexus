@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,8 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
             return Result.Failure("SESSION_NOT_FOUND", "Session not found");
         }
 
-        if (session.SessionStatus != SessionStatus.Running && session.SessionStatus != SessionStatus.Paused)
+        if (session.SessionStatus != SessionStatus.Running &&
+            session.SessionStatus != SessionStatus.Paused)
         {
             return Result.Failure("SESSION_NOT_ACTIVE", "Session is not active");
         }
@@ -33,7 +35,7 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
         try
         {
             var endTime = DateTime.UtcNow;
-            var actualDurationMinutes = (int)(endTime - session.StartTime).TotalMinutes;
+            var actualDurationMinutes = CalculateElapsedMinutes(session, endTime);
 
             session.EndTime = endTime;
             session.ActualDurationMinutes = actualDurationMinutes;
@@ -49,5 +51,23 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
                 "ABANDON_SESSION_FAILED",
                 $"An error occurred while abandoning the session: {ex.Message}");
         }
+    }
+
+    private static int CalculateElapsedMinutes(FocusSession session, DateTime now)
+    {
+        var pausedMinutes = session.TotalPausedMinutes;
+        if (session.PausedAt.HasValue)
+        {
+            var extra = (int)(now - session.PausedAt.Value).TotalMinutes;
+            if (extra > 0)
+            {
+                pausedMinutes += extra;
+                session.TotalPausedMinutes = pausedMinutes;
+                session.PausedAt = null;
+            }
+        }
+
+        var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
+        return Math.Max(0, elapsed);
     }
 }

@@ -25,7 +25,11 @@ public class UploadResourceCommandHandlerTests
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockCloudinaryService = new Mock<ICloudinaryService>();
         _mockPdfProcessingService = new Mock<IPdfProcessingService>();
-        _handler = new UploadResourceCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockCloudinaryService.Object, _mockPdfProcessingService.Object);
+        _handler = new UploadResourceCommandHandler(
+            _mockContext.Object,
+            _mockCurrentUserService.Object,
+            _mockCloudinaryService.Object,
+            _mockPdfProcessingService.Object);
     }
 
     [Fact]

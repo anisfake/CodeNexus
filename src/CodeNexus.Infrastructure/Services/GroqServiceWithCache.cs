@@ -1,9 +1,10 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Enums;
+using CodeNexus.Infrastructure.Services.AIProviders;
 using Microsoft.EntityFrameworkCore;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CodeNexus.Domain.Entities;
 
 namespace CodeNexus.Infrastructure.Services;
 
@@ -13,7 +14,9 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly IApplicationDbContext _context;
     private readonly IAIConfigCacheService _cacheService;
     private readonly IEncryptionService _encryptionService;
-    private const string GroqApiUrl = "https://api.groq.com/openai/v1/chat/completions";
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ISubscriptionAccessService _subscriptionAccessService;
+    private readonly IReadOnlyCollection<IAIProviderAdapter> _providerAdapters;
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
     private const int DefaultMaxTokens = 8192;
@@ -24,12 +27,24 @@ public class GroqServiceWithCache : IAIGeneratorService
         HttpClient httpClient,
         IApplicationDbContext context,
         IAIConfigCacheService cacheService,
-        IEncryptionService encryptionService)
+        IEncryptionService encryptionService,
+        ICurrentUserService currentUserService,
+        ISubscriptionAccessService subscriptionAccessService,
+        IEnumerable<IAIProviderAdapter>? providerAdapters = null)
     {
         _httpClient = httpClient;
         _context = context;
         _cacheService = cacheService;
         _encryptionService = encryptionService;
+        _currentUserService = currentUserService;
+        _subscriptionAccessService = subscriptionAccessService;
+        _providerAdapters = providerAdapters?.ToList()
+            ?? new List<IAIProviderAdapter>
+            {
+                new GroqProviderAdapter(_httpClient),
+                new GeminiProviderAdapter(_httpClient),
+                new MistralProviderAdapter(_httpClient)
+            };
     }
 
     public async Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
@@ -45,11 +60,11 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             try
             {
-                var (apiKey, config) = await GetConfigAsync(usageType);
+                var (apiKey, config, providerName) = await GetConfigAsync(usageType);
 
                 var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
 
-                var responseText = await CallGroqApiAsync(prompt, apiKey, adjustedConfig, jsonMode: true);
+                var responseText = await CallProviderApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
 
                 var jsonContent = ExtractJsonFromResponse(responseText);
@@ -102,47 +117,91 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config) = await GetConfigAsync(usageType);
-        return await CallGroqApiAsync(prompt, apiKey, config, jsonMode: false);
+        var (apiKey, config, providerName) = await GetConfigAsync(usageType);
+        return await CallProviderApiAsync(prompt, apiKey, config, usageType, providerName, jsonMode: false);
     }
 
-    private async Task<(string apiKey, GroqConfig config)> GetConfigAsync(AIUsageType usageType)
+    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
     {
-        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType);
+        var preferredTier = await ResolvePreferredTierAsync();
+        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, preferredTier);
 
-        if (!string.IsNullOrEmpty(cachedApiKey))
-        {
-            return (cachedApiKey, new GroqConfig
-            {
-                Model = DefaultModel,
-                MaxTokens = DefaultMaxTokens,
-                Temperature = DefaultTemperature,
-                RequestTimeoutSeconds = DefaultRequestTimeoutSeconds
-            });
-        }
-
-        var dbConfig = await _context.AIProviderConfigs
-            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.IsActive);
-
-        if (dbConfig == null || string.IsNullOrEmpty(dbConfig.EncryptedApiKey))
+        if (selectedConfig == null)
         {
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
         }
 
-        var decryptedApiKey = _encryptionService.Decrypt(dbConfig.EncryptedApiKey);
+        var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType, selectedConfig.AccessTier, CancellationToken.None);
+        var apiKey = string.IsNullOrWhiteSpace(cachedApiKey)
+            ? _encryptionService.Decrypt(selectedConfig.EncryptedApiKey)
+            : cachedApiKey;
 
-        var config = ParseConfigJson(dbConfig.ConfigJson);
+        if (string.IsNullOrWhiteSpace(cachedApiKey))
+        {
+            await _cacheService.SetApiKeyAsync(usageType, selectedConfig.AccessTier, apiKey, TimeSpan.FromHours(1));
+        }
 
-        await _cacheService.SetApiKeyAsync(usageType, decryptedApiKey, TimeSpan.FromHours(1));
-
-        return (decryptedApiKey, config);
+        var config = ParseConfigJson(selectedConfig.ConfigJson);
+        return (apiKey, config, string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName);
     }
 
-    private GroqConfig ParseConfigJson(string? configJson)
+    private async Task<AIProviderConfig?> ResolveConfigWithTierPreferenceAsync(
+        AIUsageType usageType,
+        AIAccessTier preferredTier)
+    {
+        var config = await ResolveConfigByTierAsync(usageType, preferredTier);
+        if (config != null)
+            return config;
+
+        config = await ResolveAnyUsageConfigByTierAsync(preferredTier);
+        if (config != null)
+            return config;
+
+        var secondaryTier = preferredTier == AIAccessTier.Paid ? AIAccessTier.Free : AIAccessTier.Paid;
+
+        config = await ResolveConfigByTierAsync(usageType, secondaryTier);
+        if (config != null)
+            return config;
+
+        return await ResolveAnyUsageConfigByTierAsync(secondaryTier);
+    }
+
+    private async Task<AIAccessTier> ResolvePreferredTierAsync()
+    {
+        try
+        {
+            var userId = _currentUserService.GetUserId();
+            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId);
+            return canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+        }
+        catch
+        {
+            return AIAccessTier.Free;
+        }
+    }
+
+    private async Task<AIProviderConfig?> ResolveConfigByTierAsync(AIUsageType usageType, AIAccessTier tier)
+    {
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.AccessTier == tier && c.IsActive, CancellationToken.None);
+    }
+
+    private async Task<AIProviderConfig?> ResolveAnyUsageConfigByTierAsync(AIAccessTier tier)
+    {
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.AccessTier == tier && c.IsActive)
+            .OrderBy(c => c.UsageType == AIUsageType.StructureGeneration ? 0 : 1)
+            .ThenByDescending(c => c.LastUpdated)
+            .FirstOrDefaultAsync(CancellationToken.None);
+    }
+
+    private AIProviderRuntimeConfig ParseConfigJson(string? configJson)
     {
         if (string.IsNullOrWhiteSpace(configJson))
         {
-            return new GroqConfig
+            return new AIProviderRuntimeConfig
             {
                 Model = DefaultModel,
                 MaxTokens = DefaultMaxTokens,
@@ -154,9 +213,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         try
         {
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var config = JsonSerializer.Deserialize<GroqConfig>(configJson, options);
+            var config = JsonSerializer.Deserialize<AIProviderRuntimeConfig>(configJson, options);
 
-            return config ?? new GroqConfig
+            return config ?? new AIProviderRuntimeConfig
             {
                 Model = DefaultModel,
                 MaxTokens = DefaultMaxTokens,
@@ -166,7 +225,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
         catch
         {
-            return new GroqConfig
+            return new AIProviderRuntimeConfig
             {
                 Model = DefaultModel,
                 MaxTokens = DefaultMaxTokens,
@@ -176,94 +235,108 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
-    private async Task<string> CallGroqApiAsync(string prompt, string apiKey, GroqConfig config, bool jsonMode = false)
+    private async Task<string> CallProviderApiAsync(
+        string prompt,
+        string apiKey,
+        AIProviderRuntimeConfig config,
+        AIUsageType usageType,
+        string providerName,
+        bool jsonMode = false)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(config.RequestTimeoutSeconds));
-
-        var messages = new List<object>();
-
-        if (jsonMode)
+        var adapter = ResolveProviderAdapter(providerName);
+        var invocation = await adapter.GenerateAsync(prompt, apiKey, config, jsonMode, CancellationToken.None);
+        if (string.Equals(invocation.FinishReason, "length", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(invocation.FinishReason, "max_tokens", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(invocation.FinishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
         {
-            messages.Add(new { role = "system", content = "You are a helpful assistant. You must respond with valid, complete JSON only. No markdown, no extra text, no truncated responses. Ensure the JSON is properly closed with all brackets and braces." });
+            throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
         }
 
-        messages.Add(new { role = "user", content = prompt });
+        await TryLogUsageAsync(
+            usageType,
+            providerName,
+            config,
+            invocation.InputTokens,
+            invocation.OutputTokens,
+            invocation.TotalTokens);
 
-        var requestBody = new Dictionary<string, object>
-        {
-            ["model"] = config.Model,
-            ["messages"] = messages,
-            ["max_tokens"] = config.MaxTokens,
-            ["temperature"] = config.Temperature,
-            ["top_p"] = 0.9,
-            ["stream"] = false
-        };
+        return invocation.Content;
+    }
 
-        if (jsonMode)
+    private IAIProviderAdapter ResolveProviderAdapter(string providerName)
+    {
+        var provider = string.IsNullOrWhiteSpace(providerName) ? "Groq" : providerName;
+        var adapter = _providerAdapters.FirstOrDefault(x => x.CanHandle(provider));
+        if (adapter != null)
         {
-            requestBody["response_format"] = new { type = "json_object" };
+            return adapter;
         }
 
-        var jsonContent = new StringContent(
-            JsonSerializer.Serialize(requestBody),
-            Encoding.UTF8,
-            "application/json"
-        );
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, GroqApiUrl)
+        var fallbackAdapter = _providerAdapters.FirstOrDefault(x => x.CanHandle("Groq"));
+        if (fallbackAdapter != null)
         {
-            Content = jsonContent
-        };
-        request.Headers.Add("Authorization", $"Bearer {apiKey}");
-
-        var response = await _httpClient.SendAsync(request, cts.Token);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorContent = await response.Content.ReadAsStringAsync(cts.Token);
-            throw new InvalidOperationException($"Groq API error ({response.StatusCode}): {errorContent}");
+            return fallbackAdapter;
         }
 
-        var responseContent = await response.Content.ReadAsStringAsync(cts.Token);
+        throw new InvalidOperationException($"No AI provider adapter registered for provider '{provider}'.");
+    }
 
+    private async Task TryLogUsageAsync(
+        AIUsageType usageType,
+        string providerName,
+        AIProviderRuntimeConfig config,
+        int inputTokens,
+        int outputTokens,
+        int totalTokens)
+    {
         try
         {
-            var responseJson = JsonDocument.Parse(responseContent);
-            var text = responseJson.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString();
+            var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
 
-            if (string.IsNullOrEmpty(text))
-                throw new InvalidOperationException("Groq API returned empty response");
-
-            var finishReason = responseJson.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("finish_reason")
-                .GetString();
-
-            if (finishReason == "length")
+            _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
             {
-                throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
-            }
+                UsageType = usageType,
+                ProviderName = providerName,
+                Model = config.Model,
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = totalTokens,
+                CostUsd = costUsd,
+                CreatedAt = DateTime.UtcNow
+            });
 
-            return text;
+            await _context.SaveChangesAsync();
         }
-        catch (JsonException ex)
+        catch
         {
-            throw new InvalidOperationException($"Failed to parse Groq response: {ex.Message}. Response: {responseContent.Substring(0, Math.Min(500, responseContent.Length))}...", ex);
+            // Avoid blocking AI response if logging fails.
         }
     }
 
-    private static GroqConfig AdjustConfigForAttempt(GroqConfig baseConfig, int attempt)
+    private static decimal CalculateCostUsd(AIProviderRuntimeConfig config, int inputTokens, int outputTokens)
     {
-        return new GroqConfig
+        if (config.InputCostPer1M <= 0 && config.OutputCostPer1M <= 0)
+        {
+            return 0m;
+        }
+
+        const decimal OneMillion = 1_000_000m;
+        var inputCost = (inputTokens / OneMillion) * config.InputCostPer1M;
+        var outputCost = (outputTokens / OneMillion) * config.OutputCostPer1M;
+        return Math.Round(inputCost + outputCost, 6);
+    }
+
+    private static AIProviderRuntimeConfig AdjustConfigForAttempt(AIProviderRuntimeConfig baseConfig, int attempt)
+    {
+        return new AIProviderRuntimeConfig
         {
             Model = baseConfig.Model,
             MaxTokens = Math.Min(baseConfig.MaxTokens + (attempt * 1024), 24576),
             Temperature = Math.Min(baseConfig.Temperature + (attempt * 0.05f), 0.6f),
-            RequestTimeoutSeconds = baseConfig.RequestTimeoutSeconds + (attempt * 15)
+            RequestTimeoutSeconds = baseConfig.RequestTimeoutSeconds + (attempt * 15),
+            InputCostPer1M = baseConfig.InputCostPer1M,
+            OutputCostPer1M = baseConfig.OutputCostPer1M,
+            BaseUrl = baseConfig.BaseUrl
         };
     }
 
@@ -556,11 +629,4 @@ public class GroqServiceWithCache : IAIGeneratorService
         return -1;
     }
 
-    private class GroqConfig
-    {
-        public string Model { get; set; } = DefaultModel;
-        public int MaxTokens { get; set; } = DefaultMaxTokens;
-        public float Temperature { get; set; } = DefaultTemperature;
-        public int RequestTimeoutSeconds { get; set; } = DefaultRequestTimeoutSeconds;
-    }
 }

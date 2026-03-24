@@ -44,7 +44,6 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
             if (lesson.Chapter.LearningPath.UserId != userId)
                 return Result<GeneratedQuizSkeletonDto>.Failure("UNAUTHORIZED", "You do not have access to this lesson");
 
-            // Check if quizzes already exist for this lesson
             if (lesson.Quizzes.Any())
             {
                 var existingQuizzes = lesson.Quizzes.Select(q => new QuizSkeletonDto(
@@ -58,14 +57,12 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
                 return Result<GeneratedQuizSkeletonDto>.Success(new GeneratedQuizSkeletonDto(existingQuizzes));
             }
 
-            // Determine if this lesson should have quizzes and how many
             var quizCount = DetermineQuizCount(lesson);
             if (quizCount == 0)
             {
                 return Result<GeneratedQuizSkeletonDto>.Success(new GeneratedQuizSkeletonDto(new List<QuizSkeletonDto>()));
             }
 
-            // Generate quiz skeletons using AI
             var language = lesson.Chapter.LearningPath.Language;
             var prompt = BuildPrompt(lesson, quizCount, language);
             var generatedData = await _aiGeneratorService.GenerateStructureAsync<QuizGenerationData>(prompt, AIUsageType.StructureGeneration);
@@ -73,7 +70,6 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
             if (generatedData?.Quizzes == null || generatedData.Quizzes.Count == 0)
                 return Result<GeneratedQuizSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned no quiz data");
 
-            // Create quiz records in database
             var createdQuizzes = new List<QuizSkeletonDto>();
             foreach (var quizData in generatedData.Quizzes)
             {
@@ -83,8 +79,8 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
                     LessonId = lesson.LessonId,
                     Title = quizData.Title,
                     Description = quizData.Description,
-                    TimeLimit = null, // Will be set when questions are generated
-                    PassingScore = null, // Will be set when questions are generated
+                    TimeLimit = null,
+                    PassingScore = null,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -111,29 +107,22 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
 
     private static int DetermineQuizCount(Lesson lesson)
     {
-        // Logic to determine if lesson should have quizzes and how many
-        // Based on lesson position in chapter and some randomization
-        
-        var random = new Random(lesson.LessonId.GetHashCode()); // Deterministic based on lesson ID
+
+        var random = new Random(lesson.LessonId.GetHashCode());
         var chapterLessonCount = lesson.Chapter.Lessons?.Count ?? 1;
         var lessonIndex = lesson.OrderIndex;
-        
-        // 60% chance a lesson has quizzes
+
         if (random.NextDouble() > 0.6)
             return 0;
-            
-        // For lessons in the middle or end of chapter, higher chance of having quiz
+
         if (lessonIndex >= chapterLessonCount / 2)
         {
-            // 80% chance for later lessons
             if (random.NextDouble() > 0.2)
             {
-                // 70% chance of 1 quiz, 30% chance of 2 quizzes
                 return random.NextDouble() > 0.3 ? 2 : 1;
             }
         }
-        
-        // For early lessons, lower chance but still possible
+
         return random.NextDouble() > 0.5 ? 1 : 0;
     }
 

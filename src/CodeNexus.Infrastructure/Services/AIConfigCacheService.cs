@@ -14,7 +14,7 @@ public class AIConfigCacheService : IAIConfigCacheService
         _redis = redis;
     }
 
-    public async Task<string?> GetApiKeyAsync(AIUsageType usageType, CancellationToken cancellationToken = default)
+    public async Task<string?> GetApiKeyAsync(AIUsageType usageType, AIAccessTier accessTier, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -22,7 +22,7 @@ public class AIConfigCacheService : IAIConfigCacheService
                 return null;
 
             var db = _redis.GetDatabase();
-            var key = $"{KeyPrefix}{usageType}";
+            var key = $"{KeyPrefix}{usageType}:{accessTier}";
             var value = await db.StringGetAsync(key);
             return value.HasValue ? value.ToString() : null;
         }
@@ -32,7 +32,7 @@ public class AIConfigCacheService : IAIConfigCacheService
         }
     }
 
-    public async Task SetApiKeyAsync(AIUsageType usageType, string apiKey, TimeSpan expiration, CancellationToken cancellationToken = default)
+    public async Task SetApiKeyAsync(AIUsageType usageType, AIAccessTier accessTier, string apiKey, TimeSpan expiration, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -40,7 +40,7 @@ public class AIConfigCacheService : IAIConfigCacheService
                 return;
 
             var db = _redis.GetDatabase();
-            var key = $"{KeyPrefix}{usageType}";
+            var key = $"{KeyPrefix}{usageType}:{accessTier}";
             await db.StringSetAsync(key, apiKey, expiration);
         }
         catch
