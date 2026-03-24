@@ -7,10 +7,13 @@ on:
     branches: [ "master", "develop" ]
   workflow_dispatch:
 
+concurrency:
+  group: codenexus-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # JOB 1: BUILD & TEST & PUBLISH
-  build:
-    runs-on: ubuntu-latest
+  ci_cd:
+    runs-on: windows-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -19,6 +22,10 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+        cache: true
+        cache-dependency-path: |
+          **/*.csproj
+          **/packages.lock.json
 
     - name: Restore dependencies
       run: dotnet restore
@@ -27,46 +34,13 @@ jobs:
       run: dotnet build --no-restore --configuration Release
 
     - name: Run Unit Tests
-      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --configuration Release --verbosity normal
+      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --configuration Release --no-build --verbosity normal
 
     - name: Publish API
-      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
-
-    # Temporarily disabled due to storage quota
-    # - name: Upload Artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: web-deploy-package
-    #     path: ./publish/
-    #     retention-days: 1
-
-  # JOB 2: DEPLOY 
-  deploy:
-    needs: build
-    runs-on: windows-latest
-    if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Publish API
-      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
-
-    # - name: Download Artifact
-    #   uses: actions/download-artifact@v4
-    #   with:
-    #     name: web-deploy-package
-    #     path: ./publish/
+      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release --no-build --no-restore -o ./publish
 
     - name: Deploy with WebDeploy
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
       run: |
         $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
         & $msdeploy -verb:sync `
@@ -76,5 +50,7 @@ jobs:
           -retryAttempts:5 `
           -retryInterval:5000 `
           -allowUntrusted `
-          -verbose
+          -disableLink:AppPoolExtension `
+          -disableLink:ContentExtension `
+          -disableLink:CertificateExtension
       shell: powershell
