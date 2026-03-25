@@ -8,5 +8,6 @@ namespace CodeNexus.Application.Features.DirectChats.Commands.SendDirectMessage;
 public record SendDirectMessageCommand(
     Guid ConversationId,
     string Content,
-    DirectMessageType MessageType = DirectMessageType.Text
+    DirectMessageType MessageType = DirectMessageType.Text,
+    Guid? ReplyToMessageId = null
 ) : IRequest<Result<DirectMessageDto>>;

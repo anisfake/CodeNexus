@@ -23,5 +23,11 @@ public class SendDirectMessageCommandValidator : AbstractValidator<SendDirectMes
             .IsInEnum()
             .WithErrorCode("INVALID_MESSAGE_TYPE")
             .WithMessage("MessageType is invalid.");
+
+        RuleFor(x => x.ReplyToMessageId)
+            .NotEqual(Guid.Empty)
+            .When(x => x.ReplyToMessageId.HasValue)
+            .WithErrorCode("REPLY_TO_MESSAGE_ID_INVALID")
+            .WithMessage("ReplyToMessageId is invalid.");
     }
 }

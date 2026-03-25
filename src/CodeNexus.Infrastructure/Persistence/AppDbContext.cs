@@ -691,6 +691,7 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasConversion<string>();
 
                 entity.HasIndex(e => new { e.ConversationId, e.SentAt });
+                entity.HasIndex(e => e.ReplyToMessageId);
 
                 entity.HasOne(e => e.Conversation)
                       .WithMany(c => c.Messages)
@@ -700,6 +701,11 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(e => e.Sender)
                       .WithMany()
                       .HasForeignKey(e => e.SenderId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.ReplyToMessage)
+                      .WithMany(e => e.Replies)
+                      .HasForeignKey(e => e.ReplyToMessageId)
                       .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(e => e.LearningPathShare)
