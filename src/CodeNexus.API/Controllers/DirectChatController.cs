@@ -69,7 +69,11 @@ public class DirectChatController : ControllerBase
         [FromBody] SendDirectMessageRequest request,
         CancellationToken cancellationToken)
     {
-        var command = new SendDirectMessageCommand(conversationId, request.Content, request.MessageType);
+        var command = new SendDirectMessageCommand(
+            conversationId,
+            request.Content,
+            request.MessageType,
+            request.ReplyToMessageId);
         var result = await _sender.Send(command, cancellationToken);
 
         return ToActionResult(result);

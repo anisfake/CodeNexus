@@ -85,4 +85,47 @@ public class SendDirectMessageCommandHandlerTests
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ACCESS_DENIED");
     }
+
+    [Fact]
+    public async Task Handle_ReplyToMessageInSameConversation_ReturnsSuccessWithReplyData()
+    {
+        var mentorId = NewId.NextGuid();
+        var studentId = NewId.NextGuid();
+        var conversationId = NewId.NextGuid();
+        var repliedMessageId = NewId.NextGuid();
+
+        var conversation = new DirectConversation
+        {
+            ConversationId = conversationId,
+            MentorId = mentorId,
+            StudentId = studentId
+        };
+
+        var existingMessage = new DirectMessage
+        {
+            MessageId = repliedMessageId,
+            ConversationId = conversationId,
+            SenderId = studentId,
+            Content = "message goc"
+        };
+
+        var conversations = new List<DirectConversation> { conversation };
+        var messages = new List<DirectMessage> { existingMessage };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
+        _mockContext.Setup(x => x.DirectConversations).Returns(conversations.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(messages.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessageReceipts).Returns(new List<DirectMessageReceipt>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var command = new SendDirectMessageCommand(conversationId, "reply", DirectMessageType.Text, repliedMessageId);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.ReplyToMessageId.Should().Be(repliedMessageId);
+        result.Value.ReplyToContent.Should().Be("message goc");
+        result.Value.ReplyToSenderId.Should().Be(studentId);
+    }
 }
