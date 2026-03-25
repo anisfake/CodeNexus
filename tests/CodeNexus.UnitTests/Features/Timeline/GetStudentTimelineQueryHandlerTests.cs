@@ -6,6 +6,7 @@ using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using Moq;
 using Xunit;
+using DomainTask = CodeNexus.Domain.Entities.Tasks;
 
 namespace CodeNexus.UnitTests.Features.Timeline;
 
@@ -61,7 +62,7 @@ public class GetStudentTimelineQueryHandlerTests
             IsDeleted = false
         };
 
-        var task = new Tasks
+        var task = new DomainTask
         {
             TaskId = Guid.NewGuid(),
             PathId = pathId,
@@ -84,7 +85,7 @@ public class GetStudentTimelineQueryHandlerTests
 
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath> { path }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson> { lesson }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Tasks).Returns(new List<Tasks> { task }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(new List<DomainTask> { task }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz> { quiz }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearnProgresses).Returns(new List<LearnProgress>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().BuildMockDbSet().Object);
@@ -110,7 +111,7 @@ public class GetStudentTimelineQueryHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Tasks).Returns(new List<Tasks>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(new List<DomainTask>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearnProgresses).Returns(new List<LearnProgress>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().BuildMockDbSet().Object);
@@ -123,4 +124,3 @@ public class GetStudentTimelineQueryHandlerTests
         result.ErrorCode.Should().Be("LEARNING_PATH_NOT_FOUND");
     }
 }
-
