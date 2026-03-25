@@ -64,6 +64,20 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
             .Where(r => messageIds.Contains(r.MessageId))
             .ToListAsync(cancellationToken);
 
+        var replyToMessageIds = messages
+            .Where(m => m.ReplyToMessageId.HasValue)
+            .Select(m => m.ReplyToMessageId!.Value)
+            .Distinct()
+            .ToList();
+
+        var replyToMessageLookup = replyToMessageIds.Count == 0
+            ? new Dictionary<Guid, (string Content, Guid SenderId)>()
+            : await _context.DirectMessages
+                .AsNoTracking()
+                .Where(m => replyToMessageIds.Contains(m.MessageId))
+                .Select(m => new { m.MessageId, m.Content, m.SenderId })
+                .ToDictionaryAsync(m => m.MessageId, m => (m.Content, m.SenderId), cancellationToken);
+
         var items = messages.Select(m =>
         {
             var recipientId = m.SenderId == conversation.MentorId
@@ -71,6 +85,10 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
                 : conversation.MentorId;
 
             var receipt = receipts.FirstOrDefault(r => r.MessageId == m.MessageId && r.UserId == recipientId);
+
+            var replyInfo = m.ReplyToMessageId.HasValue && replyToMessageLookup.TryGetValue(m.ReplyToMessageId.Value, out var value)
+                ? value
+                : ((string Content, Guid SenderId)?)null;
 
             return new DirectMessageDto(
                 m.MessageId,
@@ -81,7 +99,10 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
                 m.SentAt,
                 receipt?.DeliveredAt,
                 receipt?.SeenAt,
-                m.LearningPathShareId
+                m.LearningPathShareId,
+                m.ReplyToMessageId,
+                replyInfo?.Content,
+                replyInfo?.SenderId
             );
         }).ToList();
 

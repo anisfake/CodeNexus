@@ -115,7 +115,7 @@ public class DirectChatHub : Hub
         await Clients.Caller.SendAsync("UnreadCountUpdated", result.Value);
     }
 
-    public async Task SendMessage(Guid conversationId, string content, string messageType = "Text")
+    public async Task SendMessage(Guid conversationId, string content, string messageType = "Text", Guid? replyToMessageId = null)
     {
         if (!Enum.TryParse<DirectMessageType>(messageType, true, out var parsedMessageType))
         {
@@ -127,7 +127,7 @@ public class DirectChatHub : Hub
             return;
         }
 
-        var result = await _sender.Send(new SendDirectMessageCommand(conversationId, content, parsedMessageType));
+        var result = await _sender.Send(new SendDirectMessageCommand(conversationId, content, parsedMessageType, replyToMessageId));
 
         if (!result.IsSuccess)
         {

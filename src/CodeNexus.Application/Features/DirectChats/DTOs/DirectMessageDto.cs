@@ -11,5 +11,8 @@ public record DirectMessageDto(
     DateTime SentAt,
     DateTime? DeliveredAt,
     DateTime? SeenAt,
-    Guid? LearningPathShareId
+    Guid? LearningPathShareId,
+    Guid? ReplyToMessageId,
+    string? ReplyToContent,
+    Guid? ReplyToSenderId
 );

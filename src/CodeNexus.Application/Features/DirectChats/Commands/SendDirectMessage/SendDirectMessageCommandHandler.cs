@@ -44,11 +44,25 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             return Result<DirectMessageDto>.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
         }
 
+        DirectMessage? repliedMessage = null;
+        if (request.ReplyToMessageId.HasValue)
+        {
+            repliedMessage = await _context.DirectMessages
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.MessageId == request.ReplyToMessageId.Value, cancellationToken);
+
+            if (repliedMessage == null || repliedMessage.ConversationId != conversation.ConversationId)
+            {
+                return Result<DirectMessageDto>.Failure("MESSAGE_NOT_FOUND", "Reply target message not found.");
+            }
+        }
+
         var message = new DirectMessage
         {
             MessageId = NewId.NextGuid(),
             ConversationId = conversation.ConversationId,
             SenderId = currentUserId,
+            ReplyToMessageId = request.ReplyToMessageId,
             Content = request.Content.Trim(),
             MessageType = request.MessageType,
             SentAt = DateTime.UtcNow
@@ -84,7 +98,10 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             message.SentAt,
             null,
             null,
-            message.LearningPathShareId
+            message.LearningPathShareId,
+            message.ReplyToMessageId,
+            repliedMessage?.Content,
+            repliedMessage?.SenderId
         ));
     }
 }

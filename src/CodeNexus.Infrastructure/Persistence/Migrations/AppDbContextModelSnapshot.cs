@@ -387,6 +387,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("LearningPathShareId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ReplyToMessageId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("MessageType")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -400,6 +403,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasKey("MessageId");
 
                     b.HasIndex("LearningPathShareId");
+
+                    b.HasIndex("ReplyToMessageId");
 
                     b.HasIndex("SenderId");
 
@@ -1668,6 +1673,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasForeignKey("LearningPathShareId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("CodeNexus.Domain.Entities.DirectMessage", "ReplyToMessage")
+                        .WithMany("Replies")
+                        .HasForeignKey("ReplyToMessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("CodeNexus.Domain.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -1677,6 +1687,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Conversation");
 
                     b.Navigation("LearningPathShare");
+
+                    b.Navigation("ReplyToMessage");
 
                     b.Navigation("Sender");
                 });
@@ -2129,6 +2141,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DirectMessage", b =>
                 {
+                    b.Navigation("Replies");
+
                     b.Navigation("Receipts");
                 });
 
