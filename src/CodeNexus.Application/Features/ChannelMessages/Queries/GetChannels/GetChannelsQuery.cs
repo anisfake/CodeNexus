@@ -4,4 +4,4 @@ using MediatR;
 
 namespace CodeNexus.Application.Features.ChannelMessages.Queries.GetChannels;
 
-public record GetChannelsQuery(Guid SubjectId) : IRequest<Result<List<ChannelDto>>>;
+public record GetChannelsQuery() : IRequest<Result<List<ChannelDto>>>;

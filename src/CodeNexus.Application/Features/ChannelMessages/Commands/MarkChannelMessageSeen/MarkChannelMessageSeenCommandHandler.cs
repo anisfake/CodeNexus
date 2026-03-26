@@ -38,13 +38,8 @@ public class MarkChannelMessageSeenCommandHandler : IRequestHandler<MarkChannelM
         if (message == null)
             return Result.Failure("MESSAGE_NOT_FOUND", "Message not found.");
 
-        var conversation = message.Conversation;
-        if (conversation.ConversationType != ChatConversationType.Channel || !conversation.SubjectId.HasValue)
+        if (message.Conversation.ConversationType != ChatConversationType.Channel)
             return Result.Failure("ACCESS_DENIED", "You do not have access to this channel.");
-
-        var accessResult = await EnsureSubjectAccess(conversation.SubjectId.Value, currentUserId, cancellationToken);
-        if (accessResult.IsFailure)
-            return accessResult;
 
         if (message.SenderId == currentUserId)
             return Result.Failure("INVALID_OPERATION", "Sender cannot mark own message as seen.");
@@ -74,27 +69,6 @@ public class MarkChannelMessageSeenCommandHandler : IRequestHandler<MarkChannelM
         }
 
         await _context.SaveChangesAsync(cancellationToken);
-        return Result.Success();
-    }
-
-    private async Task<Result> EnsureSubjectAccess(Guid subjectId, Guid currentUserId, CancellationToken cancellationToken)
-    {
-        var subject = await _context.Subjects
-            .AsNoTracking()
-            .Where(s => s.SubjectId == subjectId && !s.IsDeleted)
-            .Select(s => new { s.CreatedByUserId })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (subject == null)
-            return Result.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
-
-        var hasLearningPath = await _context.LearningPaths
-            .AsNoTracking()
-            .AnyAsync(lp => lp.SubjectId == subjectId && lp.UserId == currentUserId, cancellationToken);
-
-        if (subject.CreatedByUserId != currentUserId && !hasLearningPath)
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this subject.");
-
         return Result.Success();
     }
 }

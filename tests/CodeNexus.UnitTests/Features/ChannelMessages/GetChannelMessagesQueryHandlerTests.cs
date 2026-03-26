@@ -26,30 +26,16 @@ public class GetChannelMessagesQueryHandlerTests
     public async Task Handle_ValidInput_ReturnsPagedMessages()
     {
         var userId = NewId.NextGuid();
-        var subjectId = NewId.NextGuid();
         var conversationId = NewId.NextGuid();
 
         var sender1 = new User { UserId = userId, Username = "mentor", FirstName = "An", LastName = "Nguyen" };
         var sender2 = new User { UserId = NewId.NextGuid(), Username = "student01" };
-
-        var subjects = new List<Subject>
-        {
-            new()
-            {
-                SubjectId = subjectId,
-                CreatedByUserId = userId,
-                Name = "Backend",
-                Category = SubjectCategory.Backend,
-                CreatedByUser = sender1
-            }
-        };
 
         var conversations = new List<DirectConversation>
         {
             new()
             {
                 ConversationId = conversationId,
-                SubjectId = subjectId,
                 Category = SubjectCategory.Backend,
                 ConversationType = ChatConversationType.Channel
             }
@@ -80,13 +66,11 @@ public class GetChannelMessagesQueryHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects).Returns(subjects.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(conversations.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectMessages).Returns(messages.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectMessageReceipts).Returns(new List<DirectMessageReceipt>().BuildMockDbSet().Object);
 
-        var query = new GetChannelMessagesQuery(subjectId, SubjectCategory.Backend, 1, 30);
+        var query = new GetChannelMessagesQuery(SubjectCategory.Backend, 1, 30);
 
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -100,48 +84,20 @@ public class GetChannelMessagesQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SubjectNotFound_ReturnsFailure()
+    public async Task Handle_ChannelConversationNotFound_ReturnsEmptyList()
     {
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(NewId.NextGuid());
-        _mockContext.Setup(x => x.Subjects).Returns(new List<Subject>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectConversations).Returns(new List<DirectConversation>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(new List<DirectMessage>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessageReceipts).Returns(new List<DirectMessageReceipt>().BuildMockDbSet().Object);
 
-        var query = new GetChannelMessagesQuery(NewId.NextGuid(), SubjectCategory.Cloud, 1, 10);
-
-        var result = await _handler.Handle(query, CancellationToken.None);
-
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("SUBJECT_NOT_FOUND");
-    }
-
-    [Fact]
-    public async Task Handle_UserHasNoAccess_ReturnsAccessDenied()
-    {
-        var userId = NewId.NextGuid();
-        var ownerId = NewId.NextGuid();
-        var subjectId = NewId.NextGuid();
-
-        var subjects = new List<Subject>
-        {
-            new()
-            {
-                SubjectId = subjectId,
-                CreatedByUserId = ownerId,
-                Name = "Cloud",
-                Category = SubjectCategory.Cloud,
-                CreatedByUser = new User { UserId = ownerId, Username = "owner" }
-            }
-        };
-
-        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects).Returns(subjects.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
-
-        var query = new GetChannelMessagesQuery(subjectId, SubjectCategory.Cloud, 1, 10);
+        var query = new GetChannelMessagesQuery(SubjectCategory.Cloud, 1, 10);
 
         var result = await _handler.Handle(query, CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("ACCESS_DENIED");
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Items.Should().BeEmpty();
+        result.Value.TotalCount.Should().Be(0);
     }
 }

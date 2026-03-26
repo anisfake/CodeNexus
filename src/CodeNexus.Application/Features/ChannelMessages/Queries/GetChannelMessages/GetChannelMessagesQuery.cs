@@ -6,7 +6,6 @@ using MediatR;
 namespace CodeNexus.Application.Features.ChannelMessages.Queries.GetChannelMessages;
 
 public record GetChannelMessagesQuery(
-    Guid SubjectId,
     SubjectCategory Category,
     int PageNumber = 1,
     int PageSize = 30
