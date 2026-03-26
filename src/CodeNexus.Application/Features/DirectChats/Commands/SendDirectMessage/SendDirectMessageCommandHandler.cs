@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DirectChats.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
         var conversation = await _context.DirectConversations
             .FirstOrDefaultAsync(c => c.ConversationId == request.ConversationId, cancellationToken);
 
-        if (conversation == null)
+        if (conversation == null || conversation.ConversationType != ChatConversationType.Direct)
         {
             return Result<DirectMessageDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
         }
@@ -76,7 +77,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
         {
             ReceiptId = NewId.NextGuid(),
             MessageId = message.MessageId,
-            UserId = recipientId
+            UserId = recipientId!.Value
         };
 
         conversation.LastMessagePreview = message.Content.Length > 120

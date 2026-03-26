@@ -664,8 +664,19 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasKey(e => e.ConversationId);
 
+                entity.Property(e => e.ConversationType)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.Category)
+                      .HasConversion<string>();
+
                 entity.HasIndex(e => new { e.MentorId, e.StudentId })
-                      .IsUnique();
+                      .IsUnique()
+                      .HasFilter("[ConversationType] = 'Direct' AND [MentorId] IS NOT NULL AND [StudentId] IS NOT NULL");
+
+                entity.HasIndex(e => new { e.SubjectId, e.Category, e.ConversationType })
+                      .IsUnique()
+                      .HasFilter("[ConversationType] = 'Channel' AND [SubjectId] IS NOT NULL AND [Category] IS NOT NULL");
 
                 entity.HasOne(e => e.Mentor)
                       .WithMany()
@@ -675,6 +686,11 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(e => e.Student)
                       .WithMany()
                       .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Subject)
+                      .WithMany()
+                      .HasForeignKey(e => e.SubjectId)
                       .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasMany(e => e.Messages)

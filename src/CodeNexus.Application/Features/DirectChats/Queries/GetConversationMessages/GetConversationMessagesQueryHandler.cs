@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DirectChats.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,7 +34,7 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.ConversationId == request.ConversationId, cancellationToken);
 
-        if (conversation == null)
+        if (conversation == null || conversation.ConversationType != ChatConversationType.Direct)
         {
             return Result<PaginationDto<DirectMessageDto>>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
         }
