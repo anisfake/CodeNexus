@@ -5,7 +5,6 @@ namespace CodeNexus.Application.Features.ChannelMessages.DTOs;
 public record ChannelMessageDto(
     Guid MessageId,
     Guid ConversationId,
-    Guid SubjectId,
     SubjectCategory Category,
     Guid SenderId,
     string SenderName,

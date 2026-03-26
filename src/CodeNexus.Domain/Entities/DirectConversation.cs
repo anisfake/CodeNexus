@@ -7,7 +7,6 @@ namespace CodeNexus.Domain.Entities
         public Guid ConversationId { get; set; }
         public Guid? MentorId { get; set; }
         public Guid? StudentId { get; set; }
-        public Guid? SubjectId { get; set; }
         public SubjectCategory? Category { get; set; }
         public ChatConversationType ConversationType { get; set; } = ChatConversationType.Direct;
         public string? LastMessagePreview { get; set; }
@@ -16,7 +15,6 @@ namespace CodeNexus.Domain.Entities
 
         public virtual User? Mentor { get; set; }
         public virtual User? Student { get; set; }
-        public virtual Subject? Subject { get; set; }
         public virtual ICollection<DirectMessage> Messages { get; set; } = new List<DirectMessage>();
     }
 }

@@ -6,11 +6,6 @@ public class SendChannelMessageCommandValidator : AbstractValidator<SendChannelM
 {
     public SendChannelMessageCommandValidator()
     {
-        RuleFor(x => x.SubjectId)
-            .NotEmpty()
-            .WithErrorCode("SUBJECT_ID_REQUIRED")
-            .WithMessage("SubjectId is required.");
-
         RuleFor(x => x.Category)
             .IsInEnum()
             .WithErrorCode("INVALID_CATEGORY")

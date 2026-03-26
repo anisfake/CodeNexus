@@ -1,6 +1,5 @@
 using CodeNexus.Application.Features.ChannelMessages.Queries.GetChannels;
 using FluentValidation.TestHelper;
-using MassTransit;
 
 namespace CodeNexus.UnitTests.Features.ChannelMessages.Validators;
 
@@ -14,20 +13,9 @@ public class GetChannelsQueryValidatorTests
     }
 
     [Fact]
-    public void Validate_EmptySubjectId_ShouldHaveValidationError()
+    public void Validate_Query_ShouldNotHaveValidationErrors()
     {
-        var query = new GetChannelsQuery(Guid.Empty);
-
-        var result = _validator.TestValidate(query);
-
-        result.ShouldHaveValidationErrorFor(x => x.SubjectId)
-            .WithErrorCode("SUBJECT_ID_REQUIRED");
-    }
-
-    [Fact]
-    public void Validate_ValidQuery_ShouldNotHaveValidationErrors()
-    {
-        var query = new GetChannelsQuery(NewId.NextGuid());
+        var query = new GetChannelsQuery();
 
         var result = _validator.TestValidate(query);
 

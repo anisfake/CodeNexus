@@ -1,7 +1,6 @@
 using CodeNexus.Application.Features.ChannelMessages.Queries.GetChannelMessages;
 using CodeNexus.Domain.Enums;
 using FluentValidation.TestHelper;
-using MassTransit;
 
 namespace CodeNexus.UnitTests.Features.ChannelMessages.Validators;
 
@@ -17,7 +16,7 @@ public class GetChannelMessagesQueryValidatorTests
     [Fact]
     public void Validate_InvalidPageNumber_ShouldHaveValidationError()
     {
-        var query = new GetChannelMessagesQuery(NewId.NextGuid(), SubjectCategory.Cloud, 0, 30);
+        var query = new GetChannelMessagesQuery(SubjectCategory.Cloud, 0, 30);
 
         var result = _validator.TestValidate(query);
 
@@ -28,7 +27,7 @@ public class GetChannelMessagesQueryValidatorTests
     [Fact]
     public void Validate_InvalidPageSize_ShouldHaveValidationError()
     {
-        var query = new GetChannelMessagesQuery(NewId.NextGuid(), SubjectCategory.Cloud, 1, 101);
+        var query = new GetChannelMessagesQuery(SubjectCategory.Cloud, 1, 101);
 
         var result = _validator.TestValidate(query);
 
@@ -39,7 +38,7 @@ public class GetChannelMessagesQueryValidatorTests
     [Fact]
     public void Validate_ValidQuery_ShouldNotHaveValidationErrors()
     {
-        var query = new GetChannelMessagesQuery(NewId.NextGuid(), SubjectCategory.Cloud, 1, 30);
+        var query = new GetChannelMessagesQuery(SubjectCategory.Cloud, 1, 30);
 
         var result = _validator.TestValidate(query);
 

@@ -1,7 +1,6 @@
 using CodeNexus.Application.Features.ChannelMessages.Commands.SendChannelMessage;
 using CodeNexus.Domain.Enums;
 using FluentValidation.TestHelper;
-using MassTransit;
 
 namespace CodeNexus.UnitTests.Features.ChannelMessages.Validators;
 
@@ -15,20 +14,9 @@ public class SendChannelMessageCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_EmptySubjectId_ShouldHaveValidationError()
-    {
-        var command = new SendChannelMessageCommand(Guid.Empty, SubjectCategory.Backend, "hello");
-
-        var result = _validator.TestValidate(command);
-
-        result.ShouldHaveValidationErrorFor(x => x.SubjectId)
-            .WithErrorCode("SUBJECT_ID_REQUIRED");
-    }
-
-    [Fact]
     public void Validate_EmptyContent_ShouldHaveValidationError()
     {
-        var command = new SendChannelMessageCommand(NewId.NextGuid(), SubjectCategory.Backend, string.Empty);
+        var command = new SendChannelMessageCommand(SubjectCategory.Backend, string.Empty);
 
         var result = _validator.TestValidate(command);
 
@@ -39,7 +27,7 @@ public class SendChannelMessageCommandValidatorTests
     [Fact]
     public void Validate_ValidCommand_ShouldNotHaveValidationErrors()
     {
-        var command = new SendChannelMessageCommand(NewId.NextGuid(), SubjectCategory.Backend, "hello channel");
+        var command = new SendChannelMessageCommand(SubjectCategory.Backend, "hello channel");
 
         var result = _validator.TestValidate(command);
 

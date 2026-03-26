@@ -6,7 +6,6 @@ using MediatR;
 namespace CodeNexus.Application.Features.ChannelMessages.Commands.SendChannelMessage;
 
 public record SendChannelMessageCommand(
-    Guid SubjectId,
     SubjectCategory Category,
     string Content,
     DirectMessageType MessageType = DirectMessageType.Text,

@@ -32,11 +32,7 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
             return Result<ChannelMessageDto>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
-        var accessResult = await EnsureSubjectAccess(request.SubjectId, currentUserId, cancellationToken);
-        if (accessResult.IsFailure)
-            return Result<ChannelMessageDto>.Failure(accessResult.ErrorCode!, accessResult.ErrorMessage!);
-
-        var conversation = await GetOrCreateChannelConversation(request.SubjectId, request.Category, cancellationToken);
+        var conversation = await GetOrCreateChannelConversation(request.Category, cancellationToken);
 
         var sender = await _context.Users
             .AsNoTracking()
@@ -88,7 +84,6 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
         return Result<ChannelMessageDto>.Success(new ChannelMessageDto(
             message.MessageId,
             message.ConversationId,
-            request.SubjectId,
             request.Category,
             message.SenderId,
             senderName,
@@ -104,39 +99,10 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
         ));
     }
 
-    private async Task<Result> EnsureSubjectAccess(Guid subjectId, Guid currentUserId, CancellationToken cancellationToken)
-    {
-        var subject = await _context.Subjects
-            .AsNoTracking()
-            .Where(s => s.SubjectId == subjectId && !s.IsDeleted)
-            .Select(s => new { s.CreatedByUserId })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (subject == null)
-        {
-            return Result.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
-        }
-
-        var hasLearningPath = await _context.LearningPaths
-            .AsNoTracking()
-            .AnyAsync(lp => lp.SubjectId == subjectId && lp.UserId == currentUserId, cancellationToken);
-
-        if (subject.CreatedByUserId != currentUserId && !hasLearningPath)
-        {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this subject.");
-        }
-
-        return Result.Success();
-    }
-
-    private async Task<DirectConversation> GetOrCreateChannelConversation(Guid subjectId, SubjectCategory category, CancellationToken cancellationToken)
+    private async Task<DirectConversation> GetOrCreateChannelConversation(SubjectCategory category, CancellationToken cancellationToken)
     {
         var existing = await _context.DirectConversations
-            .FirstOrDefaultAsync(c =>
-                c.ConversationType == ChatConversationType.Channel &&
-                c.SubjectId == subjectId &&
-                c.Category == category,
-                cancellationToken);
+            .FirstOrDefaultAsync(c => c.ConversationType == ChatConversationType.Channel && c.Category == category, cancellationToken);
 
         if (existing != null)
         {
@@ -146,7 +112,6 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
         var conversation = new DirectConversation
         {
             ConversationId = NewId.NextGuid(),
-            SubjectId = subjectId,
             Category = category,
             ConversationType = ChatConversationType.Channel,
             CreatedAt = DateTime.UtcNow

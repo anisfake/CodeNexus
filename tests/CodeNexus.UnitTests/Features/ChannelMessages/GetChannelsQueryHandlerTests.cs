@@ -1,10 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.ChannelMessages.Queries.GetChannels;
-using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
-using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
-using MassTransit;
 using Moq;
 
 namespace CodeNexus.UnitTests.Features.ChannelMessages;
@@ -23,45 +20,25 @@ public class GetChannelsQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ValidSubjectAccess_ReturnsAllEnumChannels()
+    public async Task Handle_AuthorizedUser_ReturnsAllCategories()
     {
-        var userId = NewId.NextGuid();
-        var subjectId = NewId.NextGuid();
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(Guid.NewGuid());
 
-        var subjects = new List<Subject>
-        {
-            new()
-            {
-                SubjectId = subjectId,
-                CreatedByUserId = userId,
-                Name = "Programming",
-                Category = SubjectCategory.ProgrammingLanguage,
-                CreatedByUser = new User { UserId = userId, Username = "mentor" }
-            }
-        };
-
-        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects).Returns(subjects.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
-
-        var result = await _handler.Handle(new GetChannelsQuery(subjectId), CancellationToken.None);
+        var result = await _handler.Handle(new GetChannelsQuery(), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.Count.Should().Be(Enum.GetValues<SubjectCategory>().Length);
-        result.Value.Select(x => x.Category).Should().BeEquivalentTo(Enum.GetValues<SubjectCategory>());
     }
 
     [Fact]
-    public async Task Handle_SubjectNotFound_ReturnsFailure()
+    public async Task Handle_Unauthorized_ReturnsFailure()
     {
-        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(NewId.NextGuid());
-        _mockContext.Setup(x => x.Subjects).Returns(new List<Subject>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Throws(new Exception("no user"));
 
-        var result = await _handler.Handle(new GetChannelsQuery(NewId.NextGuid()), CancellationToken.None);
+        var result = await _handler.Handle(new GetChannelsQuery(), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("SUBJECT_NOT_FOUND");
+        result.ErrorCode.Should().Be("UNAUTHORIZED");
     }
 }

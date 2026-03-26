@@ -30,17 +30,9 @@ public class GetChannelMessagesQueryHandler : IRequestHandler<GetChannelMessages
             return Result<PaginationDto<ChannelMessageDto>>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
-        var accessResult = await EnsureSubjectAccess(request.SubjectId, currentUserId, cancellationToken);
-        if (accessResult.IsFailure)
-            return Result<PaginationDto<ChannelMessageDto>>.Failure(accessResult.ErrorCode!, accessResult.ErrorMessage!);
-
         var conversation = await _context.DirectConversations
             .AsNoTracking()
-            .FirstOrDefaultAsync(c =>
-                c.ConversationType == ChatConversationType.Channel &&
-                c.SubjectId == request.SubjectId &&
-                c.Category == request.Category,
-                cancellationToken);
+            .FirstOrDefaultAsync(c => c.ConversationType == ChatConversationType.Channel && c.Category == request.Category, cancellationToken);
 
         if (conversation == null)
         {
@@ -115,7 +107,6 @@ public class GetChannelMessagesQueryHandler : IRequestHandler<GetChannelMessages
                 return new ChannelMessageDto(
                     m.MessageId,
                     m.ConversationId,
-                    request.SubjectId,
                     request.Category,
                     m.SenderId,
                     m.SenderName,
@@ -138,30 +129,5 @@ public class GetChannelMessagesQueryHandler : IRequestHandler<GetChannelMessages
             PageSize = request.PageSize,
             TotalCount = totalCount
         });
-    }
-
-    private async Task<Result> EnsureSubjectAccess(Guid subjectId, Guid currentUserId, CancellationToken cancellationToken)
-    {
-        var subject = await _context.Subjects
-            .AsNoTracking()
-            .Where(s => s.SubjectId == subjectId && !s.IsDeleted)
-            .Select(s => new { s.CreatedByUserId })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (subject == null)
-        {
-            return Result.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
-        }
-
-        var hasLearningPath = await _context.LearningPaths
-            .AsNoTracking()
-            .AnyAsync(lp => lp.SubjectId == subjectId && lp.UserId == currentUserId, cancellationToken);
-
-        if (subject.CreatedByUserId != currentUserId && !hasLearningPath)
-        {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this subject.");
-        }
-
-        return Result.Success();
     }
 }

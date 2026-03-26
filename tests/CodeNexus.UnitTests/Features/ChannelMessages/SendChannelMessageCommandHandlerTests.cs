@@ -23,23 +23,10 @@ public class SendChannelMessageCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UserIsSubjectOwner_ReturnsSuccess()
+    public async Task Handle_ValidInput_ReturnsSuccess()
     {
         var userId = NewId.NextGuid();
-        var subjectId = NewId.NextGuid();
         var conversationId = NewId.NextGuid();
-
-        var subjects = new List<Subject>
-        {
-            new()
-            {
-                SubjectId = subjectId,
-                CreatedByUserId = userId,
-                Name = "Backend",
-                Category = SubjectCategory.Backend,
-                CreatedByUser = new User { UserId = userId, Username = "mentor" }
-            }
-        };
 
         var users = new List<User>
         {
@@ -57,28 +44,24 @@ public class SendChannelMessageCommandHandlerTests
             new()
             {
                 ConversationId = conversationId,
-                SubjectId = subjectId,
                 Category = SubjectCategory.Backend,
                 ConversationType = ChatConversationType.Channel
             }
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects).Returns(subjects.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(conversations.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectMessages).Returns(new List<DirectMessage>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        var command = new SendChannelMessageCommand(subjectId, SubjectCategory.Backend, " Xin chao channel ", DirectMessageType.Text);
+        var command = new SendChannelMessageCommand(SubjectCategory.Backend, " Xin chao channel ", DirectMessageType.Text);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
-        result.Value!.SubjectId.Should().Be(subjectId);
-        result.Value.Category.Should().Be(SubjectCategory.Backend);
+        result.Value!.Category.Should().Be(SubjectCategory.Backend);
         result.Value.Content.Should().Be("Xin chao channel");
         result.Value.MessageType.Should().Be(DirectMessageType.Text);
         result.Value.SenderName.Should().Be("An Nguyen");
@@ -86,50 +69,55 @@ public class SendChannelMessageCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_SubjectNotFound_ReturnsFailure()
+    public async Task Handle_UserNotFound_ReturnsFailure()
     {
         var userId = NewId.NextGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects).Returns(new List<Subject>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Users).Returns(new List<User>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectConversations).Returns(new List<DirectConversation>().BuildMockDbSet().Object);
 
-        var command = new SendChannelMessageCommand(NewId.NextGuid(), SubjectCategory.Cloud, "hello");
+        var command = new SendChannelMessageCommand(SubjectCategory.Cloud, "hello");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("SUBJECT_NOT_FOUND");
+        result.ErrorCode.Should().Be("USER_NOT_FOUND");
     }
 
     [Fact]
-    public async Task Handle_UserHasNoAccess_ReturnsAccessDenied()
+    public async Task Handle_ReplyToMessageInDifferentChannel_ReturnsMessageNotFound()
     {
         var userId = NewId.NextGuid();
-        var ownerId = NewId.NextGuid();
-        var subjectId = NewId.NextGuid();
+        var backendConversationId = NewId.NextGuid();
+        var cloudConversationId = NewId.NextGuid();
+        var replyMessageId = NewId.NextGuid();
 
-        var subjects = new List<Subject>
+        var users = new List<User>
         {
-            new()
-            {
-                SubjectId = subjectId,
-                CreatedByUserId = ownerId,
-                Name = "Cloud",
-                Category = SubjectCategory.Cloud,
-                CreatedByUser = new User { UserId = ownerId, Username = "owner" }
-            }
+            new() { UserId = userId, Username = "user" }
+        };
+
+        var conversations = new List<DirectConversation>
+        {
+            new() { ConversationId = backendConversationId, Category = SubjectCategory.Backend, ConversationType = ChatConversationType.Channel }
+        };
+
+        var messages = new List<DirectMessage>
+        {
+            new() { MessageId = replyMessageId, ConversationId = cloudConversationId, SenderId = userId, Content = "old" }
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockContext.Setup(x => x.Subjects).Returns(subjects.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectConversations).Returns(conversations.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(messages.BuildMockDbSet().Object);
 
-        var command = new SendChannelMessageCommand(subjectId, SubjectCategory.Cloud, "hello");
+        var command = new SendChannelMessageCommand(SubjectCategory.Backend, "reply", DirectMessageType.Text, replyMessageId);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("ACCESS_DENIED");
+        result.ErrorCode.Should().Be("MESSAGE_NOT_FOUND");
     }
 }
