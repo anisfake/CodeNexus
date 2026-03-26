@@ -6,20 +6,20 @@ using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace CodeNexus.Application.Features.DirectChats.Commands.MarkMessageSeen;
+namespace CodeNexus.Application.Features.ChannelMessages.Commands.MarkChannelMessageSeen;
 
-public class MarkMessageSeenCommandHandler : IRequestHandler<MarkMessageSeenCommand, Result>
+public class MarkChannelMessageSeenCommandHandler : IRequestHandler<MarkChannelMessageSeenCommand, Result>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
 
-    public MarkMessageSeenCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public MarkChannelMessageSeenCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
     {
         _context = context;
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result> Handle(MarkMessageSeenCommand request, CancellationToken cancellationToken)
+    public async Task<Result> Handle(MarkChannelMessageSeenCommand request, CancellationToken cancellationToken)
     {
         Guid currentUserId;
         try
@@ -36,27 +36,18 @@ public class MarkMessageSeenCommandHandler : IRequestHandler<MarkMessageSeenComm
             .FirstOrDefaultAsync(m => m.MessageId == request.MessageId, cancellationToken);
 
         if (message == null)
-        {
             return Result.Failure("MESSAGE_NOT_FOUND", "Message not found.");
-        }
 
-        if (message.Conversation.ConversationType != ChatConversationType.Direct)
-        {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
-        }
+        var conversation = message.Conversation;
+        if (conversation.ConversationType != ChatConversationType.Channel || !conversation.SubjectId.HasValue)
+            return Result.Failure("ACCESS_DENIED", "You do not have access to this channel.");
 
-        var isParticipant = message.Conversation.MentorId == currentUserId ||
-                            message.Conversation.StudentId == currentUserId;
-
-        if (!isParticipant)
-        {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
-        }
+        var accessResult = await EnsureSubjectAccess(conversation.SubjectId.Value, currentUserId, cancellationToken);
+        if (accessResult.IsFailure)
+            return accessResult;
 
         if (message.SenderId == currentUserId)
-        {
             return Result.Failure("INVALID_OPERATION", "Sender cannot mark own message as seen.");
-        }
 
         var now = DateTime.UtcNow;
 
@@ -83,6 +74,26 @@ public class MarkMessageSeenCommandHandler : IRequestHandler<MarkMessageSeenComm
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        return Result.Success();
+    }
+
+    private async Task<Result> EnsureSubjectAccess(Guid subjectId, Guid currentUserId, CancellationToken cancellationToken)
+    {
+        var subject = await _context.Subjects
+            .AsNoTracking()
+            .Where(s => s.SubjectId == subjectId && !s.IsDeleted)
+            .Select(s => new { s.CreatedByUserId })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (subject == null)
+            return Result.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
+
+        var hasLearningPath = await _context.LearningPaths
+            .AsNoTracking()
+            .AnyAsync(lp => lp.SubjectId == subjectId && lp.UserId == currentUserId, cancellationToken);
+
+        if (subject.CreatedByUserId != currentUserId && !hasLearningPath)
+            return Result.Failure("ACCESS_DENIED", "You do not have access to this subject.");
 
         return Result.Success();
     }

@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DirectChats.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -70,7 +71,7 @@ public class CreateDirectConversationCommandHandler : IRequestHandler<CreateDire
             .AsNoTracking()
             .Include(c => c.Mentor)
             .Include(c => c.Student)
-            .FirstOrDefaultAsync(c => c.MentorId == mentorId && c.StudentId == studentId, cancellationToken);
+            .FirstOrDefaultAsync(c => c.ConversationType == ChatConversationType.Direct && c.MentorId == mentorId && c.StudentId == studentId, cancellationToken);
 
         if (existingConversation != null)
         {
@@ -84,9 +85,9 @@ public class CreateDirectConversationCommandHandler : IRequestHandler<CreateDire
 
             return Result<DirectConversationDto>.Success(new DirectConversationDto(
                 existingConversation.ConversationId,
-                existingConversation.MentorId,
+                existingConversation.MentorId!.Value,
                 existingConversation.Mentor.Username,
-                existingConversation.StudentId,
+                existingConversation.StudentId!.Value,
                 existingConversation.Student.Username,
                 existingConversation.LastMessagePreview,
                 existingConversation.LastMessageAt,
@@ -99,6 +100,7 @@ public class CreateDirectConversationCommandHandler : IRequestHandler<CreateDire
             ConversationId = NewId.NextGuid(),
             MentorId = mentorId,
             StudentId = studentId,
+            ConversationType = ChatConversationType.Direct,
             CreatedAt = DateTime.UtcNow
         };
 

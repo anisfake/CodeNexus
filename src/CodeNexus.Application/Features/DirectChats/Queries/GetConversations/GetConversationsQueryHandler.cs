@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DirectChats.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -33,7 +34,7 @@ public class GetConversationsQueryHandler : IRequestHandler<GetConversationsQuer
             .AsNoTracking()
             .Include(c => c.Mentor)
             .Include(c => c.Student)
-            .Where(c => c.MentorId == currentUserId || c.StudentId == currentUserId)
+            .Where(c => c.ConversationType == ChatConversationType.Direct && (c.MentorId == currentUserId || c.StudentId == currentUserId))
             .OrderByDescending(c => c.LastMessageAt ?? DateTime.MinValue)
             .ThenByDescending(c => c.ConversationId)
             .Select(c => new
@@ -62,9 +63,9 @@ public class GetConversationsQueryHandler : IRequestHandler<GetConversationsQuer
         var conversations = conversationRows
             .Select(c => new DirectConversationDto(
                 c.ConversationId,
-                c.MentorId,
+                c.MentorId!.Value,
                 c.MentorName,
-                c.StudentId,
+                c.StudentId!.Value,
                 c.StudentName,
                 c.LastMessagePreview,
                 c.LastMessageAt,

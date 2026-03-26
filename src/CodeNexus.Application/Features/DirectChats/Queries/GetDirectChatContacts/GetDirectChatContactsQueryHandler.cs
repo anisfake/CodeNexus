@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DirectChats.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,14 +59,14 @@ public class GetDirectChatContactsQueryHandler : IRequestHandler<GetDirectChatCo
 
             var conversationByMentorId = await _context.DirectConversations
                 .AsNoTracking()
-                .Where(c => c.StudentId == currentUserId)
+                .Where(c => c.ConversationType == ChatConversationType.Direct && c.StudentId == currentUserId && c.MentorId.HasValue)
                 .Select(c => new
                 {
                     c.MentorId,
                     c.ConversationId,
                     c.LastMessageAt
                 })
-                .ToDictionaryAsync(x => x.MentorId, x => new { x.ConversationId, x.LastMessageAt }, cancellationToken);
+                .ToDictionaryAsync(x => x.MentorId!.Value, x => new { x.ConversationId, x.LastMessageAt }, cancellationToken);
 
             var mentors = mentorRows
                 .Select(u =>
@@ -94,11 +95,11 @@ public class GetDirectChatContactsQueryHandler : IRequestHandler<GetDirectChatCo
                 .AsNoTracking()
                 .Include(c => c.Student)
                 .ThenInclude(s => s.UserProfile)
-                .Where(c => c.MentorId == currentUserId &&
+                .Where(c => c.ConversationType == ChatConversationType.Direct && c.MentorId == currentUserId && c.StudentId.HasValue &&
                             _context.DirectMessages.Any(m => m.ConversationId == c.ConversationId && m.SenderId == c.StudentId))
                 .OrderByDescending(c => c.LastMessageAt ?? DateTime.MinValue)
                 .Select(c => new DirectChatContactDto(
-                    c.StudentId,
+                    c.StudentId!.Value,
                     c.Student.Username,
                     c.Student.UserProfile != null ? c.Student.UserProfile.AvatarUrl : null,
                     "Student",
