@@ -53,6 +53,7 @@ public class SendChannelMessageCommandHandlerTests
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(conversations.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectMessages).Returns(new List<DirectMessage>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new SendChannelMessageCommand(SubjectCategory.Backend, " Xin chao channel ", DirectMessageType.Text);
@@ -69,6 +70,30 @@ public class SendChannelMessageCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_LearningPathShareNotFound_ReturnsFailure()
+    {
+        var userId = NewId.NextGuid();
+        var conversationId = NewId.NextGuid();
+        var shareId = NewId.NextGuid();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Users).Returns(new List<User> { new() { UserId = userId, Username = "u" } }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectConversations).Returns(new List<DirectConversation>
+        {
+            new() { ConversationId = conversationId, Category = SubjectCategory.Backend, ConversationType = ChatConversationType.Channel }
+        }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(new List<DirectMessage>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
+
+        var command = new SendChannelMessageCommand(SubjectCategory.Backend, "share", DirectMessageType.LearningPathShare, null, shareId);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("LEARNING_PATH_SHARE_NOT_FOUND");
+    }
+
+    [Fact]
     public async Task Handle_UserNotFound_ReturnsFailure()
     {
         var userId = NewId.NextGuid();
@@ -76,6 +101,7 @@ public class SendChannelMessageCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Users).Returns(new List<User>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(new List<DirectConversation>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
 
         var command = new SendChannelMessageCommand(SubjectCategory.Cloud, "hello");
 
@@ -112,6 +138,7 @@ public class SendChannelMessageCommandHandlerTests
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(conversations.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectMessages).Returns(messages.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
 
         var command = new SendChannelMessageCommand(SubjectCategory.Backend, "reply", DirectMessageType.Text, replyMessageId);
 

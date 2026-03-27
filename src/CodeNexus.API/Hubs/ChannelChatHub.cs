@@ -43,7 +43,7 @@ public class ChannelChatHub : Hub
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GetChannelGroup(parsedCategory));
     }
 
-    public async Task SendMessage(string category, string content, string messageType = "Text", Guid? replyToMessageId = null)
+    public async Task SendMessage(string category, string content, string messageType = "Text", Guid? replyToMessageId = null, Guid? learningPathShareId = null)
     {
         if (!Enum.TryParse<SubjectCategory>(category, true, out var parsedCategory))
         {
@@ -65,7 +65,7 @@ public class ChannelChatHub : Hub
             return;
         }
 
-        var result = await _sender.Send(new SendChannelMessageCommand(parsedCategory, content, parsedMessageType, replyToMessageId));
+        var result = await _sender.Send(new SendChannelMessageCommand(parsedCategory, content, parsedMessageType, replyToMessageId, learningPathShareId));
 
         if (!result.IsSuccess)
         {

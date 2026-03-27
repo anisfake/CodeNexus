@@ -9,5 +9,6 @@ public record SendChannelMessageCommand(
     SubjectCategory Category,
     string Content,
     DirectMessageType MessageType = DirectMessageType.Text,
-    Guid? ReplyToMessageId = null
+    Guid? ReplyToMessageId = null,
+    Guid? LearningPathShareId = null
 ) : IRequest<Result<ChannelMessageDto>>;
