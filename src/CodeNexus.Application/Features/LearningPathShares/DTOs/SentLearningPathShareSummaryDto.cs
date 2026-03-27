@@ -9,7 +9,7 @@ public record SentLearningPathShareSummaryDto(
     string? LearningPathDescription,
     Guid StudentId,
     string StudentName,
-    LearningPathShareStatus Status,
+    LearningPathShareStatus? Status,
     DateTime SentAt,
     DateTime? RespondedAt
 );
