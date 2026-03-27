@@ -103,7 +103,7 @@ public class ChannelMessageController : ControllerBase
     }
 
     private static string GetChannelGroup(SubjectCategory category)
-        => $"channel:{category}";
+        => category.ToString();
 
     private IActionResult ToActionResult(Result result)
     {
