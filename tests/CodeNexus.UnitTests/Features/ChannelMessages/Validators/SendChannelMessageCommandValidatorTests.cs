@@ -25,6 +25,17 @@ public class SendChannelMessageCommandValidatorTests
     }
 
     [Fact]
+    public void Validate_LearningPathShareTypeWithoutId_ShouldHaveValidationError()
+    {
+        var command = new SendChannelMessageCommand(SubjectCategory.Backend, "share", DirectMessageType.LearningPathShare);
+
+        var result = _validator.TestValidate(command);
+
+        result.ShouldHaveValidationErrorFor(x => x.LearningPathShareId)
+            .WithErrorCode("LEARNING_PATH_SHARE_ID_REQUIRED");
+    }
+
+    [Fact]
     public void Validate_ValidCommand_ShouldNotHaveValidationErrors()
     {
         var command = new SendChannelMessageCommand(SubjectCategory.Backend, "hello channel");

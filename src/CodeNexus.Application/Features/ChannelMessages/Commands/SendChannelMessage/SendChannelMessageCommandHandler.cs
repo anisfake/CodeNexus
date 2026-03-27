@@ -45,6 +45,18 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
             return Result<ChannelMessageDto>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
+        if (request.MessageType == DirectMessageType.LearningPathShare)
+        {
+            var shareExists = await _context.LearningPathShares
+                .AsNoTracking()
+                .AnyAsync(s => s.ShareId == request.LearningPathShareId!.Value, cancellationToken);
+
+            if (!shareExists)
+            {
+                return Result<ChannelMessageDto>.Failure("LEARNING_PATH_SHARE_NOT_FOUND", "Learning path share not found.");
+            }
+        }
+
         DirectMessage? repliedMessage = null;
         if (request.ReplyToMessageId.HasValue)
         {
@@ -66,6 +78,7 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
             Content = request.Content.Trim(),
             MessageType = request.MessageType,
             ReplyToMessageId = request.ReplyToMessageId,
+            LearningPathShareId = request.LearningPathShareId,
             SentAt = DateTime.UtcNow
         };
 

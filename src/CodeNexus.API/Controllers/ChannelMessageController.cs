@@ -52,7 +52,7 @@ public class ChannelMessageController : ControllerBase
         CancellationToken cancellationToken)
     {
         var result = await _sender.Send(
-            new SendChannelMessageCommand(category, request.Content, request.MessageType, request.ReplyToMessageId),
+            new SendChannelMessageCommand(category, request.Content, request.MessageType, request.ReplyToMessageId, request.LearningPathShareId),
             cancellationToken);
 
         return ToActionResult(result);
@@ -81,7 +81,7 @@ public class ChannelMessageController : ControllerBase
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
-            "MESSAGE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "MESSAGE_NOT_FOUND" or "LEARNING_PATH_SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }
@@ -95,7 +95,7 @@ public class ChannelMessageController : ControllerBase
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
-            "MESSAGE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "MESSAGE_NOT_FOUND" or "LEARNING_PATH_SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }
