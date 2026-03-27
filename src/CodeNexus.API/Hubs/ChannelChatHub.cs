@@ -77,7 +77,7 @@ public class ChannelChatHub : Hub
             return;
         }
 
-        await Clients.Group(GetChannelGroup(parsedCategory)).SendAsync("ReceiveChannelMessage", result.Value);
+        await Clients.All.SendAsync("ReceiveChannelMessage", result.Value);
     }
 
     public async Task MarkDelivered(string category, Guid messageId)
@@ -104,7 +104,7 @@ public class ChannelChatHub : Hub
             return;
         }
 
-        await Clients.Group(GetChannelGroup(parsedCategory)).SendAsync("ChannelMessageDelivered", new
+        await Clients.All.SendAsync("ChannelMessageDelivered", new
         {
             MessageId = messageId,
             DeliveredAt = DateTime.UtcNow
@@ -135,7 +135,7 @@ public class ChannelChatHub : Hub
             return;
         }
 
-        await Clients.Group(GetChannelGroup(parsedCategory)).SendAsync("ChannelMessageSeen", new
+        await Clients.All.SendAsync("ChannelMessageSeen", new
         {
             MessageId = messageId,
             SeenAt = DateTime.UtcNow

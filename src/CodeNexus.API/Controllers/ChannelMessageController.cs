@@ -9,6 +9,8 @@ using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using CodeNexus.API.Hubs;
 
 namespace CodeNexus.API.Controllers;
 
@@ -18,10 +20,12 @@ namespace CodeNexus.API.Controllers;
 public class ChannelMessageController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly IHubContext<ChannelChatHub> _hubContext;
 
-    public ChannelMessageController(ISender sender)
+    public ChannelMessageController(ISender sender, IHubContext<ChannelChatHub> hubContext)
     {
         _sender = sender;
+        _hubContext = hubContext;
     }
 
     [HttpGet("channels")]
@@ -55,6 +59,12 @@ public class ChannelMessageController : ControllerBase
             new SendChannelMessageCommand(category, request.Content, request.MessageType, request.ReplyToMessageId, request.LearningPathShareId),
             cancellationToken);
 
+        if (result.IsSuccess && result.Value is not null)
+        {
+            await _hubContext.Clients.Group(GetChannelGroup(category))
+                .SendAsync("ReceiveChannelMessage", result.Value, cancellationToken);
+        }
+
         return ToActionResult(result);
     }
 
@@ -62,6 +72,16 @@ public class ChannelMessageController : ControllerBase
     public async Task<IActionResult> MarkDelivered(Guid messageId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new MarkChannelMessageDeliveredCommand(messageId), cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            await _hubContext.Clients.All.SendAsync("ChannelMessageDelivered", new
+            {
+                MessageId = messageId,
+                DeliveredAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
+
         return ToActionResult(result);
     }
 
@@ -69,8 +89,21 @@ public class ChannelMessageController : ControllerBase
     public async Task<IActionResult> MarkSeen(Guid messageId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new MarkChannelMessageSeenCommand(messageId), cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            await _hubContext.Clients.All.SendAsync("ChannelMessageSeen", new
+            {
+                MessageId = messageId,
+                SeenAt = DateTime.UtcNow
+            }, cancellationToken);
+        }
+
         return ToActionResult(result);
     }
+
+    private static string GetChannelGroup(SubjectCategory category)
+        => $"channel:{category}";
 
     private IActionResult ToActionResult(Result result)
     {
