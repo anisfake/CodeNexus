@@ -558,8 +558,6 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.AccessTier)
                       .HasConversion<string>();
 
-                entity.HasIndex(e => new { e.UsageType, e.AccessTier, e.IsActive });
-
                 entity.HasIndex(e => new { e.UsageType, e.AccessTier })
                       .IsUnique()
                       .HasFilter("[IsActive] = 1");

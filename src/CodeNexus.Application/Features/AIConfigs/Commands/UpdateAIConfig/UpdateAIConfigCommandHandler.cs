@@ -67,16 +67,17 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
 
             if (config.IsActive)
             {
-                var configsToDeactivate = await _context.AIProviderConfigs
+                var sameGroupActive = await _context.AIProviderConfigs
                     .Where(x => x.ConfigId != config.ConfigId
-                        && x.UsageType == config.UsageType
-                        && x.AccessTier == config.AccessTier
-                        && x.IsActive)
+                                && x.UsageType == config.UsageType
+                                && x.AccessTier == config.AccessTier
+                                && x.IsActive)
                     .ToListAsync(cancellationToken);
 
-                foreach (var c in configsToDeactivate)
+                foreach (var item in sameGroupActive)
                 {
-                    c.IsActive = false;
+                    item.IsActive = false;
+                    item.LastUpdated = DateTime.UtcNow;
                 }
             }
 
