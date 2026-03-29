@@ -17,6 +17,36 @@ public class EmailService : IEmailService
         _settings = settings.Value;
         _logger = logger;
     }
+
+    public async Task SendNotificationEmailAsync(string email, string subject, string message, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var smtpClient = new SmtpClient(_settings.SmtpHost, _settings.SmtpPort)
+            {
+                Credentials = new NetworkCredential(_settings.SenderEmail, _settings.SenderPassword),
+                EnableSsl = _settings.EnableSsl,
+                DeliveryMethod = SmtpDeliveryMethod.Network
+            };
+
+            var mailMessage = new MailMessage
+            {
+                From = new MailAddress(_settings.SenderEmail, _settings.SenderName),
+                Subject = $"CodeNexus - {subject}",
+                Body = GetNotificationEmailTemplate(subject, message),
+                IsBodyHtml = true
+            };
+            mailMessage.To.Add(email);
+
+            await smtpClient.SendMailAsync(mailMessage, cancellationToken);
+            _logger.LogInformation("Notification email sent successfully to {Email}", email);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to send notification email to {Email}", email);
+            throw;
+        }
+    }
     public async Task SendOtpEmailAsync(string email, string otp, CancellationToken cancellationToken = default)
     {
         try
@@ -97,6 +127,27 @@ public class EmailService : IEmailService
                 </table>
             </td>
         </tr>
+    </table>
+</body>
+</html>";
+    }
+
+    private static string GetNotificationEmailTemplate(string subject, string message)
+    {
+        return $@"
+<!DOCTYPE html>
+<html lang=""en""><head><meta charset=""UTF-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1.0""><title>{subject}</title></head>
+<body style=""margin:0;padding:0;font-family:'Segoe UI',Tahoma,Verdana,sans-serif;background:#f4f4f4;"">
+    <table role=""presentation"" style=""width:100%;border-collapse:collapse;"">
+        <tr><td align=""center"" style=""padding:40px 0;"">
+            <table role=""presentation"" style=""width:600px;border-collapse:collapse;background:#fff;border-radius:8px;"">
+                <tr><td style=""padding:24px;background:#4F46E5;border-radius:8px 8px 0 0;color:#fff;font-size:24px;font-weight:600;text-align:center;"">CodeNexus</td></tr>
+                <tr><td style=""padding:32px;"">
+                    <h2 style=""margin:0 0 16px 0;color:#333;"">{subject}</h2>
+                    <p style=""margin:0;color:#666;line-height:1.6;font-size:15px;"">{message}</p>
+                </td></tr>
+            </table>
+        </td></tr>
     </table>
 </body>
 </html>";

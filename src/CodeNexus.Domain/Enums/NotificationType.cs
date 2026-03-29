@@ -10,6 +10,12 @@ namespace CodeNexus.Domain.Enums
     {
         Alert = 0,
         Message = 1,
-        Reminder = 2
+        Reminder = 2,
+        TaskOverdue = 3,
+        ChapterOverdue = 4,
+        LessonOverdue = 5,
+        LearningPathOverdue = 6,
+        PlanExpiringSoon = 7,
+        PlanExpired = 8
     }
 }
