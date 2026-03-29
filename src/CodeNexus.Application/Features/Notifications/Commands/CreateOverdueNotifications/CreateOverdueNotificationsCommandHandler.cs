@@ -142,7 +142,7 @@ public class CreateOverdueNotificationsCommandHandler
                 x.UserId,
                 NotificationType.TaskOverdue,
                 $"Task quá hạn: {x.Title}",
-                $"Task trong lộ trình '{x.PathTitle}' đã quá hạn từ {x.DueDate:dd/MM/yyyy HH:mm} UTC.",
+                BuildTaskOverdueMessage(x.PathTitle, x.Title, x.DueDate),
                 ResolveChannels(OverdueNotificationKind.TaskOverdue)))
             .ToList();
     }
@@ -153,9 +153,9 @@ public class CreateOverdueNotificationsCommandHandler
             .AsNoTracking()
             .Where(lp => lp.EndDate.HasValue
                          && lp.EndDate.Value < nowUtc
-                         && !string.Equals(lp.Status, LearningPathStatus.Completed.ToString(), StringComparison.OrdinalIgnoreCase)
-                         && !string.Equals(lp.Status, LearningPathStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase)
-                         && !string.Equals(lp.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
+                         && lp.Status != LearningPathStatus.Completed.ToString()
+                         && lp.Status != LearningPathStatus.Cancelled.ToString()
+                         && lp.Status != LearningPathStatus.Draft.ToString())
             .Select(lp => new
             {
                 lp.PathId,
@@ -169,7 +169,7 @@ public class CreateOverdueNotificationsCommandHandler
                 x.UserId,
                 NotificationType.LearningPathOverdue,
                 $"Lộ trình quá hạn: {x.Title}",
-                $"Lộ trình học đã quá hạn từ {x.EndDate:dd/MM/yyyy HH:mm} UTC.",
+                BuildLearningPathOverdueMessage(x.Title, x.EndDate),
                 ResolveChannels(OverdueNotificationKind.LearningPathOverdue)))
             .ToList();
     }
@@ -196,7 +196,7 @@ public class CreateOverdueNotificationsCommandHandler
                 x.UserId,
                 NotificationType.ChapterOverdue,
                 $"Chương quá hạn: {x.Title}",
-                $"Chương trong lộ trình '{x.PathTitle}' đã quá hạn từ {x.EndDate:dd/MM/yyyy HH:mm} UTC.",
+                BuildChapterOverdueMessage(x.PathTitle, x.Title, x.EndDate),
                 ResolveChannels(OverdueNotificationKind.ChapterOverdue)))
             .ToList();
     }
@@ -222,7 +222,7 @@ public class CreateOverdueNotificationsCommandHandler
                 x.UserId,
                 NotificationType.LessonOverdue,
                 $"Bài học quá hạn: {x.Title}",
-                $"Bài học trong chương '{x.ChapterTitle}' của lộ trình '{x.PathTitle}' đã trễ từ {x.LessonDay:dd/MM/yyyy HH:mm} UTC.",
+                BuildLessonOverdueMessage(x.PathTitle, x.ChapterTitle, x.Title, x.LessonDay),
                 ResolveChannels(OverdueNotificationKind.LessonOverdue)))
             .ToList();
     }
@@ -247,7 +247,7 @@ public class CreateOverdueNotificationsCommandHandler
                 x.UserId,
                 NotificationType.PlanExpiringSoon,
                 "Gói dịch vụ sắp hết hạn",
-                $"Gói hiện tại sẽ hết hạn vào {x.PlanExpiresAt:dd/MM/yyyy HH:mm} UTC.",
+                BuildPlanExpiringSoonMessage(x.PlanExpiresAt),
                 ResolveChannels(OverdueNotificationKind.PlanExpiringSoon)))
             .ToList();
     }
@@ -268,7 +268,7 @@ public class CreateOverdueNotificationsCommandHandler
                 x.UserId,
                 NotificationType.PlanExpired,
                 "Gói dịch vụ đã hết hạn",
-                $"Gói hiện tại đã hết hạn từ {x.PlanExpiresAt:dd/MM/yyyy HH:mm} UTC.",
+                BuildPlanExpiredMessage(x.PlanExpiresAt),
                 ResolveChannels(OverdueNotificationKind.PlanExpired)))
             .ToList();
     }
@@ -304,7 +304,33 @@ public class CreateOverdueNotificationsCommandHandler
         Email
     }
 
-    private async Task SendEmailNotificationsAsync(List<OverdueNotificationCandidate> notifications, CancellationToken cancellationToken)
+	private static string BuildTaskOverdueMessage(string pathTitle, string taskTitle, DateTime? dueDate)
+		=> $"Task '{taskTitle}' in learning path '{pathTitle}' has been overdue since {dueDate:dd/MM/yyyy HH:mm} UTC.\n"
+		 + "You should complete this task as soon as possible to avoid falling behind on your learning progress.";
+
+	private static string BuildChapterOverdueMessage(string pathTitle, string chapterTitle, DateTime? endDate)
+		=> $"Chapter '{chapterTitle}' in learning path '{pathTitle}' has been overdue since {endDate:dd/MM/yyyy HH:mm} UTC.\n"
+		 + "Continue studying this chapter to stay on track with your plan.";
+
+	private static string BuildLessonOverdueMessage(string pathTitle, string chapterTitle, string lessonTitle, DateTime lessonDay)
+		=> $"Lesson '{lessonTitle}' (chapter '{chapterTitle}', path '{pathTitle}') has been overdue since {lessonDay:dd/MM/yyyy HH:mm} UTC.\n"
+		 + "Complete this lesson to unlock the next milestones.";
+
+	private static string BuildLearningPathOverdueMessage(string learningPathTitle, DateTime? endDate)
+		=> $"Learning path '{learningPathTitle}' has been overdue since {endDate:dd/MM/yyyy HH:mm} UTC.\n"
+		 + "Impact: your learning progress may be disrupted and related tasks/chapters will continue to accumulate.\n"
+		 + "Recommendation: open CodeNexus to review your timeline and complete any outstanding items.";
+
+	private static string BuildPlanExpiringSoonMessage(DateTime? planExpiresAt)
+		=> $"Your current subscription plan will expire on {planExpiresAt:dd/MM/yyyy HH:mm} UTC.\n"
+		 + "Impact after expiration: some advanced features may become restricted.\n"
+		 + "Recommendation: renew or upgrade your plan before the expiration date to avoid any interruption.";
+
+	private static string BuildPlanExpiredMessage(DateTime? planExpiresAt)
+		=> $"Your subscription plan has expired as of {planExpiresAt:dd/MM/yyyy HH:mm} UTC.\n"
+		 + "Current impact: features included in your paid plan may no longer be available.\n"
+		 + "Recommendation: visit the Billing/Subscription section to renew immediately.";
+	private async Task SendEmailNotificationsAsync(List<OverdueNotificationCandidate> notifications, CancellationToken cancellationToken)
     {
         var emailCandidates = notifications
             .Where(x => x.Channels.Contains(NotificationChannel.Email))
