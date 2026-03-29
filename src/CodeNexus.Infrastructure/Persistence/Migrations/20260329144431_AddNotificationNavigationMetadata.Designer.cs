@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260329144431_AddNotificationNavigationMetadata")]
+    partial class AddNotificationNavigationMetadata
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1589,48 +1592,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("UserAchievements");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.UserGoalProgress", b =>
-                {
-                    b.Property<Guid>("UserGoalProgressId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("GoalId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("LastUpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("LearningPathId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("StartedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("UserGoalProgressId");
-
-                    b.HasIndex("GoalId");
-
-                    b.HasIndex("LearningPathId");
-
-                    b.HasIndex("UserId", "LastUpdatedAt");
-
-                    b.HasIndex("UserId", "GoalId", "LearningPathId")
-                        .IsUnique();
-
-                    b.ToTable("UserGoalProgresses");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserProfile", b =>
                 {
                     b.Property<Guid>("ProfileId")
@@ -2185,33 +2146,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.UserGoalProgress", b =>
-                {
-                    b.HasOne("CodeNexus.Domain.Entities.Goals", "Goal")
-                        .WithMany("UserGoalProgresses")
-                        .HasForeignKey("GoalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CodeNexus.Domain.Entities.LearningPath", "LearningPath")
-                        .WithMany("UserGoalProgresses")
-                        .HasForeignKey("LearningPathId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CodeNexus.Domain.Entities.User", "User")
-                        .WithMany("UserGoalProgresses")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Goal");
-
-                    b.Navigation("LearningPath");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserProfile", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.User", "User")
@@ -2273,8 +2207,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("SystemGoalMappings");
 
                     b.Navigation("UserGoalMappings");
-
-                    b.Navigation("UserGoalProgresses");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPath", b =>
@@ -2284,8 +2216,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("LearningPathGoals");
 
                     b.Navigation("Tasks");
-
-                    b.Navigation("UserGoalProgresses");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Lesson", b =>
@@ -2366,8 +2296,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Resources");
 
                     b.Navigation("Subjects");
-
-                    b.Navigation("UserGoalProgresses");
 
                     b.Navigation("UserProfile");
                 });

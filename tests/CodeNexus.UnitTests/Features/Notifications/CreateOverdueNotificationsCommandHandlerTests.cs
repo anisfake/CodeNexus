@@ -24,7 +24,7 @@ public class CreateOverdueNotificationsCommandHandlerTests
         _mockRealtimeNotifier = new Mock<INotificationRealtimeNotifier>();
 
         _mockRealtimeNotifier
-            .Setup(x => x.NotifyCreatedAsync(It.IsAny<IReadOnlyCollection<CodeNexus.Application.Features.Notifications.DTOs.NotificationRealtimeDto>>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.NotifyCreatedAsync(It.IsAny<IReadOnlyCollection<CodeNexus.Application.Features.Notifications.DTOs.NotificationDto>>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         _mockEmailService
