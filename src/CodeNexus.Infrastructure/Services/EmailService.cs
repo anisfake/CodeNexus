@@ -68,9 +68,6 @@ public class EmailService : IEmailService
 		}
 	}
 
-	// -------------------------------------------------------------------------
-	// SMTP CLIENT
-	// -------------------------------------------------------------------------
 
 	private SmtpClient CreateSmtpClient() => new(_settings.SmtpHost, _settings.SmtpPort)
 	{
@@ -78,10 +75,6 @@ public class EmailService : IEmailService
 		EnableSsl = _settings.EnableSsl,
 		DeliveryMethod = SmtpDeliveryMethod.Network
 	};
-
-	// -------------------------------------------------------------------------
-	// OTP TEMPLATE
-	// -------------------------------------------------------------------------
 
 	private static string GetOtpEmailTemplate(string otp)
 	{
@@ -171,9 +164,6 @@ public class EmailService : IEmailService
 </html>";
 	}
 
-	// -------------------------------------------------------------------------
-	// NOTIFICATION TEMPLATE
-	// -------------------------------------------------------------------------
 
 	private static string GetNotificationEmailTemplate(string subject, string message)
 	{
@@ -260,10 +250,6 @@ public class EmailService : IEmailService
 </body>
 </html>";
 	}
-
-	// -------------------------------------------------------------------------
-	// SHARED PARTIALS
-	// -------------------------------------------------------------------------
 
 	private static string GetBrandLogoHtml()
 	{
