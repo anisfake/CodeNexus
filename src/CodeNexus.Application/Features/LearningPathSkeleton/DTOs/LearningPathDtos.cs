@@ -50,7 +50,9 @@ public record LearningPathGoalDto(
     Guid GoalId,
     string Title,
     decimal Weight,
-    int DurationInDays
+    int DurationInDays,
+    string Status,
+    DateTime? CompletedAt
 );
 
 public record GenerateLearningPathSkeletonRequest(

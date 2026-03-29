@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Quizzes.DTOs;
 using CodeNexus.Domain.Entities;
@@ -26,6 +27,9 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         var userId = _currentUserService.GetUserId();
 
         var attempt = await _context.QuizAttempts
+            .Include(a => a.Quiz)
+                .ThenInclude(q => q.Lesson)
+                .ThenInclude(l => l.Chapter)
             .Include(a => a.Quiz)
                 .ThenInclude(q => q.Questions)
             .FirstOrDefaultAsync(a => a.AttemptId == request.AttemptId, cancellationToken);
@@ -81,6 +85,20 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         attempt.Answers = System.Text.Json.JsonSerializer.Serialize(request.Answers);
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        if (attempt.Quiz.Lesson?.Chapter != null)
+        {
+            var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
+                _context,
+                attempt.Quiz.Lesson.Chapter.PathId,
+                userId,
+                cancellationToken);
+
+            if (hasGoalProgressChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         return Result<SubmitQuizResultDto>.Success(new SubmitQuizResultDto(
             attempt.AttemptId,

@@ -181,7 +181,9 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
                 g.Goal.GoalId,
                 g.Goal.Title,
                 g.Weight,
-                g.Goal.DurationInDays))
+                g.Goal.DurationInDays,
+                "NotStarted",
+                null))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(

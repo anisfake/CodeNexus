@@ -307,7 +307,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 g.Goal.GoalId,
                 g.Goal.Title,
                 g.Weight,
-                g.Goal.DurationInDays
+                g.Goal.DurationInDays,
+                "NotStarted",
+                null
             )).ToList();
 
             return Result<CreateLearningPathResponse>.Success(

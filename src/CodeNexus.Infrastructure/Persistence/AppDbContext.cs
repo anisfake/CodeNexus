@@ -36,6 +36,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
         public DbSet<Subject> Subjects => Set<Subject>();
         public DbSet<Goals> Goals => Set<Goals>();
+        public DbSet<UserGoalProgress> UserGoalProgresses => Set<UserGoalProgress>();
         public DbSet<GoalMapping> GoalMappings => Set<GoalMapping>();
         public DbSet<SubjectGoal> SubjectGoals => Set<SubjectGoal>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
@@ -262,6 +263,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Questions>().HasKey(e => e.QuestionId);
             modelBuilder.Entity<QuizAttempt>().HasKey(e => e.AttemptId);
             modelBuilder.Entity<Goals>().HasKey(e => e.GoalId);
+            modelBuilder.Entity<UserGoalProgress>().HasKey(e => e.UserGoalProgressId);
             modelBuilder.Entity<GoalMapping>().HasKey(e => e.MappingId);
             modelBuilder.Entity<SubjectGoal>().HasKey(e => new { e.SubjectId, e.GoalId });
             modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
@@ -400,6 +402,32 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(sg => sg.Goal)
                       .WithMany(g => g.SubjectGoals)
                       .HasForeignKey(sg => sg.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<UserGoalProgress>(entity =>
+            {
+                entity.Property(e => e.Status)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => new { e.UserId, e.GoalId, e.LearningPathId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.UserId, e.LastUpdatedAt });
+
+                entity.HasOne(e => e.User)
+                      .WithMany(u => u.UserGoalProgresses)
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Goal)
+                      .WithMany(g => g.UserGoalProgresses)
+                      .HasForeignKey(e => e.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany(lp => lp.UserGoalProgresses)
+                      .HasForeignKey(e => e.LearningPathId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 

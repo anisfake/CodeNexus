@@ -84,7 +84,9 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                     g.GoalId,
                     g.Goal.Title,
                     g.Weight,
-                    g.Goal.DurationInDays
+                    g.Goal.DurationInDays,
+                    "NotStarted",
+                    null
                 )).ToList(),
             learningPath.StartDate,
             learningPath.EndDate,

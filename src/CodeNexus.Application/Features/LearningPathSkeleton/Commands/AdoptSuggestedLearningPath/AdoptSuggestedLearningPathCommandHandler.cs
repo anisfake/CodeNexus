@@ -406,7 +406,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
         await _context.SaveChangesAsync(cancellationToken);
 
         var goalDtos = goalsWithWeights
-            .Select(g => new LearningPathGoalDto(g.Goal.GoalId, g.Goal.Title, g.Weight, g.Goal.DurationInDays))
+            .Select(g => new LearningPathGoalDto(g.Goal.GoalId, g.Goal.Title, g.Weight, g.Goal.DurationInDays, "NotStarted", null))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(

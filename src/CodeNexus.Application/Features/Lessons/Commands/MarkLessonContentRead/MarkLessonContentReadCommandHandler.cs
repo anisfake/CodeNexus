@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using MassTransit;
@@ -71,6 +72,17 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
+            _context,
+            lesson.Chapter.PathId,
+            userId,
+            cancellationToken);
+
+        if (hasGoalProgressChanges)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
 
         return Result<string>.Success("Lesson content marked as read");
     }

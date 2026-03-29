@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
 using CodeNexus.Domain.Entities;
@@ -160,6 +161,17 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+
+            var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
+                _context,
+                session.Task.PathId,
+                session.Task.LearningPath.UserId,
+                cancellationToken);
+
+            if (hasGoalProgressChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             var userId = session.Task.LearningPath.UserId;
             await _achievementService.TryUnlockAsync(userId, "Focused Learner");

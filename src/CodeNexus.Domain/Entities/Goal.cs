@@ -26,5 +26,6 @@ namespace CodeNexus.Domain.Entities
         public virtual ICollection<SubjectGoal> SubjectGoals { get; set; } = new List<SubjectGoal>();
         public virtual ICollection<GoalMapping> UserGoalMappings { get; set; } = new List<GoalMapping>();
         public virtual ICollection<GoalMapping> SystemGoalMappings { get; set; } = new List<GoalMapping>();
+        public virtual ICollection<UserGoalProgress> UserGoalProgresses { get; set; } = new List<UserGoalProgress>();
     }
 }

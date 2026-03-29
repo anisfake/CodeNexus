@@ -210,7 +210,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 g.Goal.GoalId,
                 g.Goal.Title,
                 g.Weight,
-                g.Goal.DurationInDays))
+                g.Goal.DurationInDays,
+                "NotStarted",
+                null))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(

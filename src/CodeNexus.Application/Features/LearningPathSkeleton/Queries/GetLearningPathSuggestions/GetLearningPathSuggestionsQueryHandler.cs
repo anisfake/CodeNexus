@@ -164,7 +164,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
             if (score >= ScoreThreshold)
             {
                 var goalDtos = pathGoals
-                    .Select(g => new LearningPathGoalDto(g.GoalId, g.Title, g.Weight, g.DurationInDays))
+                    .Select(g => new LearningPathGoalDto(g.GoalId, g.Title, g.Weight, g.DurationInDays, "NotStarted", null))
                     .ToList();
 
                 suggestions.Add(new LearningPathSuggestionDto(

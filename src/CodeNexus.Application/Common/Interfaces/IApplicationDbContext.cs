@@ -13,6 +13,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<RefreshToken> RefreshTokens { get; }
         public DbSet<Subject> Subjects { get; }
         public DbSet<Goals> Goals { get; }
+        public DbSet<UserGoalProgress> UserGoalProgresses { get; }
         public DbSet<GoalMapping> GoalMappings { get; }
         public DbSet<SubjectGoal> SubjectGoals { get; }
         public DbSet<LearningPath> LearningPaths { get; }

@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +29,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
             .Include(lp => lp.Subject)
             .Include(lp => lp.LearningPathGoals)
                 .ThenInclude(lpg => lpg.Goal)
+            .Include(lp => lp.UserGoalProgresses.Where(ugp => ugp.UserId == request.UserId))
             .Include(lp => lp.User)
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
@@ -74,7 +76,13 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         g.GoalId,
                         g.Goal.Title,
                         g.Weight,
-                        g.Goal.DurationInDays
+                        g.Goal.DurationInDays,
+                        lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId) != null
+                            ? lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId)!.Status.ToString()
+                            : GoalProgressStatus.NotStarted.ToString(),
+                        lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId) != null
+                            ? lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId)!.CompletedAt
+                            : null
                     )).ToList(),
                 lp.StartDate,
                 lp.EndDate,

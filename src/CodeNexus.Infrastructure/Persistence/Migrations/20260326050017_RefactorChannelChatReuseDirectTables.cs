@@ -11,8 +11,13 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "ChannelMessages");
+            // Only drop table if it exists
+            migrationBuilder.Sql(@"
+                IF OBJECT_ID(N'[dbo].[ChannelMessages]', N'U') IS NOT NULL
+                BEGIN
+                    DROP TABLE [ChannelMessages]
+                END
+            ");
 
             migrationBuilder.DropIndex(
                 name: "IX_DirectConversations_MentorId_StudentId",
