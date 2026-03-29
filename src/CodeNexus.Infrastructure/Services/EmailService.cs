@@ -117,7 +117,7 @@ public class EmailService : IEmailService
                         <td style=""border-bottom:1px solid #000;padding:8px 28px;"">
                             <table role=""presentation"" style=""width:100%;border-collapse:collapse;"">
                                 <tr>
-                                    <td style=""font-size:10px;letter-spacing:1.5px;color:#888;text-transform:uppercase;"">From: noreply@codenexus.app</td>
+                                    <td style=""font-size:10px;letter-spacing:1.5px;color:#888;text-transform:uppercase;"">From: CodeNexus</td>
                                     <td align=""right"" style=""font-size:10px;letter-spacing:1.5px;color:#888;text-transform:uppercase;"">Type: Verification</td>
                                 </tr>
                             </table>
@@ -210,7 +210,7 @@ public class EmailService : IEmailService
                         <td style=""border-bottom:1px solid #000;padding:8px 28px;"">
                             <table role=""presentation"" style=""width:100%;border-collapse:collapse;"">
                                 <tr>
-                                    <td style=""font-size:10px;letter-spacing:1.5px;color:#888;text-transform:uppercase;"">From: noreply@codenexus.app</td>
+                                    <td style=""font-size:10px;letter-spacing:1.5px;color:#888;text-transform:uppercase;"">From: CodeNexus</td>
                                     <td align=""right"" style=""font-size:10px;letter-spacing:1.5px;color:#888;text-transform:uppercase;"">Type: Alert</td>
                                 </tr>
                             </table>

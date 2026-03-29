@@ -85,6 +85,16 @@ public class CreateOverdueNotificationsCommandHandler
                 Title = candidate.Title,
                 Message = candidate.Message,
                 Type = candidate.Type,
+                Severity = candidate.Severity,
+                Channels = string.Join(',', candidate.Channels),
+                TargetType = candidate.Action.TargetType,
+                TargetId = candidate.Action.TargetId,
+                TargetUrl = candidate.Action.TargetUrl,
+                Route = candidate.Action.Route,
+                TaskId = candidate.Action.TaskId,
+                ChapterId = candidate.Action.ChapterId,
+                LessonId = candidate.Action.LessonId,
+                LearningPathId = candidate.Action.LearningPathId,
                 IsRead = false,
                 CreatedAt = nowUtc
             }).ToList();
@@ -94,13 +104,7 @@ public class CreateOverdueNotificationsCommandHandler
 
             await _notificationRealtimeNotifier.NotifyCreatedAsync(
                 notifications
-                    .Select(n => new NotificationRealtimeDto(
-                        n.NotificationId,
-                        n.UserId,
-                        n.Title,
-                        n.Message,
-                        n.Type,
-                        n.CreatedAt))
+                    .Select(NotificationDtoMapper.ToDto)
                     .ToList(),
                 cancellationToken);
 
@@ -133,6 +137,7 @@ public class CreateOverdueNotificationsCommandHandler
                 t.Title,
                 t.DueDate,
                 t.PathId,
+                t.ChapterId,
                 PathTitle = t.LearningPath.Title,
                 UserId = t.LearningPath.UserId
             })
@@ -143,7 +148,17 @@ public class CreateOverdueNotificationsCommandHandler
                 NotificationType.TaskOverdue,
                 $"Task quá hạn: {x.Title}",
                 BuildTaskOverdueMessage(x.PathTitle, x.Title, x.DueDate),
-                ResolveChannels(OverdueNotificationKind.TaskOverdue)))
+                ResolveSeverity(OverdueNotificationKind.TaskOverdue),
+                ResolveChannels(OverdueNotificationKind.TaskOverdue),
+                new NotificationActionDto(
+                    "task",
+                    x.TaskId,
+                    $"/learning-paths/{x.PathId}/chapters/{x.ChapterId}/tasks/{x.TaskId}",
+                    "/tasks/:taskId",
+                    x.TaskId,
+                    x.ChapterId,
+                    null,
+                    x.PathId)))
             .ToList();
     }
 
@@ -170,7 +185,17 @@ public class CreateOverdueNotificationsCommandHandler
                 NotificationType.LearningPathOverdue,
                 $"Lộ trình quá hạn: {x.Title}",
                 BuildLearningPathOverdueMessage(x.Title, x.EndDate),
-                ResolveChannels(OverdueNotificationKind.LearningPathOverdue)))
+                ResolveSeverity(OverdueNotificationKind.LearningPathOverdue),
+                ResolveChannels(OverdueNotificationKind.LearningPathOverdue),
+                new NotificationActionDto(
+                    "learningPath",
+                    x.PathId,
+                    $"/learning-paths/{x.PathId}",
+                    "/learning-paths/:learningPathId",
+                    null,
+                    null,
+                    null,
+                    x.PathId)))
             .ToList();
     }
 
@@ -187,6 +212,7 @@ public class CreateOverdueNotificationsCommandHandler
                 c.ChapterId,
                 c.Title,
                 c.EndDate,
+                PathId = c.LearningPath.PathId,
                 UserId = c.LearningPath.UserId,
                 PathTitle = c.LearningPath.Title
             })
@@ -197,7 +223,17 @@ public class CreateOverdueNotificationsCommandHandler
                 NotificationType.ChapterOverdue,
                 $"Chương quá hạn: {x.Title}",
                 BuildChapterOverdueMessage(x.PathTitle, x.Title, x.EndDate),
-                ResolveChannels(OverdueNotificationKind.ChapterOverdue)))
+                ResolveSeverity(OverdueNotificationKind.ChapterOverdue),
+                ResolveChannels(OverdueNotificationKind.ChapterOverdue),
+                new NotificationActionDto(
+                    "chapter",
+                    x.ChapterId,
+                    $"/learning-paths/{x.PathId}/chapters/{x.ChapterId}",
+                    "/chapters/:chapterId",
+                    null,
+                    x.ChapterId,
+                    null,
+                    x.PathId)))
             .ToList();
     }
 
@@ -211,6 +247,8 @@ public class CreateOverdueNotificationsCommandHandler
                 l.LessonId,
                 l.Title,
                 l.LessonDay,
+                ChapterId = l.Chapter.ChapterId,
+                PathId = l.Chapter.LearningPath.PathId,
                 UserId = l.Chapter.LearningPath.UserId,
                 ChapterTitle = l.Chapter.Title,
                 PathTitle = l.Chapter.LearningPath.Title
@@ -223,7 +261,17 @@ public class CreateOverdueNotificationsCommandHandler
                 NotificationType.LessonOverdue,
                 $"Bài học quá hạn: {x.Title}",
                 BuildLessonOverdueMessage(x.PathTitle, x.ChapterTitle, x.Title, x.LessonDay),
-                ResolveChannels(OverdueNotificationKind.LessonOverdue)))
+                ResolveSeverity(OverdueNotificationKind.LessonOverdue),
+                ResolveChannels(OverdueNotificationKind.LessonOverdue),
+                new NotificationActionDto(
+                    "lesson",
+                    x.LessonId,
+                    $"/learning-paths/{x.PathId}/chapters/{x.ChapterId}/lessons/{x.LessonId}",
+                    "/lessons/:lessonId",
+                    null,
+                    x.ChapterId,
+                    x.LessonId,
+                    x.PathId)))
             .ToList();
     }
 
@@ -248,7 +296,17 @@ public class CreateOverdueNotificationsCommandHandler
                 NotificationType.PlanExpiringSoon,
                 "Gói dịch vụ sắp hết hạn",
                 BuildPlanExpiringSoonMessage(x.PlanExpiresAt),
-                ResolveChannels(OverdueNotificationKind.PlanExpiringSoon)))
+                ResolveSeverity(OverdueNotificationKind.PlanExpiringSoon),
+                ResolveChannels(OverdueNotificationKind.PlanExpiringSoon),
+                new NotificationActionDto(
+                    "subscription",
+                    null,
+                    "/subscription/current",
+                    "/subscription/current",
+                    null,
+                    null,
+                    null,
+                    null)))
             .ToList();
     }
 
@@ -269,7 +327,17 @@ public class CreateOverdueNotificationsCommandHandler
                 NotificationType.PlanExpired,
                 "Gói dịch vụ đã hết hạn",
                 BuildPlanExpiredMessage(x.PlanExpiresAt),
-                ResolveChannels(OverdueNotificationKind.PlanExpired)))
+                ResolveSeverity(OverdueNotificationKind.PlanExpired),
+                ResolveChannels(OverdueNotificationKind.PlanExpired),
+                new NotificationActionDto(
+                    "subscription",
+                    null,
+                    "/subscription",
+                    "/subscription",
+                    null,
+                    null,
+                    null,
+                    null)))
             .ToList();
     }
 
@@ -284,6 +352,19 @@ public class CreateOverdueNotificationsCommandHandler
             OverdueNotificationKind.PlanExpiringSoon => [NotificationChannel.Web, NotificationChannel.Main, NotificationChannel.Email],
             OverdueNotificationKind.PlanExpired => [NotificationChannel.Web, NotificationChannel.Main, NotificationChannel.Email],
             _ => [NotificationChannel.Web]
+        };
+    }
+
+    private static string ResolveSeverity(OverdueNotificationKind kind)
+    {
+        return kind switch
+        {
+            OverdueNotificationKind.PlanExpired => "Critical",
+            OverdueNotificationKind.PlanExpiringSoon => "High",
+            OverdueNotificationKind.LearningPathOverdue => "High",
+            OverdueNotificationKind.ChapterOverdue => "Medium",
+            OverdueNotificationKind.TaskOverdue => "Medium",
+            _ => "Low"
         };
     }
 
@@ -378,7 +459,9 @@ public class CreateOverdueNotificationsCommandHandler
         NotificationType Type,
         string Title,
         string Message,
-        NotificationChannel[] Channels);
+        string Severity,
+        NotificationChannel[] Channels,
+        NotificationActionDto Action);
 
     private readonly record struct DedupKey(Guid UserId, NotificationType Type, string Title);
 }

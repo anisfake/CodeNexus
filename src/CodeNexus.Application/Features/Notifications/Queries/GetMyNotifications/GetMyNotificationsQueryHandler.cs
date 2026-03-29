@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Features.Notifications.Queries.GetMyNotifications;
 
-public class GetMyNotificationsQueryHandler : IRequestHandler<GetMyNotificationsQuery, Result<List<NotificationItemDto>>>
+public class GetMyNotificationsQueryHandler : IRequestHandler<GetMyNotificationsQuery, Result<NotificationPagedResultDto>>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
@@ -17,7 +17,7 @@ public class GetMyNotificationsQueryHandler : IRequestHandler<GetMyNotifications
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result<List<NotificationItemDto>>> Handle(GetMyNotificationsQuery request, CancellationToken cancellationToken)
+    public async Task<Result<NotificationPagedResultDto>> Handle(GetMyNotificationsQuery request, CancellationToken cancellationToken)
     {
         Guid userId;
         try
@@ -26,7 +26,7 @@ public class GetMyNotificationsQueryHandler : IRequestHandler<GetMyNotifications
         }
         catch
         {
-            return Result<List<NotificationItemDto>>.Failure("UNAUTHORIZED", "User not authenticated");
+            return Result<NotificationPagedResultDto>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
         var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
@@ -41,20 +41,26 @@ public class GetMyNotificationsQueryHandler : IRequestHandler<GetMyNotifications
             query = query.Where(x => !x.IsRead);
         }
 
-        var notifications = await query
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var notificationEntities = await query
             .OrderByDescending(x => x.CreatedAt)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new NotificationItemDto(
-                x.NotificationId,
-                x.Title,
-                x.Message,
-                x.Type,
-                x.IsRead,
-                x.CreatedAt,
-                x.ReadAt))
             .ToListAsync(cancellationToken);
 
-        return Result<List<NotificationItemDto>>.Success(notifications);
+        var notifications = notificationEntities
+            .Select(NotificationDtoMapper.ToDto)
+            .ToList();
+
+        var result = new NotificationPagedResultDto(
+            notifications,
+            pageNumber,
+            pageSize,
+            totalCount,
+            pageNumber * pageSize < totalCount,
+            pageNumber > 1);
+
+        return Result<NotificationPagedResultDto>.Success(result);
     }
 }

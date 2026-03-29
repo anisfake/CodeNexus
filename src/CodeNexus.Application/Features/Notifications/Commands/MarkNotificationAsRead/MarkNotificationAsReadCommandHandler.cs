@@ -1,11 +1,12 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Notifications.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Features.Notifications.Commands.MarkNotificationAsRead;
 
-public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotificationAsReadCommand, Result>
+public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotificationAsReadCommand, Result<MarkNotificationAsReadResultDto>>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
@@ -16,7 +17,7 @@ public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotifica
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result> Handle(MarkNotificationAsReadCommand request, CancellationToken cancellationToken)
+    public async Task<Result<MarkNotificationAsReadResultDto>> Handle(MarkNotificationAsReadCommand request, CancellationToken cancellationToken)
     {
         Guid userId;
         try
@@ -25,7 +26,7 @@ public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotifica
         }
         catch
         {
-            return Result.Failure("UNAUTHORIZED", "User not authenticated");
+            return Result<MarkNotificationAsReadResultDto>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
         var notification = await _context.Notifications
@@ -33,7 +34,7 @@ public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotifica
 
         if (notification == null)
         {
-            return Result.Failure("NOTIFICATION_NOT_FOUND", "Notification not found.");
+            return Result<MarkNotificationAsReadResultDto>.Failure("NOTIFICATION_NOT_FOUND", "Notification not found.");
         }
 
         if (!notification.IsRead)
@@ -43,6 +44,14 @@ public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotifica
             await _context.SaveChangesAsync(cancellationToken);
         }
 
-        return Result.Success();
+        var unreadCount = await _context.Notifications
+            .AsNoTracking()
+            .CountAsync(x => x.UserId == userId && !x.IsRead, cancellationToken);
+
+        return Result<MarkNotificationAsReadResultDto>.Success(new MarkNotificationAsReadResultDto(
+            notification.NotificationId,
+            notification.IsRead,
+            notification.ReadAt,
+            unreadCount));
     }
 }
