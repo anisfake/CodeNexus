@@ -97,8 +97,16 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
-                            q.Description
-                        )).ToList()
+                            q.Description,
+                            q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId) != null
+                                ? q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId)!.Status.ToString()
+                                : "Not Attempted"
+                        )).ToList(),
+                        l.LearnProgresses.FirstOrDefault(lp => lp.UserId == request.UserId) != null
+                            ? l.LearnProgresses.FirstOrDefault(lp => lp.UserId == request.UserId)!.IsLessonContentRead
+                                ? "Completed"
+                                : "In Progress"
+                            : "Not Started"
                     )).ToList(),
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
@@ -108,7 +116,8 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson
+                        t.QuizQuestionsJson,
+                        t.Status.ToString()
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),

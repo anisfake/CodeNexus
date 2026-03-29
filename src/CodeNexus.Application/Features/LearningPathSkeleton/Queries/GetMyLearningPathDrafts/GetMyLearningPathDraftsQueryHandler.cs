@@ -114,8 +114,11 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
-                            q.Description
+                            q.Description,
+                            "Not Attempted"
                         )).ToList()
+                        ,
+                        "Not Started"
                     )).ToList(),
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
@@ -125,7 +128,8 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson
+                        t.QuizQuestionsJson,
+                        "Pending"
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(c => !c.IsDeleted),

@@ -5,14 +5,16 @@ namespace CodeNexus.Application.Features.LearningPaths.DTOs;
 public record QuizDto(
     Guid QuizzId,
     string Title,
-    string Description
+    string Description,
+    string Status = "Not Attempted"
 );
 public record LessonDto(
     Guid LessonId,
     string Title,
     string? Content,
     DateTime LessonDay,
-    List<QuizDto> Quizzes
+    List<QuizDto> Quizzes,
+    string Status = "Not Started"
 );
 public record TaskDto(
     Guid TaskId,
@@ -22,7 +24,8 @@ public record TaskDto(
     TaskPriority? Priority,
     TaskStatus_ TaskStatus,
     DateTime? DueDate,
-    string? QuizQuestionsJson
+    string? QuizQuestionsJson,
+    string Status = "Pending"
 );
 public record ChapterDto(
     Guid ChapterId,
@@ -137,6 +140,7 @@ public record LearningPathResponse(
     string UserName,
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
+
     DateTime CreatedAt
 );
 public record GetAllLearningPathRequest(

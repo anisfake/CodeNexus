@@ -105,8 +105,11 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
-                            q.Description
+                            q.Description,
+                            "Not Attempted"
                         )).ToList()
+                        ,
+                        "Not Started"
                     )).ToList(),
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
@@ -116,7 +119,8 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson
+                        t.QuizQuestionsJson,
+                        "Pending"
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),

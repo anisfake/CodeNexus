@@ -14,12 +14,11 @@ namespace CodeNexus.Domain.Entities
 
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public int? TimeLimit { get; set; } 
+        public int? TimeLimit { get; set; }
         public decimal? PassingScore { get; set; }
-        
-        // Timeline field - when quiz must be completed
-        public DateTime? DueDate { get; set; } 
-        
+
+        public DateTime? DueDate { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
