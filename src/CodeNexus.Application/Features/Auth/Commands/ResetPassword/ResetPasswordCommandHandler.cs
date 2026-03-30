@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +35,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
         user.PasswordHash = _otpService.HashPassword(request.NewPassword);
 
+        _context.SetAuditUserId(user.UserId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

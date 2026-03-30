@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -16,6 +16,7 @@ namespace CodeNexus.Application.Common.Interfaces
         string GenerateAccessToken(User user);
 
         string GenerateRefreshToken();
+        string HashRefreshToken(string token);
 
         int RefreshTokenExpirationDays { get; }
 

@@ -20,6 +20,7 @@ public class LoginWithGoogleCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _googleAuthMock = new Mock<IGoogleAuthService>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
         _handler = new LoginWithGoogleCommandHandler(_contextMock.Object, _googleAuthMock.Object, _tokenServiceMock.Object);
     }
 

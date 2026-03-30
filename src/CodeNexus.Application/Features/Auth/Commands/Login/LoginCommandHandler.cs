@@ -58,11 +58,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         {
             TokenId = NewId.NextGuid(),
             UserId = user.UserId,
-            Token = refreshTokenValue,
+            Token = _tokenService.HashRefreshToken(refreshTokenValue),
             CreatedAt = now,
             ExpiresAt = now.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
+        _context.SetAuditUserId(user.UserId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<LoginResponse>.Success(new LoginResponse(
