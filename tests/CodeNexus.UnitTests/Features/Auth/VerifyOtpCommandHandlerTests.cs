@@ -22,6 +22,7 @@ public class VerifyOtpCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _otpCacheServiceMock = new Mock<IOTPCacheService>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
         _handler = new VerifyOtpCommandHandler(_contextMock.Object, _otpCacheServiceMock.Object, _tokenServiceMock.Object);
     }
 
