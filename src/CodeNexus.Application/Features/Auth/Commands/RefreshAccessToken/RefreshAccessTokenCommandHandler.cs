@@ -23,10 +23,12 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
     {
         var now = DateTime.UtcNow;
 
+        var hashedRequestToken = _tokenService.HashRefreshToken(request.RefreshToken);
+
         var storedToken = await _context.RefreshTokens
             .Include(rt => rt.User)
                 .ThenInclude(u => u.Role)
-            .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken, cancellationToken);
+            .FirstOrDefaultAsync(rt => rt.Token == hashedRequestToken, cancellationToken);
 
         if (storedToken == null)
             return Result<LoginResponse>.Failure("INVALID_REFRESH_TOKEN", "Invalid refresh token");
@@ -64,7 +66,7 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
         {
             TokenId = NewId.NextGuid(),
             UserId = user.UserId,
-            Token = newRefreshTokenValue,
+            Token = _tokenService.HashRefreshToken(newRefreshTokenValue),
             CreatedAt = now,
             ExpiresAt = now.AddDays(_tokenService.RefreshTokenExpirationDays)
         });

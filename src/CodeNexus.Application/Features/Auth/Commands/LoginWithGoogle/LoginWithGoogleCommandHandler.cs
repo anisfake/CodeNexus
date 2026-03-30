@@ -82,7 +82,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
         {
             TokenId = NewId.NextGuid(),
             UserId = user.UserId,
-            Token = refreshTokenValue,
+            Token = _tokenService.HashRefreshToken(refreshTokenValue),
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
