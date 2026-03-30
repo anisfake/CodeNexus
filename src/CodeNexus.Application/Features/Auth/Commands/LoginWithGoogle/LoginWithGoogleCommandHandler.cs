@@ -64,6 +64,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             };
 
             _context.UserProfiles.Add(userProfile);
+            _context.SetAuditUserId(user.UserId);
             await _context.SaveChangesAsync(cancellationToken);
 
             user.Role = defaultRole;
@@ -86,6 +87,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             ExpiresAt = DateTime.UtcNow.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
+        _context.SetAuditUserId(user.UserId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<LoginResponse>.Success(new LoginResponse(

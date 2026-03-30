@@ -98,6 +98,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
         };
 
         await _context.UserProfiles.AddAsync(userProfile, cancellationToken);
+        _context.SetAuditUserId(user.UserId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<VerifyOtpResponse>.Success(new VerifyOtpResponse(

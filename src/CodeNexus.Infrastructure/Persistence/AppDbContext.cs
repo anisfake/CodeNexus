@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AuditLogs.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -21,6 +21,7 @@ namespace CodeNexus.Infrastructure.Persistence
     {
         private readonly IHttpContextAccessor? _httpContextAccessor;
         private readonly IAuditLogNotifier? _auditLogNotifier;
+        private Guid? _manualUserId;
 
         public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor? httpContextAccessor = null, IAuditLogNotifier? auditLogNotifier = null) : base(options)
         {
@@ -31,6 +32,9 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<User> Users => Set<User>();
         public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+
+        public void SetAuditUserId(Guid userId) => _manualUserId = userId;
+
         public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
         public DbSet<Notification> Notifications => Set<Notification>();
         public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -221,6 +225,8 @@ namespace CodeNexus.Infrastructure.Persistence
 
         private Guid? GetCurrentUserId()
         {
+            if (_manualUserId.HasValue) return _manualUserId.Value;
+
             var userIdClaim = _httpContextAccessor?.HttpContext?.User
                 .FindFirst(ClaimTypes.NameIdentifier)?.Value;
 

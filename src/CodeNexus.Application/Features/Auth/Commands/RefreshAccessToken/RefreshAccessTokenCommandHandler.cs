@@ -44,6 +44,7 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
                 token.RevokedAt = now;
             }
 
+            _context.SetAuditUserId(storedToken.UserId);
             await _context.SaveChangesAsync(cancellationToken);
 
             return Result<LoginResponse>.Failure("TOKEN_REUSE_DETECTED", "Token reuse detected. All sessions have been revoked for security.");
@@ -68,6 +69,7 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
             ExpiresAt = now.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
+        _context.SetAuditUserId(user.UserId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<LoginResponse>.Success(new LoginResponse(
