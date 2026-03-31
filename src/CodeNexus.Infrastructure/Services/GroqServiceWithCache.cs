@@ -467,7 +467,9 @@ public class GroqServiceWithCache : IAIGeneratorService
 
             _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
             {
+                UserId = userId == Guid.Empty ? null : userId,
                 UsageType = usageType,
+                AccessTierUsed = accessTier,
                 ProviderName = providerName,
                 Model = config.Model,
                 InputTokens = inputTokens,

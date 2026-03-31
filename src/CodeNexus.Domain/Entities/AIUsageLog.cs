@@ -5,7 +5,9 @@ namespace CodeNexus.Domain.Entities
     public class AIUsageLog
     {
         public Guid UsageLogId { get; set; }
+        public Guid? UserId { get; set; }
         public AIUsageType UsageType { get; set; }
+        public AIAccessTier AccessTierUsed { get; set; } = AIAccessTier.Free;
         public string ProviderName { get; set; } = string.Empty;
         public string Model { get; set; } = string.Empty;
         public int InputTokens { get; set; }

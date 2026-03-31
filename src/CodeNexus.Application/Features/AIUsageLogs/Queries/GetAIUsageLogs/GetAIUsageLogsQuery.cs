@@ -10,6 +10,7 @@ public record GetAIUsageLogsQuery : IRequest<Result<PaginationDto<AIUsageLogResp
     public int PageNumber { get; init; } = 1;
     public int PageSize { get; init; } = 10;
     public AIUsageType? UsageType { get; init; }
+    public AIAccessTier? AccessTierUsed { get; init; }
     public string? ProviderName { get; init; }
     public DateTime? FromDate { get; init; }
     public DateTime? ToDate { get; init; }

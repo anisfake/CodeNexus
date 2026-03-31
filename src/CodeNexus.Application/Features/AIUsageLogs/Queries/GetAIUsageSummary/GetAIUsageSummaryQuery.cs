@@ -8,4 +8,5 @@ public record GetAIUsageSummaryQuery : IRequest<Result<List<AIUsageSummaryRespon
 {
     public DateTime? FromDate { get; init; }
     public DateTime? ToDate { get; init; }
+    public bool IncludeProviderModelBreakdown { get; init; } = false;
 }

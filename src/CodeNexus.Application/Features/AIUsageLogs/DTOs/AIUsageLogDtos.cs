@@ -4,7 +4,9 @@ namespace CodeNexus.Application.Features.AIUsageLogs.DTOs;
 
 public record AIUsageLogResponse(
     Guid UsageLogId,
+    Guid? UserId,
     AIUsageType UsageType,
+    AIAccessTier AccessTierUsed,
     string ProviderName,
     string Model,
     int InputTokens,
@@ -15,7 +17,10 @@ public record AIUsageLogResponse(
 );
 
 public record AIUsageSummaryResponse(
+    AIAccessTier AccessTierUsed,
     AIUsageType UsageType,
+    string ProviderName,
+    string Model,
     int TotalRequests,
     long TotalInputTokens,
     long TotalOutputTokens,

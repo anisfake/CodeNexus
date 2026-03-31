@@ -29,16 +29,39 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
             query = query.Where(x => x.CreatedAt <= request.ToDate.Value);
         }
 
-        var summary = await query
-            .GroupBy(x => x.UsageType)
-            .Select(g => new AIUsageSummaryResponse(
-                g.Key,
-                g.Count(),
-                g.Sum(x => (long)x.InputTokens),
-                g.Sum(x => (long)x.OutputTokens),
-                g.Sum(x => (long)x.TotalTokens),
-                g.Sum(x => x.CostUsd)))
-            .ToListAsync(cancellationToken);
+        List<AIUsageSummaryResponse> summary;
+        if (request.IncludeProviderModelBreakdown)
+        {
+            summary = await query
+                .GroupBy(x => new { x.AccessTierUsed, x.UsageType, x.ProviderName, x.Model })
+                .Select(g => new AIUsageSummaryResponse(
+                    g.Key.AccessTierUsed,
+                    g.Key.UsageType,
+                    g.Key.ProviderName,
+                    g.Key.Model,
+                    g.Count(),
+                    g.Sum(x => (long)x.InputTokens),
+                    g.Sum(x => (long)x.OutputTokens),
+                    g.Sum(x => (long)x.TotalTokens),
+                    g.Sum(x => x.CostUsd)))
+                .ToListAsync(cancellationToken);
+        }
+        else
+        {
+            summary = await query
+                .GroupBy(x => new { x.AccessTierUsed, x.UsageType })
+                .Select(g => new AIUsageSummaryResponse(
+                    g.Key.AccessTierUsed,
+                    g.Key.UsageType,
+                    "All",
+                    "All",
+                    g.Count(),
+                    g.Sum(x => (long)x.InputTokens),
+                    g.Sum(x => (long)x.OutputTokens),
+                    g.Sum(x => (long)x.TotalTokens),
+                    g.Sum(x => x.CostUsd)))
+                .ToListAsync(cancellationToken);
+        }
 
         return Result<List<AIUsageSummaryResponse>>.Success(summary);
     }

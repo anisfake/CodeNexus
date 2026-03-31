@@ -577,6 +577,9 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<AIUsageLog>(entity =>
             {
                 entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
+                entity.HasIndex(e => new { e.AccessTierUsed, e.UsageType, e.CreatedAt });
+                entity.Property(e => e.AccessTierUsed)
+                    .HasConversion<string>();
                 entity.Property(e => e.CostUsd).HasPrecision(18, 8);
             });
 
