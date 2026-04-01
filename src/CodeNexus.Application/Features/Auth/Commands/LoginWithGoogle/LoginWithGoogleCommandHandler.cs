@@ -13,15 +13,18 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
     private readonly IApplicationDbContext _context;
     private readonly IGoogleAuthService _googleAuth;
     private readonly ITokenService _tokenService;
+    private readonly IAchievementService _achievementService;
 
     public LoginWithGoogleCommandHandler(
         IApplicationDbContext context,
         IGoogleAuthService googleAuth,
-        ITokenService tokenService)
+        ITokenService tokenService,
+        IAchievementService achievementService)
     {
         _context = context;
         _googleAuth = googleAuth;
         _tokenService = tokenService;
+        _achievementService = achievementService;
     }
 
     public async Task<Result<LoginResponse>> Handle(LoginWithGoogleCommand request, CancellationToken cancellationToken)
@@ -66,6 +69,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             _context.UserProfiles.Add(userProfile);
             _context.SetAuditUserId(user.UserId);
             await _context.SaveChangesAsync(cancellationToken);
+            await _achievementService.InitializeUserAchievementsAsync(user.UserId);
 
             user.Role = defaultRole;
         }

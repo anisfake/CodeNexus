@@ -59,15 +59,6 @@ namespace CodeNexus.API.Controllers
             return Ok(result);
         }
 
-        [HttpPost("initialize")]
-        public async Task<ActionResult> InitializeAchievements()
-        {
-            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            await _achievementService.InitializeUserAchievementsAsync(userId);
-
-            return Ok(new { message = "Achievements initialized successfully" });
-        }
-
         [HttpGet("notifications")]
         public async Task<ActionResult<List<AchievementNotificationDto>>> GetAchievementNotifications()
         {

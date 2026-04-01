@@ -152,30 +152,37 @@ namespace CodeNexus.Infrastructure.Services
 
         public async Task InitializeUserAchievementsAsync(Guid userId)
         {
-            var achievements = await _context.Achievements
-                .Where(a => a.IsActive)
-                .ToListAsync();
-
-            var existingUserAchievements = await _context.UserAchievements
-                .Where(ua => ua.UserId == userId)
-                .Select(ua => ua.AchievementId)
-                .ToListAsync();
-
-            var newUserAchievements = achievements
-                .Where(a => !existingUserAchievements.Contains(a.AchievementId))
-                .Select(a => new UserAchievement
-                {
-                    UserAchievementId = Guid.NewGuid(),
-                    UserId = userId,
-                    AchievementId = a.AchievementId,
-                    IsUnlocked = false,
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
-
-            if (newUserAchievements.Any())
+            try
             {
-                _context.UserAchievements.AddRange(newUserAchievements);
-                await _context.SaveChangesAsync();
+                var achievements = await _context.Achievements
+                    .Where(a => a.IsActive)
+                    .ToListAsync();
+
+                var existingUserAchievements = await _context.UserAchievements
+                    .Where(ua => ua.UserId == userId)
+                    .Select(ua => ua.AchievementId)
+                    .ToListAsync();
+
+                var newUserAchievements = achievements
+                    .Where(a => !existingUserAchievements.Contains(a.AchievementId))
+                    .Select(a => new UserAchievement
+                    {
+                        UserAchievementId = Guid.NewGuid(),
+                        UserId = userId,
+                        AchievementId = a.AchievementId,
+                        IsUnlocked = false,
+                        CreatedAt = DateTime.UtcNow
+                    }).ToList();
+
+                if (newUserAchievements.Any())
+                {
+                    _context.UserAchievements.AddRange(newUserAchievements);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing achievements for user {UserId}", userId);
             }
         }
     }
