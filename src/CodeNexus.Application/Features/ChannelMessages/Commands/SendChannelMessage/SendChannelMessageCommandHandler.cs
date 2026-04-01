@@ -66,7 +66,7 @@ public class SendChannelMessageCommandHandler : IRequestHandler<SendChannelMessa
 
             if (repliedMessage == null || repliedMessage.ConversationId != conversation.ConversationId)
             {
-                return Result<ChannelMessageDto>.Failure("MESSAGE_NOT_FOUND", "Reply target message not found.");
+                return Result<ChannelMessageDto>.Failure("MESSAGE_NOT_FOUND", "Message not found.");
             }
         }
 

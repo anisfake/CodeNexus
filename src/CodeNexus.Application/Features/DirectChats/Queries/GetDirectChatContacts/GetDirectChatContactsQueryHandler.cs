@@ -111,6 +111,6 @@ public class GetDirectChatContactsQueryHandler : IRequestHandler<GetDirectChatCo
             return Result<List<DirectChatContactDto>>.Success(students);
         }
 
-        return Result<List<DirectChatContactDto>>.Failure("ACCESS_DENIED", "Only mentors and students can access direct chat contacts.");
+        return Result<List<DirectChatContactDto>>.Failure("ACCESS_DENIED", "Access denied.");
     }
 }

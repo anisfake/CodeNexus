@@ -196,7 +196,7 @@ public class ReviewSessionCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("SESSION_NOT_RUNNING", result.ErrorCode);
-        Assert.Equal("Session is not currently running", result.ErrorMessage);
+        Assert.Equal("Session is not running", result.ErrorMessage);
     }
 
     [Fact]

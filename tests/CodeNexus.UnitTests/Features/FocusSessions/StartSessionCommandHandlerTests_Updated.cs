@@ -166,7 +166,7 @@ public class StartSessionCommandHandlerTests_Updated
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("INVALID_DURATION", result.ErrorCode);
-        Assert.Contains("Pomodoro session duration must be between 5 and 120 minutes", result.ErrorMessage);
+        Assert.Contains("Session duration is invalid.", result.ErrorMessage);
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class StartSessionCommandHandlerTests_Updated
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("INVALID_DURATION", result.ErrorCode);
-        Assert.Contains("Study session duration must be 0 (unlimited) or between 1 and 480 minutes", result.ErrorMessage);
+        Assert.Contains("Session duration is invalid.", result.ErrorMessage);
     }
 
     [Fact]

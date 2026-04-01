@@ -42,7 +42,7 @@ public class GetLessonReadStatusQueryHandler : IRequestHandler<GetLessonReadStat
 
         if (lesson.Chapter.LearningPath.UserId != userId)
         {
-            return Result<LessonReadStatusDto>.Failure("ACCESS_DENIED", "You do not have access to this lesson");
+            return Result<LessonReadStatusDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var progress = await _context.LearnProgresses

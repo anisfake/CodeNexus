@@ -60,7 +60,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
 
         if (parts.Length != 4)
         {
-            return Result<VerifyOtpResponse>.Failure("INVALID_PURPOSE", "Invalid registration data");
+            return Result<VerifyOtpResponse>.Failure("INVALID_PURPOSE", "Invalid OTP purpose");
         }
 
         var username = parts[0];
@@ -117,7 +117,7 @@ public class VerifyOtpCommandHandler : IRequestHandler<VerifyOtpCommand, Result<
 
         if (user == null)
         {
-            return Result<VerifyOtpResponse>.Failure("USER_NOT_FOUND", "User not found");
+            return Result<VerifyOtpResponse>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
         var resetToken = _tokenService.GenerateResetPasswordToken(email);

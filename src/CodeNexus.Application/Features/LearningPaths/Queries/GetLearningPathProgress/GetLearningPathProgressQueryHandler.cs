@@ -40,7 +40,7 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
             return Result<LearningPathCompletionProgressDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
 
         if (learningPathOwnerId.Value != userId)
-            return Result<LearningPathCompletionProgressDto>.Failure("ACCESS_DENIED", "You do not have access to this learning path.");
+            return Result<LearningPathCompletionProgressDto>.Failure("ACCESS_DENIED", "Access denied.");
 
         var totalLessonContents = await _context.Lessons
             .AsNoTracking()

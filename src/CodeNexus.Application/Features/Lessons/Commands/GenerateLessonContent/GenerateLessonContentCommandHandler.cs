@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Lessons.DTOs;
 using CodeNexus.Domain.Entities;
@@ -44,7 +44,7 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
             return Result<LessonContentDto>.Failure("LESSON_NOT_FOUND", "Lesson not found");
 
         if (lesson.Chapter.LearningPath.UserId != userId)
-            return Result<LessonContentDto>.Failure("UNAUTHORIZED", "You do not have access to this lesson");
+            return Result<LessonContentDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (lesson.UpdatedAt != null)
         {
@@ -69,7 +69,7 @@ public class GenerateLessonContentCommandHandler : IRequestHandler<GenerateLesso
         catch (Exception ex)
         {
             return Result<LessonContentDto>.Failure("CONTENT_GENERATION_FAILED",
-                $"Failed to generate lesson content: {ex.Message}");
+                "Failed to generate content.");
         }
     }
 

@@ -51,7 +51,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         {
             return Result<CompleteSessionResponseDto>.Failure(
                 "SESSION_NOT_RUNNING",
-                "Session is not currently running");
+                "Session is not running");
         }
 
         try
@@ -247,7 +247,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     {
                         IsValid = false,
                         ErrorCode = "MISSING_CODE_SUBMISSION",
-                        ErrorMessage = $"Practice tasks require code submission for {request.SubmissionType.ToString().ToLower()} submission"
+                        ErrorMessage = "Code submission is required for coding tasks"
                     };
                 }
                 break;
@@ -259,7 +259,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     {
                         IsValid = false,
                         ErrorCode = "MISSING_SUMMARY_SUBMISSION",
-                        ErrorMessage = $"Theory tasks require summary submission for {request.SubmissionType.ToString().ToLower()} submission"
+                        ErrorMessage = "Summary submission is required for summary tasks"
                     };
                 }
                 break;
@@ -271,7 +271,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     {
                         IsValid = false,
                         ErrorCode = "MISSING_QUIZ_ANSWERS",
-                        ErrorMessage = $"Quiz tasks require quiz answers submission for {request.SubmissionType.ToString().ToLower()} submission"
+                        ErrorMessage = "Quiz answers submission is required for quiz tasks"
                     };
                 }
                 break;

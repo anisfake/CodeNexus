@@ -42,7 +42,7 @@ public class MarkMessageDeliveredCommandHandler : IRequestHandler<MarkMessageDel
 
         if (message.Conversation.ConversationType != ChatConversationType.Direct)
         {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var isParticipant = message.Conversation.MentorId == currentUserId ||
@@ -50,12 +50,12 @@ public class MarkMessageDeliveredCommandHandler : IRequestHandler<MarkMessageDel
 
         if (!isParticipant)
         {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         if (message.SenderId == currentUserId)
         {
-            return Result.Failure("INVALID_OPERATION", "Sender cannot mark own message as delivered.");
+            return Result.Failure("INVALID_OPERATION", "Invalid operation.");
         }
 
         var receipt = await _context.DirectMessageReceipts

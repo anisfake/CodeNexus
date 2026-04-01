@@ -41,7 +41,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             return Result<ChapterTasksDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
         if (chapter.LearningPath.UserId != userId)
-            return Result<ChapterTasksDto>.Failure("UNAUTHORIZED", "You do not have access to this chapter");
+            return Result<ChapterTasksDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (!chapter.Lessons.Any())
             return Result<ChapterTasksDto>.Failure("CHAPTER_NO_LESSONS", "Chapter has no lessons to generate tasks from");
@@ -59,7 +59,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Tasks == null || generated.Tasks.Count == 0)
-                return Result<ChapterTasksDto>.Failure("INVALID_AI_RESPONSE", "AI returned no tasks");
+                return Result<ChapterTasksDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
 
             var validTasks = generated.Tasks
                 .Where(t => !IsInvalidTask(t.Title, t.Description))

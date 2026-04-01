@@ -44,7 +44,7 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
 
         if (!isMentor && !isStudent)
         {
-            return Result<List<SentLearningPathShareSummaryDto>>.Failure("ACCESS_DENIED", "Only mentors and students can view learning path shares.");
+            return Result<List<SentLearningPathShareSummaryDto>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPathShares

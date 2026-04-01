@@ -39,10 +39,10 @@ public class MarkChannelMessageDeliveredCommandHandler : IRequestHandler<MarkCha
             return Result.Failure("MESSAGE_NOT_FOUND", "Message not found.");
 
         if (message.Conversation.ConversationType != ChatConversationType.Channel)
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this channel.");
+            return Result.Failure("ACCESS_DENIED", "Access denied.");
 
         if (message.SenderId == currentUserId)
-            return Result.Failure("INVALID_OPERATION", "Sender cannot mark own message as delivered.");
+            return Result.Failure("INVALID_OPERATION", "Invalid operation.");
 
         var receipt = await _context.DirectMessageReceipts
             .FirstOrDefaultAsync(r => r.MessageId == request.MessageId && r.UserId == currentUserId, cancellationToken);

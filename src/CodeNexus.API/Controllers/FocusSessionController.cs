@@ -32,7 +32,7 @@ public class FocusSessionController : ControllerBase
     {
         if (request == null)
         {
-            return BadRequest(new { ErrorCode = "INVALID_REQUEST", ErrorMessage = "Request body is required" });
+            return BadRequest(new { ErrorCode = "INVALID_REQUEST", ErrorMessage = "Invalid request." });
         }
 
         var command = new StartSessionCommand(request.TaskId, request.SessionType, request.PlannedDurationMinutes, request.Title);

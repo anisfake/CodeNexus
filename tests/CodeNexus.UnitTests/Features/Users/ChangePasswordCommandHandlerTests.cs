@@ -41,7 +41,7 @@ public class ChangePasswordCommandHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("USER_NOT_FOUND");
-        result.ErrorMessage.Should().Be("User not found");
+        result.ErrorMessage.Should().Be("User not found.");
     }
 
     [Fact]

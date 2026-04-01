@@ -25,7 +25,7 @@ public class ProcessVnPayCallbackCommandHandler
     {
         if (!request.Parameters.TryGetValue("vnp_TxnRef", out var txnRef) || string.IsNullOrWhiteSpace(txnRef))
         {
-            return Result<VnPayCallbackResponseDto>.Failure("INVALID_REQUEST", "Missing vnp_TxnRef");
+            return Result<VnPayCallbackResponseDto>.Failure("INVALID_REQUEST", "Invalid request.");
         }
 
         if (!_vnPayService.ValidateSignature(request.Parameters))
@@ -63,7 +63,7 @@ public class ProcessVnPayCallbackCommandHandler
 
         if (payment == null)
         {
-            return Result<VnPayCallbackResponseDto>.Failure("PAYMENT_NOT_FOUND", "Payment transaction not found");
+            return Result<VnPayCallbackResponseDto>.Failure("PAYMENT_NOT_FOUND", "Payment transaction not found.");
         }
 
         if (!parameters.TryGetValue("vnp_ResponseCode", out var responseCode))
@@ -98,7 +98,7 @@ public class ProcessVnPayCallbackCommandHandler
             payment.Status = PaymentStatus.Success;
             if (!payment.SubscriptionPlanId.HasValue)
             {
-                return Result<VnPayCallbackResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Payment transaction is missing subscription plan.");
+                return Result<VnPayCallbackResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
             }
 
             var subscriptionPlan = await _context.SubscriptionPlans

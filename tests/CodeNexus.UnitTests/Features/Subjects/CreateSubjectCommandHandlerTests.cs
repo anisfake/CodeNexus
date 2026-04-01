@@ -74,7 +74,7 @@ public class CreateSubjectCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
-        Assert.Contains("Only mentors can add subjects", result.ErrorMessage);
+        Assert.Contains("User not authenticated", result.ErrorMessage);
     }
 
     [Fact]

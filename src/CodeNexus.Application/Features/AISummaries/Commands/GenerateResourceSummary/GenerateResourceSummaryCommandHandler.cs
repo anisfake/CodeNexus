@@ -40,7 +40,7 @@ public class GenerateResourceSummaryCommandHandler
             return Result<ResourceSummaryDto>.Failure("RESOURCE_NOT_FOUND", "Resource not found.");
 
         if (resource.UserId != userId)
-            return Result<ResourceSummaryDto>.Failure("UNAUTHORIZED", "You do not have access to this resource.");
+            return Result<ResourceSummaryDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         var existingSummary = await _context.AISummaries
             .AsNoTracking()

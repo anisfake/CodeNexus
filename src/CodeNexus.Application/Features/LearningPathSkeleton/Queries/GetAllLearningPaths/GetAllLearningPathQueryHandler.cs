@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using MediatR;
@@ -30,7 +30,7 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
 
         if (user.Role?.RoleName != "Mentor")
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Only mentors can access learning paths.");
+            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPaths

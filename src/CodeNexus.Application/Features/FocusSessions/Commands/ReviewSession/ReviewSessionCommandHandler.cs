@@ -38,7 +38,7 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
 
         if (session.SessionStatus != SessionStatus.Running)
         {
-            return Result<ReviewSessionResponseDto>.Failure("SESSION_NOT_RUNNING", "Session is not currently running");
+            return Result<ReviewSessionResponseDto>.Failure("SESSION_NOT_RUNNING", "Session is not running");
         }
 
         if (session.Task.TaskType == TaskType.Practice && string.IsNullOrWhiteSpace(request.SubmittedCode))

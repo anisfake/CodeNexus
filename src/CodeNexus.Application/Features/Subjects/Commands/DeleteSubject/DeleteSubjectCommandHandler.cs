@@ -30,7 +30,7 @@ public class DeleteSubjectCommandHandler : IRequestHandler<DeleteSubjectCommand,
 
         if (subject.CreatedByUserId != userId)
         {
-            return Result<string>.Failure("UNAUTHORIZED", "You can only delete subjects you created.");
+            return Result<string>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
         try

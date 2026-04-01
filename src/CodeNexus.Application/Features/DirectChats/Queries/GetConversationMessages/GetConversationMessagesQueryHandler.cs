@@ -41,7 +41,7 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
 
         if (conversation.MentorId != currentUserId && conversation.StudentId != currentUserId)
         {
-            return Result<PaginationDto<DirectMessageDto>>.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result<PaginationDto<DirectMessageDto>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var totalCount = await _context.DirectMessages

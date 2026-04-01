@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Domain.Entities;
@@ -33,7 +33,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
 
             if (subject == null)
             {
-                return Result<GoalDto>.Failure("SUBJECT_NOT_FOUND", "Subject not found");
+                return Result<GoalDto>.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
             }
 
             var goal = await _context.Goals
@@ -45,7 +45,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
 
             if (goal == null)
             {
-                return Result<GoalDto>.Failure("GOAL_NOT_FOUND", "Goal not found");
+                return Result<GoalDto>.Failure("GOAL_NOT_FOUND", "Goal not found.");
             }
 
             if (goal.IsSystemDefined)
@@ -71,7 +71,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
                 {
                     return Result<GoalDto>.Failure(
                         "INVALID_GOAL",
-                        "Goals must be related to programming or software development");
+                        "Goal must be related to programming or software development.");
                 }
 
                 var isRelevantToSubject = await _goalValidationService.IsGoalRelevantToSubjectAsync(

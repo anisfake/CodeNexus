@@ -42,10 +42,10 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
                 .FirstOrDefaultAsync(x => x.ResourceId == request.ResourceId, cancellationToken);
 
             if (resource == null)
-                return Result<string>.Failure("RESOURCE_NOT_FOUND", "Resource not found");
+                return Result<string>.Failure("RESOURCE_NOT_FOUND", "Resource not found.");
 
             if (resource.UserId != userId)
-                return Result<string>.Failure("UNAUTHORIZED", "You can only update your own resources");
+                return Result<string>.Failure("UNAUTHORIZED", "User not authenticated");
 
             if (!string.IsNullOrEmpty(request.Title))
                 resource.Title = request.Title;
@@ -104,7 +104,7 @@ public class UpdateResourceCommandHandler : IRequestHandler<UpdateResourceComman
                         $"resources/{userId}");
 
                     if (uploadResult == null)
-                        return Result<string>.Failure("UPLOAD_FAIL", "File upload failed");
+                        return Result<string>.Failure("UPLOAD_FAIL", "File upload failed.");
 
                     resource.FilePath = uploadResult;
                     resource.OriginalFileName = request.FileName;

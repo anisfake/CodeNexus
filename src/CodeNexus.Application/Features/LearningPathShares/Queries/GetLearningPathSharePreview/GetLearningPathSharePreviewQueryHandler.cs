@@ -42,7 +42,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
 
         if (!string.Equals(student.Role?.RoleName, "Student", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathSharePreviewDto>.Failure("ACCESS_DENIED", "Only students can preview shared learning paths.");
+            return Result<LearningPathSharePreviewDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var share = await _context.LearningPathShares

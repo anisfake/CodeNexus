@@ -43,7 +43,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "Only mentors can create learning path drafts.");
+            return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var subject = await _context.Subjects
@@ -62,7 +62,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
 
         if (goals.Count != uniqueGoalIds.Count)
         {
-            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found.");
+            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         var systemGoalIds = goals
@@ -81,7 +81,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             {
                 return Result<CreateLearningPathResponse>.Failure(
                     "GOAL_SUBJECT_MISMATCH",
-                    "One or more system goals are not available for the selected subject.");
+                    "Goal is not relevant to the selected subject.");
             }
         }
 

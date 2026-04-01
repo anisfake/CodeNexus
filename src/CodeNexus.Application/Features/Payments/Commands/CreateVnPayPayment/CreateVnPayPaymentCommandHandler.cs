@@ -35,12 +35,12 @@ public class CreateVnPayPaymentCommandHandler
 
         if (!userExists)
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("USER_NOT_FOUND", "User not found");
+            return Result<VnPayCreatePaymentResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
         if (!request.SubscriptionPlanId.HasValue)
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan is required.");
+            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
         }
 
         var subscriptionPlan = await _context.SubscriptionPlans
@@ -49,7 +49,7 @@ public class CreateVnPayPaymentCommandHandler
 
         if (subscriptionPlan == null)
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found or inactive.");
+            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
         }
 
         if (subscriptionPlan.PriceVnd <= 0)

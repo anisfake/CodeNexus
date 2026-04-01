@@ -40,7 +40,7 @@ public class StartQuizAttemptCommandHandler : IRequestHandler<StartQuizAttemptCo
             return Result<StartQuizAttemptDto>.Failure("QUIZ_NO_LESSON", "Quiz is not associated with a lesson");
 
         if (quiz.Lesson.Chapter.LearningPath.UserId != userId)
-            return Result<StartQuizAttemptDto>.Failure("UNAUTHORIZED", "You do not have access to this quiz");
+            return Result<StartQuizAttemptDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (!quiz.Questions.Any())
             return Result<StartQuizAttemptDto>.Failure("QUIZ_NO_QUESTIONS", "Quiz has no questions. Generate questions first.");

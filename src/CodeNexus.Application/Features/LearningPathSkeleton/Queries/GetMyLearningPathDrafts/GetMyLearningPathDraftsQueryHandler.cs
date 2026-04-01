@@ -42,7 +42,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Only mentors can view draft learning paths.");
+            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPaths

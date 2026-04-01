@@ -38,7 +38,7 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
             return Result<SubmitQuizResultDto>.Failure("ATTEMPT_NOT_FOUND", "Quiz attempt not found");
 
         if (attempt.UserId != userId)
-            return Result<SubmitQuizResultDto>.Failure("UNAUTHORIZED", "You do not have access to this attempt");
+            return Result<SubmitQuizResultDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
             return Result<SubmitQuizResultDto>.Failure("ATTEMPT_ALREADY_COMPLETED", "This attempt has already been submitted");

@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.DTOs;
 using MediatR;
@@ -33,7 +33,7 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
 
             if (user == null)
             {
-                return Result<UserProfileRespone>.Failure("USER_NOT_FOUND", "user was not found.");
+                return Result<UserProfileRespone>.Failure("USER_NOT_FOUND", "User not found.");
             }
 
             user.FirstName = request.FirstName ?? user.FirstName;

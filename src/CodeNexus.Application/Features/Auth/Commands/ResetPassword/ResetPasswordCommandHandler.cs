@@ -31,7 +31,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email, cancellationToken);
 
         if (user == null)
-            return Result.Failure("USER_NOT_FOUND", "User not found");
+            return Result.Failure("USER_NOT_FOUND", "User not found.");
 
         user.PasswordHash = _otpService.HashPassword(request.NewPassword);
 

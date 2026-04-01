@@ -51,7 +51,7 @@ public class ResolveTutorConversationQueryHandler
 
         if (!request.CreateIfMissing)
         {
-            return Result<ResolveTutorConversationResponseDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found");
+            return Result<ResolveTutorConversationResponseDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
         }
 
         var config = await _context.AIProviderConfigs
@@ -127,12 +127,12 @@ public class ResolveTutorConversationQueryHandler
                 .FirstOrDefaultAsync(lp => lp.PathId == learningPathId, cancellationToken);
 
             if (learningPath == null)
-                return Result<TutorContext>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found");
+                return Result<TutorContext>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
         if (learningPath != null && learningPath.UserId != userId)
         {
-            return Result<TutorContext>.Failure("ACCESS_DENIED", "You do not have access to this learning path");
+            return Result<TutorContext>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         return Result<TutorContext>.Success(new TutorContext(

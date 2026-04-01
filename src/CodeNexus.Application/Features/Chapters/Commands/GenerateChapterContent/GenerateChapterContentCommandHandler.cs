@@ -38,7 +38,7 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
             return Result<ChapterContentDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
         if (chapter.LearningPath.UserId != userId)
-            return Result<ChapterContentDto>.Failure("UNAUTHORIZED", "You do not have access to this chapter");
+            return Result<ChapterContentDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (chapter.UpdatedAt != null)
         {
@@ -63,7 +63,7 @@ public class GenerateChapterContentCommandHandler : IRequestHandler<GenerateChap
         catch (Exception ex)
         {
             return Result<ChapterContentDto>.Failure("CONTENT_GENERATION_FAILED",
-                $"Failed to generate chapter content: {ex.Message}");
+                "Failed to generate content.");
         }
     }
 

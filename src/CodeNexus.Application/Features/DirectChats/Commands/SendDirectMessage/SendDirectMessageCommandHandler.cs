@@ -42,7 +42,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
 
         if (conversation.MentorId != currentUserId && conversation.StudentId != currentUserId)
         {
-            return Result<DirectMessageDto>.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result<DirectMessageDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         DirectMessage? repliedMessage = null;
@@ -54,7 +54,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
 
             if (repliedMessage == null || repliedMessage.ConversationId != conversation.ConversationId)
             {
-                return Result<DirectMessageDto>.Failure("MESSAGE_NOT_FOUND", "Reply target message not found.");
+                return Result<DirectMessageDto>.Failure("MESSAGE_NOT_FOUND", "Message not found.");
             }
         }
 

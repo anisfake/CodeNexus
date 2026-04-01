@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
@@ -58,7 +58,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             var subject = await _context.Subjects.FirstOrDefaultAsync(x => x.SubjectId == request.SubjectId, cancellationToken: cancellationToken);
             if (subject == null)
             {
-                return Result<CreateLearningPathResponse>.Failure("SUBJECT_NOT_FOUND", "Subject not found");
+                return Result<CreateLearningPathResponse>.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
             }
 
             if (request.Goals == null || request.Goals.Count == 0)
@@ -83,7 +83,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
             if (goals.Count != uniqueGoalIds.Count)
             {
-                return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
+                return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
             }
 
             var systemGoalIds = goals
@@ -110,7 +110,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 {
                     return Result<CreateLearningPathResponse>.Failure(
                         "GOAL_SUBJECT_MISMATCH",
-                        "One or more system goals are not available for the selected subject");
+                        "Goal is not relevant to the selected subject.");
                 }
             }
 
@@ -181,7 +181,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
                 if (chapterData == null || string.IsNullOrEmpty(chapterData.Title))
                 {
-                    return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", $"AI returned invalid chapter structure for chapter {i + 1}");
+                    return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
                 }
 
                 var normalizedChapterTitle = NormalizeChapterTitle(
@@ -327,7 +327,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         }
         catch (Exception ex)
         {
-            return Result<CreateLearningPathResponse>.Failure("GENERATION_FAILED", $"Failed to generate learning path skeleton: {ex.Message}");
+            return Result<CreateLearningPathResponse>.Failure("GENERATION_FAILED", "Failed to generate data.");
         }
     }
 

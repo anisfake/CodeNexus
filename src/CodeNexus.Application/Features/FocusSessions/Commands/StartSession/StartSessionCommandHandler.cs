@@ -51,7 +51,7 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
             {
                 return Result<StartSessionResponseDto>.Failure(
                     "INVALID_DURATION",
-                    "Pomodoro session duration must be between 5 and 120 minutes");
+                    "Session duration is invalid.");
             }
             plannedDuration = duration;
         }
@@ -62,7 +62,7 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
             {
                 return Result<StartSessionResponseDto>.Failure(
                     "INVALID_DURATION",
-                    "Study session duration must be 0 (unlimited) or between 1 and 480 minutes");
+                    "Session duration is invalid.");
             }
         }
 

@@ -35,7 +35,7 @@ public class GetTutorConversationMessagesQueryHandler
 
         if (conversation.UserId != userId)
         {
-            return Result<PaginationDto<TutorMessageDto>>.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result<PaginationDto<TutorMessageDto>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var totalCount = await _context.Messages

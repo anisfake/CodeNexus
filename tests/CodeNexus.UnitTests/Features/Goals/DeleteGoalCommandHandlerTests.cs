@@ -73,7 +73,7 @@ public class DeleteGoalCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
-        Assert.Equal("The specified goal was not found.", result.ErrorMessage);
+        Assert.Equal("Goal not found.", result.ErrorMessage);
     }
 
     [Fact]

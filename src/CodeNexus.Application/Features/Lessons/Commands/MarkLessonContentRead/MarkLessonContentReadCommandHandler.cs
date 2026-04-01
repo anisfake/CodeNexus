@@ -44,7 +44,7 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
 
         if (lesson.Chapter.LearningPath.UserId != userId)
         {
-            return Result<string>.Failure("ACCESS_DENIED", "You do not have access to this lesson");
+            return Result<string>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var progress = await _context.LearnProgresses

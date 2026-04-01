@@ -43,7 +43,7 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
 
         if (!string.Equals(student.Role?.RoleName, "Student", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Only students can accept a learning path share.");
+            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var share = await _context.LearningPathShares
@@ -56,7 +56,7 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
 
         if (share.Status != LearningPathShareStatus.Pending)
         {
-            return Result<LearningPathShareDto>.Failure("INVALID_SHARE_STATE", "Only pending shares can be accepted.");
+            return Result<LearningPathShareDto>.Failure("INVALID_SHARE_STATE", "Only pending shares can be processed.");
         }
 
         var sourcePath = await _context.LearningPaths

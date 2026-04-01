@@ -305,7 +305,7 @@ public class CompleteSessionCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("SESSION_NOT_RUNNING", result.ErrorCode);
-        Assert.Contains("not currently running", result.ErrorMessage);
+        Assert.Contains("Session is not running", result.ErrorMessage);
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class CompleteSessionCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("MISSING_CODE_SUBMISSION", result.ErrorCode);
-        Assert.Contains("Practice tasks require code submission", result.ErrorMessage);
+        Assert.Contains("Code submission is required for coding tasks", result.ErrorMessage);
     }
 
     [Fact]
@@ -383,7 +383,7 @@ public class CompleteSessionCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("MISSING_SUMMARY_SUBMISSION", result.ErrorCode);
-        Assert.Contains("Theory tasks require summary submission", result.ErrorMessage);
+        Assert.Contains("Summary submission is required for summary tasks", result.ErrorMessage);
     }
 
     private void SetupFocusSessionsDbSet(List<FocusSession> sessions)

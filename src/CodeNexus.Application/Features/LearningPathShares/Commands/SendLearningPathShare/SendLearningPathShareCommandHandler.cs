@@ -44,7 +44,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Only mentors can share learning paths.");
+            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var student = await _context.Users
@@ -72,13 +72,13 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 
         if (path.UserId != mentorId)
         {
-            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "You can only share your own learning path.");
+            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         if (string.Equals(path.Status, LearningPathStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase)
             || string.Equals(path.Status, LearningPathStatus.Completed.ToString(), StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathShareDto>.Failure("INVALID_STATUS", "Only active or draft learning paths can be shared.");
+            return Result<LearningPathShareDto>.Failure("INVALID_STATUS", "Invalid status for this operation.");
         }
 
         var existingPendingShare = await _context.LearningPathShares
