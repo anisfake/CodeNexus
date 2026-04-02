@@ -2,9 +2,11 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace CodeNexus.Application.Features.Goals.Commands.CreateGoal;
 
@@ -14,6 +16,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     private readonly ICurrentUserService _currentUserService;
     private readonly IGoalValidationService _goalValidationService;
     private const decimal MinGoalMappingConfidence = 0.75m;
+    private const int MaxPendingOrInProgressGoals = 10;
 
     public CreateGoalCommandHandler(
         IApplicationDbContext context,
@@ -29,6 +32,14 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
     {
         var userId = _currentUserService.GetUserId();
 
+        var pendingOrInProgressGoalCount = await GetPendingOrInProgressGoalCountAsync(userId, cancellationToken);
+        if (pendingOrInProgressGoalCount >= MaxPendingOrInProgressGoals)
+        {
+            return Result<CreateGoalResponseDto>.Failure(
+                "GOAL_ACTIVE_LIMIT_REACHED",
+                $"You already have {MaxPendingOrInProgressGoals} goals pending/in progress. Complete some goals before creating new ones.");
+        }
+
         var subject = await _context.Subjects
             .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId && !s.IsDeleted, cancellationToken);
 
@@ -37,6 +48,23 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             return Result<CreateGoalResponseDto>.Failure(
                 "SUBJECT_NOT_FOUND",
                 "Subject not found.");
+        }
+
+        var normalizedRequestTitle = NormalizeTitle(request.Title);
+        var existingTitlesInSameSubject = await _context.Goals
+            .Where(g => g.CreatedByUserId == userId && !g.IsDeleted)
+            .Join(
+                _context.SubjectGoals.Where(sg => sg.SubjectId == subject.SubjectId),
+                g => g.GoalId,
+                sg => sg.GoalId,
+                (g, sg) => g.Title)
+            .ToListAsync(cancellationToken);
+
+        if (existingTitlesInSameSubject.Any(title => NormalizeTitle(title) == normalizedRequestTitle))
+        {
+            return Result<CreateGoalResponseDto>.Failure(
+                "GOAL_ALREADY_EXISTS",
+                "You already have this goal for the selected subject.");
         }
 
         var isValid = await _goalValidationService.IsRelatedToProgrammingAsync(request.Title, cancellationToken);
@@ -59,20 +87,6 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             return Result<CreateGoalResponseDto>.Failure(
                 "GOAL_SUBJECT_MISMATCH",
                 "Goal is not relevant to the selected subject.");
-        }
-
-        var existingGoal = await _context.Goals
-            .FirstOrDefaultAsync(g =>
-                g.CreatedByUserId == userId
-                && g.Title.ToLower() == request.Title.ToLower()
-                && !g.IsDeleted,
-                cancellationToken);
-
-        if (existingGoal != null)
-        {
-            return Result<CreateGoalResponseDto>.Failure(
-                "GOAL_ALREADY_EXISTS",
-                "You already have this goal");
         }
 
         var goal = new Domain.Entities.Goals
@@ -154,5 +168,44 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
         );
 
         return Result<CreateGoalResponseDto>.Success(responseDto);
+    }
+
+    private async Task<int> GetPendingOrInProgressGoalCountAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var userGoalIds = await _context.Goals
+            .AsNoTracking()
+            .Where(g => g.CreatedByUserId == userId
+                        && !g.IsDeleted
+                        && g.IsActive
+                        && !g.IsSystemDefined)
+            .Select(g => g.GoalId)
+            .ToListAsync(cancellationToken);
+
+        if (userGoalIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var completedGoalIds = await _context.UserGoalProgresses
+            .AsNoTracking()
+            .Where(x => x.UserId == userId
+                        && userGoalIds.Contains(x.GoalId)
+                        && x.Status == GoalProgressStatus.Completed)
+            .Select(x => x.GoalId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return userGoalIds.Count - completedGoalIds.Count;
+    }
+
+    private static string NormalizeTitle(string title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return string.Empty;
+        }
+
+        var collapsed = Regex.Replace(title.Trim(), @"\s+", " ");
+        return collapsed.ToLowerInvariant();
     }
 }
