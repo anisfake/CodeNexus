@@ -74,6 +74,16 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             return Result<LearningPathShareDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
+        var acceptedAt = DateTime.UtcNow.AddHours(7);
+        var timelineAnchor = ResolveTimelineAnchor(sourcePath) ?? acceptedAt;
+        var timelineShift = acceptedAt - timelineAnchor;
+
+        DateTime? ShiftNullable(DateTime? value)
+            => value.HasValue ? value.Value.Add(timelineShift) : null;
+
+        DateTime Shift(DateTime value)
+            => value.Add(timelineShift);
+
         var studentPathId = NewId.NextGuid();
         var studentPath = new Domain.Entities.LearningPath
         {
@@ -82,10 +92,10 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             SubjectId = sourcePath.SubjectId,
             Title = sourcePath.Title,
             Description = sourcePath.Description,
-            StartDate = sourcePath.StartDate,
-            EndDate = sourcePath.EndDate,
+            StartDate = acceptedAt,
+            EndDate = ShiftNullable(sourcePath.EndDate),
             Status = LearningPathStatus.Active.ToString(),
-            CreatedAt = DateTime.UtcNow,
+            CreatedAt = acceptedAt,
             CreatedByType = sourcePath.CreatedByType,
             Language = sourcePath.Language,
             ComplexityLevel = sourcePath.ComplexityLevel
@@ -114,10 +124,10 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
                 Content = sourceChapter.Content,
                 OrderIndex = sourceChapter.OrderIndex,
                 IsCompleted = false,
-                StartDate = sourceChapter.StartDate,
-                EndDate = sourceChapter.EndDate,
+                StartDate = ShiftNullable(sourceChapter.StartDate),
+                EndDate = ShiftNullable(sourceChapter.EndDate),
                 EstimatedDays = sourceChapter.EstimatedDays,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = acceptedAt
             }, cancellationToken);
 
             foreach (var sourceLesson in sourceChapter.Lessons.OrderBy(l => l.OrderIndex))
@@ -130,8 +140,8 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
                     Title = sourceLesson.Title,
                     Content = sourceLesson.Content,
                     OrderIndex = sourceLesson.OrderIndex,
-                    LessonDay = sourceLesson.LessonDay,
-                    CreatedAt = DateTime.UtcNow
+                    LessonDay = Shift(sourceLesson.LessonDay),
+                    CreatedAt = acceptedAt
                 }, cancellationToken);
 
                 foreach (var sourceQuiz in sourceLesson.Quizzes)
@@ -144,8 +154,8 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
                         Description = sourceQuiz.Description,
                         TimeLimit = sourceQuiz.TimeLimit,
                         PassingScore = sourceQuiz.PassingScore,
-                        DueDate = sourceQuiz.DueDate,
-                        CreatedAt = DateTime.UtcNow
+                        DueDate = ShiftNullable(sourceQuiz.DueDate),
+                        CreatedAt = acceptedAt
                     }, cancellationToken);
                 }
             }
@@ -159,10 +169,10 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
                     PathId = studentPathId,
                     Title = sourceTask.Title,
                     Description = sourceTask.Description,
-                    DueDate = sourceTask.DueDate,
+                    DueDate = ShiftNullable(sourceTask.DueDate),
                     Priority = sourceTask.Priority,
                     Status = sourceTask.Status,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = acceptedAt,
                     TaskType = sourceTask.TaskType,
                     VerificationPrompt = sourceTask.VerificationPrompt,
                     MinimumScore = sourceTask.MinimumScore,
@@ -172,7 +182,7 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
         }
 
         share.Status = LearningPathShareStatus.Accepted;
-        share.RespondedAt = DateTime.UtcNow;
+        share.RespondedAt = acceptedAt;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -185,5 +195,53 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             share.SentAt,
             share.RespondedAt
         ));
+    }
+
+    private static DateTime? ResolveTimelineAnchor(Domain.Entities.LearningPath sourcePath)
+    {
+        if (sourcePath.StartDate.HasValue)
+        {
+            return sourcePath.StartDate.Value;
+        }
+
+        DateTime? earliest = sourcePath.EndDate;
+
+        foreach (var chapter in sourcePath.Chapters)
+        {
+            earliest = MinDate(earliest, chapter.StartDate);
+            earliest = MinDate(earliest, chapter.EndDate);
+
+            foreach (var lesson in chapter.Lessons)
+            {
+                earliest = MinDate(earliest, lesson.LessonDay);
+
+                foreach (var quiz in lesson.Quizzes)
+                {
+                    earliest = MinDate(earliest, quiz.DueDate);
+                }
+            }
+
+            foreach (var task in chapter.Tasks)
+            {
+                earliest = MinDate(earliest, task.DueDate);
+            }
+        }
+
+        return earliest;
+    }
+
+    private static DateTime? MinDate(DateTime? current, DateTime? candidate)
+    {
+        if (!candidate.HasValue)
+        {
+            return current;
+        }
+
+        if (!current.HasValue || candidate.Value < current.Value)
+        {
+            return candidate.Value;
+        }
+
+        return current;
     }
 }

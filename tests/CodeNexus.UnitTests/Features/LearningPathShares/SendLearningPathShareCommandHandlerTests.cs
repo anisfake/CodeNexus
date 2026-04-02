@@ -13,17 +13,19 @@ public class SendLearningPathShareCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<ILearningPathShareRealtimeNotifier> _mockRealtimeNotifier;
     private readonly SendLearningPathShareCommandHandler _handler;
 
     public SendLearningPathShareCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new SendLearningPathShareCommandHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _mockRealtimeNotifier = new Mock<ILearningPathShareRealtimeNotifier>();
+        _handler = new SendLearningPathShareCommandHandler(_mockContext.Object, _mockCurrentUserService.Object, _mockRealtimeNotifier.Object);
     }
 
     [Fact]
-    public async Task Handle_DraftPath_ActivatesPathAndCreatesShareMessage()
+    public async Task Handle_DraftPath_KeepsDraftStatusAndCreatesShareMessage()
     {
         var mentorId = NewId.NextGuid();
         var studentId = NewId.NextGuid();
@@ -87,12 +89,19 @@ public class SendLearningPathShareCommandHandlerTests
         var result = await _handler.Handle(new SendLearningPathShareCommand(pathId, studentId), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        learningPath.Status.Should().Be(LearningPathStatus.Active.ToString());
+        learningPath.Status.Should().Be(LearningPathStatus.Draft.ToString());
         shares.Should().HaveCount(1);
         messages.Should().HaveCount(1);
         messages[0].MessageType.Should().Be(DirectMessageType.LearningPathShare);
         messages[0].LearningPathShareId.Should().Be(shares[0].ShareId);
         receipts.Should().HaveCount(1);
+        _mockRealtimeNotifier.Verify(x => x.NotifyShareSentAsync(
+            studentId,
+            It.IsAny<Guid>(),
+            It.IsAny<string?>(),
+            It.IsAny<DateTime?>(),
+            It.IsAny<CodeNexus.Application.Features.DirectChats.DTOs.DirectMessageDto>(),
+            It.IsAny<CancellationToken>()), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
