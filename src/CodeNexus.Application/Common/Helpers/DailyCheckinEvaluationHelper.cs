@@ -66,7 +66,49 @@ public static class DailyCheckinEvaluationHelper
 
         productivity = Math.Clamp(productivity, 1, 5);
 
-        var mood = productivity switch
+        return (MapMood(productivity), productivity);
+    }
+
+    public static (string Mood, int Productivity) EvaluateQuizAttempt(bool passed, decimal percentage)
+    {
+        var productivity = 2;
+
+        if (passed)
+        {
+            productivity = percentage >= 90 ? 5 : percentage >= 75 ? 4 : 3;
+        }
+        else if (percentage < 40)
+        {
+            productivity = 1;
+        }
+
+        productivity = Math.Clamp(productivity, 1, 5);
+        return (MapMood(productivity), productivity);
+    }
+
+    public static (string Mood, int Productivity) EvaluateLessonRead(bool alreadyRead)
+    {
+        var productivity = alreadyRead ? 2 : 3;
+        return (MapMood(productivity), productivity);
+    }
+
+    public static (string Mood, int Productivity) Merge(int? existingProductivity, int newProductivity)
+    {
+        if (!existingProductivity.HasValue)
+        {
+            var clamped = Math.Clamp(newProductivity, 1, 5);
+            return (MapMood(clamped), clamped);
+        }
+
+        var merged = (int)Math.Round((existingProductivity.Value + newProductivity) / 2.0, MidpointRounding.AwayFromZero);
+        merged = Math.Clamp(merged, 1, 5);
+
+        return (MapMood(merged), merged);
+    }
+
+    private static string MapMood(int productivity)
+    {
+        return productivity switch
         {
             5 => "Motivated",
             4 => "Focused",
@@ -74,12 +116,5 @@ public static class DailyCheckinEvaluationHelper
             2 => "Tired",
             _ => "Frustrated"
         };
-
-        if (session.SessionStatus == SessionStatus.Abandoned)
-        {
-            mood = "Frustrated";
-        }
-
-        return (mood, productivity);
     }
 }

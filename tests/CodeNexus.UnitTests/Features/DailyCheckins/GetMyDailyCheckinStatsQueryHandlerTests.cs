@@ -6,7 +6,6 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
-using TaskEntity = CodeNexus.Domain.Entities.Tasks;
 
 namespace CodeNexus.UnitTests.Features.DailyCheckinQueries;
 
@@ -142,40 +141,14 @@ public class GetMyDailyCheckinStatsQueryHandlerTests
 
     private static DailyCheckins BuildCheckin(Guid userId, Guid sessionId, DateTime checkinDate)
     {
-        var pathId = NewId.NextGuid();
-        var taskId = NewId.NextGuid();
-        var subjectId = NewId.NextGuid();
-
         return new DailyCheckins
         {
             CheckinId = NewId.NextGuid(),
-            SessionId = sessionId,
+            UserId = userId,
             CheckinDate = checkinDate,
             Mood = "Focused",
             Productivity = 4,
-            CreatedAt = DateTime.UtcNow,
-            FocusSession = new FocusSession
-            {
-                SessionId = sessionId,
-                TaskId = taskId,
-                Task = new TaskEntity
-                {
-                    TaskId = taskId,
-                    PathId = pathId,
-                    LearningPath = new LearningPath
-                    {
-                        PathId = pathId,
-                        UserId = userId,
-                        SubjectId = subjectId,
-                        Subject = new Subject
-                        {
-                            SubjectId = subjectId,
-                            Name = "Test Subject"
-                        },
-                        Title = "Test Path"
-                    }
-                }
-            }
+            CreatedAt = DateTime.UtcNow
         };
     }
 }

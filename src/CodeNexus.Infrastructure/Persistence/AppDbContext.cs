@@ -352,11 +352,11 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<DailyCheckins>(entity =>
             {
-                entity.HasIndex(dc => new { dc.SessionId, dc.CheckinDate }).IsUnique();
+                entity.HasIndex(dc => new { dc.UserId, dc.CheckinDate }).IsUnique();
 
-                entity.HasOne(dc => dc.FocusSession)
-                      .WithOne(fs => fs.DailyCheckin)
-                      .HasForeignKey<DailyCheckins>(dc => dc.SessionId)
+                entity.HasOne(dc => dc.User)
+                      .WithMany(u => u.DailyCheckins)
+                      .HasForeignKey(dc => dc.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 

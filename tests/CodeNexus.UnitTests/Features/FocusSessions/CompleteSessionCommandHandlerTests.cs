@@ -363,22 +363,11 @@ public class CompleteSessionCommandHandlerTests
         var existingCheckin = new DailyCheckins
         {
             CheckinId = Guid.NewGuid(),
-            SessionId = existingSessionId,
+            UserId = userId,
             CheckinDate = DateTime.UtcNow.Date,
             Mood = "Focused",
             Productivity = 4,
-            CreatedAt = DateTime.UtcNow,
-            FocusSession = new FocusSession
-            {
-                SessionId = existingSessionId,
-                TaskId = Guid.NewGuid(),
-                Task = new TaskEntity
-                {
-                    TaskId = Guid.NewGuid(),
-                    PathId = pathId,
-                    LearningPath = learningPath
-                }
-            }
+            CreatedAt = DateTime.UtcNow
         };
 
         var verificationResult = new VerificationResult

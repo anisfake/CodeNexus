@@ -31,7 +31,7 @@ public class GetMyDailyCheckinStatsQueryHandler : IRequestHandler<GetMyDailyChec
 
             var checkinDates = await _context.DailyCheckins
                 .AsNoTracking()
-                .Where(dc => dc.FocusSession.Task.LearningPath.UserId == userId)
+                .Where(dc => dc.UserId == userId)
                 .Select(dc => dc.CheckinDate.Date)
                 .Distinct()
                 .OrderByDescending(d => d)

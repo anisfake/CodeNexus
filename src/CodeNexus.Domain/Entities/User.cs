@@ -31,6 +31,7 @@ namespace CodeNexus.Domain.Entities
         public virtual ICollection<LearnProgress> LearnProgresses { get; set; } = new List<LearnProgress>();
         public virtual ICollection<UserGoalProgress> UserGoalProgresses { get; set; } = new List<UserGoalProgress>();
         public virtual ICollection<Goals> Goals { get; set; } = new List<Goals>();
+        public virtual ICollection<DailyCheckins> DailyCheckins { get; set; } = new List<DailyCheckins>();
         public Guid? SubscriptionPlanId { get; set; }
         public virtual SubscriptionPlan? SubscriptionPlan { get; set; }
         public DateTime? PlanExpiresAt { get; set; }

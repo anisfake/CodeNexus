@@ -1,8 +1,9 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DailyCheckin.DTOs;
-using CodeNexus.Application.Features.DailyCheckin.Queries.GetDailyCheckinBySessionId;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckins;
+using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckinStatus;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckinStats;
+using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyTodayDailyCheckin;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,11 +22,10 @@ public class DailyCheckinController : ControllerBase
         _sender = sender;
     }
 
-    [HttpGet("session/{sessionId:guid}")]
-    public async Task<IActionResult> GetBySessionId(Guid sessionId, CancellationToken cancellationToken)
+    [HttpGet("me/today")]
+    public async Task<IActionResult> GetMyTodayCheckin(CancellationToken cancellationToken)
     {
-        var query = new GetDailyCheckinBySessionIdQuery(sessionId);
-        var result = await _sender.Send(query, cancellationToken);
+        var result = await _sender.Send(new GetMyTodayDailyCheckinQuery(), cancellationToken);
         return ToActionResult(result);
     }
 
@@ -33,6 +33,13 @@ public class DailyCheckinController : ControllerBase
     public async Task<IActionResult> GetMyCheckinStats(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetMyDailyCheckinStatsQuery(), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("me/status")]
+    public async Task<IActionResult> GetMyCheckinStatus(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMyDailyCheckinStatusQuery(), cancellationToken);
         return ToActionResult(result);
     }
 

@@ -253,26 +253,24 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         }
 
         var today = DateTime.UtcNow.Date;
-
-        var exists = await _context.DailyCheckins
-            .AsNoTracking()
-            .AnyAsync(x =>
-                x.SessionId == session.SessionId ||
-                (x.CheckinDate == today &&
-                 x.FocusSession.Task.LearningPath.UserId == session.Task.LearningPath.UserId),
-                cancellationToken);
-
-        if (exists)
-        {
-            return;
-        }
+        var userId = session.Task.LearningPath.UserId;
 
         var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
+        var existing = await _context.DailyCheckins
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
+
+        if (existing != null)
+        {
+            var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, productivity);
+            existing.Mood = merged.Mood;
+            existing.Productivity = merged.Productivity;
+            return;
+        }
 
         _context.DailyCheckins.Add(new DailyCheckins
         {
             CheckinId = NewId.NextGuid(),
-            SessionId = session.SessionId,
+            UserId = userId,
             CheckinDate = today,
             Mood = mood,
             Productivity = productivity,

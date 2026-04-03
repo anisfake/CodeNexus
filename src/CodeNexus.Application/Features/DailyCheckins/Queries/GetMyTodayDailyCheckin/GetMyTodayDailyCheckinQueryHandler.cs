@@ -4,14 +4,14 @@ using CodeNexus.Application.Features.DailyCheckin.DTOs;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace CodeNexus.Application.Features.DailyCheckin.Queries.GetDailyCheckinBySessionId;
+namespace CodeNexus.Application.Features.DailyCheckin.Queries.GetMyTodayDailyCheckin;
 
-public class GetDailyCheckinBySessionIdQueryHandler : IRequestHandler<GetDailyCheckinBySessionIdQuery, Result<DailyCheckinDto>>
+public class GetMyTodayDailyCheckinQueryHandler : IRequestHandler<GetMyTodayDailyCheckinQuery, Result<DailyCheckinDto>>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
 
-    public GetDailyCheckinBySessionIdQueryHandler(
+    public GetMyTodayDailyCheckinQueryHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService)
     {
@@ -19,7 +19,7 @@ public class GetDailyCheckinBySessionIdQueryHandler : IRequestHandler<GetDailyCh
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result<DailyCheckinDto>> Handle(GetDailyCheckinBySessionIdQuery request, CancellationToken cancellationToken)
+    public async Task<Result<DailyCheckinDto>> Handle(GetMyTodayDailyCheckinQuery request, CancellationToken cancellationToken)
     {
         try
         {
@@ -29,13 +29,15 @@ public class GetDailyCheckinBySessionIdQueryHandler : IRequestHandler<GetDailyCh
                 return Result<DailyCheckinDto>.Failure("UNAUTHORIZED", "User context is invalid.");
             }
 
+            var today = DateTime.UtcNow.Date;
+
             var checkin = await _context.DailyCheckins
                 .AsNoTracking()
-                .Where(dc => dc.SessionId == request.SessionId &&
-                             dc.FocusSession.Task.LearningPath.UserId == userId)
+                .Where(dc => dc.UserId == userId && dc.CheckinDate == today)
+                .OrderByDescending(dc => dc.CreatedAt)
                 .Select(dc => new DailyCheckinDto(
                     dc.CheckinId,
-                    dc.SessionId,
+                    dc.UserId,
                     dc.CheckinDate,
                     dc.Mood,
                     dc.Productivity,
