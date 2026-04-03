@@ -38,6 +38,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Features\Chapters\Queries\GetChapterStatus\" />
     <Folder Include="Features\FocusSessions\Commands\" />
     <Folder Include="Features\FocusSessions\DTOs\" />
     <Folder Include="Features\Goals\Queries\GetGoalsByUserId\" />

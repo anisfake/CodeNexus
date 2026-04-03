@@ -162,13 +162,19 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
+                _context,
+                session.Task.ChapterId,
+                session.Task.LearningPath.UserId,
+                cancellationToken);
+
             var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
                 _context,
                 session.Task.PathId,
                 session.Task.LearningPath.UserId,
                 cancellationToken);
 
-            if (hasGoalProgressChanges)
+            if (hasGoalProgressChanges || hasChapterCompletionChanges)
             {
                 await _context.SaveChangesAsync(cancellationToken);
             }
