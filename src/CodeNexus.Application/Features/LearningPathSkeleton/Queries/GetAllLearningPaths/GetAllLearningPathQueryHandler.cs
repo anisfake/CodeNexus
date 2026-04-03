@@ -126,7 +126,9 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),
-                lp.CreatedAt
+                lp.CreatedAt,
+                lp.ComplexityLevel,
+                lp.Language
             ))
             .ToListAsync(cancellationToken);
 

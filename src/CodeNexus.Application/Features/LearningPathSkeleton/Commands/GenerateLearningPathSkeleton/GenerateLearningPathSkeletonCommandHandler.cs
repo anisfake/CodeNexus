@@ -321,7 +321,13 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     chapters,
                     chapterTimelines.Count,
                     learningPath.CreatedAt,
-                    true
+                    true,
+                    learningPath.StartDate,
+                    learningPath.EndDate,
+                    learningPath.ComplexityLevel,
+                    learningPath.Language,
+                    learningPath.SubjectId,
+                    subject.Name
                 )
             );
         }

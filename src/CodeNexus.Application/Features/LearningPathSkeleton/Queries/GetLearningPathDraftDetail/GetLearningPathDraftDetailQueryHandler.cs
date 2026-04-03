@@ -123,7 +123,9 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),
-            learningPath.CreatedAt
+            learningPath.CreatedAt,
+            learningPath.ComplexityLevel,
+            learningPath.Language
         );
 
         return Result<LearningPathResponse>.Success(response);

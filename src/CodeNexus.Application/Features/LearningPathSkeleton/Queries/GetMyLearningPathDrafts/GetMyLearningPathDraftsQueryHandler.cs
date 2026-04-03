@@ -135,7 +135,9 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(c => !c.IsDeleted),
-                lp.CreatedAt
+                lp.CreatedAt,
+                lp.ComplexityLevel,
+                lp.Language
             ))
             .ToListAsync(cancellationToken);
 
