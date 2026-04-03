@@ -69,16 +69,34 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 return Result<TutorChatResponseDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
             }
         }
-        else
-        {
-            conversation = await FindConversationByContextAsync(userId, request, cancellationToken);
-        }
 
-        var contextIds = ResolveContextIds(request, conversation);
-        var contextData = await LoadTutorContextAsync(userId, contextIds.LearningPathId, contextIds.ChapterId, contextIds.LessonId, cancellationToken);
+        var requestedContextIds = ResolveRequestedContextIds(request, conversation);
+        var contextData = await LoadTutorContextAsync(
+            userId,
+            requestedContextIds.LearningPathId,
+            requestedContextIds.ChapterId,
+            requestedContextIds.LessonId,
+            cancellationToken);
+
         if (!contextData.IsSuccess)
         {
             return Result<TutorChatResponseDto>.Failure(contextData.ErrorCode!, contextData.ErrorMessage!);
+        }
+
+        if (conversation == null)
+        {
+            conversation = await FindConversationByContextAsync(userId, contextData.Value!, cancellationToken);
+        }
+
+        if (conversation != null)
+        {
+            var chapterScopeValidation = await ValidateConversationChapterScopeAsync(conversation, contextData.Value!, cancellationToken);
+            if (!chapterScopeValidation.IsSuccess)
+            {
+                return Result<TutorChatResponseDto>.Failure(
+                    chapterScopeValidation.ErrorCode!,
+                    chapterScopeValidation.ErrorMessage!);
+            }
         }
 
         if (conversation == null)
@@ -92,20 +110,16 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 CreatedAt = DateTime.UtcNow,
                 MessageCount = 0,
                 IsDeleted = false,
-                LearningPathId = contextIds.LearningPathId,
-                ChapterId = contextIds.ChapterId,
-                LessonId = contextIds.LessonId
+                LearningPathId = contextData.Value!.LearningPathId,
+                ChapterId = contextData.Value!.ChapterId,
+                // Chapter is the session boundary, lesson is only message-level context.
+                LessonId = contextData.Value!.ChapterId.HasValue ? null : contextData.Value!.LessonId
             };
             await _context.Conversations.AddAsync(conversation, cancellationToken);
         }
-        else if (contextIds.LearningPathId.HasValue || contextIds.ChapterId.HasValue || contextIds.LessonId.HasValue)
+        else
         {
-            if (!conversation.LearningPathId.HasValue && !conversation.ChapterId.HasValue && !conversation.LessonId.HasValue)
-            {
-                conversation.LearningPathId = contextIds.LearningPathId;
-                conversation.ChapterId = contextIds.ChapterId;
-                conversation.LessonId = contextIds.LessonId;
-            }
+            ApplyConversationContext(conversation, contextData.Value!);
         }
 
         var history = await _context.Messages
@@ -167,18 +181,64 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
 
     private static string BuildConversationTitle(TutorContext context, string message)
     {
-        if (!string.IsNullOrWhiteSpace(context.LessonTitle))
-            return $"Tutor - {context.LessonTitle}";
         if (!string.IsNullOrWhiteSpace(context.ChapterTitle))
             return $"Tutor - {context.ChapterTitle}";
         if (!string.IsNullOrWhiteSpace(context.LearningPathTitle))
             return $"Tutor - {context.LearningPathTitle}";
+        if (!string.IsNullOrWhiteSpace(context.LessonTitle))
+            return $"Tutor - {context.LessonTitle}";
 
         var trimmed = message.Trim();
         if (trimmed.Length <= 60)
             return trimmed;
 
         return trimmed.Substring(0, 60) + "...";
+    }
+
+    private async Task<Result> ValidateConversationChapterScopeAsync(
+        Conversation conversation,
+        TutorContext context,
+        CancellationToken cancellationToken)
+    {
+        if (!context.ChapterId.HasValue)
+        {
+            return Result.Success();
+        }
+
+        var conversationChapterId = conversation.ChapterId;
+        if (!conversationChapterId.HasValue && conversation.LessonId.HasValue)
+        {
+            conversationChapterId = await _context.Lessons
+                .AsNoTracking()
+                .Where(l => l.LessonId == conversation.LessonId.Value)
+                .Select(l => (Guid?)l.ChapterId)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        if (conversationChapterId.HasValue && conversationChapterId.Value != context.ChapterId.Value)
+        {
+            return Result.Failure(
+                "CONVERSATION_CONTEXT_MISMATCH",
+                "This conversation belongs to a different chapter. Please resolve a new chapter conversation.");
+        }
+
+        return Result.Success();
+    }
+
+    private static void ApplyConversationContext(Conversation conversation, TutorContext context)
+    {
+        if (context.ChapterId.HasValue)
+        {
+            conversation.LearningPathId = context.LearningPathId;
+            conversation.ChapterId = context.ChapterId;
+            conversation.LessonId = null;
+            return;
+        }
+
+        if (context.LearningPathId.HasValue && !conversation.ChapterId.HasValue && !conversation.LearningPathId.HasValue)
+        {
+            conversation.LearningPathId = context.LearningPathId;
+        }
     }
 
     private async Task<Result<TutorContext>> LoadTutorContextAsync(
@@ -192,6 +252,22 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         Chapter? chapter = null;
         Lesson? lesson = null;
 
+        if (chapterId.HasValue)
+        {
+            chapter = await _context.Chapters
+                .Include(c => c.LearningPath)
+                    .ThenInclude(lp => lp.Subject)
+                .Include(c => c.LearningPath)
+                    .ThenInclude(lp => lp.LearningPathGoals)
+                        .ThenInclude(lpg => lpg.Goal)
+                .FirstOrDefaultAsync(c => c.ChapterId == chapterId, cancellationToken);
+
+            if (chapter == null || chapter.IsDeleted)
+                return Result<TutorContext>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
+
+            learningPath = chapter.LearningPath;
+        }
+
         if (lessonId.HasValue)
         {
             lesson = await _context.Lessons
@@ -204,28 +280,17 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                             .ThenInclude(lpg => lpg.Goal)
                 .FirstOrDefaultAsync(l => l.LessonId == lessonId, cancellationToken);
 
-            if (lesson == null)
+            if (lesson == null || lesson.IsDeleted)
                 return Result<TutorContext>.Failure("LESSON_NOT_FOUND", "Lesson not found");
 
-            chapter = lesson.Chapter;
-            learningPath = chapter.LearningPath;
-        }
-        else if (chapterId.HasValue)
-        {
-            chapter = await _context.Chapters
-                .Include(c => c.LearningPath)
-                    .ThenInclude(lp => lp.Subject)
-                .Include(c => c.LearningPath)
-                    .ThenInclude(lp => lp.LearningPathGoals)
-                        .ThenInclude(lpg => lpg.Goal)
-                .FirstOrDefaultAsync(c => c.ChapterId == chapterId, cancellationToken);
+            if (chapterId.HasValue && lesson.ChapterId != chapterId.Value)
+                return Result<TutorContext>.Failure("LESSON_NOT_IN_CHAPTER", "Lesson does not belong to the selected chapter.");
 
-            if (chapter == null)
-                return Result<TutorContext>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
-
-            learningPath = chapter.LearningPath;
+            chapter ??= lesson.Chapter;
+            learningPath ??= lesson.Chapter.LearningPath;
         }
-        else if (learningPathId.HasValue)
+
+        if (learningPathId.HasValue && learningPath == null)
         {
             learningPath = await _context.LearningPaths
                 .Include(lp => lp.Subject)
@@ -247,13 +312,29 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             .Select(g => $"{g.Goal.Title} ({g.Weight:P0})")
             .ToList() ?? new List<string>();
 
+        var chapterLessonTitles = new List<string>();
+        if (chapter != null)
+        {
+            chapterLessonTitles = await _context.Lessons
+                .AsNoTracking()
+                .Where(l => l.ChapterId == chapter.ChapterId && !l.IsDeleted)
+                .OrderBy(l => l.OrderIndex)
+                .Select(l => $"{l.OrderIndex}. {l.Title}")
+                .ToListAsync(cancellationToken);
+        }
+
         return Result<TutorContext>.Success(new TutorContext(
-            learningPath?.Subject.Name,
+            learningPath?.Subject?.Name,
             learningPath?.Title,
             learningPath?.Description,
             learningPath?.Language ?? LanguageSelection.VietNamese,
             goals,
+            learningPath?.PathId,
+            chapter?.ChapterId,
             chapter?.Title,
+            chapter?.Content,
+            chapterLessonTitles,
+            lesson?.LessonId,
             lesson?.Title,
             lesson?.Content
         ));
@@ -272,6 +353,10 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             _ => "Respond in Vietnamese."
         };
 
+        var chapterLessonOutline = context.ChapterLessonTitles.Count == 0
+            ? "N/A"
+            : string.Join("\n", context.ChapterLessonTitles.Select(title => $"- {title}"));
+
         return $@"You are a friendly tutor helping a student follow their learning path.
 {languageInstruction}
 
@@ -281,8 +366,11 @@ Learning Path: {context.LearningPathTitle ?? "N/A"}
 Learning Path Description: {context.LearningPathDescription ?? "N/A"}
 Goals: {(context.Goals.Count == 0 ? "N/A" : string.Join(", ", context.Goals))}
 Current Chapter: {context.ChapterTitle ?? "N/A"}
-Current Lesson: {context.LessonTitle ?? "N/A"}
-Lesson Content: {context.LessonContent ?? "N/A"}
+Chapter Content: {context.ChapterContent ?? "N/A"}
+Chapter Lessons:
+{chapterLessonOutline}
+Active Lesson: {context.LessonTitle ?? "N/A"}
+Active Lesson Content: {context.LessonContent ?? "N/A"}
 
 CONVERSATION HISTORY:
 {historyText}
@@ -291,10 +379,12 @@ USER QUESTION:
 {userMessage}
 
 INSTRUCTIONS:
-- Focus on the current subject and lesson.
+- Focus on the current chapter by default.
+- If Active Lesson is available, prioritize that lesson for concrete details.
+- If the question spans multiple lessons in this chapter, synthesize them clearly.
 - Explain clearly and concisely.
 - Provide short examples when helpful.
-- If the question is out of scope, gently suggest focusing on the current lesson.";
+- If the question is out of this chapter's scope, gently ask the student to switch to the correct chapter conversation.";
     }
 
     private sealed record TutorContext(
@@ -303,12 +393,17 @@ INSTRUCTIONS:
         string? LearningPathDescription,
         LanguageSelection Language,
         List<string> Goals,
+        Guid? LearningPathId,
+        Guid? ChapterId,
         string? ChapterTitle,
+        string? ChapterContent,
+        List<string> ChapterLessonTitles,
+        Guid? LessonId,
         string? LessonTitle,
         string? LessonContent
     );
 
-    private static (Guid? LearningPathId, Guid? ChapterId, Guid? LessonId) ResolveContextIds(
+    private static (Guid? LearningPathId, Guid? ChapterId, Guid? LessonId) ResolveRequestedContextIds(
         SendTutorMessageCommand request,
         Conversation? conversation)
     {
@@ -319,10 +414,10 @@ INSTRUCTIONS:
         if (request.LearningPathId.HasValue)
             return (request.LearningPathId, null, null);
 
+        if (conversation?.ChapterId.HasValue == true)
+            return (conversation.LearningPathId, conversation.ChapterId, null);
         if (conversation?.LessonId.HasValue == true)
             return (null, null, conversation.LessonId);
-        if (conversation?.ChapterId.HasValue == true)
-            return (null, conversation.ChapterId, null);
         if (conversation?.LearningPathId.HasValue == true)
             return (conversation.LearningPathId, null, null);
 
@@ -331,25 +426,47 @@ INSTRUCTIONS:
 
     private async Task<Conversation?> FindConversationByContextAsync(
         Guid userId,
-        SendTutorMessageCommand request,
+        TutorContext context,
         CancellationToken cancellationToken)
     {
-        if (request.LessonId.HasValue)
+        if (context.ChapterId.HasValue)
         {
-            return await _context.Conversations
-                .FirstOrDefaultAsync(c => c.UserId == userId && c.LessonId == request.LessonId && !c.IsDeleted, cancellationToken);
+            var chapterConversation = await _context.Conversations
+                .Where(c => c.UserId == userId && c.ChapterId == context.ChapterId && !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (chapterConversation != null)
+            {
+                return chapterConversation;
+            }
+
+            if (context.LessonId.HasValue)
+            {
+                return await _context.Conversations
+                    .Where(c => c.UserId == userId && c.LessonId == context.LessonId && !c.IsDeleted)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
         }
 
-        if (request.ChapterId.HasValue)
+        if (context.LearningPathId.HasValue)
         {
             return await _context.Conversations
-                .FirstOrDefaultAsync(c => c.UserId == userId && c.ChapterId == request.ChapterId && !c.IsDeleted, cancellationToken);
+                .Where(c => c.UserId == userId
+                            && c.LearningPathId == context.LearningPathId
+                            && c.ChapterId == null
+                            && !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
-        if (request.LearningPathId.HasValue)
+        if (context.LessonId.HasValue)
         {
             return await _context.Conversations
-                .FirstOrDefaultAsync(c => c.UserId == userId && c.LearningPathId == request.LearningPathId && !c.IsDeleted, cancellationToken);
+                .Where(c => c.UserId == userId && c.LessonId == context.LessonId && !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
         return null;

@@ -129,4 +129,63 @@ public class ResolveTutorConversationQueryHandlerTests
 
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task Handle_WithDifferentLessonsSameChapter_ShouldReturnSameChapterConversation()
+    {
+        var userId = Guid.NewGuid();
+        var pathId = Guid.NewGuid();
+        var chapterId = Guid.NewGuid();
+        var lessonAId = Guid.NewGuid();
+        var lessonBId = Guid.NewGuid();
+        var conversationId = Guid.NewGuid();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+
+        _mockContext.Setup(x => x.Lessons).Returns(new[]
+        {
+            new Lesson
+            {
+                LessonId = lessonAId,
+                ChapterId = chapterId,
+                Chapter = new Chapter
+                {
+                    ChapterId = chapterId,
+                    PathId = pathId,
+                    LearningPath = new LearningPath { PathId = pathId, UserId = userId }
+                }
+            },
+            new Lesson
+            {
+                LessonId = lessonBId,
+                ChapterId = chapterId,
+                Chapter = new Chapter
+                {
+                    ChapterId = chapterId,
+                    PathId = pathId,
+                    LearningPath = new LearningPath { PathId = pathId, UserId = userId }
+                }
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Conversations).Returns(new[]
+        {
+            new Conversation
+            {
+                ConversationId = conversationId,
+                UserId = userId,
+                LearningPathId = pathId,
+                ChapterId = chapterId,
+                IsDeleted = false
+            }
+        }.BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(
+            new ResolveTutorConversationQuery(null, null, lessonBId, true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(conversationId, result.Value.ConversationId);
+        Assert.False(result.Value.Created);
+    }
 }
