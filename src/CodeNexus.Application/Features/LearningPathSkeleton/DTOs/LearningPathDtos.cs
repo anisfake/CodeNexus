@@ -115,7 +115,9 @@ public record CreateLearningPathResponse(
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
     DateTime CreatedAt,
-    bool IsContentGenerating = true
+    bool IsContentGenerating = true,
+    Guid? SubjectId = null,
+    string? SubjectName = null
 );
 
 public record LearningPathSuggestionDto(
