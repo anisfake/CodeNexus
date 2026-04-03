@@ -30,18 +30,18 @@ jobs:
     - name: Restore
       run: dotnet restore
 
-    - name: Build
-      run: dotnet build src/CodeNexus.API/CodeNexus.API.csproj -c Release --no-restore
+    - name: Build (includes test project)
+      run: dotnet build tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj -c Release --no-restore
 
     - name: Run Unit Tests
       run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj -c Release --no-build --verbosity normal
 
     - name: Quick Publish
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev')
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/dev')
       run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release --no-build --no-restore -o ./publish
 
     - name: Upload publish artifact
-      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev')
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
       uses: actions/upload-artifact@v4
       with:
         name: api-publish
@@ -51,7 +51,7 @@ jobs:
   deploy_azure:
     runs-on: ubuntu-latest
     needs: build_and_test
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/dev')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
 
     steps:
     - name: Download publish artifact
