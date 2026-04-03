@@ -194,7 +194,9 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             chapterDtos,
             chapterDtos.Count,
             learningPath.CreatedAt,
-            false));
+            false,
+            learningPath.SubjectId,
+            subject.Name));
     }
 
     private static int CalculateEstimatedDays(DateTime? startDate, DateTime? endDate)

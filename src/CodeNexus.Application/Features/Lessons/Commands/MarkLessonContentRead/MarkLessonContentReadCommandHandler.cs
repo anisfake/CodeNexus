@@ -73,13 +73,19 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
+            _context,
+            lesson.ChapterId,
+            userId,
+            cancellationToken);
+
         var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
             _context,
             lesson.Chapter.PathId,
             userId,
             cancellationToken);
 
-        if (hasGoalProgressChanges)
+        if (hasGoalProgressChanges || hasChapterCompletionChanges)
         {
             await _context.SaveChangesAsync(cancellationToken);
         }

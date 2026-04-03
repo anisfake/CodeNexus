@@ -3,6 +3,7 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
+using CodeNexus.Application.Features.Chapters.Queries.GetChapterCompletionStatus;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
@@ -249,6 +250,14 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("chapters/{chapterId:guid}/completion-status")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetChapterCompletionStatus(Guid chapterId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetChapterCompletionStatusQuery(chapterId), cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpPost("quizzes/{quizId:guid}/generate-questions")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateQuizQuestions(Guid quizId, CancellationToken cancellationToken)
@@ -302,7 +311,7 @@ public class LearningPathController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "EMAIL_EXISTS" or "USERNAME_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "CHAPTER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

@@ -88,13 +88,19 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
 
         if (attempt.Quiz.Lesson?.Chapter != null)
         {
+            var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
+                _context,
+                attempt.Quiz.Lesson.Chapter.ChapterId,
+                userId,
+                cancellationToken);
+
             var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
                 _context,
                 attempt.Quiz.Lesson.Chapter.PathId,
                 userId,
                 cancellationToken);
 
-            if (hasGoalProgressChanges)
+            if (hasGoalProgressChanges || hasChapterCompletionChanges)
             {
                 await _context.SaveChangesAsync(cancellationToken);
             }
