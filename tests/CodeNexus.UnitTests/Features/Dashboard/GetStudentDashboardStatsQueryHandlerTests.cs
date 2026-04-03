@@ -187,10 +187,10 @@ public class GetStudentDashboardStatsQueryHandlerTests
         var today = DateTime.Today;
         var dailyCheckins = new List<DailyCheckins>
         {
-            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[0].SessionId, FocusSession = focusSessions[0], CheckinDate = today },
-            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[1].SessionId, FocusSession = focusSessions[1], CheckinDate = today.AddDays(-1) },
-            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[0].SessionId, FocusSession = focusSessions[0], CheckinDate = today.AddDays(-2) },
-            new DailyCheckins { CheckinId = NewId.NextGuid(), SessionId = focusSessions[2].SessionId, FocusSession = focusSessions[2], CheckinDate = today }
+            new DailyCheckins { CheckinId = NewId.NextGuid(), UserId = userId, CheckinDate = today },
+            new DailyCheckins { CheckinId = NewId.NextGuid(), UserId = userId, CheckinDate = today.AddDays(-1) },
+            new DailyCheckins { CheckinId = NewId.NextGuid(), UserId = userId, CheckinDate = today.AddDays(-2) },
+            new DailyCheckins { CheckinId = NewId.NextGuid(), UserId = otherUserId, CheckinDate = today }
         };
 
         _mockContext.Setup(x => x.DailyCheckins).Returns(

@@ -31,7 +31,7 @@ public class GetMyDailyCheckinsQueryHandler : IRequestHandler<GetMyDailyCheckins
 
             var query = _context.DailyCheckins
                 .AsNoTracking()
-                .Where(dc => dc.FocusSession.Task.LearningPath.UserId == userId);
+                .Where(dc => dc.UserId == userId);
 
             if (request.FromDate.HasValue)
             {
@@ -55,7 +55,7 @@ public class GetMyDailyCheckinsQueryHandler : IRequestHandler<GetMyDailyCheckins
                 .Take(pageSize)
                 .Select(dc => new DailyCheckinDto(
                     dc.CheckinId,
-                    dc.SessionId,
+                    dc.UserId,
                     dc.CheckinDate,
                     dc.Mood,
                     dc.Productivity,

@@ -224,6 +224,10 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             chapterDtos.Count,
             learningPath.CreatedAt,
             false,
+            learningPath.StartDate,
+            learningPath.EndDate,
+            learningPath.ComplexityLevel,
+            learningPath.Language,
             learningPath.SubjectId,
             subject.Name));
     }

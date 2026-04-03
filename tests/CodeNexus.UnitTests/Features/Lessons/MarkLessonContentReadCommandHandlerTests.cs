@@ -18,6 +18,7 @@ public class MarkLessonContentReadCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockContext.Setup(x => x.DailyCheckins).Returns(new List<DailyCheckins>().BuildMockDbSet().Object);
         _handler = new MarkLessonContentReadCommandHandler(_mockContext.Object, _mockCurrentUserService.Object);
     }
 

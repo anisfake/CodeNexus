@@ -129,7 +129,9 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),
-                lp.CreatedAt
+                lp.CreatedAt,
+                lp.ComplexityLevel,
+                lp.Language
             ))
             .ToListAsync(cancellationToken);
 

@@ -116,6 +116,10 @@ public record CreateLearningPathResponse(
     int? ChapterCount,
     DateTime CreatedAt,
     bool IsContentGenerating = true,
+    DateTime? StartDate = null,
+    DateTime? EndDate = null,
+    ComplexityLevel? ComplexityLevel = null,
+    LanguageSelection? LanguageSelection = null,
     Guid? SubjectId = null,
     string? SubjectName = null
 );
@@ -144,8 +148,9 @@ public record LearningPathResponse(
     string UserName,
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
-
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    ComplexityLevel? ComplexityLevel = null,
+    LanguageSelection? LanguageSelection = null
 );
 public record GetAllLearningPathRequest(
     int PageNumber = 1,

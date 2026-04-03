@@ -124,7 +124,9 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),
-            learningPath.CreatedAt
+            learningPath.CreatedAt,
+            learningPath.ComplexityLevel,
+            learningPath.Language
         );
 
         return Result<LearningPathSharePreviewDto>.Success(new LearningPathSharePreviewDto(

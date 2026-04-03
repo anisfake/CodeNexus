@@ -4,6 +4,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Quizzes.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -84,6 +85,8 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         attempt.Status = passed ? QuizAttemptStatus.Passed : QuizAttemptStatus.NotPassed;
         attempt.Answers = System.Text.Json.JsonSerializer.Serialize(request.Answers);
 
+        await UpsertDailyCheckinForQuizAsync(userId, passed, percentage, cancellationToken);
+
         await _context.SaveChangesAsync(cancellationToken);
 
         if (attempt.Quiz.Lesson?.Chapter != null)
@@ -152,5 +155,36 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
     private static string NormalizeAnswer(string answer)
     {
         return string.Join(",", answer.Split(',').Select(s => s.Trim()));
+    }
+
+    private async Task UpsertDailyCheckinForQuizAsync(
+        Guid userId,
+        bool passed,
+        decimal percentage,
+        CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+        var existing = await _context.DailyCheckins
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
+
+        var evaluated = DailyCheckinEvaluationHelper.EvaluateQuizAttempt(passed, percentage);
+
+        if (existing == null)
+        {
+            _context.DailyCheckins.Add(new DailyCheckins
+            {
+                CheckinId = NewId.NextGuid(),
+                UserId = userId,
+                CheckinDate = today,
+                Mood = evaluated.Mood,
+                Productivity = evaluated.Productivity,
+                CreatedAt = DateTime.UtcNow
+            });
+            return;
+        }
+
+        var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, evaluated.Productivity);
+        existing.Mood = merged.Mood;
+        existing.Productivity = merged.Productivity;
     }
 }

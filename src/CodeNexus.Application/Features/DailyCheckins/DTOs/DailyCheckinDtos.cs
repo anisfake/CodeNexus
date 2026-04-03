@@ -4,7 +4,7 @@ namespace CodeNexus.Application.Features.DailyCheckin.DTOs;
 
 public record DailyCheckinDto(
     Guid CheckinId,
-    Guid SessionId,
+    Guid UserId,
     DateTime CheckinDate,
     string? Mood,
     int? Productivity,
@@ -27,4 +27,9 @@ public record DailyCheckinStatsDto(
     bool IsStreakMilestone,
     string PopupCode,
     Dictionary<string, string>? PopupParams
+);
+
+public record DailyCheckinStatusDto(
+    bool TodayCheckedIn,
+    int CurrentStreak
 );

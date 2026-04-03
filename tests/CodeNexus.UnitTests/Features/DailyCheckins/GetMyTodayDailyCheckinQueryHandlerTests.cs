@@ -1,5 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
-using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckins;
+using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyTodayDailyCheckin;
 using CodeNexus.Domain.Entities;
 using CodeNexus.UnitTests.Helpers;
 using MassTransit;
@@ -9,56 +9,60 @@ using Xunit;
 
 namespace CodeNexus.UnitTests.Features.DailyCheckinQueries;
 
-public class GetMyDailyCheckinsQueryHandlerTests
+public class GetMyTodayDailyCheckinQueryHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
-    private readonly GetMyDailyCheckinsQueryHandler _handler;
+    private readonly GetMyTodayDailyCheckinQueryHandler _handler;
 
-    public GetMyDailyCheckinsQueryHandlerTests()
+    public GetMyTodayDailyCheckinQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
-        _handler = new GetMyDailyCheckinsQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
+        _handler = new GetMyTodayDailyCheckinQueryHandler(_mockContext.Object, _mockCurrentUserService.Object);
     }
 
     [Fact]
-    public async Task Handle_WhenUserHasCheckins_ReturnsFilteredCheckins()
+    public async Task Handle_WhenTodayCheckinExists_ReturnsSuccess()
     {
-        // Arrange
         var userId = NewId.NextGuid();
-        var query = new GetMyDailyCheckinsQuery(DateTime.UtcNow.Date.AddDays(-7), DateTime.UtcNow.Date, 1, 20);
-
+        var today = DateTime.UtcNow.Date;
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
 
-        var inRange = BuildCheckin(userId, NewId.NextGuid(), DateTime.UtcNow.Date.AddDays(-2));
-        var outOfRange = BuildCheckin(userId, NewId.NextGuid(), DateTime.UtcNow.Date.AddDays(-10));
-        var otherUser = BuildCheckin(NewId.NextGuid(), NewId.NextGuid(), DateTime.UtcNow.Date.AddDays(-1));
+        SetupDailyCheckinsDbSet(new List<DailyCheckins>
+        {
+            new() { CheckinId = NewId.NextGuid(), UserId = userId, CheckinDate = today, Mood = "Focused", Productivity = 4, CreatedAt = DateTime.UtcNow },
+            new() { CheckinId = NewId.NextGuid(), UserId = userId, CheckinDate = today.AddDays(-1), Mood = "Neutral", Productivity = 3, CreatedAt = DateTime.UtcNow }
+        });
 
-        SetupDailyCheckinsDbSet(new List<DailyCheckins> { inRange, outOfRange, otherUser });
+        var result = await _handler.Handle(new GetMyTodayDailyCheckinQuery(), CancellationToken.None);
 
-        // Act
-        var result = await _handler.Handle(query, CancellationToken.None);
-
-        // Assert
         Assert.True(result.IsSuccess);
-        Assert.Single(result.Value);
-        Assert.Equal(inRange.UserId, result.Value[0].UserId);
+        Assert.Equal(userId, result.Value!.UserId);
+        Assert.Equal(today, result.Value.CheckinDate);
+    }
+
+    [Fact]
+    public async Task Handle_WhenNoTodayCheckin_ReturnsNotFound()
+    {
+        var userId = NewId.NextGuid();
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupDailyCheckinsDbSet(new List<DailyCheckins>());
+
+        var result = await _handler.Handle(new GetMyTodayDailyCheckinQuery(), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("DAILY_CHECKIN_NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
     public async Task Handle_WhenUserContextInvalid_ReturnsUnauthorized()
     {
-        // Arrange
-        var query = new GetMyDailyCheckinsQuery();
-
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(Guid.Empty);
         SetupDailyCheckinsDbSet(new List<DailyCheckins>());
 
-        // Act
-        var result = await _handler.Handle(query, CancellationToken.None);
+        var result = await _handler.Handle(new GetMyTodayDailyCheckinQuery(), CancellationToken.None);
 
-        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
     }
@@ -74,18 +78,5 @@ public class GetMyDailyCheckinsQueryHandlerTests
         dbSetMock.As<IAsyncEnumerable<DailyCheckins>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.DailyCheckins).Returns(dbSetMock.Object);
-    }
-
-    private static DailyCheckins BuildCheckin(Guid userId, Guid sessionId, DateTime checkinDate)
-    {
-        return new DailyCheckins
-        {
-            CheckinId = NewId.NextGuid(),
-            UserId = userId,
-            CheckinDate = checkinDate,
-            Mood = "Focused",
-            Productivity = 4,
-            CreatedAt = DateTime.UtcNow
-        };
     }
 }
