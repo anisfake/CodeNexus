@@ -31,6 +31,7 @@ public class CompleteSessionCommandHandlerTests
             .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
         _mockPlanUsageLimitService.Setup(x => x.RecordFocusSessionReviewUsageAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+        SetupDailyCheckinsDbSet(new List<DailyCheckins>());
         _handler = new CompleteSessionCommandHandler(
             _mockContext.Object,
             _mockVerificationService.Object,
@@ -271,6 +272,140 @@ public class CompleteSessionCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WithProgressSubmission_ShouldNotCreateDailyCheckin()
+    {
+        // Arrange
+        var sessionId = Guid.NewGuid();
+        var taskId = Guid.NewGuid();
+        var command = new CompleteSessionCommand(sessionId, "progress code", null, null, false, CodeNexus.Domain.Enums.SubmissionType.Progress);
+
+        var task = new TaskEntity
+        {
+            TaskId = taskId,
+            Title = "Practice Task",
+            TaskType = TaskType.Practice,
+            Status = TaskStatus_.InProgress,
+            LearningPath = BuildLearningPath()
+        };
+        task.PathId = task.LearningPath.PathId;
+
+        var session = new FocusSession
+        {
+            SessionId = sessionId,
+            TaskId = taskId,
+            Task = task,
+            SessionStatus = SessionStatus.Running,
+            StartTime = DateTime.UtcNow.AddMinutes(-20),
+            PlannedDurationMinutes = 25
+        };
+
+        var checkins = new List<DailyCheckins>();
+        SetupFocusSessionsDbSet(new List<FocusSession> { session });
+        SetupDailyCheckinsDbSet(checkins);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Empty(checkins);
+    }
+
+    [Fact]
+    public async Task Handle_WhenUserAlreadyCheckedInToday_ShouldNotCreateAnotherDailyCheckin()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+        var taskId = Guid.NewGuid();
+        var existingSessionId = Guid.NewGuid();
+        var pathId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var command = new CompleteSessionCommand(sessionId, "console.log('done');", null, null, false, CodeNexus.Domain.Enums.SubmissionType.Final);
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = userId,
+            SubjectId = subjectId,
+            Subject = new Subject
+            {
+                SubjectId = subjectId,
+                Name = "Test Subject"
+            },
+            Title = "Test Learning Path",
+            CreatedByType = false
+        };
+
+        var task = new TaskEntity
+        {
+            TaskId = taskId,
+            Title = "Practice Task",
+            TaskType = TaskType.Practice,
+            Status = TaskStatus_.InProgress,
+            VerificationPrompt = "Check code",
+            PathId = pathId,
+            LearningPath = learningPath
+        };
+
+        var session = new FocusSession
+        {
+            SessionId = sessionId,
+            TaskId = taskId,
+            Task = task,
+            SessionStatus = SessionStatus.Running,
+            StartTime = DateTime.UtcNow.AddMinutes(-20),
+            PlannedDurationMinutes = 25
+        };
+
+        var existingCheckin = new DailyCheckins
+        {
+            CheckinId = Guid.NewGuid(),
+            SessionId = existingSessionId,
+            CheckinDate = DateTime.UtcNow.Date,
+            Mood = "Focused",
+            Productivity = 4,
+            CreatedAt = DateTime.UtcNow,
+            FocusSession = new FocusSession
+            {
+                SessionId = existingSessionId,
+                TaskId = Guid.NewGuid(),
+                Task = new TaskEntity
+                {
+                    TaskId = Guid.NewGuid(),
+                    PathId = pathId,
+                    LearningPath = learningPath
+                }
+            }
+        };
+
+        var verificationResult = new VerificationResult
+        {
+            IsPass = true,
+            Score = 85,
+            Feedback = "Great job!"
+        };
+
+        var checkins = new List<DailyCheckins> { existingCheckin };
+        SetupFocusSessionsDbSet(new List<FocusSession> { session });
+        SetupDailyCheckinsDbSet(checkins);
+        _mockVerificationService.Setup(x => x.VerifyCodeSubmissionAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(verificationResult);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Single(checkins);
+    }
+
+    [Fact]
     public async Task Handle_WithSessionNotRunning_ShouldReturnFailure()
     {
         // Arrange
@@ -397,6 +532,20 @@ public class CompleteSessionCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<FocusSession>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.FocusSessions).Returns(dbSetMock.Object);
+    }
+
+    private void SetupDailyCheckinsDbSet(List<DailyCheckins> checkins)
+    {
+        var queryable = new TestAsyncEnumerable<DailyCheckins>(checkins);
+        var dbSetMock = new Mock<DbSet<DailyCheckins>>();
+        dbSetMock.As<IQueryable<DailyCheckins>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<DailyCheckins>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<DailyCheckins>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<DailyCheckins>>().Setup(m => m.GetEnumerator()).Returns(() => checkins.GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<DailyCheckins>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(() => new TestAsyncEnumerable<DailyCheckins>(checkins).GetAsyncEnumerator());
+        dbSetMock.Setup(m => m.Add(It.IsAny<DailyCheckins>())).Callback<DailyCheckins>(checkins.Add);
+        _mockContext.Setup(x => x.DailyCheckins).Returns(dbSetMock.Object);
     }
 
     private static LearningPath BuildLearningPath()

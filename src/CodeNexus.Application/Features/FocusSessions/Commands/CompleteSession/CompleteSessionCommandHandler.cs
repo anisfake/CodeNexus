@@ -4,6 +4,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -160,6 +161,8 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                 }
             }
 
+            await TryCreateDailyCheckinAsync(session, request.SubmissionType, cancellationToken);
+
             await _context.SaveChangesAsync(cancellationToken);
 
             var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
@@ -235,6 +238,53 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
         var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
         return Math.Max(0, elapsed);
+    }
+
+    private async Task TryCreateDailyCheckinAsync(FocusSession session, SubmissionType submissionType, CancellationToken cancellationToken)
+    {
+        if (submissionType != SubmissionType.Final)
+        {
+            return;
+        }
+
+        if (!IsCompletedStatus(session.SessionStatus))
+        {
+            return;
+        }
+
+        var today = DateTime.UtcNow.Date;
+
+        var exists = await _context.DailyCheckins
+            .AsNoTracking()
+            .AnyAsync(x =>
+                x.SessionId == session.SessionId ||
+                (x.CheckinDate == today &&
+                 x.FocusSession.Task.LearningPath.UserId == session.Task.LearningPath.UserId),
+                cancellationToken);
+
+        if (exists)
+        {
+            return;
+        }
+
+        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
+
+        _context.DailyCheckins.Add(new DailyCheckins
+        {
+            CheckinId = NewId.NextGuid(),
+            SessionId = session.SessionId,
+            CheckinDate = today,
+            Mood = mood,
+            Productivity = productivity,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    private static bool IsCompletedStatus(SessionStatus sessionStatus)
+    {
+        return sessionStatus == SessionStatus.CompletedEarly
+            || sessionStatus == SessionStatus.CompletedOnTime
+            || sessionStatus == SessionStatus.CompletedLate;
     }
 
     private static ValidationResult ValidateSubmission(CompleteSessionCommand request, TaskType taskType)
