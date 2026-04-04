@@ -9,15 +9,11 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.SetActiveConfig;
 public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigCommand, Result<string>>
 {
     private readonly IApplicationDbContext _context;
-    private readonly IMemoryCache _cache;
-    private const string CACHE_KEY_ALL = "ai_configs_all";
 
     public SetActiveConfigCommandHandler(
-        IApplicationDbContext context,
-        IMemoryCache cache)
+        IApplicationDbContext context)
     {
         _context = context;
-        _cache = cache;
     }
 
     public async Task<Result<string>> Handle(SetActiveConfigCommand request, CancellationToken cancellationToken)
@@ -30,16 +26,13 @@ public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigComm
             if (config == null)
                 return Result<string>.Failure("CONFIG_NOT_FOUND", $"Config with ID '{request.ConfigId}' not found");
 
-            if (config.UsageType != request.UsageType)
-                return Result<string>.Failure("USAGE_TYPE_MISMATCH", $"Config usage type does not match the requested usage type");
-
-            if (config.AccessTier != request.AccessTier)
-                return Result<string>.Failure("ACCESS_TIER_MISMATCH", "Config access tier does not match the requested access tier");
+            var targetUsageType = config.UsageType;
+            var targetAccessTier = config.AccessTier;
 
             var sameGroupActive = await _context.AIProviderConfigs
                 .Where(x => x.ConfigId != config.ConfigId
-                            && x.UsageType == request.UsageType
-                            && x.AccessTier == request.AccessTier
+                            && x.UsageType == targetUsageType
+                            && x.AccessTier == targetAccessTier
                             && x.IsActive)
                 .ToListAsync(cancellationToken);
 
@@ -54,9 +47,7 @@ public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigComm
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            _cache.Remove(CACHE_KEY_ALL);
-
-            return Result<string>.Success($"Config '{config.ProviderName}' is active for {request.UsageType} ({request.AccessTier})");
+            return Result<string>.Success($"Config '{config.ProviderName}' is active for {targetUsageType} ({targetAccessTier})");
         }
         catch (Exception ex)
         {

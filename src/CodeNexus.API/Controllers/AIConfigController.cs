@@ -9,6 +9,7 @@ using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace CodeNexus.API.Controllers
 {
@@ -87,10 +88,10 @@ namespace CodeNexus.API.Controllers
         [HttpPost("{configId}/set-active")]
         public async Task<IActionResult> SetActiveConfig(
             Guid configId,
-            [FromBody] SetActiveConfigRequest request,
+            [FromBody(EmptyBodyBehavior = EmptyBodyBehavior.Allow)] SetActiveConfigRequest? request,
             CancellationToken cancellationToken)
         {
-            var command = new SetActiveConfigCommand(configId, request.UsageType, request.AccessTier);
+            var command = new SetActiveConfigCommand(configId, request?.UsageType, request?.AccessTier);
             var result = await _sender.Send(command, cancellationToken);
 
             return ToActionResult(result);

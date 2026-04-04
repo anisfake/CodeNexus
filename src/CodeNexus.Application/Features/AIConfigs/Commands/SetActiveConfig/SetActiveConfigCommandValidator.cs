@@ -10,9 +10,11 @@ public class SetActiveConfigCommandValidator : AbstractValidator<SetActiveConfig
             .NotEmpty().WithMessage("ConfigId is required");
 
         RuleFor(x => x.UsageType)
-            .IsInEnum().WithMessage("Invalid UsageType");
+            .Must(x => !x.HasValue || Enum.IsDefined(x.Value))
+            .WithMessage("Invalid UsageType");
 
         RuleFor(x => x.AccessTier)
-            .IsInEnum().WithMessage("Invalid AccessTier");
+            .Must(x => !x.HasValue || Enum.IsDefined(x.Value))
+            .WithMessage("Invalid AccessTier");
     }
 }
