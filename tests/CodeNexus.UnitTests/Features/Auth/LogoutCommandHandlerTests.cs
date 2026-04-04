@@ -20,6 +20,7 @@ public class LogoutCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _currentUserServiceMock = new Mock<ICurrentUserService>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
         _handler = new LogoutCommandHandler(
             _contextMock.Object,
             _currentUserServiceMock.Object,

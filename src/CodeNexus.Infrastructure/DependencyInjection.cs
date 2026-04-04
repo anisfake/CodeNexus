@@ -134,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<IAchievementService, AchievementService>();
         services.AddScoped<ISubscriptionAccessService, SubscriptionAccessService>();
         services.AddScoped<IPlanUsageLimitService, PlanUsageLimitService>();
+        services.AddScoped<IAIAccessPolicyService, AIAccessPolicyService>();
 
         services.AddMemoryCache();
 

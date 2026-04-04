@@ -22,6 +22,9 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.IAuditLogNotifier, CodeNexus.API.Services.AuditLogNotifier>();
+builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.INotificationRealtimeNotifier, CodeNexus.API.Services.NotificationRealtimeNotifier>();
+builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.ILearningPathShareRealtimeNotifier, CodeNexus.API.Services.LearningPathShareRealtimeNotifier>();
+builder.Services.AddHostedService<CodeNexus.API.Services.OverdueNotificationBackgroundService>();
 
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() ?? [];
 
@@ -112,7 +115,9 @@ app.MapHub<TaskHub>("/hubs/task");
 app.MapHub<SummaryHub>("/hubs/summary");
 app.MapHub<AuditLogHub>("/hubs/audit-log");
 app.MapHub<DirectChatHub>("/hubs/direct-chat");
+app.MapHub<ChannelChatHub>("/hubs/channel");
 app.MapHub<TutorChatHub>("/hubs/tutor-chat");
+app.MapHub<NotificationHub>("/hubs/notification");
 
 app.MapGet("/", () => Results.Redirect("/swagger"));
 

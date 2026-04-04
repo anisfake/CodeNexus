@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -39,17 +40,22 @@ public class MarkMessageSeenCommandHandler : IRequestHandler<MarkMessageSeenComm
             return Result.Failure("MESSAGE_NOT_FOUND", "Message not found.");
         }
 
+        if (message.Conversation.ConversationType != ChatConversationType.Direct)
+        {
+            return Result.Failure("ACCESS_DENIED", "Access denied.");
+        }
+
         var isParticipant = message.Conversation.MentorId == currentUserId ||
                             message.Conversation.StudentId == currentUserId;
 
         if (!isParticipant)
         {
-            return Result.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         if (message.SenderId == currentUserId)
         {
-            return Result.Failure("INVALID_OPERATION", "Sender cannot mark own message as seen.");
+            return Result.Failure("INVALID_OPERATION", "Invalid operation.");
         }
 
         var now = DateTime.UtcNow;

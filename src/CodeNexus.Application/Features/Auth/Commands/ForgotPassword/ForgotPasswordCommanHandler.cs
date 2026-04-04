@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Enums;
 using MediatR;
@@ -28,7 +28,7 @@ public class ForgotPasswordCommanHandler : IRequestHandler<ForgotPasswordCommand
 
         if (user == null)
         {
-            return Result.Failure("USER_NOT_FOUND", "User not found!");
+            return Result.Failure("USER_NOT_FOUND", "User not found.");
         }
 
         var result = await _otpCacheService.GenerateAndStoreOtpAsync(

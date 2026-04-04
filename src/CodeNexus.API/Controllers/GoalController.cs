@@ -106,6 +106,7 @@ public class GoalController : ControllerBase
         return result.ErrorCode switch
         {
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
+            "GOAL_ALREADY_EXISTS" or "GOAL_ACTIVE_LIMIT_REACHED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

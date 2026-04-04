@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.DirectChats.DTOs;
 using CodeNexus.Application.Features.LearningPathShares.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -13,11 +14,16 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ILearningPathShareRealtimeNotifier _learningPathShareRealtimeNotifier;
 
-    public SendLearningPathShareCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public SendLearningPathShareCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        ILearningPathShareRealtimeNotifier learningPathShareRealtimeNotifier)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _learningPathShareRealtimeNotifier = learningPathShareRealtimeNotifier;
     }
 
     public async Task<Result<LearningPathShareDto>> Handle(SendLearningPathShareCommand request, CancellationToken cancellationToken)
@@ -44,7 +50,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Only mentors can share learning paths.");
+            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var student = await _context.Users
@@ -72,13 +78,13 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 
         if (path.UserId != mentorId)
         {
-            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "You can only share your own learning path.");
+            return Result<LearningPathShareDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         if (string.Equals(path.Status, LearningPathStatus.Cancelled.ToString(), StringComparison.OrdinalIgnoreCase)
             || string.Equals(path.Status, LearningPathStatus.Completed.ToString(), StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathShareDto>.Failure("INVALID_STATUS", "Only active or draft learning paths can be shared.");
+            return Result<LearningPathShareDto>.Failure("INVALID_STATUS", "Invalid status for this operation.");
         }
 
         var existingPendingShare = await _context.LearningPathShares
@@ -103,11 +109,6 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             Status = LearningPathShareStatus.Pending,
             SentAt = DateTime.UtcNow
         };
-
-        if (string.Equals(path.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
-        {
-            path.Status = LearningPathStatus.Active.ToString();
-        }
 
         var conversation = await _context.DirectConversations
             .FirstOrDefaultAsync(c => c.MentorId == mentorId && c.StudentId == request.StudentId, cancellationToken);
@@ -152,6 +153,28 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         _context.DirectMessages.Add(message);
         _context.DirectMessageReceipts.Add(receipt);
         await _context.SaveChangesAsync(cancellationToken);
+
+        var directMessageDto = new DirectMessageDto(
+            message.MessageId,
+            message.ConversationId,
+            message.SenderId,
+            message.Content,
+            message.MessageType,
+            message.SentAt,
+            null,
+            null,
+            message.LearningPathShareId,
+            message.ReplyToMessageId,
+            null,
+            null);
+
+        await _learningPathShareRealtimeNotifier.NotifyShareSentAsync(
+            request.StudentId,
+            conversation.ConversationId,
+            conversation.LastMessagePreview,
+            conversation.LastMessageAt,
+            directMessageDto,
+            cancellationToken);
 
         return Result<LearningPathShareDto>.Success(new LearningPathShareDto(
             share.ShareId,

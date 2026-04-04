@@ -13,6 +13,7 @@ public class LoginWithGoogleCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _contextMock;
     private readonly Mock<IGoogleAuthService> _googleAuthMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
+    private readonly Mock<IAchievementService> _achievementServiceMock;
     private readonly LoginWithGoogleCommandHandler _handler;
 
     public LoginWithGoogleCommandHandlerTests()
@@ -20,7 +21,15 @@ public class LoginWithGoogleCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _googleAuthMock = new Mock<IGoogleAuthService>();
         _tokenServiceMock = new Mock<ITokenService>();
-        _handler = new LoginWithGoogleCommandHandler(_contextMock.Object, _googleAuthMock.Object, _tokenServiceMock.Object);
+        _achievementServiceMock = new Mock<IAchievementService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
+        _achievementServiceMock.Setup(x => x.InitializeUserAchievementsAsync(It.IsAny<Guid>()))
+            .Returns(Task.CompletedTask);
+        _handler = new LoginWithGoogleCommandHandler(
+            _contextMock.Object,
+            _googleAuthMock.Object,
+            _tokenServiceMock.Object,
+            _achievementServiceMock.Object);
     }
 
     [Fact]
@@ -73,6 +82,7 @@ public class LoginWithGoogleCommandHandlerTests
         refreshTokens.Should().HaveCount(1);
         refreshTokens[0].UserId.Should().Be(user.UserId);
         refreshTokens[0].Token.Should().Be("rt");
+        _achievementServiceMock.Verify(x => x.InitializeUserAchievementsAsync(It.IsAny<Guid>()), Times.Never);
     }
 
     [Fact]
@@ -120,6 +130,7 @@ public class LoginWithGoogleCommandHandlerTests
         refreshTokens.Should().HaveCount(1);
         refreshTokens[0].UserId.Should().Be(users[0].UserId);
         refreshTokens[0].Token.Should().Be("rt");
+        _achievementServiceMock.Verify(x => x.InitializeUserAchievementsAsync(users[0].UserId), Times.Once);
     }
 
     private void SetupUsersDbSet(List<User> users)

@@ -98,7 +98,7 @@ public class StartSessionCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("INVALID_DURATION", result.ErrorCode);
-        Assert.Contains("between 5 and 120 minutes", result.ErrorMessage);
+        Assert.Contains("Session duration is invalid.", result.ErrorMessage);
     }
 
     private void SetupTasksDbSet(List<TaskEntity> tasks)

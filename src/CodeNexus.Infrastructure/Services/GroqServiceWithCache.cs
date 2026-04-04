@@ -16,6 +16,7 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly IEncryptionService _encryptionService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ISubscriptionAccessService _subscriptionAccessService;
+    private readonly IAIAccessPolicyService _aiAccessPolicyService;
     private readonly IReadOnlyCollection<IAIProviderAdapter> _providerAdapters;
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
@@ -30,6 +31,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         IEncryptionService encryptionService,
         ICurrentUserService currentUserService,
         ISubscriptionAccessService subscriptionAccessService,
+        IAIAccessPolicyService aiAccessPolicyService,
         IEnumerable<IAIProviderAdapter>? providerAdapters = null)
     {
         _httpClient = httpClient;
@@ -38,6 +40,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         _encryptionService = encryptionService;
         _currentUserService = currentUserService;
         _subscriptionAccessService = subscriptionAccessService;
+        _aiAccessPolicyService = aiAccessPolicyService;
         _providerAdapters = providerAdapters?.ToList()
             ?? new List<IAIProviderAdapter>
             {
@@ -58,13 +61,24 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
+            Guid selectedConfigId = Guid.Empty;
             try
             {
-                var (apiKey, config, providerName) = await GetConfigAsync(usageType);
+                var (apiKey, config, providerName, accessTier, userId, isMentor, configId) = await GetConfigAsync(usageType);
+                selectedConfigId = configId;
 
                 var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
 
-                var responseText = await CallProviderApiAsync(prompt, apiKey, adjustedConfig, usageType, providerName, jsonMode: true);
+                var responseText = await CallProviderApiAsync(
+                    prompt,
+                    apiKey,
+                    adjustedConfig,
+                    usageType,
+                    providerName,
+                    accessTier,
+                    userId,
+                    isMentor,
+                    jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
 
                 var jsonContent = ExtractJsonFromResponse(responseText);
@@ -84,6 +98,10 @@ public class GroqServiceWithCache : IAIGeneratorService
             catch (Exception ex) when (attempt < maxRetries)
             {
                 lastException = ex;
+                if (ShouldRotateApiKey(ex))
+                {
+                    await TryRotateActiveConfigAsync(usageType, selectedConfigId, accessTier: null, CancellationToken.None);
+                }
                 var delay = Math.Min(500 * attempt, 2000);
                 await Task.Delay(delay);
                 continue;
@@ -117,32 +135,69 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config, providerName) = await GetConfigAsync(usageType);
-        return await CallProviderApiAsync(prompt, apiKey, config, usageType, providerName, jsonMode: false);
+        var (apiKey, config, providerName, accessTier, userId, isMentor, configId) = await GetConfigAsync(usageType);
+        try
+        {
+            return await CallProviderApiAsync(
+                prompt,
+                apiKey,
+                config,
+                usageType,
+                providerName,
+                accessTier,
+                userId,
+                isMentor,
+                jsonMode: false);
+        }
+        catch (Exception ex) when (ShouldRotateApiKey(ex))
+        {
+            await TryRotateActiveConfigAsync(usageType, configId, accessTier, CancellationToken.None);
+            var retry = await GetConfigAsync(usageType);
+            return await CallProviderApiAsync(
+                prompt,
+                retry.apiKey,
+                retry.config,
+                usageType,
+                retry.providerName,
+                retry.accessTier,
+                retry.userId,
+                retry.isMentor,
+                jsonMode: false);
+        }
     }
 
-    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName)> GetConfigAsync(AIUsageType usageType)
+    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName, AIAccessTier accessTier, Guid userId, bool isMentor, Guid configId)> GetConfigAsync(AIUsageType usageType)
     {
-        var preferredTier = await ResolvePreferredTierAsync();
-        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, preferredTier);
+        var accessResolution = await ResolveAccessResolutionAsync(CancellationToken.None);
+        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, accessResolution.PreferredTier);
 
         if (selectedConfig == null)
         {
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
         }
 
+        var decryptedApiKey = _encryptionService.Decrypt(selectedConfig.EncryptedApiKey);
         var cachedApiKey = await _cacheService.GetApiKeyAsync(usageType, selectedConfig.AccessTier, CancellationToken.None);
-        var apiKey = string.IsNullOrWhiteSpace(cachedApiKey)
-            ? _encryptionService.Decrypt(selectedConfig.EncryptedApiKey)
-            : cachedApiKey;
-
-        if (string.IsNullOrWhiteSpace(cachedApiKey))
+        var apiKey = cachedApiKey == decryptedApiKey ? cachedApiKey : decryptedApiKey;
+        if (cachedApiKey != decryptedApiKey)
         {
-            await _cacheService.SetApiKeyAsync(usageType, selectedConfig.AccessTier, apiKey, TimeSpan.FromHours(1));
+            await _cacheService.SetApiKeyAsync(usageType, selectedConfig.AccessTier, decryptedApiKey, TimeSpan.FromHours(1));
+        }
+
+        if (accessResolution.ForceFreeDueToMentorLimit)
+        {
+            await TryCreateMentorDowngradeNotificationAsync(accessResolution.UserId, usageType, CancellationToken.None);
         }
 
         var config = ParseConfigJson(selectedConfig.ConfigJson);
-        return (apiKey, config, string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName);
+        return (
+            apiKey,
+            config,
+            string.IsNullOrWhiteSpace(selectedConfig.ProviderName) ? "Groq" : selectedConfig.ProviderName,
+            selectedConfig.AccessTier,
+            accessResolution.UserId,
+            accessResolution.IsMentor,
+            selectedConfig.ConfigId);
     }
 
     private async Task<AIProviderConfig?> ResolveConfigWithTierPreferenceAsync(
@@ -166,17 +221,45 @@ public class GroqServiceWithCache : IAIGeneratorService
         return await ResolveAnyUsageConfigByTierAsync(secondaryTier);
     }
 
-    private async Task<AIAccessTier> ResolvePreferredTierAsync()
+    private async Task<AccessResolution> ResolveAccessResolutionAsync(CancellationToken cancellationToken = default)
     {
         try
         {
             var userId = _currentUserService.GetUserId();
-            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId);
-            return canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+            var roleName = await _context.Users
+                .AsNoTracking()
+                .Where(u => u.UserId == userId)
+                .Select(u => u.Role != null ? u.Role.RoleName : null)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (IsPrivilegedRole(roleName))
+            {
+                return new AccessResolution(userId, false, true, AIAccessTier.Paid, false);
+            }
+
+            if (IsMentorRole(roleName))
+            {
+                var mentorLimit = await _aiAccessPolicyService.GetMentorPaidRequestsMonthlyLimitAsync(cancellationToken);
+                if (mentorLimit <= 0)
+                {
+                    return new AccessResolution(userId, true, false, AIAccessTier.Paid, false);
+                }
+
+                var used = await CountMentorPaidAiUsageThisMonthAsync(userId, cancellationToken);
+                if (used >= mentorLimit)
+                {
+                    return new AccessResolution(userId, true, false, AIAccessTier.Free, true);
+                }
+
+                return new AccessResolution(userId, true, false, AIAccessTier.Paid, false);
+            }
+
+            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId, cancellationToken);
+            return new AccessResolution(userId, false, false, canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free, false);
         }
         catch
         {
-            return AIAccessTier.Free;
+            return new AccessResolution(Guid.Empty, false, false, AIAccessTier.Free, false);
         }
     }
 
@@ -184,7 +267,10 @@ public class GroqServiceWithCache : IAIGeneratorService
     {
         return await _context.AIProviderConfigs
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.UsageType == usageType && c.AccessTier == tier && c.IsActive, CancellationToken.None);
+            .Where(c => c.UsageType == usageType && c.AccessTier == tier && c.IsActive)
+            .OrderByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(CancellationToken.None);
     }
 
     private async Task<AIProviderConfig?> ResolveAnyUsageConfigByTierAsync(AIAccessTier tier)
@@ -194,6 +280,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             .Where(c => c.AccessTier == tier && c.IsActive)
             .OrderBy(c => c.UsageType == AIUsageType.StructureGeneration ? 0 : 1)
             .ThenByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
             .FirstOrDefaultAsync(CancellationToken.None);
     }
 
@@ -235,12 +322,91 @@ public class GroqServiceWithCache : IAIGeneratorService
         }
     }
 
+    private bool ShouldRotateApiKey(Exception ex)
+    {
+        var message = ex.Message.ToLowerInvariant();
+
+        return message.Contains("401")
+               || message.Contains("403")
+               || message.Contains("402")
+               || message.Contains("429")
+               || message.Contains("unauthorized")
+               || message.Contains("forbidden")
+               || message.Contains("paymentrequired")
+               || message.Contains("insufficient balance")
+               || message.Contains("invalid api key")
+               || message.Contains("too many requests")
+               || message.Contains("timeout")
+               || message.Contains("timed out")
+               || message.Contains("task was canceled");
+    }
+
+    private async Task<bool> TryRotateActiveConfigAsync(
+        AIUsageType usageType,
+        Guid failedConfigId,
+        AIAccessTier? accessTier,
+        CancellationToken cancellationToken)
+    {
+        if (failedConfigId == Guid.Empty)
+        {
+            return false;
+        }
+
+        try
+        {
+            var failedConfig = await _context.AIProviderConfigs
+                .FirstOrDefaultAsync(x => x.ConfigId == failedConfigId, cancellationToken);
+
+            if (failedConfig == null)
+            {
+                return false;
+            }
+
+            var targetTier = accessTier ?? failedConfig.AccessTier;
+
+            var candidates = await _context.AIProviderConfigs
+                .Where(x => x.UsageType == usageType
+                            && x.AccessTier == targetTier
+                            && x.ConfigId != failedConfigId)
+                .OrderByDescending(x => x.IsActive)
+                .ThenByDescending(x => x.LastUpdated)
+                .ToListAsync(cancellationToken);
+
+            if (candidates.Count == 0)
+            {
+                return false;
+            }
+
+            var nextConfig = candidates[0];
+
+            var group = await _context.AIProviderConfigs
+                .Where(x => x.UsageType == usageType && x.AccessTier == targetTier)
+                .ToListAsync(cancellationToken);
+
+            foreach (var config in group)
+            {
+                config.IsActive = config.ConfigId == nextConfig.ConfigId;
+                config.LastUpdated = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async Task<string> CallProviderApiAsync(
         string prompt,
         string apiKey,
         AIProviderRuntimeConfig config,
         AIUsageType usageType,
         string providerName,
+        AIAccessTier accessTier,
+        Guid userId,
+        bool isMentor,
         bool jsonMode = false)
     {
         var adapter = ResolveProviderAdapter(providerName);
@@ -256,6 +422,9 @@ public class GroqServiceWithCache : IAIGeneratorService
             usageType,
             providerName,
             config,
+            accessTier,
+            userId,
+            isMentor,
             invocation.InputTokens,
             invocation.OutputTokens,
             invocation.TotalTokens);
@@ -285,6 +454,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         AIUsageType usageType,
         string providerName,
         AIProviderRuntimeConfig config,
+        AIAccessTier accessTier,
+        Guid userId,
+        bool isMentor,
         int inputTokens,
         int outputTokens,
         int totalTokens)
@@ -295,7 +467,9 @@ public class GroqServiceWithCache : IAIGeneratorService
 
             _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
             {
+                UserId = userId == Guid.Empty ? null : userId,
                 UsageType = usageType,
+                AccessTierUsed = accessTier,
                 ProviderName = providerName,
                 Model = config.Model,
                 InputTokens = inputTokens,
@@ -304,6 +478,17 @@ public class GroqServiceWithCache : IAIGeneratorService
                 CostUsd = costUsd,
                 CreatedAt = DateTime.UtcNow
             });
+
+            if (isMentor && accessTier == AIAccessTier.Paid && userId != Guid.Empty)
+            {
+                _context.FeatureUsageLogs.Add(new FeatureUsageLog
+                {
+                    FeatureUsageLogId = Guid.NewGuid(),
+                    UserId = userId,
+                    FeatureKey = SubscriptionFeatureKey.MentorPaidAiRequests,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
 
             await _context.SaveChangesAsync();
         }
@@ -324,6 +509,88 @@ public class GroqServiceWithCache : IAIGeneratorService
         var inputCost = (inputTokens / OneMillion) * config.InputCostPer1M;
         var outputCost = (outputTokens / OneMillion) * config.OutputCostPer1M;
         return Math.Round(inputCost + outputCost, 6);
+    }
+
+    private async Task<int> CountMentorPaidAiUsageThisMonthAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var windowStartUtc = GetCurrentMonthStartUtc();
+        return await _context.FeatureUsageLogs
+            .AsNoTracking()
+            .CountAsync(x =>
+                x.UserId == userId
+                && x.FeatureKey == SubscriptionFeatureKey.MentorPaidAiRequests
+                && x.CreatedAt >= windowStartUtc, cancellationToken);
+    }
+
+    private async Task TryCreateMentorDowngradeNotificationAsync(Guid userId, AIUsageType usageType, CancellationToken cancellationToken)
+    {
+        if (userId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var cooldownHours = await _aiAccessPolicyService.GetMentorDowngradeNotifyCooldownHoursAsync(cancellationToken);
+            var cooldownBoundaryUtc = DateTime.UtcNow.AddHours(-cooldownHours);
+            var title = "AI downgraded to free tier";
+
+            var hasRecentNotification = await _context.Notifications
+                .AsNoTracking()
+                .AnyAsync(
+                    n => n.UserId == userId
+                         && n.Title == title
+                         && n.CreatedAt >= cooldownBoundaryUtc,
+                    cancellationToken);
+
+            if (hasRecentNotification)
+            {
+                return;
+            }
+
+            await _context.Notifications.AddAsync(new Notification
+            {
+                NotificationId = Guid.NewGuid(),
+                UserId = userId,
+                Title = title,
+                Message = $"Paid AI quota for this month has been reached. Requests for {usageType} are now served by free-tier model.",
+                Type = NotificationType.Alert,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            }, cancellationToken);
+
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+
+        }
+    }
+
+    private static bool IsMentorRole(string? roleName)
+        => string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPrivilegedRole(string? roleName)
+        => string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static DateTime GetCurrentMonthStartUtc()
+    {
+        var timezone = ResolveVietnamTimeZone();
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timezone);
+        var startLocal = new DateTime(nowLocal.Year, nowLocal.Month, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(startLocal, timezone);
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
     }
 
     private static AIProviderRuntimeConfig AdjustConfigForAttempt(AIProviderRuntimeConfig baseConfig, int attempt)
@@ -628,5 +895,12 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         return -1;
     }
+
+    private sealed record AccessResolution(
+        Guid UserId,
+        bool IsMentor,
+        bool IsPrivilegedRole,
+        AIAccessTier PreferredTier,
+        bool ForceFreeDueToMentorLimit);
 
 }

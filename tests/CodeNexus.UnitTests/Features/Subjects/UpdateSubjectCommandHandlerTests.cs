@@ -131,7 +131,7 @@ public class UpdateSubjectCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
-        Assert.Contains("only update subjects you created", result.ErrorMessage);
+        Assert.Contains("User not authenticated", result.ErrorMessage);
     }
 
     [Fact]

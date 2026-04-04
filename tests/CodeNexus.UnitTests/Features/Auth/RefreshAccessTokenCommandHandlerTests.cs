@@ -18,6 +18,7 @@ public class RefreshAccessTokenCommandHandlerTests
     {
         _contextMock = new Mock<IApplicationDbContext>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
         _tokenServiceMock.Setup(x => x.RefreshTokenExpirationDays).Returns(7);
         _handler = new RefreshAccessTokenCommandHandler(_contextMock.Object, _tokenServiceMock.Object);
     }

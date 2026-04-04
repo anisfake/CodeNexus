@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DirectChats.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -34,14 +35,27 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
         var conversation = await _context.DirectConversations
             .FirstOrDefaultAsync(c => c.ConversationId == request.ConversationId, cancellationToken);
 
-        if (conversation == null)
+        if (conversation == null || conversation.ConversationType != ChatConversationType.Direct)
         {
             return Result<DirectMessageDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
         }
 
         if (conversation.MentorId != currentUserId && conversation.StudentId != currentUserId)
         {
-            return Result<DirectMessageDto>.Failure("ACCESS_DENIED", "You do not have access to this conversation.");
+            return Result<DirectMessageDto>.Failure("ACCESS_DENIED", "Access denied.");
+        }
+
+        DirectMessage? repliedMessage = null;
+        if (request.ReplyToMessageId.HasValue)
+        {
+            repliedMessage = await _context.DirectMessages
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m => m.MessageId == request.ReplyToMessageId.Value, cancellationToken);
+
+            if (repliedMessage == null || repliedMessage.ConversationId != conversation.ConversationId)
+            {
+                return Result<DirectMessageDto>.Failure("MESSAGE_NOT_FOUND", "Message not found.");
+            }
         }
 
         var message = new DirectMessage
@@ -49,6 +63,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             MessageId = NewId.NextGuid(),
             ConversationId = conversation.ConversationId,
             SenderId = currentUserId,
+            ReplyToMessageId = request.ReplyToMessageId,
             Content = request.Content.Trim(),
             MessageType = request.MessageType,
             SentAt = DateTime.UtcNow
@@ -62,7 +77,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
         {
             ReceiptId = NewId.NextGuid(),
             MessageId = message.MessageId,
-            UserId = recipientId
+            UserId = recipientId!.Value
         };
 
         conversation.LastMessagePreview = message.Content.Length > 120
@@ -84,7 +99,10 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             message.SentAt,
             null,
             null,
-            message.LearningPathShareId
+            message.LearningPathShareId,
+            message.ReplyToMessageId,
+            repliedMessage?.Content,
+            repliedMessage?.SenderId
         ));
     }
 }

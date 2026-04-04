@@ -5,14 +5,16 @@ namespace CodeNexus.Application.Features.LearningPaths.DTOs;
 public record QuizDto(
     Guid QuizzId,
     string Title,
-    string Description
+    string Description,
+    string Status = "Not Attempted"
 );
 public record LessonDto(
     Guid LessonId,
     string Title,
     string? Content,
     DateTime LessonDay,
-    List<QuizDto> Quizzes
+    List<QuizDto> Quizzes,
+    string Status = "Not Started"
 );
 public record TaskDto(
     Guid TaskId,
@@ -22,7 +24,8 @@ public record TaskDto(
     TaskPriority? Priority,
     TaskStatus_ TaskStatus,
     DateTime? DueDate,
-    string? QuizQuestionsJson
+    string? QuizQuestionsJson,
+    string Status = "Pending"
 );
 public record ChapterDto(
     Guid ChapterId,
@@ -47,7 +50,9 @@ public record LearningPathGoalDto(
     Guid GoalId,
     string Title,
     decimal Weight,
-    int DurationInDays
+    int DurationInDays,
+    string Status,
+    DateTime? CompletedAt
 );
 
 public record GenerateLearningPathSkeletonRequest(
@@ -110,7 +115,13 @@ public record CreateLearningPathResponse(
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
     DateTime CreatedAt,
-    bool IsContentGenerating = true
+    bool IsContentGenerating = true,
+    DateTime? StartDate = null,
+    DateTime? EndDate = null,
+    ComplexityLevel? ComplexityLevel = null,
+    LanguageSelection? LanguageSelection = null,
+    Guid? SubjectId = null,
+    string? SubjectName = null
 );
 
 public record LearningPathSuggestionDto(
@@ -137,7 +148,9 @@ public record LearningPathResponse(
     string UserName,
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    ComplexityLevel? ComplexityLevel = null,
+    LanguageSelection? LanguageSelection = null
 );
 public record GetAllLearningPathRequest(
     int PageNumber = 1,

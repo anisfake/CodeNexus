@@ -42,7 +42,7 @@ public class GetPendingLearningPathSharesQueryHandler : IRequestHandler<GetPendi
 
         if (!string.Equals(student.Role?.RoleName, "Student", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<List<LearningPathShareSummaryDto>>.Failure("ACCESS_DENIED", "Only students can view pending shares.");
+            return Result<List<LearningPathShareSummaryDto>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var shares = await _context.LearningPathShares

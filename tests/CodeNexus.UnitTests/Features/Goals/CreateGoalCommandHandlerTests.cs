@@ -58,6 +58,7 @@ public class CreateGoalCommandHandlerTests
             }
         });
         SetupSubjectGoalsDbSet(new List<SubjectGoal>());
+        SetupUserGoalProgressesDbSet(new List<UserGoalProgress>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -107,6 +108,7 @@ public class CreateGoalCommandHandlerTests
             }
         });
         SetupSubjectGoalsDbSet(new List<SubjectGoal>());
+        SetupUserGoalProgressesDbSet(new List<UserGoalProgress>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -155,6 +157,7 @@ public class CreateGoalCommandHandlerTests
             }
         });
         SetupSubjectGoalsDbSet(new List<SubjectGoal>());
+        SetupUserGoalProgressesDbSet(new List<UserGoalProgress>());
         _mockContext.Setup(x => x.Goals.AddAsync(It.IsAny<GoalEntity>(), It.IsAny<CancellationToken>()))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<GoalEntity>)null!));
@@ -195,6 +198,7 @@ public class CreateGoalCommandHandlerTests
             }
         });
         SetupSubjectGoalsDbSet(new List<SubjectGoal>());
+        SetupUserGoalProgressesDbSet(new List<UserGoalProgress>());
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -203,6 +207,105 @@ public class CreateGoalCommandHandlerTests
         Assert.False(result.IsSuccess);
         Assert.Equal("INVALID_GOAL", result.ErrorCode);
         Assert.Contains("programming", result.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Handle_WhenPendingOrInProgressGoalsReachLimit_ShouldReturnFailureWithoutCallingAIValidation()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var command = new CreateGoalCommand(subjectId, "Learn Distributed Systems", "Build resilient systems", GoalDuration.OneMonth);
+
+        var existingGoals = Enumerable.Range(0, 10)
+            .Select(_ => new GoalEntity
+            {
+                GoalId = Guid.NewGuid(),
+                CreatedByUserId = userId,
+                IsSystemDefined = false,
+                IsActive = true,
+                IsDeleted = false,
+                Title = $"Goal {_}",
+                CreatedAt = DateTime.UtcNow
+            })
+            .ToList();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupGoalsDbSet(existingGoals);
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "Backend",
+                Description = "Backend development"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>());
+        SetupUserGoalProgressesDbSet(new List<UserGoalProgress>());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal("GOAL_ACTIVE_LIMIT_REACHED", result.ErrorCode);
+        _mockGoalValidationService.Verify(
+            x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenDuplicateGoalInSameSubject_ShouldReturnFailureWithoutCallingAIValidation()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var existingGoalId = Guid.NewGuid();
+        var command = new CreateGoalCommand(subjectId, "   Learn   ASP.NET   Core   ", "Build APIs", GoalDuration.OneMonth);
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupGoalsDbSet(new List<GoalEntity>
+        {
+            new()
+            {
+                GoalId = existingGoalId,
+                CreatedByUserId = userId,
+                IsSystemDefined = false,
+                IsActive = true,
+                IsDeleted = false,
+                Title = "learn asp.net core",
+                CreatedAt = DateTime.UtcNow
+            }
+        });
+        SetupSubjectsDbSet(new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                Name = "ASP.NET Core",
+                Description = "Web API"
+            }
+        });
+        SetupSubjectGoalsDbSet(new List<SubjectGoal>
+        {
+            new()
+            {
+                SubjectId = subjectId,
+                GoalId = existingGoalId
+            }
+        });
+        SetupUserGoalProgressesDbSet(new List<UserGoalProgress>());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal("GOAL_ALREADY_EXISTS", result.ErrorCode);
+        _mockGoalValidationService.Verify(
+            x => x.IsRelatedToProgrammingAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     private void SetupGoalsDbSet(List<GoalEntity> goals)
@@ -242,5 +345,18 @@ public class CreateGoalCommandHandlerTests
         dbSetMock.As<IAsyncEnumerable<SubjectGoal>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
             .Returns(queryable.GetAsyncEnumerator());
         _mockContext.Setup(x => x.SubjectGoals).Returns(dbSetMock.Object);
+    }
+
+    private void SetupUserGoalProgressesDbSet(List<UserGoalProgress> progresses)
+    {
+        var queryable = new TestAsyncEnumerable<UserGoalProgress>(progresses);
+        var dbSetMock = new Mock<DbSet<UserGoalProgress>>();
+        dbSetMock.As<IQueryable<UserGoalProgress>>().Setup(m => m.Provider).Returns(queryable.AsQueryable().Provider);
+        dbSetMock.As<IQueryable<UserGoalProgress>>().Setup(m => m.Expression).Returns(queryable.AsQueryable().Expression);
+        dbSetMock.As<IQueryable<UserGoalProgress>>().Setup(m => m.ElementType).Returns(queryable.AsQueryable().ElementType);
+        dbSetMock.As<IQueryable<UserGoalProgress>>().Setup(m => m.GetEnumerator()).Returns(queryable.AsQueryable().GetEnumerator());
+        dbSetMock.As<IAsyncEnumerable<UserGoalProgress>>().Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+            .Returns(queryable.GetAsyncEnumerator());
+        _mockContext.Setup(x => x.UserGoalProgresses).Returns(dbSetMock.Object);
     }
 }

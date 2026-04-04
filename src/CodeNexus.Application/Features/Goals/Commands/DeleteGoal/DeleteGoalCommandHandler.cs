@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -29,7 +29,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.DeleteGoal
 
             if (goal == null)
             {
-                return Result<string>.Failure("GOAL_NOT_FOUND", "The specified goal was not found.");
+                return Result<string>.Failure("GOAL_NOT_FOUND", "Goal not found.");
             }
 
             if (goal.IsSystemDefined)

@@ -36,7 +36,7 @@ public class OTPCacheService : IOTPCacheService
 
             if (!_redis.IsConnected)
             {
-                return Result.Failure("CACHE_ERROR", "Cache service is unavailable");
+                return Result.Failure("CACHE_ERROR", "Cache operation failed.");
             }
 
             var db = _redis.GetDatabase();
@@ -85,7 +85,7 @@ public class OTPCacheService : IOTPCacheService
         }
         catch
         {
-            return Result.Failure("CACHE_ERROR", "Failed to store OTP");
+            return Result.Failure("CACHE_ERROR", "Cache operation failed.");
         }
     }
 
@@ -97,7 +97,7 @@ public class OTPCacheService : IOTPCacheService
         try
         {
             if (!_redis.IsConnected)
-                return Result<(string, OtpPurpose)>.Failure("CACHE_ERROR", "Cache service is unavailable");
+                return Result<(string, OtpPurpose)>.Failure("CACHE_ERROR", "Cache operation failed.");
 
             var db = _redis.GetDatabase();
 
@@ -106,7 +106,7 @@ public class OTPCacheService : IOTPCacheService
 
             if (!storedOtpHash.HasValue)
             {
-                return Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "No pending verification found for this email");
+                return Result<(string, OtpPurpose)>.Failure("INVALID_OTP", "Invalid OTP code");
             }
 
             if (!_otpService.VerifyOtp(otp, storedOtpHash.ToString()))
@@ -119,7 +119,7 @@ public class OTPCacheService : IOTPCacheService
 
             if (!purposeStr.HasValue || !Enum.TryParse<OtpPurpose>(purposeStr.ToString(), out var purpose))
             {
-                return Result<(string, OtpPurpose)>.Failure("INVALID_PURPOSE", "OTP purpose not found");
+                return Result<(string, OtpPurpose)>.Failure("INVALID_PURPOSE", "Invalid OTP purpose");
             }
 
             var dataKey = $"otp:data:{email}";
@@ -130,7 +130,7 @@ public class OTPCacheService : IOTPCacheService
         }
         catch
         {
-            return Result<(string, OtpPurpose)>.Failure("CACHE_ERROR", "Failed to verify OTP");
+            return Result<(string, OtpPurpose)>.Failure("CACHE_ERROR", "Cache operation failed.");
         }
     }
 
@@ -141,7 +141,7 @@ public class OTPCacheService : IOTPCacheService
         try
         {
             if (!_redis.IsConnected)
-                return Result.Failure("CACHE_ERROR", "Cache service is unavailable");
+                return Result.Failure("CACHE_ERROR", "Cache operation failed.");
 
             var db = _redis.GetDatabase();
 
@@ -165,7 +165,7 @@ public class OTPCacheService : IOTPCacheService
         }
         catch
         {
-            return Result.Failure("CACHE_ERROR", "Failed to resend OTP");
+            return Result.Failure("CACHE_ERROR", "Cache operation failed.");
         }
     }
 
@@ -176,7 +176,7 @@ public class OTPCacheService : IOTPCacheService
         try
         {
             if (!_redis.IsConnected)
-                return Result<string>.Failure("CACHE_ERROR", "Cache service is unavailable");
+                return Result<string>.Failure("CACHE_ERROR", "Cache operation failed.");
 
             var db = _redis.GetDatabase();
             var dataKey = $"otp:data:{email}";
@@ -184,14 +184,14 @@ public class OTPCacheService : IOTPCacheService
 
             if (!data.HasValue)
             {
-                return Result<string>.Failure("INVALID_PURPOSE", "Data not found");
+                return Result<string>.Failure("INVALID_PURPOSE", "Invalid OTP purpose");
             }
 
             return Result<string>.Success(data.ToString());
         }
         catch
         {
-            return Result<string>.Failure("CACHE_ERROR", "Failed to get data");
+            return Result<string>.Failure("CACHE_ERROR", "Cache operation failed.");
         }
     }
 

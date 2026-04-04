@@ -44,7 +44,7 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
             return Result<QuizQuestionsDto>.Failure("QUIZ_NO_LESSON", "Quiz is not associated with a lesson");
 
         if (quiz.Lesson.Chapter.LearningPath.UserId != userId)
-            return Result<QuizQuestionsDto>.Failure("UNAUTHORIZED", "You do not have access to this quiz");
+            return Result<QuizQuestionsDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (quiz.Questions.Any())
         {
@@ -58,7 +58,7 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
             var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedQuestionsDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Questions == null || generated.Questions.Count == 0)
-                return Result<QuizQuestionsDto>.Failure("INVALID_AI_RESPONSE", "AI returned no questions");
+                return Result<QuizQuestionsDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
 
             NormalizePoints(generated.Questions);
 
@@ -265,3 +265,4 @@ Return ONLY valid JSON (no markdown, no extra text):
 }}";
     }
 }
+

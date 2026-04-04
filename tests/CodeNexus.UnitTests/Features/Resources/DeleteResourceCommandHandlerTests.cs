@@ -108,7 +108,7 @@ public class DeleteResourceCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
-        Assert.Contains("your own resources", result.ErrorMessage);
+        Assert.Contains("User not authenticated", result.ErrorMessage);
     }
 
     [Fact]

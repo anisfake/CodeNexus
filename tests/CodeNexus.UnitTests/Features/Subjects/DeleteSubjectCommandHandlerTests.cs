@@ -98,7 +98,7 @@ public class DeleteSubjectCommandHandlerTests
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("UNAUTHORIZED", result.ErrorCode);
-        Assert.Contains("only delete subjects you created", result.ErrorMessage);
+        Assert.Contains("User not authenticated", result.ErrorMessage);
     }
 
     [Fact]

@@ -61,15 +61,16 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
 
                 if (config.IsActive)
                 {
-                    var configsToDeactivate = await _context.AIProviderConfigs
-                        .Where(x => x.UsageType == request.AIUsageType
-                            && x.AccessTier == request.AccessTier
-                            && x.IsActive)
+                    var sameGroupActive = await _context.AIProviderConfigs
+                        .Where(x => x.UsageType == config.UsageType
+                                    && x.AccessTier == config.AccessTier
+                                    && x.IsActive)
                         .ToListAsync(cancellationToken);
 
-                    foreach (var activeConfig in configsToDeactivate)
+                    foreach (var item in sameGroupActive)
                     {
-                        activeConfig.IsActive = false;
+                        item.IsActive = false;
+                        item.LastUpdated = DateTime.UtcNow;
                     }
                 }
 

@@ -39,7 +39,7 @@ namespace CodeNexus.Application.Features.Resources.Queries.GetResourcePages
 
             if (resource.UserId != userId)
             {
-                return Result<ResourcePagesResponse>.Failure("UNAUTHORIZED", "You can only view your own resources.");
+                return Result<ResourcePagesResponse>.Failure("UNAUTHORIZED", "User not authenticated");
             }
 
             var pages = resource.Pages

@@ -42,7 +42,7 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
                 return Result<GeneratedQuizSkeletonDto>.Failure("LESSON_NOT_FOUND", "Lesson not found");
 
             if (lesson.Chapter.LearningPath.UserId != userId)
-                return Result<GeneratedQuizSkeletonDto>.Failure("UNAUTHORIZED", "You do not have access to this lesson");
+                return Result<GeneratedQuizSkeletonDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
             if (lesson.Quizzes.Any())
             {
@@ -68,7 +68,7 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
             var generatedData = await _aiGeneratorService.GenerateStructureAsync<QuizGenerationData>(prompt, AIUsageType.StructureGeneration);
 
             if (generatedData?.Quizzes == null || generatedData.Quizzes.Count == 0)
-                return Result<GeneratedQuizSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned no quiz data");
+                return Result<GeneratedQuizSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
 
             var createdQuizzes = new List<QuizSkeletonDto>();
             foreach (var quizData in generatedData.Quizzes)

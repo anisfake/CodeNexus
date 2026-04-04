@@ -20,6 +20,7 @@ public class LoginCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _passwordServiceMock = new Mock<IPasswordService>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
         _handler = new LoginCommandHandler(_contextMock.Object, _passwordServiceMock.Object, _tokenServiceMock.Object);
     }
 

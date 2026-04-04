@@ -1,4 +1,4 @@
-﻿using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Common.Interfaces
@@ -13,6 +13,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<RefreshToken> RefreshTokens { get; }
         public DbSet<Subject> Subjects { get; }
         public DbSet<Goals> Goals { get; }
+        public DbSet<UserGoalProgress> UserGoalProgresses { get; }
         public DbSet<GoalMapping> GoalMappings { get; }
         public DbSet<SubjectGoal> SubjectGoals { get; }
         public DbSet<LearningPath> LearningPaths { get; }
@@ -47,6 +48,8 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<SubscriptionPlan> SubscriptionPlans { get; }
         public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
+        public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies { get; }
+        void SetAuditUserId(Guid userId);
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }
 }

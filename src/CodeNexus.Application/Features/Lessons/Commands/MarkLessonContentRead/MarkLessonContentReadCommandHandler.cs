@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using MassTransit;
@@ -43,11 +44,13 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
 
         if (lesson.Chapter.LearningPath.UserId != userId)
         {
-            return Result<string>.Failure("ACCESS_DENIED", "You do not have access to this lesson");
+            return Result<string>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var progress = await _context.LearnProgresses
             .FirstOrDefaultAsync(x => x.LessonId == request.LessonId && x.UserId == userId, cancellationToken);
+
+        var alreadyRead = progress?.IsLessonContentRead == true;
 
         if (progress == null)
         {
@@ -70,8 +73,54 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
             progress.UpdatedAt = DateTime.UtcNow;
         }
 
+        await UpsertDailyCheckinForLessonAsync(userId, alreadyRead, cancellationToken);
+
         await _context.SaveChangesAsync(cancellationToken);
 
+        var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
+            _context,
+            lesson.ChapterId,
+            userId,
+            cancellationToken);
+
+        var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
+            _context,
+            lesson.Chapter.PathId,
+            userId,
+            cancellationToken);
+
+        if (hasGoalProgressChanges || hasChapterCompletionChanges)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         return Result<string>.Success("Lesson content marked as read");
+    }
+
+    private async Task UpsertDailyCheckinForLessonAsync(Guid userId, bool alreadyRead, CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+        var existing = await _context.DailyCheckins
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
+
+        var evaluated = DailyCheckinEvaluationHelper.EvaluateLessonRead(alreadyRead);
+
+        if (existing == null)
+        {
+            _context.DailyCheckins.Add(new DailyCheckins
+            {
+                CheckinId = NewId.NextGuid(),
+                UserId = userId,
+                CheckinDate = today,
+                Mood = evaluated.Mood,
+                Productivity = evaluated.Productivity,
+                CreatedAt = DateTime.UtcNow
+            });
+            return;
+        }
+
+        var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, evaluated.Productivity);
+        existing.Mood = merged.Mood;
+        existing.Productivity = merged.Productivity;
     }
 }

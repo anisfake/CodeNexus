@@ -50,7 +50,7 @@ public class LearningPathHubTests
             "Test Description",
             new List<LearningPathGoalDto>
             {
-                new LearningPathGoalDto(goalId, "Goal 1", 1m, 30)
+                            new LearningPathGoalDto(goalId, "Goal 1", 1m, 30, "NotStarted", null)
             },
             new List<ChapterDto>
             {
@@ -150,7 +150,7 @@ public class LearningPathHubTests
                 0.9m,
                 new List<LearningPathGoalDto>
                 {
-                    new LearningPathGoalDto(goalId, "Goal 1", 1m, 30)
+                            new LearningPathGoalDto(goalId, "Goal 1", 1m, 30, "NotStarted", null)
                 },
                 3)
         };

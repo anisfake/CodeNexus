@@ -21,6 +21,7 @@ public class SubmitQuizAttemptCommandHandlerTests
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockContext.Setup(x => x.DailyCheckins).Returns(new List<DailyCheckins>().BuildMockDbSet().Object);
 
         _handler = new SubmitQuizAttemptCommandHandler(
             _mockContext.Object,

@@ -32,10 +32,10 @@ public class DeleteResourceCommandHandler : IRequestHandler<DeleteResourceComman
                 .FirstOrDefaultAsync(x => x.ResourceId == request.ResourceId && !x.IsDeleted, cancellationToken);
 
             if (resource == null)
-                return Result<string>.Failure("RESOURCE_NOT_FOUND", "Resource not found");
+                return Result<string>.Failure("RESOURCE_NOT_FOUND", "Resource not found.");
 
             if (resource.UserId != userId)
-                return Result<string>.Failure("UNAUTHORIZED", "You can only delete your own resources");
+                return Result<string>.Failure("UNAUTHORIZED", "User not authenticated");
 
             if (resource.Type == ResourceType.PDF && !string.IsNullOrEmpty(resource.FilePath))
             {

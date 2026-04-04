@@ -59,8 +59,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[IsActive] = 1");
 
-                    b.HasIndex("UsageType", "AccessTier", "IsActive");
-
                     b.ToTable("AIProviderConfigs");
                 });
 
@@ -102,6 +100,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccessTierUsed")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<decimal>("CostUsd")
                         .HasPrecision(18, 8)
                         .HasColumnType("decimal(18,8)");
@@ -129,9 +131,14 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<int>("UsageType")
                         .HasColumnType("int");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("UsageLogId");
 
                     b.HasIndex("UsageType", "CreatedAt");
+
+                    b.HasIndex("AccessTierUsed", "UsageType", "CreatedAt");
 
                     b.ToTable("AIUsageLogs");
                 });
@@ -326,15 +333,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<int?>("Productivity")
                         .HasColumnType("int");
 
-                    b.Property<Guid>("SessionId")
+                    b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("CheckinId");
 
-                    b.HasIndex("SessionId")
-                        .IsUnique();
-
-                    b.HasIndex("SessionId", "CheckinDate")
+                    b.HasIndex("UserId", "CheckinDate")
                         .IsUnique();
 
                     b.ToTable("DailyCheckins");
@@ -346,6 +350,13 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Category")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ConversationType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -355,18 +366,23 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("LastMessagePreview")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("MentorId")
+                    b.Property<Guid?>("MentorId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("StudentId")
+                    b.Property<Guid?>("StudentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("ConversationId");
 
                     b.HasIndex("StudentId");
 
+                    b.HasIndex("Category", "ConversationType")
+                        .IsUnique()
+                        .HasFilter("[ConversationType] = 'Channel' AND [Category] IS NOT NULL");
+
                     b.HasIndex("MentorId", "StudentId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[ConversationType] = 'Direct' AND [MentorId] IS NOT NULL AND [StudentId] IS NOT NULL");
 
                     b.ToTable("DirectConversations");
                 });
@@ -391,6 +407,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<Guid?>("ReplyToMessageId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uniqueidentifier");
 
@@ -400,6 +419,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasKey("MessageId");
 
                     b.HasIndex("LearningPathShareId");
+
+                    b.HasIndex("ReplyToMessageId");
 
                     b.HasIndex("SenderId");
 
@@ -783,6 +804,28 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("Lessons");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.MentorAiAccessPolicy", b =>
+                {
+                    b.Property<Guid>("MentorAiAccessPolicyId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("MentorDowngradeNotifyCooldownHours")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MentorPaidRequestsMonthlyLimit")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("MentorAiAccessPolicyId");
+
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("MentorAiAccessPolicies");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Message", b =>
                 {
                     b.Property<Guid>("MessageId")
@@ -870,17 +913,49 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("Channels")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ChapterId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<bool>("IsRead")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("LearningPathId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LessonId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Message")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Route")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TargetType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -1518,6 +1593,48 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("UserAchievements");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.UserGoalProgress", b =>
+                {
+                    b.Property<Guid>("UserGoalProgressId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("GoalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("LearningPathId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("UserGoalProgressId");
+
+                    b.HasIndex("GoalId");
+
+                    b.HasIndex("LearningPathId");
+
+                    b.HasIndex("UserId", "LastUpdatedAt");
+
+                    b.HasIndex("UserId", "GoalId", "LearningPathId")
+                        .IsUnique();
+
+                    b.ToTable("UserGoalProgresses");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserProfile", b =>
                 {
                     b.Property<Guid>("ProfileId")
@@ -1605,13 +1722,13 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DailyCheckins", b =>
                 {
-                    b.HasOne("CodeNexus.Domain.Entities.FocusSession", "FocusSession")
-                        .WithOne("DailyCheckin")
-                        .HasForeignKey("CodeNexus.Domain.Entities.DailyCheckins", "SessionId")
+                    b.HasOne("CodeNexus.Domain.Entities.User", "User")
+                        .WithMany("DailyCheckins")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("FocusSession");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DirectConversation", b =>
@@ -1619,14 +1736,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasOne("CodeNexus.Domain.Entities.User", "Mentor")
                         .WithMany()
                         .HasForeignKey("MentorId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("CodeNexus.Domain.Entities.User", "Student")
                         .WithMany()
                         .HasForeignKey("StudentId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Mentor");
 
@@ -1646,6 +1761,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasForeignKey("LearningPathShareId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("CodeNexus.Domain.Entities.DirectMessage", "ReplyToMessage")
+                        .WithMany("Replies")
+                        .HasForeignKey("ReplyToMessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("CodeNexus.Domain.Entities.User", "Sender")
                         .WithMany()
                         .HasForeignKey("SenderId")
@@ -1655,6 +1775,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Conversation");
 
                     b.Navigation("LearningPathShare");
+
+                    b.Navigation("ReplyToMessage");
 
                     b.Navigation("Sender");
                 });
@@ -2067,6 +2189,33 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.UserGoalProgress", b =>
+                {
+                    b.HasOne("CodeNexus.Domain.Entities.Goals", "Goal")
+                        .WithMany("UserGoalProgresses")
+                        .HasForeignKey("GoalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CodeNexus.Domain.Entities.LearningPath", "LearningPath")
+                        .WithMany("UserGoalProgresses")
+                        .HasForeignKey("LearningPathId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CodeNexus.Domain.Entities.User", "User")
+                        .WithMany("UserGoalProgresses")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Goal");
+
+                    b.Navigation("LearningPath");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserProfile", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.User", "User")
@@ -2108,12 +2257,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.DirectMessage", b =>
                 {
                     b.Navigation("Receipts");
+
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.FocusSession", b =>
                 {
-                    b.Navigation("DailyCheckin");
-
                     b.Navigation("Notes");
                 });
 
@@ -2126,6 +2275,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("SystemGoalMappings");
 
                     b.Navigation("UserGoalMappings");
+
+                    b.Navigation("UserGoalProgresses");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPath", b =>
@@ -2135,6 +2286,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("LearningPathGoals");
 
                     b.Navigation("Tasks");
+
+                    b.Navigation("UserGoalProgresses");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Lesson", b =>
@@ -2198,6 +2351,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Conversations");
 
+                    b.Navigation("DailyCheckins");
+
                     b.Navigation("FeatureUsageLogs");
 
                     b.Navigation("Goals");
@@ -2215,6 +2370,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Resources");
 
                     b.Navigation("Subjects");
+
+                    b.Navigation("UserGoalProgresses");
 
                     b.Navigation("UserProfile");
                 });

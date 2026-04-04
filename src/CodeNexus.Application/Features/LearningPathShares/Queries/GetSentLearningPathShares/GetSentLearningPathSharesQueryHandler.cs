@@ -19,47 +19,60 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
 
     public async Task<Result<List<SentLearningPathShareSummaryDto>>> Handle(GetSentLearningPathSharesQuery request, CancellationToken cancellationToken)
     {
-        Guid mentorId;
+        Guid currentUserId;
         try
         {
-            mentorId = _currentUserService.GetUserId();
+            currentUserId = _currentUserService.GetUserId();
         }
         catch
         {
             return Result<List<SentLearningPathShareSummaryDto>>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
-        var mentor = await _context.Users
+        var currentUser = await _context.Users
             .AsNoTracking()
             .Include(u => u.Role)
-            .FirstOrDefaultAsync(u => u.UserId == mentorId, cancellationToken);
+            .FirstOrDefaultAsync(u => u.UserId == currentUserId, cancellationToken);
 
-        if (mentor == null)
+        if (currentUser == null)
         {
             return Result<List<SentLearningPathShareSummaryDto>>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
-        if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
+        var isMentor = string.Equals(currentUser.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase);
+        var isStudent = string.Equals(currentUser.Role?.RoleName, "Student", StringComparison.OrdinalIgnoreCase);
+
+        if (!isMentor && !isStudent)
         {
-            return Result<List<SentLearningPathShareSummaryDto>>.Failure("ACCESS_DENIED", "Only mentors can view sent learning path shares.");
+            return Result<List<SentLearningPathShareSummaryDto>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPathShares
             .AsNoTracking()
-            .Where(s => s.MentorId == mentorId)
             .Include(s => s.LearningPath)
             .Include(s => s.Student)
             .AsQueryable();
+
+        if (isMentor)
+        {
+            query = query.Where(s => s.MentorId == currentUserId);
+
+            if (request.StudentId.HasValue)
+            {
+                query = query.Where(s => s.StudentId == request.StudentId.Value);
+            }
+        }
+        else
+        {
+            query = query.Where(s => s.StudentId == currentUserId);
+        }
 
         if (request.Status.HasValue)
         {
             query = query.Where(s => s.Status == request.Status.Value);
         }
 
-        if (request.StudentId.HasValue)
-        {
-            query = query.Where(s => s.StudentId == request.StudentId.Value);
-        }
+        var hideStatus = isMentor && !request.StudentId.HasValue;
 
         var shares = await query
             .OrderByDescending(s => s.SentAt)
@@ -70,9 +83,9 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
                 s.LearningPath.Description,
                 s.StudentId,
                 s.Student.Username,
-                s.Status,
+                hideStatus ? null : s.Status,
                 s.SentAt,
-                s.RespondedAt
+                hideStatus ? null : s.RespondedAt
             ))
             .ToListAsync(cancellationToken);
 

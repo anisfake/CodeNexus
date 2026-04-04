@@ -25,13 +25,13 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     {
         var userId = _currentUserService.GetUserId();
         if (userId == null)
-            return Result.Failure("UNAUTHORIZED", "User is not authenticated");
+            return Result.Failure("UNAUTHORIZED", "User not authenticated");
 
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
 
         if (user == null)
-            return Result.Failure("USER_NOT_FOUND", "User not found");
+            return Result.Failure("USER_NOT_FOUND", "User not found.");
 
         if (!_passwordService.VerifyPassword(request.CurrentPassword, user.PasswordHash))
             return Result.Failure("INVALID_CURRENT_PASSWORD", "Current password is incorrect");

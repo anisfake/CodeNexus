@@ -36,7 +36,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
 
         if (subject == null)
         {
-            return Result<List<LearningPathSuggestionDto>>.Failure("SUBJECT_NOT_FOUND", "Subject not found");
+            return Result<List<LearningPathSuggestionDto>>.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
         }
 
         if (request.Goals == null || request.Goals.Count == 0)
@@ -62,7 +62,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
 
         if (goals.Count != uniqueGoalIds.Count)
         {
-            return Result<List<LearningPathSuggestionDto>>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
+            return Result<List<LearningPathSuggestionDto>>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         var invalidUserGoals = goals
@@ -71,7 +71,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
 
         if (invalidUserGoals.Count > 0)
         {
-            return Result<List<LearningPathSuggestionDto>>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
+            return Result<List<LearningPathSuggestionDto>>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         var systemGoalIds = goals
@@ -90,7 +90,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
             {
                 return Result<List<LearningPathSuggestionDto>>.Failure(
                     "GOAL_SUBJECT_MISMATCH",
-                    "One or more system goals are not available for the selected subject");
+                    "Goal is not relevant to the selected subject.");
             }
         }
 
@@ -120,6 +120,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
             .AsNoTracking()
             .Where(lp =>
                 lp.SubjectId == request.SubjectId
+                && lp.UserId != userId
                 && lp.Language == request.LanguageSelection
                 && lp.ComplexityLevel == request.ComplexityLevel)
             .Select(lp => new CandidatePath(lp.PathId, lp.Title, lp.Description, lp.CreatedAt))
@@ -163,7 +164,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
             if (score >= ScoreThreshold)
             {
                 var goalDtos = pathGoals
-                    .Select(g => new LearningPathGoalDto(g.GoalId, g.Title, g.Weight, g.DurationInDays))
+                    .Select(g => new LearningPathGoalDto(g.GoalId, g.Title, g.Weight, g.DurationInDays, "NotStarted", null))
                     .ToList();
 
                 suggestions.Add(new LearningPathSuggestionDto(

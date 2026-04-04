@@ -39,7 +39,7 @@ public class GetQuizStatusQueryHandler : IRequestHandler<GetQuizStatusQuery, Res
             return Result<QuizStatusDto>.Failure("QUIZ_NO_LESSON", "Quiz is not associated with a lesson");
 
         if (quiz.Lesson.Chapter.LearningPath.UserId != userId)
-            return Result<QuizStatusDto>.Failure("UNAUTHORIZED", "You do not have access to this quiz");
+            return Result<QuizStatusDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         var lastAttempt = await _context.QuizAttempts
             .AsNoTracking()

@@ -30,7 +30,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             .FirstOrDefaultAsync(u => u.Email == identifier || u.Username == identifier, cancellationToken);
 
         if (user == null)
-            return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid credentials");
+            return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid username/email or password");
 
         if (user.Status == "Banned")
             return Result<LoginResponse>.Failure("USER_BANNED", "Your account has been banned. Please contact support.");
@@ -58,11 +58,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         {
             TokenId = NewId.NextGuid(),
             UserId = user.UserId,
-            Token = refreshTokenValue,
+            Token = _tokenService.HashRefreshToken(refreshTokenValue),
             CreatedAt = now,
             ExpiresAt = now.AddDays(_tokenService.RefreshTokenExpirationDays)
         });
 
+        _context.SetAuditUserId(user.UserId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<LoginResponse>.Success(new LoginResponse(

@@ -19,6 +19,7 @@ public class ResetPasswordCommandHandlerTests
     {
         _contextMock = new Mock<IApplicationDbContext>();
         _tokenServiceMock = new Mock<ITokenService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
         _otpServiceMock = new Mock<IOTPService>();
         _handler = new ResetPasswordCommandHandler(_contextMock.Object, _tokenServiceMock.Object, _otpServiceMock.Object);
     }

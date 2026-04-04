@@ -23,13 +23,23 @@ public class SummaryHub : Hub
 
         if (result.IsSuccess)
         {
-            await Clients.Caller.SendAsync("ReceiveSummary", result.Value);
+            await Clients.Caller.SendAsync("ReceiveSummary", new
+            {
+                result.Value!.SummaryId,
+                result.Value.ResourceId,
+                result.Value.Title,
+                result.Value.Summary,
+                startPage = result.Value.StartPage,
+                endPage = result.Value.EndPage
+            });
         }
         else
         {
             await Clients.Caller.SendAsync("SummaryError", new
             {
                 ResourceId = resourceId,
+                startPage,
+                endPage,
                 result.ErrorCode,
                 result.ErrorMessage
             });

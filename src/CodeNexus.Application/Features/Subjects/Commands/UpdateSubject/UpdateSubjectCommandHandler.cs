@@ -35,7 +35,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
 
         if (subject.CreatedByUserId != userId)
         {
-            return Result<SubjectDto>.Failure("UNAUTHORIZED", "You can only update subjects you created.");
+            return Result<SubjectDto>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
         var duplicateSubject = await _context.Subjects

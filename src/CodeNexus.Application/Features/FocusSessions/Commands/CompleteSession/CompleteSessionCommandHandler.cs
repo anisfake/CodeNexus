@@ -1,8 +1,10 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -50,7 +52,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         {
             return Result<CompleteSessionResponseDto>.Failure(
                 "SESSION_NOT_RUNNING",
-                "Session is not currently running");
+                "Session is not running");
         }
 
         try
@@ -159,10 +161,29 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                 }
             }
 
+            await TryCreateDailyCheckinAsync(session, request.SubmissionType, cancellationToken);
+
             await _context.SaveChangesAsync(cancellationToken);
 
+            var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
+                _context,
+                session.Task.ChapterId,
+                session.Task.LearningPath.UserId,
+                cancellationToken);
+
+            var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
+                _context,
+                session.Task.PathId,
+                session.Task.LearningPath.UserId,
+                cancellationToken);
+
+            if (hasGoalProgressChanges || hasChapterCompletionChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             var userId = session.Task.LearningPath.UserId;
-            await _achievementService.TryUnlockAsync(userId, "Focused Learner");
+            await _achievementService.TryUnlockAsync(userId, "focused_learner");
             if (actualDurationMinutes >= 90) await _achievementService.TryUnlockAsync(userId, "deep_focus");
             if (DateTime.UtcNow.Hour >= 5 && DateTime.UtcNow.Hour < 8) await _achievementService.TryUnlockAsync(userId, "early_bird");
             if (DateTime.UtcNow.Hour >= 22 || DateTime.UtcNow.Hour < 2) await _achievementService.TryUnlockAsync(userId, "night_owl");
@@ -219,6 +240,51 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         return Math.Max(0, elapsed);
     }
 
+    private async Task TryCreateDailyCheckinAsync(FocusSession session, SubmissionType submissionType, CancellationToken cancellationToken)
+    {
+        if (submissionType != SubmissionType.Final)
+        {
+            return;
+        }
+
+        if (!IsCompletedStatus(session.SessionStatus))
+        {
+            return;
+        }
+
+        var today = DateTime.UtcNow.Date;
+        var userId = session.Task.LearningPath.UserId;
+
+        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
+        var existing = await _context.DailyCheckins
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
+
+        if (existing != null)
+        {
+            var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, productivity);
+            existing.Mood = merged.Mood;
+            existing.Productivity = merged.Productivity;
+            return;
+        }
+
+        _context.DailyCheckins.Add(new DailyCheckins
+        {
+            CheckinId = NewId.NextGuid(),
+            UserId = userId,
+            CheckinDate = today,
+            Mood = mood,
+            Productivity = productivity,
+            CreatedAt = DateTime.UtcNow
+        });
+    }
+
+    private static bool IsCompletedStatus(SessionStatus sessionStatus)
+    {
+        return sessionStatus == SessionStatus.CompletedEarly
+            || sessionStatus == SessionStatus.CompletedOnTime
+            || sessionStatus == SessionStatus.CompletedLate;
+    }
+
     private static ValidationResult ValidateSubmission(CompleteSessionCommand request, TaskType taskType)
     {
         if (request.SubmissionType == SubmissionType.Progress)
@@ -235,7 +301,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     {
                         IsValid = false,
                         ErrorCode = "MISSING_CODE_SUBMISSION",
-                        ErrorMessage = $"Practice tasks require code submission for {request.SubmissionType.ToString().ToLower()} submission"
+                        ErrorMessage = "Code submission is required for coding tasks"
                     };
                 }
                 break;
@@ -247,7 +313,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     {
                         IsValid = false,
                         ErrorCode = "MISSING_SUMMARY_SUBMISSION",
-                        ErrorMessage = $"Theory tasks require summary submission for {request.SubmissionType.ToString().ToLower()} submission"
+                        ErrorMessage = "Summary submission is required for summary tasks"
                     };
                 }
                 break;
@@ -259,7 +325,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     {
                         IsValid = false,
                         ErrorCode = "MISSING_QUIZ_ANSWERS",
-                        ErrorMessage = $"Quiz tasks require quiz answers submission for {request.SubmissionType.ToString().ToLower()} submission"
+                        ErrorMessage = "Quiz answers submission is required for quiz tasks"
                     };
                 }
                 break;

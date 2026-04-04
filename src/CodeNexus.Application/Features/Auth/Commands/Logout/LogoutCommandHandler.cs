@@ -61,8 +61,10 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, Result>
 
         if (!string.IsNullOrWhiteSpace(request.RefreshToken))
         {
+            var hashedRequestToken = _tokenService.HashRefreshToken(request.RefreshToken);
+
             var refreshToken = await _context.RefreshTokens
-                .FirstOrDefaultAsync(rt => rt.Token == request.RefreshToken && rt.UserId == userIdValue, cancellationToken);
+                .FirstOrDefaultAsync(rt => rt.Token == hashedRequestToken && rt.UserId == userIdValue, cancellationToken);
 
             if (refreshToken != null)
             {

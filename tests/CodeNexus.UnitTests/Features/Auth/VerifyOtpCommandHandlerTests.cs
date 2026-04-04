@@ -15,6 +15,7 @@ public class VerifyOtpCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _contextMock;
     private readonly Mock<IOTPCacheService> _otpCacheServiceMock;
     private readonly Mock<ITokenService> _tokenServiceMock;
+    private readonly Mock<IAchievementService> _achievementServiceMock;
     private readonly VerifyOtpCommandHandler _handler;
 
     public VerifyOtpCommandHandlerTests()
@@ -22,7 +23,15 @@ public class VerifyOtpCommandHandlerTests
         _contextMock = new Mock<IApplicationDbContext>();
         _otpCacheServiceMock = new Mock<IOTPCacheService>();
         _tokenServiceMock = new Mock<ITokenService>();
-        _handler = new VerifyOtpCommandHandler(_contextMock.Object, _otpCacheServiceMock.Object, _tokenServiceMock.Object);
+        _achievementServiceMock = new Mock<IAchievementService>();
+        _tokenServiceMock.Setup(x => x.HashRefreshToken(It.IsAny<string>())).Returns((string s) => s);
+        _achievementServiceMock.Setup(x => x.InitializeUserAchievementsAsync(It.IsAny<Guid>()))
+            .Returns(Task.CompletedTask);
+        _handler = new VerifyOtpCommandHandler(
+            _contextMock.Object,
+            _otpCacheServiceMock.Object,
+            _tokenServiceMock.Object,
+            _achievementServiceMock.Object);
     }
 
     [Fact]
@@ -83,6 +92,7 @@ public class VerifyOtpCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value!.Purpose.Should().Be(OtpPurpose.Register);
         result.Value.Message.Should().Be("Registration successful");
+        _achievementServiceMock.Verify(x => x.InitializeUserAchievementsAsync(It.IsAny<Guid>()), Times.Once);
     }
 
     [Fact]

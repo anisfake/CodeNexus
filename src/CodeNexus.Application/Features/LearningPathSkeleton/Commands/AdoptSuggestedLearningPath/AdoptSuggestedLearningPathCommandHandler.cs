@@ -48,7 +48,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
 
         if (subject == null)
         {
-            return Result<CreateLearningPathResponse>.Failure("SUBJECT_NOT_FOUND", "Subject not found");
+            return Result<CreateLearningPathResponse>.Failure("SUBJECT_NOT_FOUND", "Subject not found.");
         }
 
         if (request.Goals == null || request.Goals.Count == 0)
@@ -79,7 +79,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
 
         if (goals.Count != uniqueGoalIds.Count)
         {
-            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
+            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         var invalidUserGoals = goals
@@ -88,7 +88,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
 
         if (invalidUserGoals.Count > 0)
         {
-            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found");
+            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         var hasPersonalGoals = goals.Any(g => !g.IsSystemDefined);
@@ -115,7 +115,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
             {
                 return Result<CreateLearningPathResponse>.Failure(
                     "GOAL_SUBJECT_MISMATCH",
-                    "One or more system goals are not available for the selected subject");
+                    "Goal is not relevant to the selected subject.");
             }
         }
 
@@ -125,7 +125,14 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
 
         if (candidatePath == null)
         {
-            return Result<CreateLearningPathResponse>.Failure("LEARNING_PATH_NOT_FOUND", "Suggested learning path not found");
+            return Result<CreateLearningPathResponse>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
+        }
+
+        if (candidatePath.UserId == userId)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                "CANNOT_ADOPT_OWN_PATH",
+                "You cannot adopt your own learning path.");
         }
 
         if (candidatePath.SubjectId != request.SubjectId
@@ -399,7 +406,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
         await _context.SaveChangesAsync(cancellationToken);
 
         var goalDtos = goalsWithWeights
-            .Select(g => new LearningPathGoalDto(g.Goal.GoalId, g.Goal.Title, g.Weight, g.Goal.DurationInDays))
+            .Select(g => new LearningPathGoalDto(g.Goal.GoalId, g.Goal.Title, g.Weight, g.Goal.DurationInDays, "NotStarted", null))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(

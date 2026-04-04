@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using MediatR;
@@ -30,7 +30,7 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
 
         if (user.Role?.RoleName != "Mentor")
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Only mentors can access learning paths.");
+            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPaths
@@ -82,7 +82,9 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                         g.GoalId,
                         g.Goal.Title,
                         g.Weight,
-                        g.Goal.DurationInDays
+                        g.Goal.DurationInDays,
+                        "NotStarted",
+                        null
                     )).ToList(),
                 lp.StartDate,
                 lp.EndDate,
@@ -105,8 +107,11 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
-                            q.Description
+                            q.Description,
+                            "Not Attempted"
                         )).ToList()
+                        ,
+                        "Not Started"
                     )).ToList(),
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
@@ -116,11 +121,14 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson
+                        t.QuizQuestionsJson,
+                        "Pending"
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),
-                lp.CreatedAt
+                lp.CreatedAt,
+                lp.ComplexityLevel,
+                lp.Language
             ))
             .ToListAsync(cancellationToken);
 

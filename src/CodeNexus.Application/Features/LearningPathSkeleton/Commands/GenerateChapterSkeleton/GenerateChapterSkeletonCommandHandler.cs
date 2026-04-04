@@ -47,7 +47,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
                 return Result<ChapterSkeletonDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
             if (chapter.LearningPath.UserId != userId)
-                return Result<ChapterSkeletonDto>.Failure("UNAUTHORIZED", "You do not have access to this learning path");
+                return Result<ChapterSkeletonDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
             var existingLessons = await _context.Lessons
                 .Where(l => l.ChapterId == chapter.ChapterId)
@@ -88,7 +88,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
             if (chapterData == null || !chapterData.LessonTitles.Any())
             {
-                return Result<ChapterSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid lesson structure");
+                return Result<ChapterSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
             }
 
             var lessonSchedules = await _timelineCalculationService.CalculateLessonSchedulesAsync(
@@ -156,7 +156,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
         }
         catch (Exception ex)
         {
-            return Result<ChapterSkeletonDto>.Failure("GENERATION_FAILED", $"Failed to generate chapter: {ex.Message}");
+            return Result<ChapterSkeletonDto>.Failure("GENERATION_FAILED", "Failed to generate data.");
         }
     }
 

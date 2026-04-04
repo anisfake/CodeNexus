@@ -42,16 +42,22 @@ public class ResolveTutorConversationQueryHandler
             return Result<ResolveTutorConversationResponseDto>.Failure(context.ErrorCode!, context.ErrorMessage!);
         }
 
-        var existing = await FindConversationByContextAsync(userId, request.LearningPathId, request.ChapterId, request.LessonId, cancellationToken);
+        var existing = await FindConversationByContextAsync(userId, context.Value!, cancellationToken);
         if (existing != null)
         {
+            // Upgrade legacy lesson-scoped records to chapter-scoped conversation.
+            if (ApplyConversationContext(existing, context.Value!))
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             return Result<ResolveTutorConversationResponseDto>.Success(
                 new ResolveTutorConversationResponseDto(existing.ConversationId, false));
         }
 
         if (!request.CreateIfMissing)
         {
-            return Result<ResolveTutorConversationResponseDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found");
+            return Result<ResolveTutorConversationResponseDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
         }
 
         var config = await _context.AIProviderConfigs
@@ -74,9 +80,9 @@ public class ResolveTutorConversationQueryHandler
             CreatedAt = DateTime.UtcNow,
             MessageCount = 0,
             IsDeleted = false,
-            LearningPathId = request.LearningPathId,
-            ChapterId = request.ChapterId,
-            LessonId = request.LessonId
+            LearningPathId = context.Value!.LearningPathId,
+            ChapterId = context.Value!.ChapterId,
+            LessonId = context.Value!.ChapterId.HasValue ? null : context.Value!.LessonId
         };
 
         await _context.Conversations.AddAsync(conversation, cancellationToken);
@@ -97,6 +103,18 @@ public class ResolveTutorConversationQueryHandler
         Chapter? chapter = null;
         Lesson? lesson = null;
 
+        if (chapterId.HasValue)
+        {
+            chapter = await _context.Chapters
+                .Include(c => c.LearningPath)
+                .FirstOrDefaultAsync(c => c.ChapterId == chapterId, cancellationToken);
+
+            if (chapter == null || chapter.IsDeleted)
+                return Result<TutorContext>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
+
+            learningPath = chapter.LearningPath;
+        }
+
         if (lessonId.HasValue)
         {
             lesson = await _context.Lessons
@@ -104,38 +122,34 @@ public class ResolveTutorConversationQueryHandler
                     .ThenInclude(c => c.LearningPath)
                 .FirstOrDefaultAsync(l => l.LessonId == lessonId, cancellationToken);
 
-            if (lesson == null)
+            if (lesson == null || lesson.IsDeleted)
                 return Result<TutorContext>.Failure("LESSON_NOT_FOUND", "Lesson not found");
 
-            chapter = lesson.Chapter;
-            learningPath = chapter.LearningPath;
-        }
-        else if (chapterId.HasValue)
-        {
-            chapter = await _context.Chapters
-                .Include(c => c.LearningPath)
-                .FirstOrDefaultAsync(c => c.ChapterId == chapterId, cancellationToken);
+            if (chapterId.HasValue && lesson.ChapterId != chapterId.Value)
+                return Result<TutorContext>.Failure("LESSON_NOT_IN_CHAPTER", "Lesson does not belong to the selected chapter.");
 
-            if (chapter == null)
-                return Result<TutorContext>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
-
-            learningPath = chapter.LearningPath;
+            chapter ??= lesson.Chapter;
+            learningPath ??= lesson.Chapter.LearningPath;
         }
-        else if (learningPathId.HasValue)
+
+        if (learningPathId.HasValue && learningPath == null)
         {
             learningPath = await _context.LearningPaths
                 .FirstOrDefaultAsync(lp => lp.PathId == learningPathId, cancellationToken);
 
             if (learningPath == null)
-                return Result<TutorContext>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found");
+                return Result<TutorContext>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
         if (learningPath != null && learningPath.UserId != userId)
         {
-            return Result<TutorContext>.Failure("ACCESS_DENIED", "You do not have access to this learning path");
+            return Result<TutorContext>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         return Result<TutorContext>.Success(new TutorContext(
+            learningPath?.PathId,
+            chapter?.ChapterId,
+            lesson?.LessonId,
             learningPath?.Title,
             chapter?.Title,
             lesson?.Title));
@@ -143,45 +157,104 @@ public class ResolveTutorConversationQueryHandler
 
     private static string BuildConversationTitle(TutorContext context)
     {
-        if (!string.IsNullOrWhiteSpace(context.LessonTitle))
-            return $"Tutor - {context.LessonTitle}";
         if (!string.IsNullOrWhiteSpace(context.ChapterTitle))
             return $"Tutor - {context.ChapterTitle}";
         if (!string.IsNullOrWhiteSpace(context.LearningPathTitle))
             return $"Tutor - {context.LearningPathTitle}";
+        if (!string.IsNullOrWhiteSpace(context.LessonTitle))
+            return $"Tutor - {context.LessonTitle}";
 
         return "Tutor Conversation";
     }
 
+    private static bool ApplyConversationContext(Conversation conversation, TutorContext context)
+    {
+        var changed = false;
+
+        if (context.ChapterId.HasValue)
+        {
+            if (conversation.LearningPathId != context.LearningPathId)
+            {
+                conversation.LearningPathId = context.LearningPathId;
+                changed = true;
+            }
+
+            if (conversation.ChapterId != context.ChapterId)
+            {
+                conversation.ChapterId = context.ChapterId;
+                changed = true;
+            }
+
+            if (conversation.LessonId != null)
+            {
+                conversation.LessonId = null;
+                changed = true;
+            }
+
+            return changed;
+        }
+
+        if (context.LearningPathId.HasValue && !conversation.LearningPathId.HasValue)
+        {
+            conversation.LearningPathId = context.LearningPathId;
+            changed = true;
+        }
+
+        return changed;
+    }
+
     private async Task<Conversation?> FindConversationByContextAsync(
         Guid userId,
-        Guid? learningPathId,
-        Guid? chapterId,
-        Guid? lessonId,
+        TutorContext context,
         CancellationToken cancellationToken)
     {
-        if (lessonId.HasValue)
+        if (context.ChapterId.HasValue)
         {
-            return await _context.Conversations
-                .FirstOrDefaultAsync(c => c.UserId == userId && c.LessonId == lessonId && !c.IsDeleted, cancellationToken);
+            var chapterConversation = await _context.Conversations
+                .Where(c => c.UserId == userId && c.ChapterId == context.ChapterId && !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (chapterConversation != null)
+            {
+                return chapterConversation;
+            }
+
+            if (context.LessonId.HasValue)
+            {
+                return await _context.Conversations
+                    .Where(c => c.UserId == userId && c.LessonId == context.LessonId && !c.IsDeleted)
+                    .OrderByDescending(c => c.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+            }
         }
 
-        if (chapterId.HasValue)
+        if (context.LearningPathId.HasValue)
         {
             return await _context.Conversations
-                .FirstOrDefaultAsync(c => c.UserId == userId && c.ChapterId == chapterId && !c.IsDeleted, cancellationToken);
+                .Where(c => c.UserId == userId
+                            && c.LearningPathId == context.LearningPathId
+                            && c.ChapterId == null
+                            && !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
-        if (learningPathId.HasValue)
+        if (context.LessonId.HasValue)
         {
             return await _context.Conversations
-                .FirstOrDefaultAsync(c => c.UserId == userId && c.LearningPathId == learningPathId && !c.IsDeleted, cancellationToken);
+                .Where(c => c.UserId == userId && c.LessonId == context.LessonId && !c.IsDeleted)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
         return null;
     }
 
     private sealed record TutorContext(
+        Guid? LearningPathId,
+        Guid? ChapterId,
+        Guid? LessonId,
         string? LearningPathTitle,
         string? ChapterTitle,
         string? LessonTitle);

@@ -119,4 +119,89 @@ public class SendTutorMessageCommandHandlerTests
         Assert.False(result.IsSuccess);
         Assert.Equal("TUTOR_MESSAGE_LIMIT_EXCEEDED", result.ErrorCode);
     }
+
+    [Fact]
+    public async Task Handle_WhenSwitchingLessonsInSameChapter_ReusesChapterConversation()
+    {
+        var userId = Guid.NewGuid();
+        var configId = Guid.NewGuid();
+        var pathId = Guid.NewGuid();
+        var chapterId = Guid.NewGuid();
+        var lessonId = Guid.NewGuid();
+        var conversationId = Guid.NewGuid();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
+        {
+            new AIProviderConfig
+            {
+                ConfigId = configId,
+                UsageType = AIUsageType.Assistant,
+                IsActive = true
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Lessons).Returns(new[]
+        {
+            new Lesson
+            {
+                LessonId = lessonId,
+                ChapterId = chapterId,
+                Title = "Lesson A",
+                Content = "Lesson Content",
+                Chapter = new Chapter
+                {
+                    ChapterId = chapterId,
+                    PathId = pathId,
+                    Title = "Chapter 1",
+                    LearningPath = new LearningPath
+                    {
+                        PathId = pathId,
+                        UserId = userId,
+                        Subject = new Subject { SubjectId = Guid.NewGuid(), Name = "C#" },
+                        Language = LanguageSelection.English,
+                        LearningPathGoals = new List<LearningPathGoal>()
+                    }
+                }
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Conversations).Returns(new[]
+        {
+            new Conversation
+            {
+                ConversationId = conversationId,
+                UserId = userId,
+                ConfigId = configId,
+                ChapterId = chapterId,
+                LearningPathId = pathId,
+                Title = "Tutor - Chapter 1",
+                IsDeleted = false
+            }
+        }.BuildMockDbSet().Object);
+
+        var messages = new List<Message>();
+        var messagesDbSet = messages.BuildMockDbSet();
+        messagesDbSet.Setup(x => x.AddAsync(It.IsAny<Message>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>)null!));
+        _mockContext.Setup(x => x.Messages).Returns(messagesDbSet.Object);
+
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mockAiGenerator.Setup(x => x.GenerateContentAsync(It.IsAny<string>(), AIUsageType.Assistant))
+            .ReturnsAsync("Chapter-level response");
+
+        var command = new SendTutorMessageCommand(
+            null,
+            null,
+            null,
+            lessonId,
+            "Giải thích lại phần này");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(conversationId, result.Value!.ConversationId);
+    }
 }

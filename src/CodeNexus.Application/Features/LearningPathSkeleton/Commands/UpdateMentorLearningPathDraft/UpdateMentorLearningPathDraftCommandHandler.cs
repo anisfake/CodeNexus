@@ -43,7 +43,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "Only mentors can update learning path drafts.");
+            return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var learningPath = await _context.LearningPaths
@@ -59,12 +59,12 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         if (learningPath.UserId != mentorId)
         {
-            return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "You can only update your own learning path drafts.");
+            return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         if (!string.Equals(learningPath.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
         {
-            return Result<CreateLearningPathResponse>.Failure("INVALID_STATUS", "Only draft learning paths can be updated.");
+            return Result<CreateLearningPathResponse>.Failure("INVALID_STATUS", "Invalid status for this operation.");
         }
 
         var subject = await _context.Subjects
@@ -83,7 +83,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         if (goals.Count != uniqueGoalIds.Count)
         {
-            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "One or more goals were not found.");
+            return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         var systemGoalIds = goals
@@ -102,7 +102,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             {
                 return Result<CreateLearningPathResponse>.Failure(
                     "GOAL_SUBJECT_MISMATCH",
-                    "One or more system goals are not available for the selected subject.");
+                    "Goal is not relevant to the selected subject.");
             }
         }
 
@@ -210,7 +210,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 g.Goal.GoalId,
                 g.Goal.Title,
                 g.Weight,
-                g.Goal.DurationInDays))
+                g.Goal.DurationInDays,
+                "NotStarted",
+                null))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
@@ -221,7 +223,13 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             chapterDtos,
             chapterDtos.Count,
             learningPath.CreatedAt,
-            false));
+            false,
+            learningPath.StartDate,
+            learningPath.EndDate,
+            learningPath.ComplexityLevel,
+            learningPath.Language,
+            learningPath.SubjectId,
+            subject.Name));
     }
 
     private static int CalculateEstimatedDays(DateTime? startDate, DateTime? endDate)

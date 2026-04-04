@@ -31,7 +31,7 @@ public class GetGoalMappingQueryHandler : IRequestHandler<GetGoalMappingQuery, R
 
         if (goal == null)
         {
-            return Result<GoalMappingDto?>.Failure("GOAL_NOT_FOUND", "Goal not found");
+            return Result<GoalMappingDto?>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
         if (goal.IsSystemDefined)

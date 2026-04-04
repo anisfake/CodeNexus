@@ -42,7 +42,7 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathResponse>.Failure("ACCESS_DENIED", "Only mentors can view draft learning path details.");
+            return Result<LearningPathResponse>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var learningPath = await _context.LearningPaths
@@ -65,12 +65,12 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
 
         if (learningPath.UserId != mentorId)
         {
-            return Result<LearningPathResponse>.Failure("ACCESS_DENIED", "You can only view your own draft learning paths.");
+            return Result<LearningPathResponse>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         if (!string.Equals(learningPath.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathResponse>.Failure("INVALID_STATUS", "Learning path is not in draft status.");
+            return Result<LearningPathResponse>.Failure("INVALID_STATUS", "Invalid status for this operation.");
         }
 
         var response = new LearningPathResponse(
@@ -83,7 +83,9 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                     g.GoalId,
                     g.Goal.Title,
                     g.Weight,
-                    g.Goal.DurationInDays
+                    g.Goal.DurationInDays,
+                    "NotStarted",
+                    null
                 )).ToList(),
             learningPath.StartDate,
             learningPath.EndDate,
@@ -121,7 +123,9 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),
-            learningPath.CreatedAt
+            learningPath.CreatedAt,
+            learningPath.ComplexityLevel,
+            learningPath.Language
         );
 
         return Result<LearningPathResponse>.Success(response);

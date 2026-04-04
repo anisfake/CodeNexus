@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +29,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
             .Include(lp => lp.Subject)
             .Include(lp => lp.LearningPathGoals)
                 .ThenInclude(lpg => lpg.Goal)
+            .Include(lp => lp.UserGoalProgresses.Where(ugp => ugp.UserId == request.UserId))
             .Include(lp => lp.User)
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
@@ -74,7 +76,13 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         g.GoalId,
                         g.Goal.Title,
                         g.Weight,
-                        g.Goal.DurationInDays
+                        g.Goal.DurationInDays,
+                        lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId) != null
+                            ? lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId)!.Status.ToString()
+                            : GoalProgressStatus.NotStarted.ToString(),
+                        lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId) != null
+                            ? lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId)!.CompletedAt
+                            : null
                     )).ToList(),
                 lp.StartDate,
                 lp.EndDate,
@@ -97,8 +105,16 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
-                            q.Description
-                        )).ToList()
+                            q.Description,
+                            q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId) != null
+                                ? q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId)!.Status.ToString()
+                                : "Not Attempted"
+                        )).ToList(),
+                        l.LearnProgresses.FirstOrDefault(lp => lp.UserId == request.UserId) != null
+                            ? l.LearnProgresses.FirstOrDefault(lp => lp.UserId == request.UserId)!.IsLessonContentRead
+                                ? "Completed"
+                                : "In Progress"
+                            : "Not Started"
                     )).ToList(),
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
@@ -108,11 +124,14 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson
+                        t.QuizQuestionsJson,
+                        t.Status.ToString()
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(),
-                lp.CreatedAt
+                lp.CreatedAt,
+                lp.ComplexityLevel,
+                lp.Language
             ))
             .ToListAsync(cancellationToken);
 

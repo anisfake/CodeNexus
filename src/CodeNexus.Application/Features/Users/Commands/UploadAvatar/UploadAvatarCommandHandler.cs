@@ -1,4 +1,4 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+﻿﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Entities;
 using MediatR;
@@ -28,7 +28,7 @@ public class UploadAvatarCommandHandler : IRequestHandler<UploadAvatarCommand, R
 
         if (userProfile == null)
         {
-            return Result<string>.Failure("USER_NOT_FOUND", "user not found");
+            return Result<string>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
         if (!string.IsNullOrEmpty(userProfile.AvatarUrl))

@@ -22,6 +22,9 @@ public class PlanUsageLimitService : IPlanUsageLimitService
 
     public async Task<Result> CheckLearningPathCreationAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+            return Result.Success();
+
         var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
         var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.LearningPathCreation, cancellationToken);
         if (!limit.IsEnabled || !limit.LimitCount.HasValue)
@@ -37,6 +40,9 @@ public class PlanUsageLimitService : IPlanUsageLimitService
 
     public async Task<Result> CheckTutorMessageAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+            return Result.Success();
+
         var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
         var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.TutorMessages, cancellationToken);
         if (!limit.IsEnabled || !limit.LimitCount.HasValue)
@@ -52,6 +58,9 @@ public class PlanUsageLimitService : IPlanUsageLimitService
 
     public async Task<Result> CheckFocusSessionReviewAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
+        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+            return Result.Success();
+
         var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
         var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.FocusSessionReview, cancellationToken);
         if (!limit.IsEnabled || !limit.LimitCount.HasValue)
@@ -200,6 +209,17 @@ public class PlanUsageLimitService : IPlanUsageLimitService
         }
     }
 
+    private async Task<bool> IsPlanLimitExemptRoleAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var roleName = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => u.Role != null ? u.Role.RoleName : null)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed record PlanLimitSetting(int? LimitCount, UsageWindowType WindowType, bool IsEnabled);
 }
-

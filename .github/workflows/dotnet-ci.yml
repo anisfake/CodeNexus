@@ -7,9 +7,12 @@ on:
     branches: [ "master", "develop" ]
   workflow_dispatch:
 
+concurrency:
+  group: codenexus-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # JOB 1: BUILD & TEST & PUBLISH
-  build:
+  build_test_and_deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,62 +22,28 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
+        cache: true
+        cache-dependency-path: |
+          **/*.csproj
+          **/packages.lock.json
 
-    - name: Restore dependencies
+    - name: Restore
       run: dotnet restore
 
-    - name: Build
-      run: dotnet build --no-restore --configuration Release
+    - name: Build (includes test project)
+      run: dotnet build tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj -c Release --no-restore
 
     - name: Run Unit Tests
-      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj --configuration Release --verbosity normal
+      run: dotnet test tests/CodeNexus.UnitTests/CodeNexus.UnitTests.csproj -c Release --no-build --verbosity normal
 
     - name: Publish API
-      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/develop'))
+      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release --no-restore -o ./publish
 
-    # Temporarily disabled due to storage quota
-    # - name: Upload Artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: web-deploy-package
-    #     path: ./publish/
-    #     retention-days: 1
-
-  # JOB 2: DEPLOY 
-  deploy:
-    needs: build
-    runs-on: windows-latest
-    if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+    - name: Deploy to Azure
+      if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/heads/develop'))
+      uses: azure/webapps-deploy@v3
       with:
-        dotnet-version: 8.0.x
-
-    - name: Restore dependencies
-      run: dotnet restore
-
-    - name: Publish API
-      run: dotnet publish src/CodeNexus.API/CodeNexus.API.csproj -c Release -o ./publish
-
-    # - name: Download Artifact
-    #   uses: actions/download-artifact@v4
-    #   with:
-    #     name: web-deploy-package
-    #     path: ./publish/
-
-    - name: Deploy with WebDeploy
-      run: |
-        $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
-        & $msdeploy -verb:sync `
-          -source:contentPath='${{ github.workspace }}\publish' `
-          -dest:contentPath='codenexus-001-site1',computerName='https://${{ secrets.WEBDEPLOY_URL }}/msdeploy.axd?site=codenexus-001-site1',userName='${{ secrets.WEBDEPLOY_USERNAME }}',password='${{ secrets.WEBDEPLOY_PASSWORD }}',authtype='Basic' `
-          -enableRule:AppOffline `
-          -retryAttempts:5 `
-          -retryInterval:5000 `
-          -allowUntrusted `
-          -verbose
-      shell: powershell
+        app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: ./publish

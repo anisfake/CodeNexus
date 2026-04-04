@@ -42,7 +42,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Only mentors can view draft learning paths.");
+            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPaths
@@ -91,7 +91,9 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         g.GoalId,
                         g.Goal.Title,
                         g.Weight,
-                        g.Goal.DurationInDays
+                        g.Goal.DurationInDays,
+                        "NotStarted",
+                        null
                     )).ToList(),
                 lp.StartDate,
                 lp.EndDate,
@@ -114,8 +116,11 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         l.Quizzes.Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
-                            q.Description
+                            q.Description,
+                            "Not Attempted"
                         )).ToList()
+                        ,
+                        "Not Started"
                     )).ToList(),
                     c.Tasks.Select(t => new TaskDto(
                         t.TaskId,
@@ -125,11 +130,14 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson
+                        t.QuizQuestionsJson,
+                        "Pending"
                     )).ToList()
                 )).ToList(),
                 lp.Chapters.Count(c => !c.IsDeleted),
-                lp.CreatedAt
+                lp.CreatedAt,
+                lp.ComplexityLevel,
+                lp.Language
             ))
             .ToListAsync(cancellationToken);
 

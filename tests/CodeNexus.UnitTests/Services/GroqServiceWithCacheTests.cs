@@ -23,6 +23,7 @@ public class GroqServiceWithCacheTests
     private readonly GroqServiceWithCache _service;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
+    private readonly Mock<IAIAccessPolicyService> _mockAiAccessPolicyService;
 
     public GroqServiceWithCacheTests()
     {
@@ -32,14 +33,28 @@ public class GroqServiceWithCacheTests
         _mockEncryptionService = new Mock<IEncryptionService>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
+        _mockAiAccessPolicyService = new Mock<IAIAccessPolicyService>();
         _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
+        _mockAiAccessPolicyService.Setup(x => x.GetMentorPaidRequestsMonthlyLimitAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(5000);
+        _mockAiAccessPolicyService.Setup(x => x.GetMentorDowngradeNotifyCooldownHoursAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(24);
         
         _httpClient = new HttpClient(_mockHttpMessageHandler.Object);
-        _service = new GroqServiceWithCache(_httpClient, _mockContext.Object, _mockCacheService.Object, _mockEncryptionService.Object, _mockCurrentUserService.Object, _mockSubscriptionAccessService.Object);
+        _service = new GroqServiceWithCache(
+            _httpClient,
+            _mockContext.Object,
+            _mockCacheService.Object,
+            _mockEncryptionService.Object,
+            _mockCurrentUserService.Object,
+            _mockSubscriptionAccessService.Object,
+            _mockAiAccessPolicyService.Object);
 
         SetupAIProviderConfigsDbSet();
         SetupUsersDbSet();
+        SetupFeatureUsageLogsDbSet(new List<FeatureUsageLog>());
+        SetupNotificationsDbSet(new List<Notification>());
     }
 
     [Fact]
@@ -184,6 +199,81 @@ public class GroqServiceWithCacheTests
         Assert.Equal("Test", result.Title);
     }
 
+    [Fact]
+    public async Task GenerateStructureAsync_WhenMentorHitsMonthlyPaidLimit_ShouldUseFreeTier()
+    {
+        var userId = Guid.NewGuid();
+        var paidUsageLogs = new List<FeatureUsageLog>
+        {
+            new()
+            {
+                FeatureUsageLogId = Guid.NewGuid(),
+                UserId = userId,
+                FeatureKey = SubscriptionFeatureKey.MentorPaidAiRequests,
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Users).Returns(new List<User>
+        {
+            new()
+            {
+                UserId = userId,
+                Role = new Role { RoleName = "Mentor" }
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(new List<AIProviderConfig>
+        {
+            new()
+            {
+                ConfigId = Guid.NewGuid(),
+                ProviderName = "Groq",
+                UsageType = AIUsageType.StructureGeneration,
+                AccessTier = AIAccessTier.Paid,
+                EncryptedApiKey = "encrypted-api-key",
+                ConfigJson = "{\"Model\":\"openai/gpt-oss-120b\",\"MaxTokens\":8192,\"Temperature\":0.3,\"RequestTimeoutSeconds\":30}",
+                IsActive = true
+            },
+            new()
+            {
+                ConfigId = Guid.NewGuid(),
+                ProviderName = "Groq",
+                UsageType = AIUsageType.StructureGeneration,
+                AccessTier = AIAccessTier.Free,
+                EncryptedApiKey = "encrypted-api-key",
+                ConfigJson = "{\"Model\":\"openai/gpt-oss-120b\",\"MaxTokens\":8192,\"Temperature\":0.3,\"RequestTimeoutSeconds\":30}",
+                IsActive = true
+            }
+        }.BuildMockDbSet().Object);
+
+        SetupFeatureUsageLogsDbSet(paidUsageLogs);
+        SetupNotificationsDbSet(new List<Notification>());
+
+        _mockAiAccessPolicyService
+            .Setup(x => x.GetMentorPaidRequestsMonthlyLimitAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        var localService = new GroqServiceWithCache(
+            _httpClient,
+            _mockContext.Object,
+            _mockCacheService.Object,
+            _mockEncryptionService.Object,
+            _mockCurrentUserService.Object,
+            _mockSubscriptionAccessService.Object,
+            _mockAiAccessPolicyService.Object);
+
+        SetupHttpResponse(CreateGroqResponse("{\"title\":\"Mentor Fallback\",\"chapters\":[]}"));
+        SetupCacheService();
+
+        await localService.GenerateStructureAsync<SimpleTestDto>("test prompt");
+
+        _mockCacheService.Verify(
+            x => x.GetApiKeyAsync(AIUsageType.StructureGeneration, AIAccessTier.Free, It.IsAny<CancellationToken>()),
+            Times.AtLeastOnce);
+    }
+
     private void SetupHttpResponse(string responseContent)
     {
         var response = new HttpResponseMessage(HttpStatusCode.OK)
@@ -243,6 +333,20 @@ public class GroqServiceWithCacheTests
                     PlanExpiresAt = null
                 }
             }.BuildMockDbSet().Object);
+    }
+
+    private void SetupFeatureUsageLogsDbSet(List<FeatureUsageLog> usageLogs)
+    {
+        _mockContext
+            .Setup(x => x.FeatureUsageLogs)
+            .Returns(usageLogs.BuildMockDbSet().Object);
+    }
+
+    private void SetupNotificationsDbSet(List<Notification> notifications)
+    {
+        _mockContext
+            .Setup(x => x.Notifications)
+            .Returns(notifications.BuildMockDbSet().Object);
     }
 
     private static string CreateGroqResponse(string content, string finishReason = "stop")

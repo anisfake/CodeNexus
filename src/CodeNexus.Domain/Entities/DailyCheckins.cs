@@ -9,8 +9,8 @@ namespace CodeNexus.Domain.Entities
     public class DailyCheckins
     {
         public Guid CheckinId { get; set; }
-        public Guid SessionId { get; set; }
-        public virtual FocusSession FocusSession { get; set; } = null!;
+        public Guid UserId { get; set; }
+        public virtual User User { get; set; } = null!;
 
         public DateTime CheckinDate { get; set; }
         public string? Mood { get; set; }

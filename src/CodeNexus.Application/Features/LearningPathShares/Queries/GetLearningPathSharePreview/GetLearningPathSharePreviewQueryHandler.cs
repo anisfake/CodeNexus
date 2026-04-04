@@ -42,7 +42,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
 
         if (!string.Equals(student.Role?.RoleName, "Student", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<LearningPathSharePreviewDto>.Failure("ACCESS_DENIED", "Only students can preview shared learning paths.");
+            return Result<LearningPathSharePreviewDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var share = await _context.LearningPathShares
@@ -84,7 +84,9 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                     g.GoalId,
                     g.Goal.Title,
                     g.Weight,
-                    g.Goal.DurationInDays
+                    g.Goal.DurationInDays,
+                    "NotStarted",
+                    null
                 )).ToList(),
             learningPath.StartDate,
             learningPath.EndDate,
@@ -122,7 +124,9 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),
-            learningPath.CreatedAt
+            learningPath.CreatedAt,
+            learningPath.ComplexityLevel,
+            learningPath.Language
         );
 
         return Result<LearningPathSharePreviewDto>.Success(new LearningPathSharePreviewDto(

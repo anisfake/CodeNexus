@@ -29,7 +29,7 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
 
         if (user == null || user.Role?.RoleName != "Mentor")
         {
-            return Result<SubjectDto>.Failure("UNAUTHORIZED", "Only mentors can add subjects.");
+            return Result<SubjectDto>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
         var existingSubject = await _context.Subjects

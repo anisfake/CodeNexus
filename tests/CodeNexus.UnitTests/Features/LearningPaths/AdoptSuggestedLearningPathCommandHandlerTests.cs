@@ -135,6 +135,54 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenSuggestedPathBelongsToCurrentUser_ShouldReturnFailure()
+    {
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var suggestedPathId = Guid.NewGuid();
+        var goalId = Guid.NewGuid();
+        var command = new AdoptSuggestedLearningPathCommand(
+            suggestedPathId,
+            subjectId,
+            new List<LearningPathGoalRequest> { new(goalId, 1m) },
+            ComplexityLevel.Beginner,
+            LanguageSelection.English);
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Subjects).Returns(new[] { new Subject { SubjectId = subjectId, Name = "Python" } }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Goals).Returns(new[]
+        {
+            new CodeNexus.Domain.Entities.Goals
+            {
+                GoalId = goalId,
+                Title = "Build API",
+                IsSystemDefined = false,
+                CreatedByUserId = userId,
+                IsActive = true,
+                Duration = GoalDuration.OneMonth
+            }
+        }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SubjectGoals).Returns(new List<SubjectGoal>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new[]
+        {
+            new LearningPath
+            {
+                PathId = suggestedPathId,
+                SubjectId = subjectId,
+                ComplexityLevel = ComplexityLevel.Beginner,
+                Language = LanguageSelection.English,
+                Title = "My own path",
+                UserId = userId
+            }
+        }.BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("CANNOT_ADOPT_OWN_PATH", result.ErrorCode);
+    }
+
+    [Fact]
     public async Task Handle_WithValidInputs_ShouldCloneSuggestedPathAndRecalculateSchedule()
     {
         var userId = Guid.NewGuid();

@@ -24,6 +24,11 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
             query = query.Where(x => x.UsageType == request.UsageType.Value);
         }
 
+        if (request.AccessTierUsed.HasValue)
+        {
+            query = query.Where(x => x.AccessTierUsed == request.AccessTierUsed.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.ProviderName))
         {
             var provider = request.ProviderName.Trim().ToLower();
@@ -63,7 +68,9 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
             .Take(request.PageSize)
             .Select(x => new AIUsageLogResponse(
                 x.UsageLogId,
+                x.UserId,
                 x.UsageType,
+                x.AccessTierUsed,
                 x.ProviderName,
                 x.Model,
                 x.InputTokens,

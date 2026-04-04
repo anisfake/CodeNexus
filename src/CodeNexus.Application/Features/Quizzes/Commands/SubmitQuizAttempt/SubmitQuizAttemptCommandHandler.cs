@@ -1,8 +1,10 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Quizzes.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,6 +29,9 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
 
         var attempt = await _context.QuizAttempts
             .Include(a => a.Quiz)
+                .ThenInclude(q => q.Lesson)
+                .ThenInclude(l => l.Chapter)
+            .Include(a => a.Quiz)
                 .ThenInclude(q => q.Questions)
             .FirstOrDefaultAsync(a => a.AttemptId == request.AttemptId, cancellationToken);
 
@@ -34,7 +39,7 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
             return Result<SubmitQuizResultDto>.Failure("ATTEMPT_NOT_FOUND", "Quiz attempt not found");
 
         if (attempt.UserId != userId)
-            return Result<SubmitQuizResultDto>.Failure("UNAUTHORIZED", "You do not have access to this attempt");
+            return Result<SubmitQuizResultDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
         if (attempt.Status != QuizAttemptStatus.InProgress)
             return Result<SubmitQuizResultDto>.Failure("ATTEMPT_ALREADY_COMPLETED", "This attempt has already been submitted");
@@ -80,7 +85,29 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         attempt.Status = passed ? QuizAttemptStatus.Passed : QuizAttemptStatus.NotPassed;
         attempt.Answers = System.Text.Json.JsonSerializer.Serialize(request.Answers);
 
+        await UpsertDailyCheckinForQuizAsync(userId, passed, percentage, cancellationToken);
+
         await _context.SaveChangesAsync(cancellationToken);
+
+        if (attempt.Quiz.Lesson?.Chapter != null)
+        {
+            var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
+                _context,
+                attempt.Quiz.Lesson.Chapter.ChapterId,
+                userId,
+                cancellationToken);
+
+            var hasGoalProgressChanges = await UserGoalProgressSyncHelper.SyncForLearningPathAsync(
+                _context,
+                attempt.Quiz.Lesson.Chapter.PathId,
+                userId,
+                cancellationToken);
+
+            if (hasGoalProgressChanges || hasChapterCompletionChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         return Result<SubmitQuizResultDto>.Success(new SubmitQuizResultDto(
             attempt.AttemptId,
@@ -128,5 +155,36 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
     private static string NormalizeAnswer(string answer)
     {
         return string.Join(",", answer.Split(',').Select(s => s.Trim()));
+    }
+
+    private async Task UpsertDailyCheckinForQuizAsync(
+        Guid userId,
+        bool passed,
+        decimal percentage,
+        CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+        var existing = await _context.DailyCheckins
+            .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
+
+        var evaluated = DailyCheckinEvaluationHelper.EvaluateQuizAttempt(passed, percentage);
+
+        if (existing == null)
+        {
+            _context.DailyCheckins.Add(new DailyCheckins
+            {
+                CheckinId = NewId.NextGuid(),
+                UserId = userId,
+                CheckinDate = today,
+                Mood = evaluated.Mood,
+                Productivity = evaluated.Productivity,
+                CreatedAt = DateTime.UtcNow
+            });
+            return;
+        }
+
+        var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, evaluated.Productivity);
+        existing.Mood = merged.Mood;
+        existing.Productivity = merged.Productivity;
     }
 }
