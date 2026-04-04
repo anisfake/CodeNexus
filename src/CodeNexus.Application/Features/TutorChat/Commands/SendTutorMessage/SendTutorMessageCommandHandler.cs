@@ -6,11 +6,20 @@ using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 namespace CodeNexus.Application.Features.TutorChat.Commands.SendTutorMessage;
 
 public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCommand, Result<TutorChatResponseDto>>
 {
+    private const int RecentHistoryWindowSize = 12;
+    private const int OlderHistoryDigestWindowSize = 18;
+    private const int DigestLineLimit = 8;
+    private const int HistoryMessageCharLimit = 260;
+    private const int LearningPathDescriptionCharLimit = 600;
+    private const int ChapterContentCharLimit = 1800;
+    private const int LessonContentCharLimit = 2200;
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IAIGeneratorService _aiGeneratorService;
@@ -40,6 +49,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         {
             return Result<TutorChatResponseDto>.Failure("EMPTY_MESSAGE", "Message is required");
         }
+        var normalizedUserMessage = request.Message.Trim();
 
         var tutorLimitCheck = await _planUsageLimitService.CheckTutorMessageAllowedAsync(userId, cancellationToken);
         if (!tutorLimitCheck.IsSuccess)
@@ -106,7 +116,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 ConversationId = NewId.NextGuid(),
                 UserId = userId,
                 ConfigId = config.ConfigId,
-                Title = BuildConversationTitle(contextData.Value!, request.Message),
+                Title = BuildConversationTitle(contextData.Value!, normalizedUserMessage),
                 CreatedAt = DateTime.UtcNow,
                 MessageCount = 0,
                 IsDeleted = false,
@@ -122,20 +132,12 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             ApplyConversationContext(conversation, contextData.Value!);
         }
 
-        var history = await _context.Messages
-            .AsNoTracking()
-            .Where(m => m.ConversationId == conversation.ConversationId)
-            .OrderByDescending(m => m.CreatedAt)
-            .Take(6)
-            .Select(m => m.Content)
-            .ToListAsync(cancellationToken);
-
-        history.Reverse();
+        var historySnapshot = await LoadConversationHistorySnapshotAsync(conversation.ConversationId, cancellationToken);
 
         var prompt = BuildTutorPrompt(
             contextData.Value!,
-            request.Message.Trim(),
-            history);
+            normalizedUserMessage,
+            historySnapshot);
 
         string assistantReply;
         try
@@ -151,7 +153,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         {
             MessageId = NewId.NextGuid(),
             ConversationId = conversation.ConversationId,
-            Content = $"USER: {request.Message.Trim()}",
+            Content = $"USER: {normalizedUserMessage}",
             CreatedAt = DateTime.UtcNow
         };
 
@@ -340,11 +342,57 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         ));
     }
 
-    private static string BuildTutorPrompt(TutorContext context, string userMessage, List<string> history)
+    private async Task<ConversationHistorySnapshot> LoadConversationHistorySnapshotAsync(
+        Guid conversationId,
+        CancellationToken cancellationToken)
     {
-        var historyText = history.Count == 0
+        var totalMessages = await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .CountAsync(cancellationToken);
+
+        var recentMessages = await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Take(RecentHistoryWindowSize)
+            .Select(m => m.Content)
+            .ToListAsync(cancellationToken);
+
+        recentMessages.Reverse();
+
+        var compactRecent = recentMessages
+            .Select(message => CompactMessage(message, HistoryMessageCharLimit))
+            .ToList();
+
+        if (totalMessages <= RecentHistoryWindowSize)
+        {
+            return new ConversationHistorySnapshot(totalMessages, compactRecent, null);
+        }
+
+        var olderMessages = await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId)
+            .OrderByDescending(m => m.CreatedAt)
+            .Skip(RecentHistoryWindowSize)
+            .Take(OlderHistoryDigestWindowSize)
+            .Select(m => m.Content)
+            .ToListAsync(cancellationToken);
+
+        olderMessages.Reverse();
+
+        var olderSummary = BuildOlderHistorySummary(
+            olderMessages,
+            Math.Max(totalMessages - RecentHistoryWindowSize, 0));
+
+        return new ConversationHistorySnapshot(totalMessages, compactRecent, olderSummary);
+    }
+
+    private static string BuildTutorPrompt(TutorContext context, string userMessage, ConversationHistorySnapshot historySnapshot)
+    {
+        var historyText = historySnapshot.RecentMessages.Count == 0
             ? "No prior messages."
-            : string.Join("\n", history);
+            : string.Join("\n", historySnapshot.RecentMessages);
 
         var languageInstruction = context.Language switch
         {
@@ -357,22 +405,39 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             ? "N/A"
             : string.Join("\n", context.ChapterLessonTitles.Select(title => $"- {title}"));
 
+        var learningPathDescription = ClipContent(context.LearningPathDescription, LearningPathDescriptionCharLimit);
+        var chapterContent = ClipContent(context.ChapterContent, ChapterContentCharLimit);
+        var lessonContent = ClipContent(context.LessonContent, LessonContentCharLimit);
+        var goals = context.Goals.Count == 0
+            ? "N/A"
+            : string.Join(", ", context.Goals.Take(5));
+
+        var olderConversationSummary = string.IsNullOrWhiteSpace(historySnapshot.OlderSummary)
+            ? "N/A"
+            : historySnapshot.OlderSummary;
+
         return $@"You are a friendly tutor helping a student follow their learning path.
 {languageInstruction}
 
 CONTEXT:
 Subject: {context.SubjectName ?? "N/A"}
 Learning Path: {context.LearningPathTitle ?? "N/A"}
-Learning Path Description: {context.LearningPathDescription ?? "N/A"}
-Goals: {(context.Goals.Count == 0 ? "N/A" : string.Join(", ", context.Goals))}
+Learning Path Description (summary): {learningPathDescription}
+Goals: {goals}
 Current Chapter: {context.ChapterTitle ?? "N/A"}
-Chapter Content: {context.ChapterContent ?? "N/A"}
+Chapter Content (summary): {chapterContent}
 Chapter Lessons:
 {chapterLessonOutline}
 Active Lesson: {context.LessonTitle ?? "N/A"}
-Active Lesson Content: {context.LessonContent ?? "N/A"}
+Active Lesson Content (summary): {lessonContent}
 
 CONVERSATION HISTORY:
+Conversation Length: {historySnapshot.TotalMessages} messages in this chapter session.
+
+Older Messages Summary:
+{olderConversationSummary}
+
+Recent Messages (most relevant):
 {historyText}
 
 USER QUESTION:
@@ -382,9 +447,69 @@ INSTRUCTIONS:
 - Focus on the current chapter by default.
 - If Active Lesson is available, prioritize that lesson for concrete details.
 - If the question spans multiple lessons in this chapter, synthesize them clearly.
-- Explain clearly and concisely.
+- Keep answers concise by default (target 6-10 bullet points or around 150-250 words).
 - Provide short examples when helpful.
-- If the question is out of this chapter's scope, gently ask the student to switch to the correct chapter conversation.";
+- If the question references previous lessons, connect the answer to recent chapter history before explaining new content.
+- If the question is out of this chapter's scope, gently ask the student to switch to the correct chapter conversation.
+- If details are missing due to summarized context, ask for a short excerpt from the lesson content before answering deeply.";
+    }
+
+    private static string BuildOlderHistorySummary(List<string> olderMessages, int olderMessageCount)
+    {
+        if (olderMessages.Count == 0 || olderMessageCount <= 0)
+        {
+            return "N/A";
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine($"Older context ({olderMessageCount} earlier messages) in compact form:");
+
+        foreach (var line in olderMessages.Take(DigestLineLimit))
+        {
+            builder.Append("- ");
+            builder.AppendLine(CompactMessage(line, 180));
+        }
+
+        if (olderMessages.Count > DigestLineLimit)
+        {
+            builder.AppendLine("- ...");
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static string CompactMessage(string content, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return string.Empty;
+        }
+
+        var normalized = string.Join(" ", content
+            .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
+
+        if (normalized.Length <= maxChars)
+        {
+            return normalized;
+        }
+
+        return normalized.Substring(0, maxChars) + "...";
+    }
+
+    private static string ClipContent(string? content, int maxChars)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return "N/A";
+        }
+
+        var trimmed = content.Trim();
+        if (trimmed.Length <= maxChars)
+        {
+            return trimmed;
+        }
+
+        return trimmed.Substring(0, maxChars) + "...";
     }
 
     private sealed record TutorContext(
@@ -402,6 +527,11 @@ INSTRUCTIONS:
         string? LessonTitle,
         string? LessonContent
     );
+
+    private sealed record ConversationHistorySnapshot(
+        int TotalMessages,
+        List<string> RecentMessages,
+        string? OlderSummary);
 
     private static (Guid? LearningPathId, Guid? ChapterId, Guid? LessonId) ResolveRequestedContextIds(
         SendTutorMessageCommand request,
