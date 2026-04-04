@@ -12,17 +12,13 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
 {
     private readonly IApplicationDbContext _context;
     private readonly IEncryptionService _encryptionService;
-    private readonly IMemoryCache _cache;
-    private const string CACHE_KEY_ALL = "ai_configs_all";
 
     public UpdateAIConfigCommandHandler(
         IApplicationDbContext context,
-        IEncryptionService encryptionService,
-        IMemoryCache cache)
+        IEncryptionService encryptionService)
     {
         _context = context;
         _encryptionService = encryptionService;
-        _cache = cache;
     }
 
     public async Task<Result<UpdateAIConfigResponse>> Handle(UpdateAIConfigCommand request, CancellationToken cancellationToken)
@@ -34,6 +30,31 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
 
             if (config == null)
                 return Result<UpdateAIConfigResponse>.Failure("CONFIG_NOT_FOUND", $"Config with ID '{request.ConfigId}' not found");
+
+            var targetUsageType = request.UsageType ?? config.UsageType;
+            var targetAccessTier = request.AccessTier ?? config.AccessTier;
+            var targetIsActive = request.IsActive ?? config.IsActive;
+
+            if (targetIsActive)
+            {
+                var sameGroupActive = await _context.AIProviderConfigs
+                    .Where(x => x.ConfigId != config.ConfigId
+                                && x.UsageType == targetUsageType
+                                && x.AccessTier == targetAccessTier
+                                && x.IsActive)
+                    .ToListAsync(cancellationToken);
+
+                foreach (var item in sameGroupActive)
+                {
+                    item.IsActive = false;
+                    item.LastUpdated = DateTime.UtcNow;
+                }
+
+                if (sameGroupActive.Count > 0)
+                {
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+            }
 
             if (request.ApiKey != null)
             {
@@ -50,42 +71,13 @@ public class UpdateAIConfigCommandHandler : IRequestHandler<UpdateAIConfigComman
                 config.ConfigJson = JsonSerializer.Serialize(request.ConfigJson);
             }
 
-            if (request.IsActive.HasValue)
-            {
-                config.IsActive = request.IsActive.Value;
-            }
-
-            if (request.UsageType.HasValue)
-            {
-                config.UsageType = request.UsageType.Value;
-            }
-
-            if (request.AccessTier.HasValue)
-            {
-                config.AccessTier = request.AccessTier.Value;
-            }
-
-            if (config.IsActive)
-            {
-                var sameGroupActive = await _context.AIProviderConfigs
-                    .Where(x => x.ConfigId != config.ConfigId
-                                && x.UsageType == config.UsageType
-                                && x.AccessTier == config.AccessTier
-                                && x.IsActive)
-                    .ToListAsync(cancellationToken);
-
-                foreach (var item in sameGroupActive)
-                {
-                    item.IsActive = false;
-                    item.LastUpdated = DateTime.UtcNow;
-                }
-            }
+            config.IsActive = targetIsActive;
+            config.UsageType = targetUsageType;
+            config.AccessTier = targetAccessTier;
 
             config.LastUpdated = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
-
-            _cache.Remove(CACHE_KEY_ALL);
 
             return Result<UpdateAIConfigResponse>.Success(new UpdateAIConfigResponse(
                 "Config updated successfully",

@@ -2,7 +2,7 @@ using MediatR;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
+using Microsoft.EntityFrameworkCore.Update;
 
 namespace CodeNexus.Application.Features.AIConfigs.Commands.SetActiveConfig;
 
@@ -42,12 +42,27 @@ public class SetActiveConfigCommandHandler : IRequestHandler<SetActiveConfigComm
                 item.LastUpdated = DateTime.UtcNow;
             }
 
-            config.IsActive = true;
+            if (sameGroupActive.Count > 0)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
+            if (!config.IsActive)
+            {
+                config.IsActive = true;
+            }
+
             config.LastUpdated = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 
             return Result<string>.Success($"Config '{config.ProviderName}' is active for {targetUsageType} ({targetAccessTier})");
+        }
+        catch (DbUpdateException ex) when (ex.InnerException?.Message.Contains("IX_AIProviderConfigs_UsageType_AccessTier", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return Result<string>.Failure(
+                "SET_ACTIVE_CONFLICT",
+                "Cannot activate this API key because another key in the same usage tier is currently active. Please try again.");
         }
         catch (Exception ex)
         {
