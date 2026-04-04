@@ -325,6 +325,17 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 .ToListAsync(cancellationToken);
         }
 
+        var learningPathChapterTitles = new List<string>();
+        if (learningPath != null)
+        {
+            learningPathChapterTitles = await _context.Chapters
+                .AsNoTracking()
+                .Where(c => c.PathId == learningPath.PathId && !c.IsDeleted)
+                .OrderBy(c => c.OrderIndex)
+                .Select(c => $"{c.OrderIndex}. {c.Title}")
+                .ToListAsync(cancellationToken);
+        }
+
         return Result<TutorContext>.Success(new TutorContext(
             learningPath?.Subject?.Name,
             learningPath?.Title,
@@ -335,6 +346,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             chapter?.ChapterId,
             chapter?.Title,
             chapter?.Content,
+            learningPathChapterTitles,
             chapterLessonTitles,
             lesson?.LessonId,
             lesson?.Title,
@@ -405,6 +417,10 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             ? "N/A"
             : string.Join("\n", context.ChapterLessonTitles.Select(title => $"- {title}"));
 
+        var chapterPathOutline = context.LearningPathChapterTitles.Count == 0
+            ? "N/A"
+            : string.Join("\n", context.LearningPathChapterTitles.Select(title => $"- {title}"));
+
         var learningPathDescription = ClipContent(context.LearningPathDescription, LearningPathDescriptionCharLimit);
         var chapterContent = ClipContent(context.ChapterContent, ChapterContentCharLimit);
         var lessonContent = ClipContent(context.LessonContent, LessonContentCharLimit);
@@ -426,6 +442,9 @@ Learning Path Description (summary): {learningPathDescription}
 Goals: {goals}
 Current Chapter: {context.ChapterTitle ?? "N/A"}
 Chapter Content (summary): {chapterContent}
+Learning Path Chapters (exact titles):
+{chapterPathOutline}
+
 Chapter Lessons:
 {chapterLessonOutline}
 Active Lesson: {context.LessonTitle ?? "N/A"}
@@ -451,6 +470,8 @@ INSTRUCTIONS:
 - Provide short examples when helpful.
 - If the question references previous lessons, connect the answer to recent chapter history before explaining new content.
 - If the question is out of this chapter's scope, gently ask the student to switch to the correct chapter conversation.
+- If you mention a chapter by name/index, only use titles from 'Learning Path Chapters (exact titles)'.
+- Never invent chapter titles, chapter indexes, or roadmap structure not present in provided context.
 - If details are missing due to summarized context, ask for a short excerpt from the lesson content before answering deeply.";
     }
 
@@ -522,6 +543,7 @@ INSTRUCTIONS:
         Guid? ChapterId,
         string? ChapterTitle,
         string? ChapterContent,
+        List<string> LearningPathChapterTitles,
         List<string> ChapterLessonTitles,
         Guid? LessonId,
         string? LessonTitle,

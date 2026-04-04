@@ -65,6 +65,7 @@ public class SendTutorMessageCommandHandlerTests
                 LearningPathGoals = new List<LearningPathGoal>()
             }
         }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
 
         var conversations = new List<Conversation>
         {
@@ -164,6 +165,18 @@ public class SendTutorMessageCommandHandlerTests
                         LearningPathGoals = new List<LearningPathGoal>()
                     }
                 }
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Chapters).Returns(new[]
+        {
+            new Chapter
+            {
+                ChapterId = chapterId,
+                PathId = pathId,
+                OrderIndex = 2,
+                Title = "Nguyên tắc thiết kế với C#",
+                IsDeleted = false
             }
         }.BuildMockDbSet().Object);
 
