@@ -2,7 +2,6 @@ using MediatR;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AIConfigs.DTOs;
 using CodeNexus.Domain.Entities;
-using Microsoft.Extensions.Caching.Memory;
 using CodeNexus.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;

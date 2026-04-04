@@ -5,7 +5,6 @@ using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Moq;
 
 namespace CodeNexus.UnitTests.Features.AIConfigs;
@@ -14,18 +13,15 @@ public class CreateAIConfigCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<IEncryptionService> _mockEncryptionService;
-    private readonly Mock<IMemoryCache> _mockCache;
     private readonly CreateAIConfigCommandHandler _handler;
 
     public CreateAIConfigCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockEncryptionService = new Mock<IEncryptionService>();
-        _mockCache = new Mock<IMemoryCache>();
         _handler = new CreateAIConfigCommandHandler(
             _mockContext.Object,
-            _mockEncryptionService.Object,
-            _mockCache.Object
+            _mockEncryptionService.Object
         );
     }
 
@@ -148,31 +144,6 @@ public class CreateAIConfigCommandHandlerTests
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ERROR");
         result.ErrorMessage.Should().Contain("Database error");
-    }
-
-    [Fact]
-    public async Task Handle_ShouldClearCache_AfterCreatingConfig()
-    {
-        // Arrange
-        var command = new CreateAIConfigCommand(
-            "NewProvider",
-            "api-key",
-            new Dictionary<string, object>(),
-            AIUsageType.StructureGeneration,
-            AIAccessTier.Free,
-            true
-        );
-
-        SetupAIProviderConfigsDbSet(new List<AIProviderConfig>());
-        _mockEncryptionService.Setup(x => x.Encrypt(It.IsAny<string>())).Returns("encrypted-key");
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsSuccess.Should().BeTrue();
-        _mockCache.Verify(x => x.Remove("ai_configs_all"), Times.Once);
     }
 
     private void SetupAIProviderConfigsDbSet(List<AIProviderConfig> configs)

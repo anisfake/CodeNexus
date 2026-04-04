@@ -2,7 +2,6 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AIConfigs.Commands.UpdateAIConfig;
 using CodeNexus.Domain.Entities;
 using CodeNexus.UnitTests.Helpers;
-using Microsoft.Extensions.Caching.Memory;
 using Moq;
 using Xunit;
 using Microsoft.EntityFrameworkCore;
@@ -13,18 +12,15 @@ public class UpdateAIConfigCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<IEncryptionService> _mockEncryptionService;
-    private readonly Mock<IMemoryCache> _mockCache;
     private readonly UpdateAIConfigCommandHandler _handler;
 
     public UpdateAIConfigCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockEncryptionService = new Mock<IEncryptionService>();
-        _mockCache = new Mock<IMemoryCache>();
         _handler = new UpdateAIConfigCommandHandler(
             _mockContext.Object,
-            _mockEncryptionService.Object,
-            _mockCache.Object);
+            _mockEncryptionService.Object);
     }
 
     [Fact]
