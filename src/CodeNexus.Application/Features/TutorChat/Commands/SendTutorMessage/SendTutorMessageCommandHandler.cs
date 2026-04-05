@@ -38,17 +38,20 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
     private readonly ICurrentUserService _currentUserService;
     private readonly IAIGeneratorService _aiGeneratorService;
     private readonly IPlanUsageLimitService _planUsageLimitService;
+    private readonly ISubscriptionAccessService _subscriptionAccessService;
 
     public SendTutorMessageCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         IAIGeneratorService aiGeneratorService,
-        IPlanUsageLimitService planUsageLimitService)
+        IPlanUsageLimitService planUsageLimitService,
+        ISubscriptionAccessService subscriptionAccessService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _aiGeneratorService = aiGeneratorService;
         _planUsageLimitService = planUsageLimitService;
+        _subscriptionAccessService = subscriptionAccessService;
     }
 
     public async Task<Result<TutorChatResponseDto>> Handle(SendTutorMessageCommand request, CancellationToken cancellationToken)
@@ -73,9 +76,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 tutorLimitCheck.ErrorMessage!);
         }
 
-        var config = await _context.AIProviderConfigs
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.UsageType == AIUsageType.Assistant && c.IsActive, cancellationToken);
+        var config = await ResolveActiveAssistantConfigAsync(userId, cancellationToken);
 
         if (config == null)
         {
@@ -256,6 +257,53 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         }
 
         return Result.Success();
+    }
+
+    private async Task<AIProviderConfig?> ResolveActiveAssistantConfigAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId, cancellationToken);
+        var preferredTier = canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+
+        var preferred = await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c =>
+                c.UsageType == AIUsageType.Assistant
+                && c.AccessTier == preferredTier
+                && c.IsActive)
+            .OrderByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (preferred != null)
+        {
+            return preferred;
+        }
+
+        var fallbackTier = preferredTier == AIAccessTier.Paid ? AIAccessTier.Free : AIAccessTier.Paid;
+
+        var fallback = await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c =>
+                c.UsageType == AIUsageType.Assistant
+                && c.AccessTier == fallbackTier
+                && c.IsActive)
+            .OrderByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (fallback != null)
+        {
+            return fallback;
+        }
+
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.UsageType == AIUsageType.Assistant && c.IsActive)
+            .OrderByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
     }
 
     private static void ApplyConversationContext(Conversation conversation, TutorContext context)

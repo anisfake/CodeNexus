@@ -15,6 +15,7 @@ public class SendTutorMessageCommandHandlerTests
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<IAIGeneratorService> _mockAiGenerator;
     private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
+    private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
     private readonly SendTutorMessageCommandHandler _handler;
 
     public SendTutorMessageCommandHandlerTests()
@@ -23,8 +24,11 @@ public class SendTutorMessageCommandHandlerTests
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockAiGenerator = new Mock<IAIGeneratorService>();
         _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
         _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
+        _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
         _mockContext.Setup(x => x.ConversationSummaries)
             .Returns(new List<ConversationSummary>().BuildMockDbSet().Object);
 
@@ -32,7 +36,8 @@ public class SendTutorMessageCommandHandlerTests
             _mockContext.Object,
             _mockCurrentUserService.Object,
             _mockAiGenerator.Object,
-            _mockPlanUsageLimitService.Object);
+            _mockPlanUsageLimitService.Object,
+            _mockSubscriptionAccessService.Object);
     }
 
     [Fact]
