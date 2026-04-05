@@ -52,8 +52,6 @@ public class GetLearningPathShareUpdateContextQueryHandler
             .AsNoTracking()
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
-            .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks)
             .FirstOrDefaultAsync(lp => lp.PathId == share.PathId, cancellationToken);
 
         if (sourcePath == null)
@@ -68,8 +66,6 @@ public class GetLearningPathShareUpdateContextQueryHandler
                 .AsNoTracking()
                 .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                     .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
-                .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                    .ThenInclude(c => c.Tasks)
                 .FirstOrDefaultAsync(
                     lp => lp.PathId == share.AcceptedPathId.Value && lp.UserId == studentId,
                     cancellationToken);
@@ -180,62 +176,8 @@ public class GetLearningPathShareUpdateContextQueryHandler
 
         var updatedLessons = sourceLessonMap.Keys
             .Intersect(currentLessonMap.Keys)
-            .Where(key => !TextEquals(sourceLessonMap[key].Title, currentLessonMap[key].Title)
-                          || !TextEquals(sourceLessonMap[key].Content, currentLessonMap[key].Content))
+            .Where(key => !TextEquals(sourceLessonMap[key].Title, currentLessonMap[key].Title))
             .Select(key => sourceLessonMap[key].Label)
-            .ToList();
-
-        var sourceTasks = sourceChapters
-            .SelectMany(c => c.Tasks.Select(t => new
-            {
-                Key = BuildTaskKey(c.OrderIndex, t.TaskType, t.Title),
-                Label = $"{c.Title} > {t.Title}",
-                t.Description,
-                t.Priority,
-                t.VerificationPrompt,
-                t.MinimumScore,
-                t.QuizQuestionsJson
-            }))
-            .ToList();
-
-        var currentTasks = currentChapters
-            .SelectMany(c => c.Tasks.Select(t => new
-            {
-                Key = BuildTaskKey(c.OrderIndex, t.TaskType, t.Title),
-                Label = $"{c.Title} > {t.Title}",
-                t.Description,
-                t.Priority,
-                t.VerificationPrompt,
-                t.MinimumScore,
-                t.QuizQuestionsJson
-            }))
-            .ToList();
-
-        var sourceTaskMap = sourceTasks
-            .GroupBy(x => x.Key)
-            .ToDictionary(g => g.Key, g => g.First());
-        var currentTaskMap = currentTasks
-            .GroupBy(x => x.Key)
-            .ToDictionary(g => g.Key, g => g.First());
-
-        var addedTasks = sourceTaskMap.Keys
-            .Except(currentTaskMap.Keys)
-            .Select(key => sourceTaskMap[key].Label)
-            .ToList();
-
-        var removedTasks = currentTaskMap.Keys
-            .Except(sourceTaskMap.Keys)
-            .Select(key => currentTaskMap[key].Label)
-            .ToList();
-
-        var updatedTasks = sourceTaskMap.Keys
-            .Intersect(currentTaskMap.Keys)
-            .Where(key => !TextEquals(sourceTaskMap[key].Description, currentTaskMap[key].Description)
-                          || sourceTaskMap[key].Priority != currentTaskMap[key].Priority
-                          || !TextEquals(sourceTaskMap[key].VerificationPrompt, currentTaskMap[key].VerificationPrompt)
-                          || sourceTaskMap[key].MinimumScore != currentTaskMap[key].MinimumScore
-                          || !TextEquals(sourceTaskMap[key].QuizQuestionsJson, currentTaskMap[key].QuizQuestionsJson))
-            .Select(key => sourceTaskMap[key].Label)
             .ToList();
 
         return new LearningPathShareUpdateChangeSummaryDto(
@@ -245,18 +187,12 @@ public class GetLearningPathShareUpdateContextQueryHandler
             addedLessons.Count,
             removedLessons.Count,
             updatedLessons.Count,
-            addedTasks.Count,
-            removedTasks.Count,
-            updatedTasks.Count,
             SortDistinct(addedChapters),
             SortDistinct(removedChapters),
             SortDistinct(updatedChapters),
             SortDistinct(addedLessons),
             SortDistinct(removedLessons),
-            SortDistinct(updatedLessons),
-            SortDistinct(addedTasks),
-            SortDistinct(removedTasks),
-            SortDistinct(updatedTasks)
+            SortDistinct(updatedLessons)
         );
     }
 
@@ -265,19 +201,6 @@ public class GetLearningPathShareUpdateContextQueryHandler
         var normalizedLeft = string.IsNullOrWhiteSpace(left) ? string.Empty : left.Trim();
         var normalizedRight = string.IsNullOrWhiteSpace(right) ? string.Empty : right.Trim();
         return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string BuildTaskKey(int chapterOrder, TaskType taskType, string taskTitle)
-        => $"{chapterOrder}|{(int)taskType}|{Normalize(taskTitle)}";
-
-    private static string Normalize(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static List<string> SortDistinct(List<string> items)
