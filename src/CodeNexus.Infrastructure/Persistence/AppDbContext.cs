@@ -367,6 +367,9 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(p => p.ComplexityLevel)
                       .HasConversion<string>();
 
+                entity.Property(p => p.VersionNumber)
+                      .HasDefaultValue(1);
+
                 entity.HasOne(p => p.Subject)
                       .WithMany(s => s.LearningPaths)
                       .HasForeignKey(p => p.SubjectId)
@@ -807,7 +810,15 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.Status)
                       .HasConversion<string>();
 
+                entity.Property(e => e.IsTrackingEnabled)
+                      .HasDefaultValue(true);
+
+                entity.Property(e => e.InvalidatedReason)
+                      .HasMaxLength(100);
+
                 entity.HasIndex(e => new { e.StudentId, e.Status, e.SentAt });
+                entity.HasIndex(e => e.AcceptedPathId);
+                entity.HasIndex(e => new { e.PathId, e.StudentId, e.Status, e.IsTrackingEnabled });
                 entity.HasIndex(e => new { e.PathId, e.MentorId, e.StudentId })
                       .IsUnique()
                       .HasFilter("[Status] = 'Pending'");
@@ -816,6 +827,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany()
                       .HasForeignKey(e => e.PathId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.AcceptedPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.AcceptedPathId)
+                      .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(e => e.Mentor)
                       .WithMany()

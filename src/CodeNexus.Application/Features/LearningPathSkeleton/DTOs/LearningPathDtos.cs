@@ -149,9 +149,61 @@ public record LearningPathResponse(
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
     DateTime CreatedAt,
-    ComplexityLevel? ComplexityLevel = null,
-    LanguageSelection? LanguageSelection = null
-);
+    ComplexityLevel? ComplexityLevel,
+    LanguageSelection? LanguageSelection,
+    Guid? SharedByUserId,
+    string? SharedByUserName,
+    Guid? SourceLearningPathId,
+    int? SourceVersion,
+    int? SourceLatestVersion,
+    bool HasSourceUpdate
+)
+{
+    public LearningPathResponse(
+        Guid PathId,
+        Guid SubjectId,
+        string SubjectName,
+        List<LearningPathGoalDto> Goals,
+        DateTime? StartDate,
+        DateTime? EndDate,
+        string Title,
+        string Description,
+        string Status,
+        bool CreatedByType,
+        Guid UserId,
+        string UserName,
+        List<ChapterDto> ChapterDtos,
+        int? ChapterCount,
+        DateTime CreatedAt,
+        ComplexityLevel? ComplexityLevel,
+        LanguageSelection? LanguageSelection)
+        : this(
+            PathId,
+            SubjectId,
+            SubjectName,
+            Goals,
+            StartDate,
+            EndDate,
+            Title,
+            Description,
+            Status,
+            CreatedByType,
+            UserId,
+            UserName,
+            ChapterDtos,
+            ChapterCount,
+            CreatedAt,
+            ComplexityLevel,
+            LanguageSelection,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false)
+    {
+    }
+}
 public record GetAllLearningPathRequest(
     int PageNumber = 1,
     int PageSize = 10,
