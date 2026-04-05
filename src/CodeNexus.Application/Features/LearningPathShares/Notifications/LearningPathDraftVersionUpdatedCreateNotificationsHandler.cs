@@ -48,8 +48,9 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandler
             {
                 NotificationId = NewId.NextGuid(),
                 UserId = share.StudentId,
-                Title = "LearningPath da co phien ban moi",
-                Message = $"LearningPath duoc chia se boi {notification.MentorUserName} da co phien ban moi.",
+                // Return i18n keys so FE can fully control locale switch.
+                Title = "notification.shareVersionUpdated.title",
+                Message = "notification.shareVersionUpdated.message",
                 Type = NotificationType.ShareVersionUpdated,
                 Severity = "Info",
                 Channels = "Web,Main",

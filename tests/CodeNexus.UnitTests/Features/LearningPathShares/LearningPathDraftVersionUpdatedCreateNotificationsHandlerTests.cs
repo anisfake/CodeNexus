@@ -119,6 +119,8 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandlerTests
         notifications.Should().HaveCount(1);
         notifications[0].UserId.Should().Be(shouldNotify.StudentId);
         notifications[0].Type.Should().Be(NotificationType.ShareVersionUpdated);
+        notifications[0].Title.Should().Be("notification.shareVersionUpdated.title");
+        notifications[0].Message.Should().Be("notification.shareVersionUpdated.message");
         notifications[0].TargetId.Should().Be(shouldNotify.ShareId);
         notifications[0].LearningPathId.Should().Be(shouldNotify.AcceptedPathId);
 

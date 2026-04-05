@@ -11,5 +11,6 @@ public record LearningPathShareUpdateContextDto(
     int LatestSourceVersion,
     bool HasNewVersion,
     int? IgnoredSourceVersion,
-    int? LastNotifiedSourceVersion
+    int? LastNotifiedSourceVersion,
+    LearningPathShareUpdateChangeSummaryDto? ChangeSummary
 );
