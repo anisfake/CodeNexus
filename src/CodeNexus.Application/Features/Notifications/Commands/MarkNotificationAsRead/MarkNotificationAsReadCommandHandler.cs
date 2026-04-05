@@ -29,19 +29,36 @@ public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotifica
             return Result<MarkNotificationAsReadResultDto>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
-        var notification = await _context.Notifications
-            .FirstOrDefaultAsync(x => x.NotificationId == request.NotificationId && x.UserId == userId, cancellationToken);
+        var notificationIds = request.NotificationIds
+            .Where(x => x != Guid.Empty)
+            .Distinct()
+            .ToArray();
 
-        if (notification == null)
-        {
-            return Result<MarkNotificationAsReadResultDto>.Failure("NOTIFICATION_NOT_FOUND", "Notification not found.");
-        }
+        var readAt = DateTime.UtcNow;
+        var markedCount = 0;
 
-        if (!notification.IsRead)
+        if (notificationIds.Length > 0)
         {
-            notification.IsRead = true;
-            notification.ReadAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
+            var notifications = await _context.Notifications
+                .Where(x => x.UserId == userId && notificationIds.Contains(x.NotificationId))
+                .ToListAsync(cancellationToken);
+
+            foreach (var notification in notifications)
+            {
+                if (notification.IsRead)
+                {
+                    continue;
+                }
+
+                notification.IsRead = true;
+                notification.ReadAt = readAt;
+                markedCount++;
+            }
+
+            if (markedCount > 0)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
         }
 
         var unreadCount = await _context.Notifications
@@ -49,9 +66,9 @@ public class MarkNotificationAsReadCommandHandler : IRequestHandler<MarkNotifica
             .CountAsync(x => x.UserId == userId && !x.IsRead, cancellationToken);
 
         return Result<MarkNotificationAsReadResultDto>.Success(new MarkNotificationAsReadResultDto(
-            notification.NotificationId,
-            notification.IsRead,
-            notification.ReadAt,
+            notificationIds,
+            markedCount,
+            markedCount > 0 ? readAt : null,
             unreadCount));
     }
 }

@@ -4,4 +4,4 @@ using MediatR;
 
 namespace CodeNexus.Application.Features.Notifications.Commands.MarkNotificationAsRead;
 
-public record MarkNotificationAsReadCommand(Guid NotificationId) : IRequest<Result<MarkNotificationAsReadResultDto>>;
+public record MarkNotificationAsReadCommand(IReadOnlyCollection<Guid> NotificationIds) : IRequest<Result<MarkNotificationAsReadResultDto>>;

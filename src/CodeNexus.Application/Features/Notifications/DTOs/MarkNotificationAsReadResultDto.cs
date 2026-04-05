@@ -1,8 +1,8 @@
 namespace CodeNexus.Application.Features.Notifications.DTOs;
 
 public record MarkNotificationAsReadResultDto(
-    Guid NotificationId,
-    bool IsRead,
+    IReadOnlyCollection<Guid> NotificationIds,
+    int MarkedCount,
     DateTime? ReadAt,
     int UnreadCount
 );
