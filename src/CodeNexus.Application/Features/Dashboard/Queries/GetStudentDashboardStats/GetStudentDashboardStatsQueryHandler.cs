@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Dashboard.DTOs;
 using MediatR;
@@ -70,7 +71,7 @@ public class GetStudentDashboardStatsQueryHandler
             .OrderByDescending(d => d)
             .ToListAsync(cancellationToken);
 
-        var currentStreak = CalculateStreak(checkinDates, DateTime.Today);
+        var currentStreak = CalculateStreak(checkinDates, VietnamDateTimeHelper.GetTodayDate());
 
         var response = new StudentDashboardStatsResponse(
             TotalLessons: totalLessons,

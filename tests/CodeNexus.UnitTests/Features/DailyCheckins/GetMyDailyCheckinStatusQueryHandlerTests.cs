@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckinStatus;
 using CodeNexus.Domain.Entities;
 using CodeNexus.UnitTests.Helpers;
@@ -52,7 +53,7 @@ public class GetMyDailyCheckinStatusQueryHandlerTests
     public async Task Handle_WhenHasConsecutiveCheckins_ReturnsCheckedInAndStreak()
     {
         var userId = NewId.NextGuid();
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
 
         SetupDailyCheckinsDbSet(new List<DailyCheckins>

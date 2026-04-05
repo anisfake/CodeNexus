@@ -252,7 +252,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             return;
         }
 
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         var userId = session.Task.LearningPath.UserId;
 
         var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
