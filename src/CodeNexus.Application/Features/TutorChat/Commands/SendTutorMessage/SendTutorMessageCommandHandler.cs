@@ -165,6 +165,9 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             contextData.Value!,
             normalizedUserMessage,
             historySnapshot);
+        var contextUsagePercent = CalculateContextUsagePercent(
+            historySnapshot.EstimatedPromptTokens,
+            modelTokenBudget.ContextWindow);
 
         string assistantReply;
         try
@@ -204,7 +207,8 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             userMessage.MessageId,
             assistantMessage.MessageId,
             assistantReply.Trim(),
-            assistantMessage.CreatedAt
+            assistantMessage.CreatedAt,
+            contextUsagePercent
         ));
     }
 
@@ -517,7 +521,9 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         if (activeMessages.Count == 0)
         {
             var onlySummary = BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, 0);
-            return new ConversationHistorySnapshot(totalMessages, new List<string>(), onlySummary);
+            var emptySnapshot = new ConversationHistorySnapshot(totalMessages, new List<string>(), onlySummary, 0);
+            var estimatedEmptyTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, emptySnapshot));
+            return emptySnapshot with { EstimatedPromptTokens = estimatedEmptyTokens };
         }
 
         var absoluteMinRecent = Math.Min(RecentHistoryMinMessages, activeMessages.Count);
@@ -605,7 +611,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
         }
 
-        return snapshot;
+        return snapshot with { EstimatedPromptTokens = estimatedTokens };
     }
 
     private static string BuildTutorPrompt(TutorContext context, string userMessage, ConversationHistorySnapshot historySnapshot)
@@ -710,7 +716,7 @@ INSTRUCTIONS:
             olderLineLimit,
             olderCharLimit);
 
-        return new ConversationHistorySnapshot(totalMessages, recentMessages, olderSummary);
+        return new ConversationHistorySnapshot(totalMessages, recentMessages, olderSummary, 0);
     }
 
     private static string BuildOlderHistorySummary(
@@ -824,7 +830,8 @@ INSTRUCTIONS:
             unsummarizedMessages
                 .Select(m => CompactMessage(m.Content, HistoryMessageCharLimit))
                 .ToList(),
-            BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, ArchivedSummaryPromptCharLimit));
+            BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, ArchivedSummaryPromptCharLimit),
+            0);
 
         var prompt = BuildTutorPrompt(context, userMessage, estimatedSnapshot);
         return EstimateTokenCount(prompt);
@@ -844,6 +851,17 @@ INSTRUCTIONS:
         var wordEstimate = (int)Math.Ceiling(wordCount * 1.35);
 
         return Math.Max(charEstimate, wordEstimate);
+    }
+
+    private static double CalculateContextUsagePercent(int estimatedPromptTokens, int contextWindow)
+    {
+        if (contextWindow <= 0)
+        {
+            return 0d;
+        }
+
+        var usagePercent = (estimatedPromptTokens / (double)contextWindow) * 100d;
+        return Math.Round(Math.Max(usagePercent, 0d), 2);
     }
 
     private static ModelTokenBudget ResolveModelTokenBudget(AIProviderConfig config)
@@ -1076,7 +1094,8 @@ INSTRUCTIONS:
     private sealed record ConversationHistorySnapshot(
         int TotalMessages,
         List<string> RecentMessages,
-        string? OlderSummary);
+        string? OlderSummary,
+        int EstimatedPromptTokens);
 
     private sealed record ModelTokenBudget(
         string ModelName,

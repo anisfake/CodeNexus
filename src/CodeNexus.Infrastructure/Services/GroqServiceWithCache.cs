@@ -1,10 +1,14 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Enums;
+using CodeNexus.Infrastructure.Persistence;
 using CodeNexus.Infrastructure.Services.AIProviders;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using CodeNexus.Domain.Entities;
+using MassTransit;
 
 namespace CodeNexus.Infrastructure.Services;
 
@@ -18,6 +22,8 @@ public class GroqServiceWithCache : IAIGeneratorService
     private readonly ISubscriptionAccessService _subscriptionAccessService;
     private readonly IAIAccessPolicyService _aiAccessPolicyService;
     private readonly IReadOnlyCollection<IAIProviderAdapter> _providerAdapters;
+    private readonly ILogger<GroqServiceWithCache> _logger;
+    private readonly IDbContextFactory<AppDbContext> _dbContextFactory;
 
     private const string DefaultModel = "meta-llama/llama-4-scout-17b-16e-instruct";
     private const int DefaultMaxTokens = 8192;
@@ -32,6 +38,8 @@ public class GroqServiceWithCache : IAIGeneratorService
         ICurrentUserService currentUserService,
         ISubscriptionAccessService subscriptionAccessService,
         IAIAccessPolicyService aiAccessPolicyService,
+        ILogger<GroqServiceWithCache> logger,
+        IDbContextFactory<AppDbContext> dbContextFactory,
         IEnumerable<IAIProviderAdapter>? providerAdapters = null)
     {
         _httpClient = httpClient;
@@ -41,6 +49,8 @@ public class GroqServiceWithCache : IAIGeneratorService
         _currentUserService = currentUserService;
         _subscriptionAccessService = subscriptionAccessService;
         _aiAccessPolicyService = aiAccessPolicyService;
+        _logger = logger;
+        _dbContextFactory = dbContextFactory;
         _providerAdapters = providerAdapters?.ToList()
             ?? new List<IAIProviderAdapter>
             {
@@ -257,8 +267,9 @@ public class GroqServiceWithCache : IAIGeneratorService
             var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId, cancellationToken);
             return new AccessResolution(userId, false, false, canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free, false);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "ResolveAccessResolutionAsync failed. Falling back to free tier with anonymous user.");
             return new AccessResolution(Guid.Empty, false, false, AIAccessTier.Free, false);
         }
     }
@@ -461,12 +472,17 @@ public class GroqServiceWithCache : IAIGeneratorService
         int outputTokens,
         int totalTokens)
     {
+        var usageLogId = NewId.NextGuid();
+        var featureUsageLogId = NewId.NextGuid();
+        var createdAt = DateTime.UtcNow;
+
         try
         {
             var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
 
             _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
             {
+                UsageLogId = usageLogId,
                 UserId = userId == Guid.Empty ? null : userId,
                 UsageType = usageType,
                 AccessTierUsed = accessTier,
@@ -476,26 +492,105 @@ public class GroqServiceWithCache : IAIGeneratorService
                 OutputTokens = outputTokens,
                 TotalTokens = totalTokens,
                 CostUsd = costUsd,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = createdAt
             });
 
             if (isMentor && accessTier == AIAccessTier.Paid && userId != Guid.Empty)
             {
                 _context.FeatureUsageLogs.Add(new FeatureUsageLog
                 {
-                    FeatureUsageLogId = Guid.NewGuid(),
+                    FeatureUsageLogId = featureUsageLogId,
                     UserId = userId,
                     FeatureKey = SubscriptionFeatureKey.MentorPaidAiRequests,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = createdAt
                 });
             }
 
             await _context.SaveChangesAsync();
+            return;
         }
-        catch
+        catch (Exception ex)
         {
-            // Avoid blocking AI response if logging fails.
+            _logger.LogWarning(
+                ex,
+                "Failed to persist AIUsageLog. UsageType={UsageType}, Provider={ProviderName}, Model={Model}, AccessTier={AccessTier}, UserId={UserId}, InputTokens={InputTokens}, OutputTokens={OutputTokens}, TotalTokens={TotalTokens}",
+                usageType,
+                providerName,
+                config.Model,
+                accessTier,
+                userId,
+                inputTokens,
+                outputTokens,
+                totalTokens);
         }
+
+        try
+        {
+            var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
+            await using var isolatedContext = await _dbContextFactory.CreateDbContextAsync();
+
+            isolatedContext.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
+            {
+                UsageLogId = usageLogId,
+                UserId = userId == Guid.Empty ? null : userId,
+                UsageType = usageType,
+                AccessTierUsed = accessTier,
+                ProviderName = providerName,
+                Model = config.Model,
+                InputTokens = inputTokens,
+                OutputTokens = outputTokens,
+                TotalTokens = totalTokens,
+                CostUsd = costUsd,
+                CreatedAt = createdAt
+            });
+
+            if (isMentor && accessTier == AIAccessTier.Paid && userId != Guid.Empty)
+            {
+                isolatedContext.FeatureUsageLogs.Add(new FeatureUsageLog
+                {
+                    FeatureUsageLogId = featureUsageLogId,
+                    UserId = userId,
+                    FeatureKey = SubscriptionFeatureKey.MentorPaidAiRequests,
+                    CreatedAt = createdAt
+                });
+            }
+
+            await isolatedContext.SaveChangesAsync();
+        }
+        catch (Exception ex) when (IsDuplicateKeyException(ex))
+        {
+            _logger.LogInformation(
+                ex,
+                "AIUsageLog already persisted before fallback retry. UsageLogId={UsageLogId}",
+                usageLogId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Fallback AIUsageLog persistence also failed. UsageLogId={UsageLogId}, UsageType={UsageType}, Provider={ProviderName}, Model={Model}, AccessTier={AccessTier}, UserId={UserId}",
+                usageLogId,
+                usageType,
+                providerName,
+                config.Model,
+                accessTier,
+                userId);
+        }
+    }
+
+    private static bool IsDuplicateKeyException(Exception exception)
+    {
+        if (exception is DbUpdateException dbUpdateException)
+        {
+            exception = dbUpdateException.InnerException ?? dbUpdateException;
+        }
+
+        if (exception is SqlException sqlException)
+        {
+            return sqlException.Number == 2601 || sqlException.Number == 2627;
+        }
+
+        return exception.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase);
     }
 
     private static decimal CalculateCostUsd(AIProviderRuntimeConfig config, int inputTokens, int outputTokens)

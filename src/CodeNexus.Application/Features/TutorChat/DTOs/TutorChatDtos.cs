@@ -5,7 +5,8 @@ public record TutorChatResponseDto(
     Guid UserMessageId,
     Guid AssistantMessageId,
     string AssistantMessage,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    double ContextUsagePercent
 );
 
 public record TutorMessageDto(

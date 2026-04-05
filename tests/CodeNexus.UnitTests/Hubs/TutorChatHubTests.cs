@@ -39,7 +39,8 @@ public class TutorChatHubTests
             Guid.NewGuid(),
             Guid.NewGuid(),
             "Tutor reply",
-            DateTime.UtcNow);
+            DateTime.UtcNow,
+            12.5d);
 
         _mockSender.Setup(x => x.Send(It.IsAny<SendTutorMessageCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result<TutorChatResponseDto>.Success(response));
