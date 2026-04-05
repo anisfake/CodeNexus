@@ -21,6 +21,9 @@ public class GetLearningPathByUserIdQueryHandlerTests
     public GetLearningPathByUserIdQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockContext
+            .Setup(x => x.LearningPathShares)
+            .Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
         _handler = new GetLearningPathByUserIdQueryHandler(_mockContext.Object);
     }
 

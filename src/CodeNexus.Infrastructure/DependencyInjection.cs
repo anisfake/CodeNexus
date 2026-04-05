@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.Configure<VnPaySettings>(configuration.GetSection(VnPaySettings.SectionName));
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IDateTimeProvider, DateTimeProvider>();
 
         var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
         services.AddAuthentication(options =>

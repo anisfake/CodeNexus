@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Events;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -13,11 +14,16 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IPublisher _publisher;
 
-    public UpdateMentorLearningPathDraftCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public UpdateMentorLearningPathDraftCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        IPublisher publisher)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _publisher = publisher;
     }
 
     public async Task<Result<CreateLearningPathResponse>> Handle(UpdateMentorLearningPathDraftCommand request, CancellationToken cancellationToken)
@@ -203,7 +209,18 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 new List<TaskDto>()));
         }
 
+        learningPath.VersionNumber += 1;
+        var currentVersion = learningPath.VersionNumber;
+
         await _context.SaveChangesAsync(cancellationToken);
+        await _publisher.Publish(
+            new LearningPathDraftVersionUpdatedEvent(
+                learningPath.PathId,
+                mentor.UserId,
+                mentor.Username,
+                currentVersion,
+                now),
+            cancellationToken);
 
         var goalDtos = goalsWithWeights
             .Select(g => new LearningPathGoalDto(
