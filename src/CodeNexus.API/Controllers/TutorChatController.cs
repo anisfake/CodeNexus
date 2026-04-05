@@ -2,6 +2,7 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.TutorChat.Commands.SendTutorMessage;
 using CodeNexus.Application.Features.TutorChat.Queries.GetTutorConversationMessages;
+using CodeNexus.Application.Features.TutorChat.Queries.GetTutorConversationSummaries;
 using CodeNexus.Application.Features.TutorChat.Queries.ResolveTutorConversation;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -43,6 +44,18 @@ public class TutorChatController : ControllerBase
         CancellationToken cancellationToken = default)
     {
         var query = new GetTutorConversationMessagesQuery(conversationId, pageNumber, pageSize);
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("conversations/{conversationId:guid}/summaries")]
+    public async Task<IActionResult> GetConversationSummaries(
+        Guid conversationId,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetTutorConversationSummariesQuery(conversationId, pageNumber, pageSize);
         var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }

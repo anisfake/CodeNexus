@@ -17,5 +17,6 @@
         public virtual User User { get; set; } = null!;
         public virtual AIProviderConfig Provider { get; set; } = null!;
         public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
+        public virtual ICollection<ConversationSummary> Summaries { get; set; } = new List<ConversationSummary>();
     }
 }

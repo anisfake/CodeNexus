@@ -16,6 +16,16 @@ public record TutorMessageDto(
     DateTime CreatedAt
 );
 
+public record TutorConversationSummaryDto(
+    Guid SummaryId,
+    Guid ConversationId,
+    string SummaryContent,
+    int MessageCount,
+    DateTime? StartMessageCreatedAt,
+    DateTime? EndMessageCreatedAt,
+    DateTime CreatedAt
+);
+
 public record ResolveTutorConversationResponseDto(
     Guid ConversationId,
     bool Created

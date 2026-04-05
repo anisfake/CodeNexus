@@ -58,6 +58,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<ResourcePage> ResourcePages => Set<ResourcePage>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
         public DbSet<Conversation> Conversations => Set<Conversation>();
+        public DbSet<ConversationSummary> ConversationSummaries => Set<ConversationSummary>();
         public DbSet<Message> Messages => Set<Message>();
         public DbSet<DirectConversation> DirectConversations => Set<DirectConversation>();
         public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
@@ -276,6 +277,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
+            modelBuilder.Entity<ConversationSummary>().HasKey(e => e.SummaryId);
             modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
             modelBuilder.Entity<DirectConversation>().HasKey(e => e.ConversationId);
             modelBuilder.Entity<DirectMessage>().HasKey(e => e.MessageId);
@@ -682,6 +684,26 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasMany(c => c.Messages)
                       .WithOne(m => m.Conversation)
                       .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(c => c.Summaries)
+                      .WithOne(s => s.Conversation)
+                      .HasForeignKey(s => s.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ConversationSummary>(entity =>
+            {
+                entity.HasKey(e => e.SummaryId);
+
+                entity.Property(e => e.SummaryContent)
+                      .IsRequired();
+
+                entity.HasIndex(e => new { e.ConversationId, e.CreatedAt });
+
+                entity.HasOne(e => e.Conversation)
+                      .WithMany(c => c.Summaries)
+                      .HasForeignKey(e => e.ConversationId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 

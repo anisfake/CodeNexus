@@ -7,18 +7,32 @@ using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
+using System.Text.Json;
 
 namespace CodeNexus.Application.Features.TutorChat.Commands.SendTutorMessage;
 
 public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCommand, Result<TutorChatResponseDto>>
 {
-    private const int RecentHistoryWindowSize = 12;
-    private const int OlderHistoryDigestWindowSize = 18;
-    private const int DigestLineLimit = 8;
+    private const int RecentHistoryMinMessages = 10;
+    private const int RecentHistoryMaxMessages = 20;
+    private const int RecentHistoryEmergencyMinMessages = 6;
+    private const int SummaryPreserveRecentMessages = RecentHistoryMaxMessages;
+    private const double SummaryTriggerRatio = 0.7;
+    private const int OlderDigestInitialLineLimit = 12;
+    private const int OlderDigestStep = 2;
+    private const int ArchivedSummaryPromptTake = 6;
+    private const int ArchivedSummaryPromptCharLimit = 260;
+    private const int ArchiveSummaryTakeHeadLines = 6;
+    private const int ArchiveSummaryTakeTailLines = 6;
+    private const int ArchiveSummaryLineCharLimit = 180;
     private const int HistoryMessageCharLimit = 260;
+    private const int HistoryMessageMinCharLimit = 90;
+    private const int OlderHistoryCharLimit = 180;
+    private const int OlderHistoryMinCharLimit = 100;
     private const int LearningPathDescriptionCharLimit = 600;
     private const int ChapterContentCharLimit = 1800;
     private const int LessonContentCharLimit = 2200;
+    private const string DefaultAssistantModel = "meta-llama/llama-4-scout-17b-16e-instruct";
 
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
@@ -67,6 +81,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         {
             return Result<TutorChatResponseDto>.Failure("AI_CONFIG_NOT_FOUND", "AI assistant config not found");
         }
+        var modelTokenBudget = ResolveModelTokenBudget(config);
 
         Conversation? conversation = null;
         if (request.ConversationId.HasValue)
@@ -132,7 +147,19 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             ApplyConversationContext(conversation, contextData.Value!);
         }
 
-        var historySnapshot = await LoadConversationHistorySnapshotAsync(conversation.ConversationId, cancellationToken);
+        await EnsureConversationSummaryWithinModelBudgetAsync(
+            conversation,
+            contextData.Value!,
+            normalizedUserMessage,
+            modelTokenBudget,
+            cancellationToken);
+
+        var historySnapshot = await LoadConversationHistorySnapshotAsync(
+            conversation.ConversationId,
+            contextData.Value!,
+            normalizedUserMessage,
+            modelTokenBudget,
+            cancellationToken);
 
         var prompt = BuildTutorPrompt(
             contextData.Value!,
@@ -240,6 +267,94 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         if (context.LearningPathId.HasValue && !conversation.ChapterId.HasValue && !conversation.LearningPathId.HasValue)
         {
             conversation.LearningPathId = context.LearningPathId;
+        }
+    }
+
+    private async Task EnsureConversationSummaryWithinModelBudgetAsync(
+        Conversation conversation,
+        TutorContext context,
+        string userMessage,
+        ModelTokenBudget tokenBudget,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            var latestSummaryEndAt = await _context.ConversationSummaries
+                .AsNoTracking()
+                .Where(s => s.ConversationId == conversation.ConversationId)
+                .OrderByDescending(s => s.CreatedAt)
+                .Select(s => s.EndMessageCreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var unsummarizedMessagesQuery = _context.Messages
+                .AsNoTracking()
+                .Where(m => m.ConversationId == conversation.ConversationId);
+
+            if (latestSummaryEndAt.HasValue)
+            {
+                var boundary = latestSummaryEndAt.Value;
+                unsummarizedMessagesQuery = unsummarizedMessagesQuery
+                    .Where(m => m.CreatedAt > boundary);
+            }
+
+            var unsummarizedMessages = await unsummarizedMessagesQuery
+                .OrderBy(m => m.CreatedAt)
+                .ThenBy(m => m.MessageId)
+                .ToListAsync(cancellationToken);
+
+            if (unsummarizedMessages.Count <= SummaryPreserveRecentMessages)
+            {
+                return;
+            }
+
+            var archivedSummaries = await _context.ConversationSummaries
+                .AsNoTracking()
+                .Where(s => s.ConversationId == conversation.ConversationId)
+                .OrderByDescending(s => s.CreatedAt)
+                .Take(ArchivedSummaryPromptTake)
+                .OrderBy(s => s.CreatedAt)
+                .Select(s => s.SummaryContent)
+                .ToListAsync(cancellationToken);
+
+            var estimatedInputTokens = EstimateConversationInputTokens(
+                context,
+                userMessage,
+                unsummarizedMessages,
+                archivedSummaries);
+
+            if (estimatedInputTokens < tokenBudget.SummaryTriggerBudget)
+            {
+                return;
+            }
+
+            var summarizeCount = unsummarizedMessages.Count - SummaryPreserveRecentMessages;
+            if (summarizeCount <= 0)
+            {
+                return;
+            }
+
+            var messagesToSummarize = unsummarizedMessages
+                .Take(summarizeCount)
+                .ToList();
+
+            if (messagesToSummarize.Count == 0)
+            {
+                return;
+            }
+
+            var archiveSummary = new ConversationSummary
+            {
+                SummaryId = NewId.NextGuid(),
+                ConversationId = conversation.ConversationId,
+                MessageCount = messagesToSummarize.Count,
+                StartMessageCreatedAt = messagesToSummarize.First().CreatedAt,
+                EndMessageCreatedAt = messagesToSummarize.Last().CreatedAt,
+                SummaryContent = BuildArchivedSummaryContent(messagesToSummarize),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _context.ConversationSummaries.AddAsync(archiveSummary, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
         }
     }
 
@@ -356,6 +471,9 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
 
     private async Task<ConversationHistorySnapshot> LoadConversationHistorySnapshotAsync(
         Guid conversationId,
+        TutorContext context,
+        string userMessage,
+        ModelTokenBudget tokenBudget,
         CancellationToken cancellationToken)
     {
         var totalMessages = await _context.Messages
@@ -363,41 +481,131 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             .Where(m => m.ConversationId == conversationId)
             .CountAsync(cancellationToken);
 
-        var recentMessages = await _context.Messages
+        var archivedSummaries = await _context.ConversationSummaries
             .AsNoTracking()
-            .Where(m => m.ConversationId == conversationId)
-            .OrderByDescending(m => m.CreatedAt)
-            .Take(RecentHistoryWindowSize)
-            .Select(m => m.Content)
+            .Where(s => s.ConversationId == conversationId)
+            .OrderByDescending(s => s.CreatedAt)
+            .Take(ArchivedSummaryPromptTake)
+            .OrderBy(s => s.CreatedAt)
+            .Select(s => s.SummaryContent)
             .ToListAsync(cancellationToken);
 
-        recentMessages.Reverse();
+        var latestSummaryEndAt = await _context.ConversationSummaries
+            .AsNoTracking()
+            .Where(s => s.ConversationId == conversationId)
+            .OrderByDescending(s => s.CreatedAt)
+            .Select(s => s.EndMessageCreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var compactRecent = recentMessages
-            .Select(message => CompactMessage(message, HistoryMessageCharLimit))
-            .ToList();
+        var activeMessagesQuery = _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId);
 
-        if (totalMessages <= RecentHistoryWindowSize)
+        if (latestSummaryEndAt.HasValue)
         {
-            return new ConversationHistorySnapshot(totalMessages, compactRecent, null);
+            var boundary = latestSummaryEndAt.Value;
+            activeMessagesQuery = activeMessagesQuery
+                .Where(m => m.CreatedAt > boundary);
         }
 
-        var olderMessages = await _context.Messages
-            .AsNoTracking()
-            .Where(m => m.ConversationId == conversationId)
-            .OrderByDescending(m => m.CreatedAt)
-            .Skip(RecentHistoryWindowSize)
-            .Take(OlderHistoryDigestWindowSize)
+        var activeMessages = await activeMessagesQuery
+            .OrderBy(m => m.CreatedAt)
+            .ThenBy(m => m.MessageId)
             .Select(m => m.Content)
             .ToListAsync(cancellationToken);
 
-        olderMessages.Reverse();
+        if (activeMessages.Count == 0)
+        {
+            var onlySummary = BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, 0);
+            return new ConversationHistorySnapshot(totalMessages, new List<string>(), onlySummary);
+        }
 
-        var olderSummary = BuildOlderHistorySummary(
-            olderMessages,
-            Math.Max(totalMessages - RecentHistoryWindowSize, 0));
+        var absoluteMinRecent = Math.Min(RecentHistoryMinMessages, activeMessages.Count);
+        var emergencyMinRecent = Math.Min(RecentHistoryEmergencyMinMessages, activeMessages.Count);
 
-        return new ConversationHistorySnapshot(totalMessages, compactRecent, olderSummary);
+        var recentCount = Math.Min(RecentHistoryMaxMessages, activeMessages.Count);
+        var recentCharLimit = HistoryMessageCharLimit;
+        var olderLineLimit = OlderDigestInitialLineLimit;
+        var olderCharLimit = OlderHistoryCharLimit;
+
+        var snapshot = BuildSnapshot(
+            activeMessages,
+            archivedSummaries,
+            totalMessages,
+            recentCount,
+            recentCharLimit,
+            olderLineLimit,
+            olderCharLimit);
+
+        var estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
+
+        while (estimatedTokens > tokenBudget.SafeInputBudget)
+        {
+            if (olderLineLimit > 0)
+            {
+                olderLineLimit = Math.Max(0, olderLineLimit - OlderDigestStep);
+            }
+            else if (recentCount > absoluteMinRecent)
+            {
+                recentCount--;
+            }
+            else if (recentCharLimit > 140)
+            {
+                recentCharLimit = Math.Max(140, recentCharLimit - 20);
+            }
+            else if (olderCharLimit > 120)
+            {
+                olderCharLimit = Math.Max(120, olderCharLimit - 20);
+            }
+            else
+            {
+                break;
+            }
+
+            snapshot = BuildSnapshot(
+                activeMessages,
+                archivedSummaries,
+                totalMessages,
+                recentCount,
+                recentCharLimit,
+                olderLineLimit,
+                olderCharLimit);
+
+            estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
+        }
+
+        while (estimatedTokens > tokenBudget.HardStop)
+        {
+            if (recentCharLimit > HistoryMessageMinCharLimit)
+            {
+                recentCharLimit = Math.Max(HistoryMessageMinCharLimit, recentCharLimit - 15);
+            }
+            else if (olderCharLimit > OlderHistoryMinCharLimit)
+            {
+                olderCharLimit = Math.Max(OlderHistoryMinCharLimit, olderCharLimit - 10);
+            }
+            else if (recentCount > emergencyMinRecent)
+            {
+                recentCount--;
+            }
+            else
+            {
+                break;
+            }
+
+            snapshot = BuildSnapshot(
+                activeMessages,
+                archivedSummaries,
+                totalMessages,
+                recentCount,
+                recentCharLimit,
+                olderLineLimit,
+                olderCharLimit);
+
+            estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
+        }
+
+        return snapshot;
     }
 
     private static string BuildTutorPrompt(TutorContext context, string userMessage, ConversationHistorySnapshot historySnapshot)
@@ -475,28 +683,321 @@ INSTRUCTIONS:
 - If details are missing due to summarized context, ask for a short excerpt from the lesson content before answering deeply.";
     }
 
-    private static string BuildOlderHistorySummary(List<string> olderMessages, int olderMessageCount)
+    private static ConversationHistorySnapshot BuildSnapshot(
+        List<string> activeMessages,
+        List<string> archivedSummaries,
+        int totalMessages,
+        int recentCount,
+        int recentCharLimit,
+        int olderLineLimit,
+        int olderCharLimit)
     {
-        if (olderMessages.Count == 0 || olderMessageCount <= 0)
+        var safeRecentCount = Math.Min(Math.Max(recentCount, 0), activeMessages.Count);
+        var splitIndex = Math.Max(activeMessages.Count - safeRecentCount, 0);
+
+        var olderRaw = activeMessages.Take(splitIndex).ToList();
+        var recentRaw = activeMessages.Skip(splitIndex).ToList();
+
+        var recentMessages = recentRaw
+            .Select(content => CompactMessage(content, recentCharLimit))
+            .ToList();
+
+        // After summaries exist, prompt should rely on summary + recent turns.
+        var olderDigestSource = archivedSummaries.Count > 0 ? new List<string>() : olderRaw;
+        var olderSummary = BuildOlderHistorySummary(
+            olderDigestSource,
+            archivedSummaries,
+            olderLineLimit,
+            olderCharLimit);
+
+        return new ConversationHistorySnapshot(totalMessages, recentMessages, olderSummary);
+    }
+
+    private static string BuildOlderHistorySummary(
+        List<string> olderMessages,
+        List<string> archivedSummaries,
+        int lineLimit,
+        int lineCharLimit)
+    {
+        if (olderMessages.Count == 0 && archivedSummaries.Count == 0)
         {
             return "N/A";
         }
 
-        var builder = new StringBuilder();
-        builder.AppendLine($"Older context ({olderMessageCount} earlier messages) in compact form:");
+        var safeLineLimit = Math.Max(lineLimit, 0);
+        var digestLines = safeLineLimit == 0
+            ? new List<string>()
+            : olderMessages
+                .TakeLast(Math.Min(safeLineLimit, olderMessages.Count))
+                .Select(content => CompactMessage(content, lineCharLimit))
+                .ToList();
 
-        foreach (var line in olderMessages.Take(DigestLineLimit))
+        var summarizedHiddenCount = Math.Max(olderMessages.Count - digestLines.Count, 0);
+
+        var builder = new StringBuilder();
+        builder.AppendLine("Older context compressed:");
+
+        if (archivedSummaries.Count > 0)
         {
-            builder.Append("- ");
-            builder.AppendLine(CompactMessage(line, 180));
+            builder.AppendLine($"- {archivedSummaries.Count} archived summary blocks are available.");
+            foreach (var archived in archivedSummaries)
+            {
+                builder.Append("- [Archived] ");
+                builder.AppendLine(CompactMessage(archived, ArchivedSummaryPromptCharLimit));
+            }
         }
 
-        if (olderMessages.Count > DigestLineLimit)
+        if (summarizedHiddenCount > 0)
         {
-            builder.AppendLine("- ...");
+            builder.AppendLine($"- {summarizedHiddenCount} additional older messages are summarized.");
+        }
+
+        if (digestLines.Count == 0)
+        {
+            builder.AppendLine("- Older details trimmed to keep token budget safe.");
+        }
+        else
+        {
+            foreach (var line in digestLines)
+            {
+                builder.Append("- ");
+                builder.AppendLine(line);
+            }
         }
 
         return builder.ToString().Trim();
+    }
+
+    private static string BuildArchivedSummaryContent(List<Message> messagesToArchive)
+    {
+        var userCount = messagesToArchive.Count(m => ParseRole(m.Content) == "user");
+        var assistantCount = messagesToArchive.Count(m => ParseRole(m.Content) == "assistant");
+
+        var head = messagesToArchive
+            .Take(ArchiveSummaryTakeHeadLines)
+            .Select(m => $"[{ParseRole(m.Content)}] {CompactMessage(StripRolePrefix(m.Content), ArchiveSummaryLineCharLimit)}")
+            .ToList();
+
+        var tail = messagesToArchive
+            .TakeLast(ArchiveSummaryTakeTailLines)
+            .Select(m => $"[{ParseRole(m.Content)}] {CompactMessage(StripRolePrefix(m.Content), ArchiveSummaryLineCharLimit)}")
+            .ToList();
+
+        var digest = head;
+        if (messagesToArchive.Count > (ArchiveSummaryTakeHeadLines + ArchiveSummaryTakeTailLines))
+        {
+            digest.Add("...");
+            digest.AddRange(tail);
+        }
+        else
+        {
+            foreach (var line in tail)
+            {
+                if (!digest.Contains(line))
+                {
+                    digest.Add(line);
+                }
+            }
+        }
+
+        var builder = new StringBuilder();
+        builder.AppendLine($"Archived {messagesToArchive.Count} messages (user: {userCount}, assistant: {assistantCount}).");
+        builder.AppendLine("Digest:");
+
+        foreach (var line in digest)
+        {
+            builder.Append("- ");
+            builder.AppendLine(line);
+        }
+
+        return builder.ToString().Trim();
+    }
+
+    private static int EstimateConversationInputTokens(
+        TutorContext context,
+        string userMessage,
+        List<Message> unsummarizedMessages,
+        List<string> archivedSummaries)
+    {
+        var estimatedSnapshot = new ConversationHistorySnapshot(
+            unsummarizedMessages.Count,
+            unsummarizedMessages
+                .Select(m => CompactMessage(m.Content, HistoryMessageCharLimit))
+                .ToList(),
+            BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, ArchivedSummaryPromptCharLimit));
+
+        var prompt = BuildTutorPrompt(context, userMessage, estimatedSnapshot);
+        return EstimateTokenCount(prompt);
+    }
+
+    private static int EstimateTokenCount(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0;
+        }
+
+        var charEstimate = (int)Math.Ceiling(text.Length / 4.0);
+        var wordCount = text
+            .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Length;
+        var wordEstimate = (int)Math.Ceiling(wordCount * 1.35);
+
+        return Math.Max(charEstimate, wordEstimate);
+    }
+
+    private static ModelTokenBudget ResolveModelTokenBudget(AIProviderConfig config)
+    {
+        var (modelName, configuredContextWindow) = ParseModelHints(config.ConfigJson);
+        var normalizedModelName = string.IsNullOrWhiteSpace(modelName) ? DefaultAssistantModel : modelName.Trim();
+        var contextWindow = configuredContextWindow ?? InferContextWindowFromModel(normalizedModelName);
+
+        if (contextWindow < 4096)
+        {
+            contextWindow = 4096;
+        }
+
+        var reservedOutput = Math.Max(1024, Math.Min(4096, (int)Math.Round(contextWindow * 0.08)));
+        var usableWindow = Math.Max(contextWindow - reservedOutput, 2048);
+        var summaryTriggerBudget = (int)Math.Round(contextWindow * SummaryTriggerRatio);
+
+        var safeInputBudget = (int)Math.Round(usableWindow * 0.7);
+        var hardStop = (int)Math.Round(usableWindow * 0.85);
+
+        if (hardStop <= safeInputBudget)
+        {
+            hardStop = safeInputBudget + 256;
+        }
+
+        return new ModelTokenBudget(
+            normalizedModelName,
+            contextWindow,
+            reservedOutput,
+            summaryTriggerBudget,
+            safeInputBudget,
+            hardStop);
+    }
+
+    private static (string? ModelName, int? ContextWindow) ParseModelHints(string? configJson)
+    {
+        if (string.IsNullOrWhiteSpace(configJson))
+        {
+            return (null, null);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(configJson);
+            var root = document.RootElement;
+
+            string? modelName = null;
+            int? contextWindow = null;
+
+            if (TryGetStringPropertyIgnoreCase(root, "model", out var parsedModel))
+            {
+                modelName = parsedModel;
+            }
+
+            if (TryGetIntPropertyIgnoreCase(root, out var parsedContextWindow,
+                    "contextWindow",
+                    "context_window",
+                    "maxContextTokens",
+                    "max_context_tokens"))
+            {
+                contextWindow = parsedContextWindow;
+            }
+
+            return (modelName, contextWindow);
+        }
+        catch
+        {
+            return (null, null);
+        }
+    }
+
+    private static bool TryGetStringPropertyIgnoreCase(JsonElement root, string propertyName, out string? value)
+    {
+        foreach (var property in root.EnumerateObject())
+        {
+            if (!string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            value = property.Value.ValueKind == JsonValueKind.String
+                ? property.Value.GetString()
+                : property.Value.ToString();
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
+
+    private static bool TryGetIntPropertyIgnoreCase(JsonElement root, out int value, params string[] propertyNames)
+    {
+        foreach (var property in root.EnumerateObject())
+        {
+            if (!propertyNames.Any(name => string.Equals(name, property.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            if (property.Value.ValueKind == JsonValueKind.Number
+                && property.Value.TryGetInt32(out value))
+            {
+                return true;
+            }
+
+            if (property.Value.ValueKind == JsonValueKind.String
+                && int.TryParse(property.Value.GetString(), out value))
+            {
+                return true;
+            }
+        }
+
+        value = 0;
+        return false;
+    }
+
+    private static int InferContextWindowFromModel(string modelName)
+    {
+        var normalized = modelName.ToLowerInvariant();
+
+        if (normalized.Contains("1m") || normalized.Contains("1000k"))
+            return 1_000_000;
+
+        if (normalized.Contains("256k"))
+            return 256_000;
+
+        if (normalized.Contains("200k"))
+            return 200_000;
+
+        if (normalized.Contains("128k")
+            || normalized.Contains("llama-4")
+            || normalized.Contains("llama-3.3")
+            || normalized.Contains("llama-3.1")
+            || normalized.Contains("qwen2.5")
+            || normalized.Contains("gpt-4.1")
+            || normalized.Contains("gpt-5"))
+            return 128_000;
+
+        if (normalized.Contains("64k"))
+            return 64_000;
+
+        if (normalized.Contains("32k")
+            || normalized.Contains("mistral")
+            || normalized.Contains("mixtral")
+            || normalized.Contains("codestral"))
+            return 32_000;
+
+        if (normalized.Contains("16k"))
+            return 16_000;
+
+        if (normalized.Contains("8k") || normalized.Contains("gemma"))
+            return 8_000;
+
+        return 32_000;
     }
 
     private static string CompactMessage(string content, int maxChars)
@@ -515,6 +1016,28 @@ INSTRUCTIONS:
         }
 
         return normalized.Substring(0, maxChars) + "...";
+    }
+
+    private static string ParseRole(string content)
+    {
+        if (content.StartsWith("USER:", StringComparison.OrdinalIgnoreCase))
+            return "user";
+
+        if (content.StartsWith("ASSISTANT:", StringComparison.OrdinalIgnoreCase))
+            return "assistant";
+
+        return "unknown";
+    }
+
+    private static string StripRolePrefix(string content)
+    {
+        if (content.StartsWith("USER:", StringComparison.OrdinalIgnoreCase))
+            return content.Substring("USER:".Length).Trim();
+
+        if (content.StartsWith("ASSISTANT:", StringComparison.OrdinalIgnoreCase))
+            return content.Substring("ASSISTANT:".Length).Trim();
+
+        return content.Trim();
     }
 
     private static string ClipContent(string? content, int maxChars)
@@ -554,6 +1077,14 @@ INSTRUCTIONS:
         int TotalMessages,
         List<string> RecentMessages,
         string? OlderSummary);
+
+    private sealed record ModelTokenBudget(
+        string ModelName,
+        int ContextWindow,
+        int ReservedOutput,
+        int SummaryTriggerBudget,
+        int SafeInputBudget,
+        int HardStop);
 
     private static (Guid? LearningPathId, Guid? ChapterId, Guid? LessonId) ResolveRequestedContextIds(
         SendTutorMessageCommand request,

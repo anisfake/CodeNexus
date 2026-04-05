@@ -25,6 +25,8 @@ public class SendTutorMessageCommandHandlerTests
         _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
         _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
+        _mockContext.Setup(x => x.ConversationSummaries)
+            .Returns(new List<ConversationSummary>().BuildMockDbSet().Object);
 
         _handler = new SendTutorMessageCommandHandler(
             _mockContext.Object,

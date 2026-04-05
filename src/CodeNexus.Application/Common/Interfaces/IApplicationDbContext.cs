@@ -31,6 +31,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<ResourcePage> ResourcePages { get; }
         public DbSet<AISummary> AISummaries { get; }
         public DbSet<Conversation> Conversations { get; }
+        public DbSet<ConversationSummary> ConversationSummaries { get; }
         public DbSet<Message> Messages { get; }
         public DbSet<DirectConversation> DirectConversations { get; }
         public DbSet<DirectMessage> DirectMessages { get; }
