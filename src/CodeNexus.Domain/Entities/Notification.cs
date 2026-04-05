@@ -25,6 +25,9 @@ namespace CodeNexus.Domain.Entities
         public Guid? ChapterId { get; set; }
         public Guid? LessonId { get; set; }
         public Guid? LearningPathId { get; set; }
+        public string? NotifiedPathTitle { get; set; }
+        public int? NotifiedSourceVersion { get; set; }
+        public string? NotifiedMentorUserName { get; set; }
         public bool IsRead { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? ReadAt { get; set; }

@@ -13,5 +13,8 @@ public record NotificationDto(
     DateTime? ReadAt,
     string Severity,
     IReadOnlyList<string> Channels,
-    NotificationActionDto Action
+    NotificationActionDto Action,
+    string? NotifiedPathTitle,
+    int? NotifiedSourceVersion,
+    string? NotifiedMentorUserName
 );

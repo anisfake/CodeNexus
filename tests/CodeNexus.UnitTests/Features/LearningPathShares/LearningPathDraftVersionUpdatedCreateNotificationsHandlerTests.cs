@@ -97,9 +97,22 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandlerTests
             .Setup(x => x.AddRange(It.IsAny<IEnumerable<Notification>>()))
             .Callback<IEnumerable<Notification>>(items => notifications.AddRange(items));
 
+        var sourcePathTitle = "Tu PyTorch den MLOps & NLP: Hanh trinh lam chu - ver 2";
+        var sourceLearningPath = new LearningPath
+        {
+            PathId = pathId,
+            Title = sourcePathTitle,
+            UserId = NewId.NextGuid(),
+            SubjectId = NewId.NextGuid(),
+            VersionNumber = 2
+        };
+
         _mockContext
             .Setup(x => x.LearningPathShares)
             .Returns(new[] { shouldNotify, ignoredVersion, trackingDisabled, alreadyNotified }.BuildMockDbSet().Object);
+        _mockContext
+            .Setup(x => x.LearningPaths)
+            .Returns(new[] { sourceLearningPath }.BuildMockDbSet().Object);
         _mockContext
             .Setup(x => x.Notifications)
             .Returns(notificationsDbSet.Object);
@@ -123,6 +136,9 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandlerTests
         notifications[0].Message.Should().Be("notification.shareVersionUpdated.message");
         notifications[0].TargetId.Should().Be(shouldNotify.ShareId);
         notifications[0].LearningPathId.Should().Be(shouldNotify.AcceptedPathId);
+        notifications[0].NotifiedPathTitle.Should().Be(sourcePathTitle);
+        notifications[0].NotifiedSourceVersion.Should().Be(2);
+        notifications[0].NotifiedMentorUserName.Should().Be("mentor_a");
 
         shouldNotify.LastNotifiedSourceVersion.Should().Be(2);
         ignoredVersion.LastNotifiedSourceVersion.Should().BeNull();
