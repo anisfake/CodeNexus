@@ -63,10 +63,27 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
             ? query.OrderByDescending(lp => lp.CreatedAt)
             : query.OrderBy(lp => lp.CreatedAt);
 
-        var items = await query
+        var pagedQuery = query
             .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .Select(lp => new LearningPathResponse(
+            .Take(request.PageSize);
+
+        var items = await (
+            from lp in pagedQuery
+            let latestShare = _context.LearningPathShares
+                .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                .Select(s => new
+                {
+                    MentorId = (Guid?)s.MentorId,
+                    MentorUserName = s.Mentor.Username,
+                    SourceLearningPathId = (Guid?)s.PathId,
+                    SourceVersion = s.SourceVersionAtAccept,
+                    SourceLatestVersion = (int?)s.LearningPath.VersionNumber,
+                    HasSourceUpdate = (s.SourceVersionAtAccept ?? 1) < s.LearningPath.VersionNumber
+                        && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < s.LearningPath.VersionNumber)
+                })
+                .FirstOrDefault()
+            select new LearningPathResponse(
                 lp.PathId,
                 lp.SubjectId,
                 lp.Subject.Name,
@@ -132,37 +149,12 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                 lp.CreatedAt,
                 lp.ComplexityLevel,
                 lp.Language,
-                _context.LearningPathShares
-                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
-                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
-                    .Select(s => (Guid?)s.MentorId)
-                    .FirstOrDefault(),
-                _context.LearningPathShares
-                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
-                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
-                    .Select(s => s.Mentor.Username)
-                    .FirstOrDefault(),
-                _context.LearningPathShares
-                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
-                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
-                    .Select(s => (Guid?)s.PathId)
-                    .FirstOrDefault(),
-                _context.LearningPathShares
-                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
-                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
-                    .Select(s => s.SourceVersionAtAccept)
-                    .FirstOrDefault(),
-                _context.LearningPathShares
-                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
-                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
-                    .Select(s => (int?)s.LearningPath.VersionNumber)
-                    .FirstOrDefault(),
-                _context.LearningPathShares
-                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
-                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
-                    .Select(s => (s.SourceVersionAtAccept ?? 1) < s.LearningPath.VersionNumber
-                        && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < s.LearningPath.VersionNumber))
-                    .FirstOrDefault()
+                latestShare != null ? latestShare.MentorId : null,
+                latestShare != null ? latestShare.MentorUserName : null,
+                latestShare != null ? latestShare.SourceLearningPathId : null,
+                latestShare != null ? latestShare.SourceVersion : null,
+                latestShare != null ? latestShare.SourceLatestVersion : null,
+                latestShare != null && latestShare.HasSourceUpdate
             ))
             .ToListAsync(cancellationToken);
 

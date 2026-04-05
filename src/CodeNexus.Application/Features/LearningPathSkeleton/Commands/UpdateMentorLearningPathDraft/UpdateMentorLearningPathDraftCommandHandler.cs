@@ -1,7 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Events;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
-using CodeNexus.Application.Features.Notifications.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MassTransit;
@@ -14,16 +14,16 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
-    private readonly INotificationRealtimeNotifier _notificationRealtimeNotifier;
+    private readonly IPublisher _publisher;
 
     public UpdateMentorLearningPathDraftCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        INotificationRealtimeNotifier notificationRealtimeNotifier)
+        IPublisher publisher)
     {
         _context = context;
         _currentUserService = currentUserService;
-        _notificationRealtimeNotifier = notificationRealtimeNotifier;
+        _publisher = publisher;
     }
 
     public async Task<Result<CreateLearningPathResponse>> Handle(UpdateMentorLearningPathDraftCommand request, CancellationToken cancellationToken)
@@ -212,68 +212,15 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         learningPath.VersionNumber += 1;
         var currentVersion = learningPath.VersionNumber;
 
-        var supersededPendingShares = await _context.LearningPathShares
-            .Where(s => s.PathId == learningPath.PathId && s.Status == LearningPathShareStatus.Pending)
-            .ToListAsync(cancellationToken);
-
-        foreach (var pendingShare in supersededPendingShares)
-        {
-            pendingShare.Status = LearningPathShareStatus.Rejected;
-            pendingShare.RespondedAt = now;
-            pendingShare.InvalidatedReason = "SUPERSEDED_BY_NEW_VERSION";
-        }
-
-        var subscribedShares = await _context.LearningPathShares
-            .Where(s => s.PathId == learningPath.PathId
-                        && s.Status == LearningPathShareStatus.Accepted
-                        && s.IsTrackingEnabled)
-            .ToListAsync(cancellationToken);
-
-        var sharesToNotify = subscribedShares
-            .Where(s => s.AcceptedPathId.HasValue
-                        && (s.SourceVersionAtAccept ?? 1) < currentVersion
-                        && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < currentVersion)
-                        && (!s.LastNotifiedSourceVersion.HasValue || s.LastNotifiedSourceVersion.Value < currentVersion))
-            .ToList();
-
-        var notifications = sharesToNotify
-            .Select(share => new Notification
-            {
-                NotificationId = NewId.NextGuid(),
-                UserId = share.StudentId,
-                Title = "LearningPath da co phien ban moi",
-                Message = $"LearningPath duoc chia se boi {mentor.Username} da co phien ban moi.",
-                Type = NotificationType.ShareVersionUpdated,
-                Severity = "Info",
-                Channels = "Web,Main",
-                TargetType = "learningPathShareUpdate",
-                TargetId = share.ShareId,
-                TargetUrl = $"/learning-path-shares/{share.ShareId}/updates",
-                Route = "/learningpath-shares/:shareId/updates",
-                LearningPathId = share.AcceptedPathId,
-                IsRead = false,
-                CreatedAt = now
-            })
-            .ToList();
-
-        foreach (var share in sharesToNotify)
-        {
-            share.LastNotifiedSourceVersion = currentVersion;
-        }
-
-        if (notifications.Count > 0)
-        {
-            _context.Notifications.AddRange(notifications);
-        }
-
         await _context.SaveChangesAsync(cancellationToken);
-
-        if (notifications.Count > 0)
-        {
-            await _notificationRealtimeNotifier.NotifyCreatedAsync(
-                notifications.Select(NotificationDtoMapper.ToDto).ToList(),
-                cancellationToken);
-        }
+        await _publisher.Publish(
+            new LearningPathDraftVersionUpdatedEvent(
+                learningPath.PathId,
+                mentor.UserId,
+                mentor.Username,
+                currentVersion,
+                now),
+            cancellationToken);
 
         var goalDtos = goalsWithWeights
             .Select(g => new LearningPathGoalDto(
