@@ -16,6 +16,7 @@ namespace CodeNexus.Domain.Enums
         LessonOverdue = 5,
         LearningPathOverdue = 6,
         PlanExpiringSoon = 7,
-        PlanExpired = 8
+        PlanExpired = 8,
+        ShareVersionUpdated = 9
     }
 }

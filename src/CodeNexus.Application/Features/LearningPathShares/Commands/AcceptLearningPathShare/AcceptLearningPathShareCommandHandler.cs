@@ -96,6 +96,7 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             EndDate = ShiftNullable(sourcePath.EndDate),
             Status = LearningPathStatus.Active.ToString(),
             CreatedAt = acceptedAt,
+            VersionNumber = sourcePath.VersionNumber,
             CreatedByType = sourcePath.CreatedByType,
             Language = sourcePath.Language,
             ComplexityLevel = sourcePath.ComplexityLevel
@@ -183,6 +184,12 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
 
         share.Status = LearningPathShareStatus.Accepted;
         share.RespondedAt = acceptedAt;
+        share.AcceptedPathId = studentPathId;
+        share.SourceVersionAtAccept = sourcePath.VersionNumber;
+        share.IgnoredSourceVersion = null;
+        share.LastNotifiedSourceVersion = null;
+        share.IsTrackingEnabled = true;
+        share.InvalidatedReason = null;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -193,7 +200,13 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             share.StudentId,
             share.Status,
             share.SentAt,
-            share.RespondedAt
+            share.RespondedAt,
+            share.AcceptedPathId,
+            share.SourceVersionAtAccept,
+            share.IgnoredSourceVersion,
+            share.LastNotifiedSourceVersion,
+            share.IsTrackingEnabled,
+            share.InvalidatedReason
         ));
     }
 

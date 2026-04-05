@@ -176,6 +176,13 @@ public class AcceptLearningPathShareCommandHandlerTests
         createdQuiz!.DueDate.Should().Be(sourceQuizDueDate.Add(timelineShift));
         createdTask!.DueDate.Should().Be(sourceTaskDueDate.Add(timelineShift));
         share.RespondedAt.Should().Be(createdStudentPath.StartDate);
+        share.AcceptedPathId.Should().Be(createdStudentPath.PathId);
+        share.SourceVersionAtAccept.Should().Be(sourcePath.VersionNumber);
+        share.IgnoredSourceVersion.Should().BeNull();
+        share.LastNotifiedSourceVersion.Should().BeNull();
+        share.IsTrackingEnabled.Should().BeTrue();
+        result.Value!.AcceptedPathId.Should().Be(createdStudentPath.PathId);
+        result.Value.SourceVersionAtAccept.Should().Be(sourcePath.VersionNumber);
 
         pathsDb.Verify(x => x.AddAsync(
             It.Is<LearningPath>(p => p.UserId == studentId && p.PathId != sourcePathId && p.SubjectId == sourcePath.SubjectId),

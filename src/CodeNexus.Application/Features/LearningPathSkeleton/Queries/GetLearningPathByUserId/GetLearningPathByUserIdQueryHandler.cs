@@ -131,7 +131,38 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                 lp.Chapters.Count(),
                 lp.CreatedAt,
                 lp.ComplexityLevel,
-                lp.Language
+                lp.Language,
+                _context.LearningPathShares
+                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                    .Select(s => (Guid?)s.MentorId)
+                    .FirstOrDefault(),
+                _context.LearningPathShares
+                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                    .Select(s => s.Mentor.Username)
+                    .FirstOrDefault(),
+                _context.LearningPathShares
+                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                    .Select(s => (Guid?)s.PathId)
+                    .FirstOrDefault(),
+                _context.LearningPathShares
+                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                    .Select(s => s.SourceVersionAtAccept)
+                    .FirstOrDefault(),
+                _context.LearningPathShares
+                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                    .Select(s => (int?)s.LearningPath.VersionNumber)
+                    .FirstOrDefault(),
+                _context.LearningPathShares
+                    .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                    .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                    .Select(s => (s.SourceVersionAtAccept ?? 1) < s.LearningPath.VersionNumber
+                        && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < s.LearningPath.VersionNumber))
+                    .FirstOrDefault()
             ))
             .ToListAsync(cancellationToken);
 
