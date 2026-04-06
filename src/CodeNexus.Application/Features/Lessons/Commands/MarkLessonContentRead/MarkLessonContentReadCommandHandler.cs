@@ -99,7 +99,7 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
 
     private async Task UpsertDailyCheckinForLessonAsync(Guid userId, bool alreadyRead, CancellationToken cancellationToken)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         var existing = await _context.DailyCheckins
             .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
 

@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DailyCheckin.DTOs;
 using MediatR;
@@ -37,7 +38,7 @@ public class GetMyDailyCheckinStatusQueryHandler : IRequestHandler<GetMyDailyChe
                 .OrderByDescending(d => d)
                 .ToListAsync(cancellationToken);
 
-            var today = DateTime.UtcNow.Date;
+            var today = VietnamDateTimeHelper.GetTodayDate();
             var todayCheckedIn = checkinDates.Contains(today);
             var currentStreak = CalculateCurrentStreak(checkinDates, today);
 

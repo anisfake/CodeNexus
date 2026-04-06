@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckinStats;
 using CodeNexus.Domain.Entities;
 using CodeNexus.UnitTests.Helpers;
@@ -66,7 +67,7 @@ public class GetMyDailyCheckinStatsQueryHandlerTests
     {
         // Arrange
         var userId = NewId.NextGuid();
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
 
         var checkins = new List<DailyCheckins>
@@ -103,7 +104,7 @@ public class GetMyDailyCheckinStatsQueryHandlerTests
     {
         // Arrange
         var userId = NewId.NextGuid();
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
 
         var checkins = new List<DailyCheckins>

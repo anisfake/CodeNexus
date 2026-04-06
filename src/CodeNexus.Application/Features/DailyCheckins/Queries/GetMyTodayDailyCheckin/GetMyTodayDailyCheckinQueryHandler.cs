@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DailyCheckin.DTOs;
 using MediatR;
@@ -29,7 +30,7 @@ public class GetMyTodayDailyCheckinQueryHandler : IRequestHandler<GetMyTodayDail
                 return Result<DailyCheckinDto>.Failure("UNAUTHORIZED", "User context is invalid.");
             }
 
-            var today = DateTime.UtcNow.Date;
+            var today = VietnamDateTimeHelper.GetTodayDate();
 
             var checkin = await _context.DailyCheckins
                 .AsNoTracking()

@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260405182911_AddShareVersionUpdatedNotificationSnapshot")]
+    partial class AddShareVersionUpdatedNotificationSnapshot
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -313,38 +316,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Conversations");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.ConversationSummary", b =>
-                {
-                    b.Property<Guid>("SummaryId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ConversationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("EndMessageCreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("MessageCount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("StartMessageCreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("SummaryContent")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("SummaryId");
-
-                    b.HasIndex("ConversationId", "CreatedAt");
-
-                    b.ToTable("ConversationSummaries");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DailyCheckins", b =>
@@ -1791,17 +1762,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.ConversationSummary", b =>
-                {
-                    b.HasOne("CodeNexus.Domain.Entities.Conversation", "Conversation")
-                        .WithMany("Summaries")
-                        .HasForeignKey("ConversationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Conversation");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.DailyCheckins", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.User", "User")
@@ -2336,8 +2296,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.Conversation", b =>
                 {
                     b.Navigation("Messages");
-
-                    b.Navigation("Summaries");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DirectConversation", b =>

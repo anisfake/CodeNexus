@@ -39,10 +39,10 @@ public class NotificationController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPatch("{notificationId:guid}/read")]
-    public async Task<IActionResult> MarkAsRead(Guid notificationId, CancellationToken cancellationToken = default)
+    [HttpPatch("read")]
+    public async Task<IActionResult> MarkAsRead([FromBody] IReadOnlyCollection<Guid> notificationIds, CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new MarkNotificationAsReadCommand(notificationId), cancellationToken);
+        var result = await _sender.Send(new MarkNotificationAsReadCommand(notificationIds), cancellationToken);
         return ToActionResult(result);
     }
 

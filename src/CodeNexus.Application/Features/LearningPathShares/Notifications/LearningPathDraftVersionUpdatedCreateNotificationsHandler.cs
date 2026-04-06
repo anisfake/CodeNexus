@@ -43,6 +43,16 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandler
             return;
         }
 
+        var sourceLearningPathTitle = await _context.LearningPaths
+            .AsNoTracking()
+            .Where(lp => lp.PathId == notification.PathId)
+            .Select(lp => lp.Title)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var notificationTitleSnapshot = string.IsNullOrWhiteSpace(sourceLearningPathTitle)
+            ? $"Learning Path - ver {notification.CurrentVersion}"
+            : sourceLearningPathTitle.Trim();
+
         var notifications = sharesToNotify
             .Select(share => new Notification
             {
@@ -59,6 +69,9 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandler
                 TargetUrl = $"/learning-path-shares/{share.ShareId}/updates",
                 Route = "/learningpath-shares/:shareId/updates",
                 LearningPathId = share.AcceptedPathId,
+                NotifiedPathTitle = notificationTitleSnapshot,
+                NotifiedSourceVersion = notification.CurrentVersion,
+                NotifiedMentorUserName = notification.MentorUserName,
                 IsRead = false,
                 CreatedAt = notification.OccurredAt
             })
