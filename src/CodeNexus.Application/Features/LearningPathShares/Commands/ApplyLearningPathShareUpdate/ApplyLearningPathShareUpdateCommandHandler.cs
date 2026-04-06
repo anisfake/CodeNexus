@@ -118,11 +118,11 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
                 share.IsTrackingEnabled = true;
                 break;
             }
-            case LearningPathShareUpdateAction.KeepCurrent:
+            case LearningPathShareUpdateAction.DisableUpdateNotifications:
             {
                 share.IgnoredSourceVersion = latestVersion;
                 share.LastNotifiedSourceVersion = latestVersion;
-                share.IsTrackingEnabled = true;
+                share.IsTrackingEnabled = false;
                 break;
             }
             default:
