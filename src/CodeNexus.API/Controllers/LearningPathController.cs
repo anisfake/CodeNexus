@@ -3,7 +3,7 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
-using CodeNexus.Application.Features.Chapters.Queries.GetChapterCompletionStatus;
+using CodeNexus.Application.Features.Chapters.Queries.GetChapterCompleteStatus;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
@@ -250,14 +250,6 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpGet("chapters/{chapterId:guid}/completion-status")]
-    [Authorize(Roles = "Mentor, Student")]
-    public async Task<IActionResult> GetChapterCompletionStatus(Guid chapterId, CancellationToken cancellationToken)
-    {
-        var result = await _sender.Send(new GetChapterCompletionStatusQuery(chapterId), cancellationToken);
-        return ToActionResult(result);
-    }
-
     [HttpPost("quizzes/{quizId:guid}/generate-questions")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GenerateQuizQuestions(Guid quizId, CancellationToken cancellationToken)
@@ -272,6 +264,14 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> GenerateChapterTasks(Guid chapterId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GenerateChapterTasksCommand(chapterId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("chapters/{chapterId:guid}/complete-status")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetChapterCompleteStatus(Guid chapterId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetChapterCompleteStatusQuery(chapterId), cancellationToken);
         return ToActionResult(result);
     }
 
