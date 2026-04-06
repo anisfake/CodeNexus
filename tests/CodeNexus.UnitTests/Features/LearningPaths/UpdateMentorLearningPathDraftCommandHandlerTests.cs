@@ -77,7 +77,31 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
                     OrderIndex = 0,
                     LessonDay = lessonDay,
                     IsDeleted = false,
-                    Content = "Existing content"
+                    Content = "Existing content",
+                    Quizzes = new List<Quiz>
+                    {
+                        new()
+                        {
+                            QuizId = NewId.NextGuid(),
+                            Title = "Quiz 1",
+                            Description = "Quiz desc",
+                            IsDeleted = false
+                        }
+                    }
+                }
+            },
+            Tasks = new List<CodeNexus.Domain.Entities.Tasks>
+            {
+                new()
+                {
+                    TaskId = NewId.NextGuid(),
+                    PathId = pathId,
+                    Title = "Task 1",
+                    Description = "Task desc",
+                    TaskType = TaskType.Practice,
+                    Priority = TaskPriority.Medium,
+                    Status = TaskStatus_.Pending,
+                    QuizQuestionsJson = "[]"
                 }
             }
         };
@@ -138,6 +162,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
         result.Value!.PathId.Should().Be(pathId);
         result.Value.ChapterDtos.Should().HaveCount(1);
         result.Value.ChapterDtos[0].Lessons.Should().HaveCount(1);
+        result.Value.ChapterDtos[0].Lessons[0].Quizzes.Should().HaveCount(1);
+        result.Value.ChapterDtos[0].Tasks.Should().HaveCount(1);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 }

@@ -50,6 +50,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             .Include(lp => lp.LearningPathGoals)
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
+                .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
+            .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Tasks)
             .FirstOrDefaultAsync(lp => lp.PathId == request.PathId, cancellationToken);
 
         if (learningPath == null)
@@ -394,9 +397,25 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                         l.Title,
                         l.Content,
                         l.LessonDay,
-                        new List<QuizDto>()))
+                        l.Quizzes
+                            .Where(q => !q.IsDeleted)
+                            .Select(q => new QuizDto(
+                                q.QuizId,
+                                q.Title,
+                                q.Description ?? string.Empty))
+                            .ToList()))
                     .ToList(),
-                new List<TaskDto>()))
+                c.Tasks
+                    .Select(t => new TaskDto(
+                        t.TaskId,
+                        t.Title,
+                        t.Description ?? string.Empty,
+                        t.TaskType,
+                        t.Priority,
+                        t.Status,
+                        t.DueDate,
+                        t.QuizQuestionsJson))
+                    .ToList()))
             .ToList();
     }
 }

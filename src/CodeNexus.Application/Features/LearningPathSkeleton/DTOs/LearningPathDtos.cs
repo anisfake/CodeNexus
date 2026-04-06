@@ -7,7 +7,11 @@ public record QuizDto(
     string Title,
     string Description,
     string Status = "Not Attempted"
-);
+)
+{
+    public Guid QuizId => QuizzId;
+    public Guid Id => QuizzId;
+};
 public record LessonDto(
     Guid LessonId,
     string Title,
@@ -15,7 +19,10 @@ public record LessonDto(
     DateTime LessonDay,
     List<QuizDto> Quizzes,
     string Status = "Not Started"
-);
+)
+{
+    public Guid Id => LessonId;
+};
 public record TaskDto(
     Guid TaskId,
     string Title,
@@ -26,7 +33,10 @@ public record TaskDto(
     DateTime? DueDate,
     string? QuizQuestionsJson,
     string Status = "Pending"
-);
+)
+{
+    public Guid Id => TaskId;
+};
 public record ChapterDto(
     Guid ChapterId,
     string Title,
@@ -34,7 +44,10 @@ public record ChapterDto(
     int OrderIndex,
     List<LessonDto> Lessons,
     List<TaskDto> Tasks
-);
+)
+{
+    public Guid Id => ChapterId;
+};
 public record LearningPathSkeletonDto(
     string Title,
     string Description,
@@ -122,7 +135,11 @@ public record CreateLearningPathResponse(
     LanguageSelection? LanguageSelection = null,
     Guid? SubjectId = null,
     string? SubjectName = null
-);
+)
+{
+    public Guid Id => PathId;
+    public List<ChapterDto> Chapters => ChapterDtos;
+};
 
 public record LearningPathSuggestionDto(
     Guid PathId,
@@ -151,7 +168,11 @@ public record LearningPathResponse(
     DateTime CreatedAt,
     ComplexityLevel? ComplexityLevel = null,
     LanguageSelection? LanguageSelection = null
-);
+)
+{
+    public Guid Id => PathId;
+    public List<ChapterDto> Chapters => ChapterDtos;
+};
 public record GetAllLearningPathRequest(
     int PageNumber = 1,
     int PageSize = 10,

@@ -46,7 +46,50 @@ public class GetLearningPathDraftDetailQueryHandlerTests
             {
                 new() { PathId = pathId, GoalId = goal.GoalId, Goal = goal, Weight = 100m }
             },
-            Chapters = new List<Chapter>()
+            Chapters = new List<Chapter>
+            {
+                new()
+                {
+                    ChapterId = NewId.NextGuid(),
+                    PathId = pathId,
+                    Title = "Chapter 1",
+                    OrderIndex = 0,
+                    IsDeleted = false,
+                    Lessons = new List<Lesson>
+                    {
+                        new()
+                        {
+                            LessonId = NewId.NextGuid(),
+                            Title = "Lesson 1",
+                            LessonDay = DateTime.UtcNow,
+                            IsDeleted = false,
+                            Quizzes = new List<Quiz>
+                            {
+                                new()
+                                {
+                                    QuizId = NewId.NextGuid(),
+                                    Title = "Quiz 1",
+                                    Description = "Quiz desc",
+                                    IsDeleted = false
+                                }
+                            }
+                        }
+                    },
+                    Tasks = new List<CodeNexus.Domain.Entities.Tasks>
+                    {
+                        new()
+                        {
+                            TaskId = NewId.NextGuid(),
+                            PathId = pathId,
+                            Title = "Task 1",
+                            Description = "Task desc",
+                            TaskType = TaskType.Practice,
+                            Status = TaskStatus_.Pending,
+                            QuizQuestionsJson = "[]"
+                        }
+                    }
+                }
+            }
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
@@ -59,6 +102,13 @@ public class GetLearningPathDraftDetailQueryHandlerTests
         result.Value.Should().NotBeNull();
         result.Value!.PathId.Should().Be(pathId);
         result.Value.Status.Should().Be(LearningPathStatus.Draft.ToString());
+        result.Value.ChapterDtos.Should().HaveCount(1);
+        result.Value.Chapters.Should().HaveCount(1);
+        result.Value.ChapterDtos[0].Id.Should().Be(result.Value.ChapterDtos[0].ChapterId);
+        result.Value.ChapterDtos[0].Lessons.Should().HaveCount(1);
+        result.Value.ChapterDtos[0].Lessons[0].Quizzes.Should().HaveCount(1);
+        result.Value.ChapterDtos[0].Lessons[0].Quizzes[0].QuizId.Should().Be(result.Value.ChapterDtos[0].Lessons[0].Quizzes[0].QuizzId);
+        result.Value.ChapterDtos[0].Tasks.Should().HaveCount(1);
     }
 
     [Fact]
