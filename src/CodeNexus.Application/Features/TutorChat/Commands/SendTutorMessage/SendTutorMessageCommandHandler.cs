@@ -345,7 +345,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 .ThenBy(m => m.MessageId)
                 .ToListAsync(cancellationToken);
 
-            if (unsummarizedMessages.Count < 2)
+            if (unsummarizedMessages.Count == 0)
             {
                 return;
             }
