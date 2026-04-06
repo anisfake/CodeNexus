@@ -1,4 +1,3 @@
-using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.DTOs;
@@ -20,54 +19,22 @@ public class GetChapterCompletionStatusQueryHandler : IRequestHandler<GetChapter
 
     public async Task<Result<ChapterCompletionStatusDto>> Handle(GetChapterCompletionStatusQuery request, CancellationToken cancellationToken)
     {
-        Guid userId;
-        try
-        {
-            userId = _currentUserService.GetUserId();
-        }
-        catch
-        {
-            return Result<ChapterCompletionStatusDto>.Failure("UNAUTHORIZED", "User not authenticated");
-        }
+		var userId = _currentUserService.GetUserId();
 
-        var chapterInfo = await _context.Chapters
-            .AsNoTracking()
-            .Where(c => c.ChapterId == request.ChapterId && !c.IsDeleted)
-            .Select(c => new
-            {
-                c.ChapterId,
-                c.PathId,
-                OwnerId = c.LearningPath.UserId,
-                c.IsCompleted
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+		var chapter = await _context.Chapters
+				.Include(c => c.LearningPath)
+					.ThenInclude(lp => lp.Subject)
+				.Include(c => c.Lessons)
+			.FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId, cancellationToken);
 
-        if (chapterInfo == null)
-        {
-            return Result<ChapterCompletionStatusDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found.");
-        }
+		if (chapter == null)
+			return Result<ChapterCompletionStatusDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
-        if (chapterInfo.OwnerId != userId)
-        {
-            return Result<ChapterCompletionStatusDto>.Failure("ACCESS_DENIED", "Access denied.");
-        }
+		if (chapter.LearningPath.UserId != userId)
+			return Result<ChapterCompletionStatusDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
-        var totalLessons = await _context.Lessons
-            .AsNoTracking()
-            .CountAsync(l => l.ChapterId == request.ChapterId && !l.IsDeleted, cancellationToken);
 
-        var completedLessons = await _context.LearnProgresses
-            .AsNoTracking()
-            .Where(p =>
-                p.UserId == userId &&
-                p.IsLessonContentRead &&
-                !p.Lesson.IsDeleted &&
-                p.Lesson.ChapterId == request.ChapterId)
-            .Select(p => p.LessonId)
-            .Distinct()
-            .CountAsync(cancellationToken);
-
-        var totalTasks = await _context.Tasks
+		var totalTasks = await _context.Tasks
             .AsNoTracking()
             .CountAsync(t => t.ChapterId == request.ChapterId, cancellationToken);
 
@@ -75,13 +42,17 @@ public class GetChapterCompletionStatusQueryHandler : IRequestHandler<GetChapter
             .AsNoTracking()
             .CountAsync(t => t.ChapterId == request.ChapterId && t.Status == Domain.Enums.TaskStatus_.Completed, cancellationToken);
 
+        var lessonIds = chapter.Lessons
+            .Where(l => !l.IsDeleted)
+            .Select(l => l.LessonId)
+            .ToList();
+
         var totalQuizzes = await _context.Quizzes
             .AsNoTracking()
             .CountAsync(q =>
                 !q.IsDeleted &&
                 q.LessonId.HasValue &&
-                !q.Lesson!.IsDeleted &&
-                q.Lesson.ChapterId == request.ChapterId,
+                lessonIds.Contains(q.LessonId.Value),
                 cancellationToken);
 
         var completedQuizzes = await _context.QuizAttempts
@@ -91,47 +62,24 @@ public class GetChapterCompletionStatusQueryHandler : IRequestHandler<GetChapter
                 a.Status == Domain.Enums.QuizAttemptStatus.Passed &&
                 !a.Quiz.IsDeleted &&
                 a.Quiz.LessonId.HasValue &&
-                !a.Quiz.Lesson!.IsDeleted &&
-                a.Quiz.Lesson.ChapterId == request.ChapterId)
+                lessonIds.Contains(a.Quiz.LessonId.Value))
             .Select(a => a.QuizId)
             .Distinct()
             .CountAsync(cancellationToken);
 
-        var totalItems = totalLessons + totalTasks + totalQuizzes;
-        var completedItems = completedLessons + completedTasks + completedQuizzes;
-        var progressPercent = totalItems == 0
-            ? 0m
-            : Math.Round(completedItems * 100m / totalItems, 2);
+        var totalItems = totalTasks + totalQuizzes;
 
-        var isCompleted = totalItems > 0
-            && completedLessons == totalLessons
+        var shouldMarkCompleted = totalItems > 0
             && completedTasks == totalTasks
             && completedQuizzes == totalQuizzes;
 
-        if (chapterInfo.IsCompleted != isCompleted)
+        if (!chapter.IsCompleted && shouldMarkCompleted)
         {
-            var hasChapterCompletionChanges = await ChapterCompletionSyncHelper.SyncAsync(
-                _context,
-                request.ChapterId,
-                userId,
-                cancellationToken);
-
-            if (hasChapterCompletionChanges)
-            {
-                await _context.SaveChangesAsync(cancellationToken);
-            }
+            chapter.IsCompleted = true;
+            await _context.SaveChangesAsync(cancellationToken);
         }
 
-        var dto = new ChapterCompletionStatusDto(
-            request.ChapterId,
-            isCompleted,
-            completedLessons,
-            totalLessons,
-            completedTasks,
-            totalTasks,
-            completedQuizzes,
-            totalQuizzes,
-            progressPercent);
+        var dto = new ChapterCompletionStatusDto(chapter.IsCompleted);
 
         return Result<ChapterCompletionStatusDto>.Success(dto);
     }

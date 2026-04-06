@@ -417,7 +417,16 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
             chapterDtoList,
             chapterDtoList.Count,
             newPath.CreatedAt,
-            false));
+            false,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            newPath.VersionNumber,
+            null,
+            true));
     }
 
     private sealed record GoalWeightInfo(CodeNexus.Domain.Entities.Goals Goal, decimal Weight);

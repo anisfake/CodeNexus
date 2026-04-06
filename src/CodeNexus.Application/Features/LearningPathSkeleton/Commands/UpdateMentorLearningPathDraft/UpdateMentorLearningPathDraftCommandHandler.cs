@@ -58,6 +58,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             .Include(lp => lp.LearningPathGoals)
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
+                .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
+            .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
+                .ThenInclude(c => c.Tasks)
             .FirstOrDefaultAsync(lp => lp.PathId == request.PathId, cancellationToken);
 
         if (learningPath == null)
@@ -147,10 +150,14 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 learningPath.ComplexityLevel,
                 learningPath.Language,
                 learningPath.SubjectId,
-                subject.Name));
+                subject.Name,
+                learningPath.VersionNumber,
+                learningPath.VersionNumber,
+                false));
         }
 
-        var nextVersion = learningPath.VersionNumber + 1;
+        var previousVersion = learningPath.VersionNumber;
+        var nextVersion = previousVersion + 1;
 
         learningPath.SubjectId = request.SubjectId;
         learningPath.Title = BuildVersionedTitle(request.Title, nextVersion);
@@ -280,7 +287,10 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             learningPath.ComplexityLevel,
             learningPath.Language,
             learningPath.SubjectId,
-            subject.Name));
+            subject.Name,
+            learningPath.VersionNumber,
+            previousVersion,
+            true));
     }
 
     private static int CalculateEstimatedDays(DateTime? startDate, DateTime? endDate)
@@ -314,11 +324,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             return false;
         }
 
-        if (request.StartDate != learningPath.StartDate || request.EndDate != learningPath.EndDate)
-        {
-            return false;
-        }
-
         if (request.ComplexityLevel != learningPath.ComplexityLevel || request.LanguageSelection != learningPath.Language)
         {
             return false;
@@ -329,7 +334,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             return false;
         }
 
-        return ChaptersMatchCurrent(request.Chapters, learningPath);
+        return ChaptersMatchCurrentBySummary(request.Chapters, learningPath);
     }
 
     private static bool GoalsMatchCurrent(
@@ -351,7 +356,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 return false;
             }
 
-            if (currentWeight != requestedGoal.Weight)
+            if (Math.Abs(currentWeight - requestedGoal.Weight) > 0.01m)
             {
                 return false;
             }
@@ -360,7 +365,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         return true;
     }
 
-    private static bool ChaptersMatchCurrent(List<ManualChapterRequest> requestedChapters, LearningPath learningPath)
+    private static bool ChaptersMatchCurrentBySummary(List<ManualChapterRequest> requestedChapters, LearningPath learningPath)
     {
         var currentChapters = learningPath.Chapters
             .Where(c => !c.IsDeleted)
@@ -378,11 +383,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             var currentChapter = currentChapters[chapterIndex];
 
             if (!string.Equals(NormalizeRequiredText(requestedChapter.Title), NormalizeRequiredText(currentChapter.Title), StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (requestedChapter.StartDate != currentChapter.StartDate || requestedChapter.EndDate != currentChapter.EndDate)
             {
                 return false;
             }
@@ -415,10 +415,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                     return false;
                 }
 
-                if (requestedLesson.LessonDay != currentLesson.LessonDay)
-                {
-                    return false;
-                }
             }
         }
 
@@ -443,9 +439,25 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                         lesson.Title,
                         lesson.Content,
                         lesson.LessonDay,
-                        new List<QuizDto>()))
+                        lesson.Quizzes
+                            .Where(quiz => !quiz.IsDeleted)
+                            .Select(quiz => new QuizDto(
+                                quiz.QuizId,
+                                quiz.Title,
+                                quiz.Description))
+                            .ToList()))
                     .ToList(),
-                new List<TaskDto>()))
+                chapter.Tasks
+                    .Select(task => new TaskDto(
+                        task.TaskId,
+                        task.Title,
+                        task.Description ?? string.Empty,
+                        task.TaskType,
+                        task.Priority,
+                        task.Status,
+                        task.DueDate,
+                        task.QuizQuestionsJson))
+                    .ToList()))
             .ToList();
     }
 
