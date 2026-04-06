@@ -112,6 +112,37 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             .OrderByDescending(g => g.Weight)
             .ToList();
 
+        var goalDtos = goalsWithWeights
+            .Select(g => new LearningPathGoalDto(
+                g.Goal.GoalId,
+                g.Goal.Title,
+                g.Weight,
+                g.Goal.DurationInDays,
+                "NotStarted",
+                null))
+            .ToList();
+
+        if (!HasDraftChanges(learningPath, request, normalizedGoals))
+        {
+            var existingChapterDtos = BuildExistingChapterDtos(learningPath);
+
+            return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
+                learningPath.PathId,
+                learningPath.Title,
+                learningPath.Description ?? string.Empty,
+                goalDtos,
+                existingChapterDtos,
+                existingChapterDtos.Count,
+                learningPath.CreatedAt,
+                false,
+                learningPath.StartDate,
+                learningPath.EndDate,
+                learningPath.ComplexityLevel,
+                learningPath.Language,
+                learningPath.SubjectId,
+                subject.Name));
+        }
+
         learningPath.SubjectId = request.SubjectId;
         learningPath.Title = request.Title.Trim();
         learningPath.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
@@ -205,16 +236,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        var goalDtos = goalsWithWeights
-            .Select(g => new LearningPathGoalDto(
-                g.Goal.GoalId,
-                g.Goal.Title,
-                g.Weight,
-                g.Goal.DurationInDays,
-                "NotStarted",
-                null))
-            .ToList();
-
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
             learningPath.PathId,
             learningPath.Title,
@@ -263,5 +284,119 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         }
 
         return normalized;
+    }
+
+    private static bool HasDraftChanges(
+        LearningPath learningPath,
+        UpdateMentorLearningPathDraftCommand request,
+        List<LearningPathGoalRequest> normalizedGoals)
+    {
+        var normalizedTitle = request.Title.Trim();
+        var normalizedDescription = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+
+        if (learningPath.SubjectId != request.SubjectId
+            || !string.Equals(learningPath.Title, normalizedTitle, StringComparison.Ordinal)
+            || !string.Equals(learningPath.Description, normalizedDescription, StringComparison.Ordinal)
+            || learningPath.StartDate != request.StartDate
+            || learningPath.EndDate != request.EndDate
+            || learningPath.ComplexityLevel != request.ComplexityLevel
+            || learningPath.Language != request.LanguageSelection)
+        {
+            return true;
+        }
+
+        var existingGoals = learningPath.LearningPathGoals
+            .Select(g => new LearningPathGoalRequest(g.GoalId, Math.Round(g.Weight, 2)))
+            .OrderBy(g => g.GoalId)
+            .ToList();
+
+        var incomingGoals = normalizedGoals
+            .Select(g => new LearningPathGoalRequest(g.GoalId, Math.Round(g.Weight, 2)))
+            .OrderBy(g => g.GoalId)
+            .ToList();
+
+        if (existingGoals.Count != incomingGoals.Count)
+        {
+            return true;
+        }
+
+        for (int i = 0; i < existingGoals.Count; i++)
+        {
+            if (existingGoals[i].GoalId != incomingGoals[i].GoalId
+                || existingGoals[i].Weight != incomingGoals[i].Weight)
+            {
+                return true;
+            }
+        }
+
+        var existingChapters = learningPath.Chapters
+            .OrderBy(c => c.OrderIndex)
+            .ToList();
+
+        if (existingChapters.Count != request.Chapters.Count)
+        {
+            return true;
+        }
+
+        for (int chapterIndex = 0; chapterIndex < request.Chapters.Count; chapterIndex++)
+        {
+            var existingChapter = existingChapters[chapterIndex];
+            var requestChapter = request.Chapters[chapterIndex];
+
+            if (existingChapter.OrderIndex != chapterIndex
+                || !string.Equals(existingChapter.Title, requestChapter.Title.Trim(), StringComparison.Ordinal)
+                || existingChapter.StartDate != requestChapter.StartDate
+                || existingChapter.EndDate != requestChapter.EndDate
+                || existingChapter.EstimatedDays != (requestChapter.EstimatedDays ?? CalculateEstimatedDays(requestChapter.StartDate, requestChapter.EndDate)))
+            {
+                return true;
+            }
+
+            var existingLessons = existingChapter.Lessons
+                .OrderBy(l => l.OrderIndex)
+                .ToList();
+
+            if (existingLessons.Count != requestChapter.Lessons.Count)
+            {
+                return true;
+            }
+
+            for (int lessonIndex = 0; lessonIndex < requestChapter.Lessons.Count; lessonIndex++)
+            {
+                var existingLesson = existingLessons[lessonIndex];
+                var requestLesson = requestChapter.Lessons[lessonIndex];
+
+                if (existingLesson.OrderIndex != lessonIndex
+                    || !string.Equals(existingLesson.Title, requestLesson.Title.Trim(), StringComparison.Ordinal)
+                    || existingLesson.LessonDay != requestLesson.LessonDay)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static List<ChapterDto> BuildExistingChapterDtos(LearningPath learningPath)
+    {
+        return learningPath.Chapters
+            .OrderBy(c => c.OrderIndex)
+            .Select(c => new ChapterDto(
+                c.ChapterId,
+                c.Title,
+                c.Content,
+                c.OrderIndex,
+                c.Lessons
+                    .OrderBy(l => l.OrderIndex)
+                    .Select(l => new LessonDto(
+                        l.LessonId,
+                        l.Title,
+                        l.Content,
+                        l.LessonDay,
+                        new List<QuizDto>()))
+                    .ToList(),
+                new List<TaskDto>()))
+            .ToList();
     }
 }
