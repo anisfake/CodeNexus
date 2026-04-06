@@ -201,7 +201,10 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             learningPath.ComplexityLevel,
             learningPath.Language,
             learningPath.SubjectId,
-            subject.Name));
+            subject.Name,
+            learningPath.VersionNumber,
+            null,
+            true));
     }
 
     private static int CalculateEstimatedDays(DateTime? startDate, DateTime? endDate)

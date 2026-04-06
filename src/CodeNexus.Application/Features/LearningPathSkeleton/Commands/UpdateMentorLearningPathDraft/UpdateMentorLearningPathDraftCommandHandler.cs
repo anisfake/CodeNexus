@@ -150,10 +150,14 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 learningPath.ComplexityLevel,
                 learningPath.Language,
                 learningPath.SubjectId,
-                subject.Name));
+                subject.Name,
+                learningPath.VersionNumber,
+                learningPath.VersionNumber,
+                false));
         }
 
-        var nextVersion = learningPath.VersionNumber + 1;
+        var previousVersion = learningPath.VersionNumber;
+        var nextVersion = previousVersion + 1;
 
         learningPath.SubjectId = request.SubjectId;
         learningPath.Title = BuildVersionedTitle(request.Title, nextVersion);
@@ -283,7 +287,10 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             learningPath.ComplexityLevel,
             learningPath.Language,
             learningPath.SubjectId,
-            subject.Name));
+            subject.Name,
+            learningPath.VersionNumber,
+            previousVersion,
+            true));
     }
 
     private static int CalculateEstimatedDays(DateTime? startDate, DateTime? endDate)

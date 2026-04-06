@@ -135,7 +135,10 @@ public record CreateLearningPathResponse(
     ComplexityLevel? ComplexityLevel = null,
     LanguageSelection? LanguageSelection = null,
     Guid? SubjectId = null,
-    string? SubjectName = null
+    string? SubjectName = null,
+    int? Version = null,
+    int? PreviousVersion = null,
+    bool? HasMeaningfulChange = null
 )
 {
     public List<ChapterDto> Chapters => ChapterDtos;
