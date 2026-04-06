@@ -100,6 +100,46 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             return Result<LearningPathShareDto>.Failure("SHARE_ALREADY_PENDING", "A pending share already exists for this student.");
         }
 
+        var chapterIds = await _context.Chapters
+            .AsNoTracking()
+            .Where(c => c.PathId == request.PathId && !c.IsDeleted)
+            .Select(c => c.ChapterId)
+            .ToListAsync(cancellationToken);
+
+        var chapterIdsWithTask = await _context.Tasks
+            .AsNoTracking()
+            .Where(t => chapterIds.Contains(t.ChapterId))
+            .Select(t => t.ChapterId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (chapterIds.Except(chapterIdsWithTask).Any())
+        {
+            return Result<LearningPathShareDto>.Failure(
+                "CHAPTER_TASK_REQUIRED",
+                "Each chapter must have at least one task before sharing.");
+        }
+
+        var lessonIds = await _context.Lessons
+            .AsNoTracking()
+            .Where(l => !l.IsDeleted && chapterIds.Contains(l.ChapterId))
+            .Select(l => l.LessonId)
+            .ToListAsync(cancellationToken);
+
+        var lessonIdsWithQuiz = await _context.Quizzes
+            .AsNoTracking()
+            .Where(q => q.LessonId.HasValue && !q.IsDeleted && lessonIds.Contains(q.LessonId.Value))
+            .Select(q => q.LessonId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (lessonIds.Except(lessonIdsWithQuiz).Any())
+        {
+            return Result<LearningPathShareDto>.Failure(
+                "LESSON_QUIZ_REQUIRED",
+                "Each lesson must have at least one quiz before sharing.");
+        }
+
         var share = new LearningPathShare
         {
             ShareId = NewId.NextGuid(),
