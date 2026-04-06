@@ -103,31 +103,15 @@ public class GetTutorConversationMessagesQueryHandler
             return 0d;
         }
 
-        var usageLog = await _context.AIUsageLogs
-            .AsNoTracking()
-            .Where(log =>
-                log.UserId == userId
-                && log.UsageType == AIUsageType.Assistant
-                && log.CreatedAt <= latestAssistantMessageAt.Value.AddSeconds(30))
-            .OrderByDescending(log => log.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (usageLog == null)
-        {
-            return 0d;
-        }
-
         var config = await _context.AIProviderConfigs
             .AsNoTracking()
             .Where(c => c.ConfigId == configId)
             .Select(c => new { c.ConfigJson })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var fallbackModel = string.IsNullOrWhiteSpace(usageLog.Model)
-            ? DefaultAssistantModel
-            : usageLog.Model;
+        var fallbackModel = DefaultAssistantModel;
         var chatPolicy = TutorChatRuntimePolicy.Resolve(config?.ConfigJson);
-        var (_, contextWindow) = TutorChatRuntimePolicy.ResolveModelContext(config?.ConfigJson, fallbackModel);
+        var (resolvedModel, contextWindow) = TutorChatRuntimePolicy.ResolveModelContext(config?.ConfigJson, fallbackModel);
 
         if (chatPolicy.RuntimeContextBudget > 0)
         {
@@ -137,6 +121,43 @@ public class GetTutorConversationMessagesQueryHandler
         contextWindow = Math.Max(contextWindow, 512);
 
         if (contextWindow <= 0)
+        {
+            return 0d;
+        }
+
+        var latestAssistantAt = latestAssistantMessageAt.Value;
+        var logWindowStart = latestAssistantAt.AddMinutes(-5);
+        var logWindowEnd = latestAssistantAt.AddSeconds(30);
+
+        var usageLogsInWindow = _context.AIUsageLogs
+            .AsNoTracking()
+            .Where(log =>
+                log.UserId == userId
+                && log.UsageType == AIUsageType.Assistant
+                && log.CreatedAt >= logWindowStart
+                && log.CreatedAt <= logWindowEnd);
+
+        var usageLog = string.IsNullOrWhiteSpace(resolvedModel)
+            ? null
+            : await usageLogsInWindow
+                .Where(log => log.Model == resolvedModel)
+                .OrderByDescending(log => log.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        usageLog ??= await usageLogsInWindow
+            .OrderByDescending(log => log.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        usageLog ??= await _context.AIUsageLogs
+            .AsNoTracking()
+            .Where(log =>
+                log.UserId == userId
+                && log.UsageType == AIUsageType.Assistant
+                && log.CreatedAt <= latestAssistantAt.AddSeconds(30))
+            .OrderByDescending(log => log.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (usageLog == null)
         {
             return 0d;
         }

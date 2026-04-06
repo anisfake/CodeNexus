@@ -130,6 +130,11 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             ApplyConversationContext(conversation, contextData.Value!);
         }
 
+        if (conversation.ConfigId != config.ConfigId)
+        {
+            conversation.ConfigId = config.ConfigId;
+        }
+
         await EnsureConversationSummaryWithinModelBudgetAsync(
             conversation,
             contextData.Value!,

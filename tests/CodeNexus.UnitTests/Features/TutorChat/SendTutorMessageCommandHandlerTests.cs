@@ -224,4 +224,92 @@ public class SendTutorMessageCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(conversationId, result.Value!.ConversationId);
     }
+
+    [Fact]
+    public async Task Handle_WithExistingConversation_ShouldRefreshConversationConfigIdToActiveTierConfig()
+    {
+        var userId = Guid.NewGuid();
+        var freeConfigId = Guid.NewGuid();
+        var paidConfigId = Guid.NewGuid();
+        var pathId = Guid.NewGuid();
+        var conversationId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
+        {
+            new AIProviderConfig
+            {
+                ConfigId = paidConfigId,
+                ProviderName = "Mistral",
+                UsageType = AIUsageType.Assistant,
+                AccessTier = AIAccessTier.Paid,
+                IsActive = true,
+                LastUpdated = DateTime.UtcNow
+            },
+            new AIProviderConfig
+            {
+                ConfigId = freeConfigId,
+                ProviderName = "Groq",
+                UsageType = AIUsageType.Assistant,
+                AccessTier = AIAccessTier.Free,
+                IsActive = true,
+                LastUpdated = DateTime.UtcNow.AddMinutes(-5)
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.LearningPaths).Returns(new[]
+        {
+            new LearningPath
+            {
+                PathId = pathId,
+                UserId = userId,
+                SubjectId = subjectId,
+                Subject = new Subject { SubjectId = subjectId, Name = "Architecture" },
+                Language = LanguageSelection.English,
+                LearningPathGoals = new List<LearningPathGoal>()
+            }
+        }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
+
+        var conversations = new List<Conversation>
+        {
+            new()
+            {
+                ConversationId = conversationId,
+                UserId = userId,
+                ConfigId = freeConfigId,
+                LearningPathId = pathId,
+                Title = "Tutor - Existing",
+                IsDeleted = false
+            }
+        };
+        _mockContext.Setup(x => x.Conversations).Returns(conversations.BuildMockDbSet().Object);
+
+        var messages = new List<Message>();
+        var messagesDbSet = messages.BuildMockDbSet();
+        messagesDbSet.Setup(x => x.AddAsync(It.IsAny<Message>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>)null!));
+        _mockContext.Setup(x => x.Messages).Returns(messagesDbSet.Object);
+
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mockAiGenerator.Setup(x => x.GenerateContentAsync(It.IsAny<string>(), AIUsageType.Assistant))
+            .ReturnsAsync("Updated config tier response");
+
+        var command = new SendTutorMessageCommand(
+            conversationId,
+            pathId,
+            null,
+            null,
+            "Compare clean architecture and mvc");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(paidConfigId, conversations[0].ConfigId);
+    }
 }
