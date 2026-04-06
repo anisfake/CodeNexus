@@ -56,16 +56,17 @@ public class TutorChatHubTests
     [Fact]
     public async Task RequestTutorMessages_WithSuccess_ShouldEmitLoaded()
     {
-        var pagination = new PaginationDto<TutorMessageDto>
+        var pagination = new TutorMessagesPageDto
         {
             Items = new List<TutorMessageDto>(),
             PageNumber = 1,
             PageSize = 30,
-            TotalCount = 0
+            TotalCount = 0,
+            ContextUsagePercent = 0.7d
         };
 
         _mockSender.Setup(x => x.Send(It.IsAny<GetTutorConversationMessagesQuery>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Result<PaginationDto<TutorMessageDto>>.Success(pagination));
+            .ReturnsAsync(Result<TutorMessagesPageDto>.Success(pagination));
 
         await _hub.RequestTutorMessages(Guid.NewGuid());
 

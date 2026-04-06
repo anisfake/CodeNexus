@@ -1,3 +1,5 @@
+using CodeNexus.Application.Common.Models;
+
 namespace CodeNexus.Application.Features.TutorChat.DTOs;
 
 public record TutorChatResponseDto(
@@ -31,3 +33,8 @@ public record ResolveTutorConversationResponseDto(
     Guid ConversationId,
     bool Created
 );
+
+public class TutorMessagesPageDto : PaginationDto<TutorMessageDto>
+{
+    public double ContextUsagePercent { get; set; }
+}
