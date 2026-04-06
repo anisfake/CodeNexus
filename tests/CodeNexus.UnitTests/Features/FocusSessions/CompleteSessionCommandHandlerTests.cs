@@ -364,7 +364,7 @@ public class CompleteSessionCommandHandlerTests
         {
             CheckinId = Guid.NewGuid(),
             UserId = userId,
-            CheckinDate = DateTime.UtcNow.Date,
+            CheckinDate = CodeNexus.Application.Common.Helpers.VietnamDateTimeHelper.GetTodayDate(),
             Mood = "Focused",
             Productivity = 4,
             CreatedAt = DateTime.UtcNow
