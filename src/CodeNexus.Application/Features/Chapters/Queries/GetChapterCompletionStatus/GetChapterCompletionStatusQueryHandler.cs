@@ -19,33 +19,22 @@ public class GetChapterCompletionStatusQueryHandler : IRequestHandler<GetChapter
 
     public async Task<Result<ChapterCompletionStatusDto>> Handle(GetChapterCompletionStatusQuery request, CancellationToken cancellationToken)
     {
-        Guid userId;
-        try
-        {
-            userId = _currentUserService.GetUserId();
-        }
-        catch
-        {
-            return Result<ChapterCompletionStatusDto>.Failure("UNAUTHORIZED", "User not authenticated");
-        }
+		var userId = _currentUserService.GetUserId();
 
-        var chapter = await _context.Chapters
-            .Include(c => c.LearningPath)
-                .ThenInclude(lp => lp.Subject)
-            .Include(c => c.Lessons)
-            .FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId && !c.IsDeleted, cancellationToken);
+		var chapter = await _context.Chapters
+				.Include(c => c.LearningPath)
+					.ThenInclude(lp => lp.Subject)
+				.Include(c => c.Lessons)
+			.FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId, cancellationToken);
 
-        if (chapter == null)
-        {
-            return Result<ChapterCompletionStatusDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found.");
-        }
+		if (chapter == null)
+			return Result<ChapterCompletionStatusDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
-        if (chapter.LearningPath.UserId != userId)
-        {
-            return Result<ChapterCompletionStatusDto>.Failure("ACCESS_DENIED", "Access denied.");
-        }
+		if (chapter.LearningPath.UserId != userId)
+			return Result<ChapterCompletionStatusDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
-        var totalTasks = await _context.Tasks
+
+		var totalTasks = await _context.Tasks
             .AsNoTracking()
             .CountAsync(t => t.ChapterId == request.ChapterId, cancellationToken);
 

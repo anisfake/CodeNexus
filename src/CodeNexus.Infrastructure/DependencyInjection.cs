@@ -21,7 +21,7 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("MyCnn")));
         services.AddDbContextFactory<AppDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("MyCnn")));
+            options.UseSqlServer(configuration.GetConnectionString("MyCnn")), ServiceLifetime.Scoped);
 
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<AppDbContext>());
