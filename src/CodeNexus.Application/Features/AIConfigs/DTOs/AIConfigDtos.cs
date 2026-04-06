@@ -54,6 +54,7 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         AIAccessTier AccessTier,
         bool IsActive,
         DateTime LastUpdated,
-        Dictionary<string, object> ConfigJson
+        Dictionary<string, object> ConfigJson,
+        Dictionary<string, object> ChatPolicy
     );
 }

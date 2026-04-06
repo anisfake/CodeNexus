@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.TutorChat;
 using CodeNexus.Application.Features.TutorChat.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -7,31 +8,11 @@ using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
-using System.Text.Json;
 
 namespace CodeNexus.Application.Features.TutorChat.Commands.SendTutorMessage;
 
 public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCommand, Result<TutorChatResponseDto>>
 {
-    private const int RecentHistoryMinMessages = 10;
-    private const int RecentHistoryMaxMessages = 20;
-    private const int RecentHistoryEmergencyMinMessages = 6;
-    private const int SummaryPreserveRecentMessages = RecentHistoryMaxMessages;
-    private const double SummaryTriggerRatio = 0.7;
-    private const int OlderDigestInitialLineLimit = 12;
-    private const int OlderDigestStep = 2;
-    private const int ArchivedSummaryPromptTake = 6;
-    private const int ArchivedSummaryPromptCharLimit = 260;
-    private const int ArchiveSummaryTakeHeadLines = 6;
-    private const int ArchiveSummaryTakeTailLines = 6;
-    private const int ArchiveSummaryLineCharLimit = 180;
-    private const int HistoryMessageCharLimit = 260;
-    private const int HistoryMessageMinCharLimit = 90;
-    private const int OlderHistoryCharLimit = 180;
-    private const int OlderHistoryMinCharLimit = 100;
-    private const int LearningPathDescriptionCharLimit = 600;
-    private const int ChapterContentCharLimit = 1800;
-    private const int LessonContentCharLimit = 2200;
     private const string DefaultAssistantModel = "meta-llama/llama-4-scout-17b-16e-instruct";
 
     private readonly IApplicationDbContext _context;
@@ -82,7 +63,8 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         {
             return Result<TutorChatResponseDto>.Failure("AI_CONFIG_NOT_FOUND", "AI assistant config not found");
         }
-        var modelTokenBudget = ResolveModelTokenBudget(config);
+        var chatPolicy = TutorChatRuntimePolicy.Resolve(config.ConfigJson);
+        var modelTokenBudget = ResolveModelTokenBudget(config, chatPolicy);
 
         Conversation? conversation = null;
         if (request.ConversationId.HasValue)
@@ -153,6 +135,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             contextData.Value!,
             normalizedUserMessage,
             modelTokenBudget,
+            chatPolicy,
             cancellationToken);
 
         var historySnapshot = await LoadConversationHistorySnapshotAsync(
@@ -160,12 +143,14 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             contextData.Value!,
             normalizedUserMessage,
             modelTokenBudget,
+            chatPolicy,
             cancellationToken);
 
         var prompt = BuildTutorPrompt(
             contextData.Value!,
             normalizedUserMessage,
-            historySnapshot);
+            historySnapshot,
+            chatPolicy);
         var contextUsagePercent = CalculateContextUsagePercent(
             historySnapshot.EstimatedPromptTokens,
             modelTokenBudget.ContextWindow);
@@ -327,6 +312,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         TutorContext context,
         string userMessage,
         ModelTokenBudget tokenBudget,
+        TutorChatPolicy chatPolicy,
         CancellationToken cancellationToken)
     {
         while (true)
@@ -354,7 +340,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 .ThenBy(m => m.MessageId)
                 .ToListAsync(cancellationToken);
 
-            if (unsummarizedMessages.Count <= SummaryPreserveRecentMessages)
+            if (unsummarizedMessages.Count < 2)
             {
                 return;
             }
@@ -363,7 +349,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 .AsNoTracking()
                 .Where(s => s.ConversationId == conversation.ConversationId)
                 .OrderByDescending(s => s.CreatedAt)
-                .Take(ArchivedSummaryPromptTake)
+                .Take(chatPolicy.ArchivedSummaryPromptTake)
                 .OrderBy(s => s.CreatedAt)
                 .Select(s => s.SummaryContent)
                 .ToListAsync(cancellationToken);
@@ -372,14 +358,28 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 context,
                 userMessage,
                 unsummarizedMessages,
-                archivedSummaries);
+                archivedSummaries,
+                chatPolicy);
 
             if (estimatedInputTokens < tokenBudget.SummaryTriggerBudget)
             {
                 return;
             }
 
-            var summarizeCount = unsummarizedMessages.Count - SummaryPreserveRecentMessages;
+            var reachedForceSummary = estimatedInputTokens >= tokenBudget.ForceSummaryBudget;
+            var preserveRecent = reachedForceSummary
+                ? chatPolicy.ForceSummaryPreserveRecentMessages
+                : chatPolicy.SummaryPreserveRecentMessages;
+
+            if (!reachedForceSummary
+                && (unsummarizedMessages.Count < chatPolicy.SummaryMinUnsummarizedMessages
+                    || unsummarizedMessages.Count <= preserveRecent))
+            {
+                return;
+            }
+
+            preserveRecent = Math.Min(preserveRecent, unsummarizedMessages.Count - 1);
+            var summarizeCount = unsummarizedMessages.Count - preserveRecent;
             if (summarizeCount <= 0)
             {
                 return;
@@ -401,7 +401,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 MessageCount = messagesToSummarize.Count,
                 StartMessageCreatedAt = messagesToSummarize.First().CreatedAt,
                 EndMessageCreatedAt = messagesToSummarize.Last().CreatedAt,
-                SummaryContent = BuildArchivedSummaryContent(messagesToSummarize),
+                SummaryContent = BuildArchivedSummaryContent(messagesToSummarize, chatPolicy),
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -526,6 +526,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         TutorContext context,
         string userMessage,
         ModelTokenBudget tokenBudget,
+        TutorChatPolicy chatPolicy,
         CancellationToken cancellationToken)
     {
         var totalMessages = await _context.Messages
@@ -537,7 +538,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             .AsNoTracking()
             .Where(s => s.ConversationId == conversationId)
             .OrderByDescending(s => s.CreatedAt)
-            .Take(ArchivedSummaryPromptTake)
+            .Take(chatPolicy.ArchivedSummaryPromptTake)
             .OrderBy(s => s.CreatedAt)
             .Select(s => s.SummaryContent)
             .ToListAsync(cancellationToken);
@@ -568,19 +569,18 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
 
         if (activeMessages.Count == 0)
         {
-            var onlySummary = BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, 0);
+            var onlySummary = BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, 0, chatPolicy);
             var emptySnapshot = new ConversationHistorySnapshot(totalMessages, new List<string>(), onlySummary, 0);
-            var estimatedEmptyTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, emptySnapshot));
+            var estimatedEmptyTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, emptySnapshot, chatPolicy));
             return emptySnapshot with { EstimatedPromptTokens = estimatedEmptyTokens };
         }
 
-        var absoluteMinRecent = Math.Min(RecentHistoryMinMessages, activeMessages.Count);
-        var emergencyMinRecent = Math.Min(RecentHistoryEmergencyMinMessages, activeMessages.Count);
+        var absoluteMinRecent = Math.Min(chatPolicy.RecentHistoryMinMessages, activeMessages.Count);
 
-        var recentCount = Math.Min(RecentHistoryMaxMessages, activeMessages.Count);
-        var recentCharLimit = HistoryMessageCharLimit;
-        var olderLineLimit = OlderDigestInitialLineLimit;
-        var olderCharLimit = OlderHistoryCharLimit;
+        var recentCount = Math.Min(chatPolicy.RecentHistoryMaxMessages, activeMessages.Count);
+        var recentCharLimit = chatPolicy.HistoryMessageCharLimit;
+        var olderLineLimit = chatPolicy.OlderDigestInitialLineLimit;
+        var olderCharLimit = chatPolicy.OlderHistoryCharLimit;
 
         var snapshot = BuildSnapshot(
             activeMessages,
@@ -589,58 +589,28 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             recentCount,
             recentCharLimit,
             olderLineLimit,
-            olderCharLimit);
+            olderCharLimit,
+            chatPolicy);
 
-        var estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
+        var estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot, chatPolicy));
 
-        while (estimatedTokens > tokenBudget.SafeInputBudget)
+        while (estimatedTokens > tokenBudget.PromptInputBudget)
         {
             if (olderLineLimit > 0)
             {
-                olderLineLimit = Math.Max(0, olderLineLimit - OlderDigestStep);
+                olderLineLimit = Math.Max(0, olderLineLimit - chatPolicy.OlderDigestStep);
             }
             else if (recentCount > absoluteMinRecent)
             {
                 recentCount--;
             }
-            else if (recentCharLimit > 140)
+            else if (recentCharLimit > chatPolicy.HistoryMessageMinCharLimit)
             {
-                recentCharLimit = Math.Max(140, recentCharLimit - 20);
+                recentCharLimit = Math.Max(chatPolicy.HistoryMessageMinCharLimit, recentCharLimit - 20);
             }
-            else if (olderCharLimit > 120)
+            else if (olderCharLimit > chatPolicy.OlderHistoryMinCharLimit)
             {
-                olderCharLimit = Math.Max(120, olderCharLimit - 20);
-            }
-            else
-            {
-                break;
-            }
-
-            snapshot = BuildSnapshot(
-                activeMessages,
-                archivedSummaries,
-                totalMessages,
-                recentCount,
-                recentCharLimit,
-                olderLineLimit,
-                olderCharLimit);
-
-            estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
-        }
-
-        while (estimatedTokens > tokenBudget.HardStop)
-        {
-            if (recentCharLimit > HistoryMessageMinCharLimit)
-            {
-                recentCharLimit = Math.Max(HistoryMessageMinCharLimit, recentCharLimit - 15);
-            }
-            else if (olderCharLimit > OlderHistoryMinCharLimit)
-            {
-                olderCharLimit = Math.Max(OlderHistoryMinCharLimit, olderCharLimit - 10);
-            }
-            else if (recentCount > emergencyMinRecent)
-            {
-                recentCount--;
+                olderCharLimit = Math.Max(chatPolicy.OlderHistoryMinCharLimit, olderCharLimit - 20);
             }
             else
             {
@@ -654,15 +624,20 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
                 recentCount,
                 recentCharLimit,
                 olderLineLimit,
-                olderCharLimit);
+                olderCharLimit,
+                chatPolicy);
 
-            estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot));
+            estimatedTokens = EstimateTokenCount(BuildTutorPrompt(context, userMessage, snapshot, chatPolicy));
         }
 
         return snapshot with { EstimatedPromptTokens = estimatedTokens };
     }
 
-    private static string BuildTutorPrompt(TutorContext context, string userMessage, ConversationHistorySnapshot historySnapshot)
+    private static string BuildTutorPrompt(
+        TutorContext context,
+        string userMessage,
+        ConversationHistorySnapshot historySnapshot,
+        TutorChatPolicy chatPolicy)
     {
         var historyText = historySnapshot.RecentMessages.Count == 0
             ? "No prior messages."
@@ -683,9 +658,9 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             ? "N/A"
             : string.Join("\n", context.LearningPathChapterTitles.Select(title => $"- {title}"));
 
-        var learningPathDescription = ClipContent(context.LearningPathDescription, LearningPathDescriptionCharLimit);
-        var chapterContent = ClipContent(context.ChapterContent, ChapterContentCharLimit);
-        var lessonContent = ClipContent(context.LessonContent, LessonContentCharLimit);
+        var learningPathDescription = ClipContent(context.LearningPathDescription, chatPolicy.LearningPathDescriptionCharLimit);
+        var chapterContent = ClipContent(context.ChapterContent, chatPolicy.ChapterContentCharLimit);
+        var lessonContent = ClipContent(context.LessonContent, chatPolicy.LessonContentCharLimit);
         var goals = context.Goals.Count == 0
             ? "N/A"
             : string.Join(", ", context.Goals.Take(5));
@@ -744,7 +719,8 @@ INSTRUCTIONS:
         int recentCount,
         int recentCharLimit,
         int olderLineLimit,
-        int olderCharLimit)
+        int olderCharLimit,
+        TutorChatPolicy chatPolicy)
     {
         var safeRecentCount = Math.Min(Math.Max(recentCount, 0), activeMessages.Count);
         var splitIndex = Math.Max(activeMessages.Count - safeRecentCount, 0);
@@ -762,7 +738,8 @@ INSTRUCTIONS:
             olderDigestSource,
             archivedSummaries,
             olderLineLimit,
-            olderCharLimit);
+            olderCharLimit,
+            chatPolicy);
 
         return new ConversationHistorySnapshot(totalMessages, recentMessages, olderSummary, 0);
     }
@@ -771,7 +748,8 @@ INSTRUCTIONS:
         List<string> olderMessages,
         List<string> archivedSummaries,
         int lineLimit,
-        int lineCharLimit)
+        int lineCharLimit,
+        TutorChatPolicy chatPolicy)
     {
         if (olderMessages.Count == 0 && archivedSummaries.Count == 0)
         {
@@ -797,7 +775,7 @@ INSTRUCTIONS:
             foreach (var archived in archivedSummaries)
             {
                 builder.Append("- [Archived] ");
-                builder.AppendLine(CompactMessage(archived, ArchivedSummaryPromptCharLimit));
+                builder.AppendLine(CompactMessage(archived, chatPolicy.ArchivedSummaryPromptCharLimit));
             }
         }
 
@@ -822,23 +800,23 @@ INSTRUCTIONS:
         return builder.ToString().Trim();
     }
 
-    private static string BuildArchivedSummaryContent(List<Message> messagesToArchive)
+    private static string BuildArchivedSummaryContent(List<Message> messagesToArchive, TutorChatPolicy chatPolicy)
     {
         var userCount = messagesToArchive.Count(m => ParseRole(m.Content) == "user");
         var assistantCount = messagesToArchive.Count(m => ParseRole(m.Content) == "assistant");
 
         var head = messagesToArchive
-            .Take(ArchiveSummaryTakeHeadLines)
-            .Select(m => $"[{ParseRole(m.Content)}] {CompactMessage(StripRolePrefix(m.Content), ArchiveSummaryLineCharLimit)}")
+            .Take(chatPolicy.ArchiveSummaryTakeHeadLines)
+            .Select(m => $"[{ParseRole(m.Content)}] {CompactMessage(StripRolePrefix(m.Content), chatPolicy.ArchiveSummaryLineCharLimit)}")
             .ToList();
 
         var tail = messagesToArchive
-            .TakeLast(ArchiveSummaryTakeTailLines)
-            .Select(m => $"[{ParseRole(m.Content)}] {CompactMessage(StripRolePrefix(m.Content), ArchiveSummaryLineCharLimit)}")
+            .TakeLast(chatPolicy.ArchiveSummaryTakeTailLines)
+            .Select(m => $"[{ParseRole(m.Content)}] {CompactMessage(StripRolePrefix(m.Content), chatPolicy.ArchiveSummaryLineCharLimit)}")
             .ToList();
 
         var digest = head;
-        if (messagesToArchive.Count > (ArchiveSummaryTakeHeadLines + ArchiveSummaryTakeTailLines))
+        if (messagesToArchive.Count > (chatPolicy.ArchiveSummaryTakeHeadLines + chatPolicy.ArchiveSummaryTakeTailLines))
         {
             digest.Add("...");
             digest.AddRange(tail);
@@ -871,17 +849,18 @@ INSTRUCTIONS:
         TutorContext context,
         string userMessage,
         List<Message> unsummarizedMessages,
-        List<string> archivedSummaries)
+        List<string> archivedSummaries,
+        TutorChatPolicy chatPolicy)
     {
         var estimatedSnapshot = new ConversationHistorySnapshot(
             unsummarizedMessages.Count,
             unsummarizedMessages
-                .Select(m => CompactMessage(m.Content, HistoryMessageCharLimit))
+                .Select(m => CompactMessage(m.Content, chatPolicy.HistoryMessageCharLimit))
                 .ToList(),
-            BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, ArchivedSummaryPromptCharLimit),
+            BuildOlderHistorySummary(new List<string>(), archivedSummaries, 0, chatPolicy.ArchivedSummaryPromptCharLimit, chatPolicy),
             0);
 
-        var prompt = BuildTutorPrompt(context, userMessage, estimatedSnapshot);
+        var prompt = BuildTutorPrompt(context, userMessage, estimatedSnapshot, chatPolicy);
         return EstimateTokenCount(prompt);
     }
 
@@ -912,158 +891,42 @@ INSTRUCTIONS:
         return Math.Round(Math.Max(usagePercent, 0d), 2);
     }
 
-    private static ModelTokenBudget ResolveModelTokenBudget(AIProviderConfig config)
+    private static ModelTokenBudget ResolveModelTokenBudget(AIProviderConfig config, TutorChatPolicy chatPolicy)
     {
-        var (modelName, configuredContextWindow) = ParseModelHints(config.ConfigJson);
-        var normalizedModelName = string.IsNullOrWhiteSpace(modelName) ? DefaultAssistantModel : modelName.Trim();
-        var contextWindow = configuredContextWindow ?? InferContextWindowFromModel(normalizedModelName);
+        var (modelName, capabilityContextWindow) = TutorChatRuntimePolicy.ResolveModelContext(config.ConfigJson, DefaultAssistantModel);
+        var runtimeContextWindow = capabilityContextWindow;
 
-        if (contextWindow < 4096)
+        if (chatPolicy.RuntimeContextBudget > 0)
         {
-            contextWindow = 4096;
+            runtimeContextWindow = Math.Min(runtimeContextWindow, chatPolicy.RuntimeContextBudget);
         }
 
-        var reservedOutput = Math.Max(1024, Math.Min(4096, (int)Math.Round(contextWindow * 0.08)));
-        var usableWindow = Math.Max(contextWindow - reservedOutput, 2048);
-        var summaryTriggerBudget = (int)Math.Round(contextWindow * SummaryTriggerRatio);
+        runtimeContextWindow = Math.Max(runtimeContextWindow, 512);
 
-        var safeInputBudget = (int)Math.Round(usableWindow * 0.7);
-        var hardStop = (int)Math.Round(usableWindow * 0.85);
-
-        if (hardStop <= safeInputBudget)
-        {
-            hardStop = safeInputBudget + 256;
-        }
+        var reservedOutput = Math.Max(
+            chatPolicy.ReservedOutputMin,
+            Math.Min(
+                chatPolicy.ReservedOutputMax,
+                (int)Math.Round(runtimeContextWindow * chatPolicy.ReservedOutputRatio)));
+        var usableWindow = Math.Max(runtimeContextWindow - reservedOutput, 512);
+        var summaryTriggerBudget = Math.Clamp(
+            (int)Math.Round(usableWindow * chatPolicy.SummaryTriggerRatio),
+            256,
+            usableWindow);
+        var forceSummaryMin = Math.Min(usableWindow, summaryTriggerBudget + 128);
+        var forceSummaryBudget = Math.Clamp(
+            (int)Math.Round(usableWindow * chatPolicy.ForceSummaryRatio),
+            forceSummaryMin,
+            usableWindow);
+        var promptInputBudget = forceSummaryBudget;
 
         return new ModelTokenBudget(
-            normalizedModelName,
-            contextWindow,
+            modelName,
+            runtimeContextWindow,
             reservedOutput,
             summaryTriggerBudget,
-            safeInputBudget,
-            hardStop);
-    }
-
-    private static (string? ModelName, int? ContextWindow) ParseModelHints(string? configJson)
-    {
-        if (string.IsNullOrWhiteSpace(configJson))
-        {
-            return (null, null);
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(configJson);
-            var root = document.RootElement;
-
-            string? modelName = null;
-            int? contextWindow = null;
-
-            if (TryGetStringPropertyIgnoreCase(root, "model", out var parsedModel))
-            {
-                modelName = parsedModel;
-            }
-
-            if (TryGetIntPropertyIgnoreCase(root, out var parsedContextWindow,
-                    "contextWindow",
-                    "context_window",
-                    "maxContextTokens",
-                    "max_context_tokens"))
-            {
-                contextWindow = parsedContextWindow;
-            }
-
-            return (modelName, contextWindow);
-        }
-        catch
-        {
-            return (null, null);
-        }
-    }
-
-    private static bool TryGetStringPropertyIgnoreCase(JsonElement root, string propertyName, out string? value)
-    {
-        foreach (var property in root.EnumerateObject())
-        {
-            if (!string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            value = property.Value.ValueKind == JsonValueKind.String
-                ? property.Value.GetString()
-                : property.Value.ToString();
-            return true;
-        }
-
-        value = null;
-        return false;
-    }
-
-    private static bool TryGetIntPropertyIgnoreCase(JsonElement root, out int value, params string[] propertyNames)
-    {
-        foreach (var property in root.EnumerateObject())
-        {
-            if (!propertyNames.Any(name => string.Equals(name, property.Name, StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
-
-            if (property.Value.ValueKind == JsonValueKind.Number
-                && property.Value.TryGetInt32(out value))
-            {
-                return true;
-            }
-
-            if (property.Value.ValueKind == JsonValueKind.String
-                && int.TryParse(property.Value.GetString(), out value))
-            {
-                return true;
-            }
-        }
-
-        value = 0;
-        return false;
-    }
-
-    private static int InferContextWindowFromModel(string modelName)
-    {
-        var normalized = modelName.ToLowerInvariant();
-
-        if (normalized.Contains("1m") || normalized.Contains("1000k"))
-            return 1_000_000;
-
-        if (normalized.Contains("256k"))
-            return 256_000;
-
-        if (normalized.Contains("200k"))
-            return 200_000;
-
-        if (normalized.Contains("128k")
-            || normalized.Contains("llama-4")
-            || normalized.Contains("llama-3.3")
-            || normalized.Contains("llama-3.1")
-            || normalized.Contains("qwen2.5")
-            || normalized.Contains("gpt-4.1")
-            || normalized.Contains("gpt-5"))
-            return 128_000;
-
-        if (normalized.Contains("64k"))
-            return 64_000;
-
-        if (normalized.Contains("32k")
-            || normalized.Contains("mistral")
-            || normalized.Contains("mixtral")
-            || normalized.Contains("codestral"))
-            return 32_000;
-
-        if (normalized.Contains("16k"))
-            return 16_000;
-
-        if (normalized.Contains("8k") || normalized.Contains("gemma"))
-            return 8_000;
-
-        return 32_000;
+            forceSummaryBudget,
+            promptInputBudget);
     }
 
     private static string CompactMessage(string content, int maxChars)
@@ -1150,8 +1013,8 @@ INSTRUCTIONS:
         int ContextWindow,
         int ReservedOutput,
         int SummaryTriggerBudget,
-        int SafeInputBudget,
-        int HardStop);
+        int ForceSummaryBudget,
+        int PromptInputBudget);
 
     private static (Guid? LearningPathId, Guid? ChapterId, Guid? LessonId) ResolveRequestedContextIds(
         SendTutorMessageCommand request,

@@ -136,4 +136,38 @@ public class GetAllAIConfigsQueryHandlerTests
         Assert.Single(result.Value);
         Assert.Empty(result.Value[0].ConfigJson);
     }
+
+    [Fact]
+    public async Task Handle_WithChatPolicyInConfigJson_ShouldExposeChatPolicyField()
+    {
+        var configs = new List<AIProviderConfig>
+        {
+            new AIProviderConfig
+            {
+                ConfigId = Guid.NewGuid(),
+                ProviderName = "Mistral",
+                EncryptedApiKey = "encrypted_key",
+                ConfigJson = "{\"model\":\"mistral-small-latest\",\"contextWindow\":200000,\"chatPolicy\":{\"runtimeContextBudget\":24000,\"summaryTriggerRatio\":0.7,\"forceSummaryRatio\":0.82}}",
+                UsageType = AIUsageType.Assistant,
+                AccessTier = AIAccessTier.Paid,
+                IsActive = true,
+                LastUpdated = DateTime.UtcNow
+            }
+        };
+
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(configs.BuildMockDbSet().Object);
+
+        object? cacheEntry = null;
+        _mockCache.Setup(x => x.TryGetValue(It.IsAny<object>(), out cacheEntry)).Returns(false);
+        _mockCache.Setup(x => x.CreateEntry(It.IsAny<object>())).Returns(Mock.Of<ICacheEntry>());
+
+        var result = await _handler.Handle(new GetAllAIConfigsQuery(), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Single(result.Value);
+        Assert.True(result.Value[0].ConfigJson.ContainsKey("chatPolicy"));
+        Assert.True(result.Value[0].ChatPolicy.ContainsKey("runtimeContextBudget"));
+        Assert.Equal(24000L, result.Value[0].ChatPolicy["runtimeContextBudget"]);
+    }
 }
