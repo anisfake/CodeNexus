@@ -4,5 +4,7 @@ public enum LearningPathShareUpdateAction
 {
     CreateNewFromLatest = 0,
     UpdateCurrentToLatest = 1,
-    KeepCurrent = 2
+    DisableUpdateNotifications = 2,
+    [System.Obsolete("Use DisableUpdateNotifications")]
+    KeepCurrent = DisableUpdateNotifications
 }
