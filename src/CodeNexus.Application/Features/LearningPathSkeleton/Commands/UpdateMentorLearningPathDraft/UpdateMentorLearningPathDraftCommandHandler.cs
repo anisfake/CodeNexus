@@ -8,6 +8,7 @@ using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using GoalEntity = CodeNexus.Domain.Entities.Goals;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
 
@@ -115,9 +116,39 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         var normalizedGoals = NormalizeGoalWeights(request.Goals);
         var goalsWithWeights = normalizedGoals
-            .Join(goals, ng => ng.GoalId, g => g.GoalId, (ng, g) => new { Goal = g, ng.Weight })
+            .Join(goals, ng => ng.GoalId, g => g.GoalId, (ng, g) => (Goal: g, Weight: ng.Weight))
             .OrderByDescending(g => g.Weight)
             .ToList();
+
+        if (IsNoDraftChange(request, learningPath, goalsWithWeights))
+        {
+            var currentChapterDtos = BuildChapterDtosFromCurrent(learningPath);
+            var currentGoalDtos = goalsWithWeights
+                .Select(g => new LearningPathGoalDto(
+                    g.Goal.GoalId,
+                    g.Goal.Title,
+                    g.Weight,
+                    g.Goal.DurationInDays,
+                    "NotStarted",
+                    null))
+                .ToList();
+
+            return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
+                learningPath.PathId,
+                learningPath.Title,
+                learningPath.Description ?? string.Empty,
+                currentGoalDtos,
+                currentChapterDtos,
+                currentChapterDtos.Count,
+                learningPath.CreatedAt,
+                false,
+                learningPath.StartDate,
+                learningPath.EndDate,
+                learningPath.ComplexityLevel,
+                learningPath.Language,
+                learningPath.SubjectId,
+                subject.Name));
+        }
 
         var nextVersion = learningPath.VersionNumber + 1;
 
@@ -263,6 +294,179 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         return Math.Max(days, 1);
     }
 
+    private static bool IsNoDraftChange(
+        UpdateMentorLearningPathDraftCommand request,
+        LearningPath learningPath,
+        IReadOnlyCollection<(GoalEntity Goal, decimal Weight)> requestedGoalsWithWeights)
+    {
+        if (request.SubjectId != learningPath.SubjectId)
+        {
+            return false;
+        }
+
+        if (!string.Equals(NormalizeBaseTitle(request.Title), NormalizeBaseTitle(learningPath.Title), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (!string.Equals(NormalizeOptionalText(request.Description), NormalizeOptionalText(learningPath.Description), StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (request.StartDate != learningPath.StartDate || request.EndDate != learningPath.EndDate)
+        {
+            return false;
+        }
+
+        if (request.ComplexityLevel != learningPath.ComplexityLevel || request.LanguageSelection != learningPath.Language)
+        {
+            return false;
+        }
+
+        if (!GoalsMatchCurrent(learningPath, requestedGoalsWithWeights))
+        {
+            return false;
+        }
+
+        return ChaptersMatchCurrent(request.Chapters, learningPath);
+    }
+
+    private static bool GoalsMatchCurrent(
+        LearningPath learningPath,
+        IReadOnlyCollection<(GoalEntity Goal, decimal Weight)> requestedGoalsWithWeights)
+    {
+        if (learningPath.LearningPathGoals.Count != requestedGoalsWithWeights.Count)
+        {
+            return false;
+        }
+
+        var currentGoalWeights = learningPath.LearningPathGoals
+            .ToDictionary(x => x.GoalId, x => x.Weight);
+
+        foreach (var requestedGoal in requestedGoalsWithWeights)
+        {
+            if (!currentGoalWeights.TryGetValue(requestedGoal.Goal.GoalId, out var currentWeight))
+            {
+                return false;
+            }
+
+            if (currentWeight != requestedGoal.Weight)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool ChaptersMatchCurrent(List<ManualChapterRequest> requestedChapters, LearningPath learningPath)
+    {
+        var currentChapters = learningPath.Chapters
+            .Where(c => !c.IsDeleted)
+            .OrderBy(c => c.OrderIndex)
+            .ToList();
+
+        if (currentChapters.Count != requestedChapters.Count)
+        {
+            return false;
+        }
+
+        for (int chapterIndex = 0; chapterIndex < requestedChapters.Count; chapterIndex++)
+        {
+            var requestedChapter = requestedChapters[chapterIndex];
+            var currentChapter = currentChapters[chapterIndex];
+
+            if (!string.Equals(NormalizeRequiredText(requestedChapter.Title), NormalizeRequiredText(currentChapter.Title), StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (requestedChapter.StartDate != currentChapter.StartDate || requestedChapter.EndDate != currentChapter.EndDate)
+            {
+                return false;
+            }
+
+            var expectedEstimatedDays = requestedChapter.EstimatedDays
+                ?? CalculateEstimatedDays(requestedChapter.StartDate, requestedChapter.EndDate);
+
+            if (currentChapter.EstimatedDays != expectedEstimatedDays)
+            {
+                return false;
+            }
+
+            var currentLessons = currentChapter.Lessons
+                .Where(l => !l.IsDeleted)
+                .OrderBy(l => l.OrderIndex)
+                .ToList();
+
+            if (currentLessons.Count != requestedChapter.Lessons.Count)
+            {
+                return false;
+            }
+
+            for (int lessonIndex = 0; lessonIndex < requestedChapter.Lessons.Count; lessonIndex++)
+            {
+                var requestedLesson = requestedChapter.Lessons[lessonIndex];
+                var currentLesson = currentLessons[lessonIndex];
+
+                if (!string.Equals(NormalizeRequiredText(requestedLesson.Title), NormalizeRequiredText(currentLesson.Title), StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (requestedLesson.LessonDay != currentLesson.LessonDay)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static List<ChapterDto> BuildChapterDtosFromCurrent(LearningPath learningPath)
+    {
+        return learningPath.Chapters
+            .Where(c => !c.IsDeleted)
+            .OrderBy(c => c.OrderIndex)
+            .Select(chapter => new ChapterDto(
+                chapter.ChapterId,
+                chapter.Title,
+                chapter.Content,
+                chapter.OrderIndex,
+                chapter.Lessons
+                    .Where(lesson => !lesson.IsDeleted)
+                    .OrderBy(lesson => lesson.OrderIndex)
+                    .Select(lesson => new LessonDto(
+                        lesson.LessonId,
+                        lesson.Title,
+                        lesson.Content,
+                        lesson.LessonDay,
+                        new List<QuizDto>()))
+                    .ToList(),
+                new List<TaskDto>()))
+            .ToList();
+    }
+
+    private static string NormalizeOptionalText(string? text)
+        => string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
+
+    private static string NormalizeRequiredText(string? text)
+        => string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
+
+    private static string NormalizeBaseTitle(string? rawTitle)
+    {
+        var baseTitle = string.IsNullOrWhiteSpace(rawTitle)
+            ? "Learning Path"
+            : rawTitle.Trim();
+
+        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+
+        return baseTitle;
+    }
+
     private static List<LearningPathGoalRequest> NormalizeGoalWeights(List<LearningPathGoalRequest> goals)
     {
         var total = goals.Sum(g => g.Weight);
@@ -287,13 +491,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
     private static string BuildVersionedTitle(string rawTitle, int versionNumber)
     {
-        var baseTitle = string.IsNullOrWhiteSpace(rawTitle)
-            ? "Learning Path"
-            : rawTitle.Trim();
-
-        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
-        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
-
-        return $"{baseTitle} - ver {versionNumber}";
+        return $"{NormalizeBaseTitle(rawTitle)} - ver {versionNumber}";
     }
 }
