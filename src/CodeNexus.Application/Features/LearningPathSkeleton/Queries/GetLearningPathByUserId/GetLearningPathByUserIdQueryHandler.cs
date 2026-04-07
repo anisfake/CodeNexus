@@ -124,6 +124,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                             q.QuizId,
                             q.Title,
                             q.Description,
+                            null,
                             q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId) != null
                                 ? q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId)!.Status.ToString()
                                 : "Not Attempted"

@@ -158,12 +158,98 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
 
                 await _context.Lessons.AddAsync(lesson, cancellationToken);
 
+                var quizDtos = new List<QuizDto>();
+                foreach (var quizRequest in lessonRequest.Quizzes ?? new List<ManualQuizRequest>())
+                {
+                    var quiz = new Quiz
+                    {
+                        QuizId = NewId.NextGuid(),
+                        LessonId = lesson.LessonId,
+                        Title = quizRequest.Title.Trim(),
+                        Description = string.IsNullOrWhiteSpace(quizRequest.Description) ? null : quizRequest.Description.Trim(),
+                        DueDate = quizRequest.DueDate,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _context.Quizzes.AddAsync(quiz, cancellationToken);
+
+                    var questionDtos = new List<QuestionDto>();
+                    var questionRequests = quizRequest.Questions ?? new List<ManualQuestionRequest>();
+                    for (int questionIndex = 0; questionIndex < questionRequests.Count; questionIndex++)
+                    {
+                        var questionRequest = questionRequests[questionIndex];
+                        var question = new Questions
+                        {
+                            QuestionId = NewId.NextGuid(),
+                            QuizId = quiz.QuizId,
+                            QuestionText = questionRequest.QuestionText.Trim(),
+                            Type = questionRequest.Type,
+                            Options = questionRequest.Options != null && questionRequest.Options.Count > 0
+                                ? string.Join("||", questionRequest.Options)
+                                : null,
+                            CorrectAnswer = string.IsNullOrWhiteSpace(questionRequest.CorrectAnswer)
+                                ? null
+                                : questionRequest.CorrectAnswer.Trim(),
+                            Points = questionRequest.Points,
+                            OrderIndex = questionIndex
+                        };
+
+                        await _context.Questions.AddAsync(question, cancellationToken);
+
+                        questionDtos.Add(new QuestionDto(
+                            question.QuestionId,
+                            question.QuestionText,
+                            question.Type ?? QuestionType.SingleChoice,
+                            questionRequest.Options ?? new List<string>(),
+                            question.CorrectAnswer ?? string.Empty,
+                            question.Points,
+                            question.OrderIndex ?? 0));
+                    }
+
+                    quizDtos.Add(new QuizDto(
+                        quiz.QuizId,
+                        quiz.Title,
+                        quiz.Description ?? string.Empty,
+                        questionDtos));
+                }
+
                 lessonDtos.Add(new LessonDto(
                     lesson.LessonId,
                     lesson.Title,
                     lesson.Content,
                     lesson.LessonDay,
-                    new List<QuizDto>()));
+                    quizDtos));
+            }
+
+            var taskDtos = new List<TaskDto>();
+            foreach (var taskRequest in chapterRequest.Tasks ?? new List<ManualTaskRequest>())
+            {
+                var task = new Domain.Entities.Tasks
+                {
+                    TaskId = NewId.NextGuid(),
+                    ChapterId = chapter.ChapterId,
+                    PathId = learningPath.PathId,
+                    Title = taskRequest.Title.Trim(),
+                    Description = string.IsNullOrWhiteSpace(taskRequest.Description) ? null : taskRequest.Description.Trim(),
+                    DueDate = taskRequest.DueDate,
+                    Priority = taskRequest.Priority,
+                    Status = TaskStatus_.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    TaskType = taskRequest.TaskType,
+                    QuizQuestionsJson = taskRequest.QuizQuestionsJson
+                };
+
+                await _context.Tasks.AddAsync(task, cancellationToken);
+
+                taskDtos.Add(new TaskDto(
+                    task.TaskId,
+                    task.Title,
+                    task.Description ?? string.Empty,
+                    task.TaskType,
+                    task.Priority,
+                    task.Status,
+                    task.DueDate,
+                    task.QuizQuestionsJson));
             }
 
             chapterDtos.Add(new ChapterDto(
@@ -172,7 +258,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
                 chapter.Content,
                 chapter.OrderIndex,
                 lessonDtos,
-                new List<TaskDto>()));
+                taskDtos));
         }
 
         await _context.SaveChangesAsync(cancellationToken);

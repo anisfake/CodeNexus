@@ -18,5 +18,8 @@ namespace CodeNexus.Domain.Entities
         public string? CorrectAnswer { get; set; }
         public decimal Points { get; set; } = 1;
         public int? OrderIndex { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
     }
 }
