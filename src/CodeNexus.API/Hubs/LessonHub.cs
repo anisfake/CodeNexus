@@ -75,4 +75,40 @@ public class LessonHub : Hub
             });
         }
     }
+
+    public async Task RequestQuizSkeleton(Guid lessonId)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("QuizSkeletonLoading", new { lessonId });
+
+            var quizResult = await _sender.Send(new GenerateQuizSkeletonCommand(lessonId));
+
+            if (quizResult.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("ReceiveQuizSkeleton", new
+                {
+                    LessonId = lessonId,
+                    Quizzes = quizResult.Value.Quizzes
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("QuizSkeletonError", new
+            {
+                LessonId = lessonId,
+                quizResult.ErrorCode,
+                quizResult.ErrorMessage
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("QuizSkeletonError", new
+            {
+                LessonId = lessonId,
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
 }
