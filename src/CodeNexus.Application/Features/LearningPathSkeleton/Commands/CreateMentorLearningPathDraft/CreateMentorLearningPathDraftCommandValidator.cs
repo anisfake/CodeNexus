@@ -1,4 +1,5 @@
 using FluentValidation;
+using CodeNexus.Application.Features.LearningPaths.DTOs;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 
@@ -76,7 +77,55 @@ public class CreateMentorLearningPathDraftCommandValidator : AbstractValidator<C
                             .MaximumLength(200)
                             .WithMessage("Lesson title is required")
                             .WithErrorCode("INVALID_LESSON_TITLE");
+
+                        lesson.RuleForEach(l => l.Quizzes!)
+                            .ChildRules(quiz =>
+                            {
+                                quiz.RuleFor(q => q.Title)
+                                    .NotEmpty()
+                                    .MaximumLength(200)
+                                    .WithMessage("Quiz title is required")
+                                    .WithErrorCode("INVALID_QUIZ_TITLE");
+
+                                quiz.RuleForEach(q => q.Questions!)
+                                    .ChildRules(question =>
+                                    {
+                                        question.RuleFor(x => x.QuestionText)
+                                            .NotEmpty()
+                                            .MaximumLength(2000)
+                                            .WithMessage("Question text is required")
+                                            .WithErrorCode("INVALID_QUESTION_TEXT");
+
+                                        question.RuleFor(x => x.Type)
+                                            .IsInEnum()
+                                            .WithMessage("Question type is invalid")
+                                            .WithErrorCode("INVALID_QUESTION_TYPE");
+
+                                        question.RuleFor(x => x.Points)
+                                            .GreaterThan(0)
+                                            .WithMessage("Question points must be greater than 0")
+                                            .WithErrorCode("INVALID_QUESTION_POINTS");
+                                    })
+                                    .When(q => q.Questions is not null);
+                            })
+                            .When(l => l.Quizzes is not null);
                     });
+
+                chapter.RuleForEach(c => c.Tasks!)
+                    .ChildRules(task =>
+                    {
+                        task.RuleFor(t => t.Title)
+                            .NotEmpty()
+                            .MaximumLength(200)
+                            .WithMessage("Task title is required")
+                            .WithErrorCode("INVALID_TASK_TITLE");
+
+                        task.RuleFor(t => t.TaskType)
+                            .IsInEnum()
+                            .WithMessage("Task type is invalid")
+                            .WithErrorCode("INVALID_TASK_TYPE");
+                    })
+                    .When(c => c.Tasks is not null);
             });
 
         RuleFor(x => x.ComplexityLevel)

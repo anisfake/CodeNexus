@@ -117,6 +117,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                             q.QuizId,
                             q.Title,
                             q.Description,
+                            null,
                             "Not Attempted"
                         )).ToList()
                         ,
