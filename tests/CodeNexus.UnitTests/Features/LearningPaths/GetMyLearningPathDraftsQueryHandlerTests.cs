@@ -92,4 +92,78 @@ public class GetMyLearningPathDraftsQueryHandlerTests
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ACCESS_DENIED");
     }
+
+    [Fact]
+    public async Task Handle_DeletedTask_ExcludedFromResponse()
+    {
+        var mentorId = NewId.NextGuid();
+        var chapterId = NewId.NextGuid();
+        var role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" };
+        var mentor = new User { UserId = mentorId, Username = "mentor", Role = role };
+        var subject = new Subject { SubjectId = NewId.NextGuid(), Name = "C#", CreatedByUserId = mentorId };
+        var goal = new GoalEntity { GoalId = NewId.NextGuid(), Title = "Goal", Duration = GoalDuration.OneWeek, IsSystemDefined = false, IsActive = true };
+
+        var activeTaskId = NewId.NextGuid();
+        var deletedTaskId = NewId.NextGuid();
+
+        var draft = new LearningPath
+        {
+            PathId = NewId.NextGuid(),
+            UserId = mentorId,
+            SubjectId = subject.SubjectId,
+            Subject = subject,
+            User = mentor,
+            Title = "Draft path",
+            Status = LearningPathStatus.Draft.ToString(),
+            LearningPathGoals = new List<LearningPathGoal>
+            {
+                new() { PathId = NewId.NextGuid(), GoalId = goal.GoalId, Goal = goal, Weight = 100 }
+            },
+            Chapters = new List<Chapter>
+            {
+                new()
+                {
+                    ChapterId = chapterId,
+                    PathId = NewId.NextGuid(),
+                    Title = "Chapter 1",
+                    OrderIndex = 0,
+                    Lessons = new List<Lesson>(),
+                    Tasks = new List<CodeNexus.Domain.Entities.Tasks>
+                    {
+                        new()
+                        {
+                            TaskId = activeTaskId,
+                            ChapterId = chapterId,
+                            PathId = NewId.NextGuid(),
+                            Title = "Active task",
+                            TaskType = TaskType.Practice,
+                            Status = TaskStatus_.Pending,
+                            IsDeleted = false
+                        },
+                        new()
+                        {
+                            TaskId = deletedTaskId,
+                            ChapterId = chapterId,
+                            PathId = NewId.NextGuid(),
+                            Title = "Deleted task",
+                            TaskType = TaskType.Practice,
+                            Status = TaskStatus_.Pending,
+                            IsDeleted = true
+                        }
+                    }
+                }
+            }
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
+        _mockContext.Setup(x => x.Users).Returns(new List<User> { mentor }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath> { draft }.BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(new GetMyLearningPathDraftsQuery(), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        var tasks = result.Value!.Items[0].ChapterDtos[0].Tasks;
+        tasks.Should().HaveCount(1);
+        tasks[0].TaskId.Should().Be(activeTaskId);
+    }
 }
