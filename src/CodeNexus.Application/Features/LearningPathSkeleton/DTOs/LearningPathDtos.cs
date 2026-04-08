@@ -98,6 +98,11 @@ public record AdoptSuggestedLearningPathRequest(
     LanguageSelection LanguageSelection
 );
 
+public record GenerateChapterMentorSkeletonRequest(
+    string ChapterTitle,
+    string? ChapterDescription = null
+);
+
 public record ManualLessonRequest(
     string Title,
     DateTime LessonDay,

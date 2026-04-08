@@ -124,7 +124,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             .OrderByDescending(g => g.Weight)
             .ToList();
 
-        if (IsNoDraftChange(request, learningPath, goalsWithWeights))
+        var normalizedChapters = NormalizeManualChapters(request.Chapters);
+
+        if (IsNoDraftChange(request, normalizedChapters, learningPath, goalsWithWeights))
         {
             var currentChapterDtos = BuildChapterDtosFromCurrent(learningPath);
             var currentGoalDtos = goalsWithWeights
@@ -182,7 +184,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         }
 
         var now = DateTime.UtcNow;
-        await SyncChaptersAsync(learningPath, request.Chapters, now, cancellationToken);
+        await SyncChaptersAsync(learningPath, normalizedChapters, now, cancellationToken);
         var chapterDtos = BuildChapterDtosFromCurrent(learningPath);
 
         learningPath.VersionNumber = nextVersion;
@@ -237,6 +239,162 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         var days = (int)Math.Ceiling((endDate.Value.Date - startDate.Value.Date).TotalDays) + 1;
         return Math.Max(days, 1);
+    }
+
+    private static List<ManualChapterRequest> NormalizeManualChapters(List<ManualChapterRequest>? chapters)
+    {
+        var results = new List<ManualChapterRequest>();
+        foreach (var chapter in chapters ?? new List<ManualChapterRequest>())
+        {
+            var lessons = NormalizeManualLessons(chapter.Lessons, chapter.StartDate);
+            var tasks = NormalizeManualTasks(chapter.Tasks);
+
+            var hasChapterData = !string.IsNullOrWhiteSpace(chapter.Title)
+                                 || chapter.StartDate.HasValue
+                                 || chapter.EndDate.HasValue
+                                 || chapter.EstimatedDays.HasValue;
+
+            if (!hasChapterData && lessons.Count == 0 && tasks.Count == 0)
+            {
+                continue;
+            }
+
+            var title = string.IsNullOrWhiteSpace(chapter.Title)
+                ? $"Chapter {results.Count + 1}"
+                : chapter.Title.Trim();
+
+            results.Add(chapter with
+            {
+                Title = title,
+                Lessons = lessons,
+                Tasks = tasks.Count > 0 ? tasks : null
+            });
+        }
+
+        return results;
+    }
+
+    private static List<ManualLessonRequest> NormalizeManualLessons(List<ManualLessonRequest> lessons, DateTime? chapterStartDate)
+    {
+        var results = new List<ManualLessonRequest>();
+        foreach (var lesson in lessons ?? new List<ManualLessonRequest>())
+        {
+            var quizzes = NormalizeManualQuizzes(lesson.Quizzes);
+            var hasLessonData = !string.IsNullOrWhiteSpace(lesson.Title)
+                                || lesson.LessonDay != default;
+
+            if (!hasLessonData && quizzes.Count == 0)
+            {
+                continue;
+            }
+
+            var title = string.IsNullOrWhiteSpace(lesson.Title)
+                ? $"Lesson {results.Count + 1}"
+                : lesson.Title.Trim();
+
+            var lessonDay = lesson.LessonDay == default
+                ? chapterStartDate?.Date ?? DateTime.UtcNow.Date
+                : lesson.LessonDay;
+
+            results.Add(lesson with
+            {
+                Title = title,
+                LessonDay = lessonDay,
+                Quizzes = quizzes.Count > 0 ? quizzes : null
+            });
+        }
+
+        return results;
+    }
+
+    private static List<ManualQuizRequest> NormalizeManualQuizzes(List<ManualQuizRequest>? quizzes)
+    {
+        var results = new List<ManualQuizRequest>();
+        foreach (var quiz in quizzes ?? new List<ManualQuizRequest>())
+        {
+            var questions = NormalizeManualQuestions(quiz.Questions);
+            var hasQuizData = !string.IsNullOrWhiteSpace(quiz.Title)
+                              || !string.IsNullOrWhiteSpace(quiz.Description)
+                              || quiz.DueDate.HasValue;
+
+            if (!hasQuizData && questions.Count == 0)
+            {
+                continue;
+            }
+
+            var title = string.IsNullOrWhiteSpace(quiz.Title)
+                ? $"Quiz {results.Count + 1}"
+                : quiz.Title.Trim();
+
+            results.Add(quiz with
+            {
+                Title = title,
+                Description = string.IsNullOrWhiteSpace(quiz.Description) ? null : quiz.Description.Trim(),
+                Questions = questions.Count > 0 ? questions : null
+            });
+        }
+
+        return results;
+    }
+
+    private static List<ManualQuestionRequest> NormalizeManualQuestions(List<ManualQuestionRequest>? questions)
+    {
+        var results = new List<ManualQuestionRequest>();
+        foreach (var question in questions ?? new List<ManualQuestionRequest>())
+        {
+            var options = (question.Options ?? new List<string>())
+                .Where(o => !string.IsNullOrWhiteSpace(o))
+                .Select(o => o.Trim())
+                .ToList();
+
+            var hasQuestionData = !string.IsNullOrWhiteSpace(question.QuestionText)
+                                  || options.Count > 0
+                                  || !string.IsNullOrWhiteSpace(question.CorrectAnswer)
+                                  || question.Points != 1m;
+
+            if (!hasQuestionData)
+            {
+                continue;
+            }
+
+            results.Add(question with
+            {
+                QuestionText = string.IsNullOrWhiteSpace(question.QuestionText)
+                    ? $"Question {results.Count + 1}"
+                    : question.QuestionText.Trim(),
+                Options = options.Count > 0 ? options : null,
+                CorrectAnswer = string.IsNullOrWhiteSpace(question.CorrectAnswer) ? null : question.CorrectAnswer.Trim()
+            });
+        }
+
+        return results;
+    }
+
+    private static List<ManualTaskRequest> NormalizeManualTasks(List<ManualTaskRequest>? tasks)
+    {
+        var results = new List<ManualTaskRequest>();
+        foreach (var task in tasks ?? new List<ManualTaskRequest>())
+        {
+            var hasTaskData = !string.IsNullOrWhiteSpace(task.Title)
+                              || !string.IsNullOrWhiteSpace(task.Description)
+                              || task.DueDate.HasValue
+                              || task.Priority.HasValue
+                              || !string.IsNullOrWhiteSpace(task.QuizQuestionsJson);
+
+            if (!hasTaskData)
+            {
+                continue;
+            }
+
+            results.Add(task with
+            {
+                Title = string.IsNullOrWhiteSpace(task.Title) ? $"Task {results.Count + 1}" : task.Title.Trim(),
+                Description = string.IsNullOrWhiteSpace(task.Description) ? null : task.Description.Trim(),
+                QuizQuestionsJson = string.IsNullOrWhiteSpace(task.QuizQuestionsJson) ? null : task.QuizQuestionsJson.Trim()
+            });
+        }
+
+        return results;
     }
 
     private async Task SyncChaptersAsync(
@@ -514,6 +672,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
     private static bool IsNoDraftChange(
         UpdateMentorLearningPathDraftCommand request,
+        List<ManualChapterRequest> normalizedChapters,
         LearningPath learningPath,
         IReadOnlyCollection<(GoalEntity Goal, decimal Weight)> requestedGoalsWithWeights)
     {
@@ -542,7 +701,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             return false;
         }
 
-        return ChaptersMatchCurrentBySummary(request.Chapters, learningPath);
+        return ChaptersMatchCurrentBySummary(normalizedChapters, learningPath);
     }
 
     private static bool GoalsMatchCurrent(

@@ -374,4 +374,102 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             x => x.Publish(It.IsAny<LearningPathDraftVersionUpdatedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    [Fact]
+    public async Task Handle_WithOnlyEmptyNestedNodes_DoesNotSaveOrPublish()
+    {
+        var mentorId = NewId.NextGuid();
+        var subjectId = NewId.NextGuid();
+        var goalId = NewId.NextGuid();
+        var pathId = NewId.NextGuid();
+        var startDate = new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc);
+        var endDate = new DateTime(2026, 4, 16, 0, 0, 0, DateTimeKind.Utc);
+
+        var mentor = new User
+        {
+            UserId = mentorId,
+            Username = "mentor_a",
+            Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" }
+        };
+
+        var goal = new GoalEntity
+        {
+            GoalId = goalId,
+            Title = "Master TS",
+            IsSystemDefined = false,
+            IsActive = true,
+            CreatedByUserId = mentorId
+        };
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = mentorId,
+            SubjectId = subjectId,
+            Title = "TypeScript Path - ver 5",
+            Description = "Draft description",
+            StartDate = startDate,
+            EndDate = endDate,
+            Status = LearningPathStatus.Draft.ToString(),
+            VersionNumber = 5,
+            ComplexityLevel = ComplexityLevel.Intermediate,
+            Language = LanguageSelection.English,
+            LearningPathGoals = new List<LearningPathGoal>
+            {
+                new() { PathId = pathId, GoalId = goalId, Goal = goal, Weight = 100m }
+            },
+            Chapters = new List<Chapter>()
+        };
+
+        var command = new UpdateMentorLearningPathDraftCommand(
+            pathId,
+            subjectId,
+            new List<LearningPathGoalRequest> { new(goalId, 100m) },
+            ComplexityLevel.Intermediate,
+            LanguageSelection.English,
+            "TypeScript Path",
+            "Draft description",
+            startDate,
+            endDate,
+            new List<ManualChapterRequest>
+            {
+                new(
+                    string.Empty,
+                    null,
+                    null,
+                    null,
+                    new List<ManualLessonRequest>
+                    {
+                        new(string.Empty, default, new List<ManualQuizRequest>
+                        {
+                            new(string.Empty, null, null, new List<ManualQuestionRequest>
+                            {
+                                new(string.Empty, QuestionType.SingleChoice, null, null, 1)
+                            })
+                        })
+                    },
+                    new List<ManualTaskRequest>
+                    {
+                        new(string.Empty, null, TaskType.Practice, null, null, null)
+                    })
+            });
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
+        _mockContext.Setup(x => x.Users).Returns(new[] { mentor }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new[] { learningPath }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Subjects).Returns(new[] { new Subject { SubjectId = subjectId, Name = "Programming" } }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Goals).Returns(new[] { goal }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SubjectGoals).Returns(new List<SubjectGoal>().BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        learningPath.VersionNumber.Should().Be(5);
+        result.Value!.ChapterDtos.Should().BeEmpty();
+
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockPublisher.Verify(
+            x => x.Publish(It.IsAny<LearningPathDraftVersionUpdatedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }

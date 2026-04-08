@@ -50,50 +50,42 @@ public class CreateMentorLearningPathDraftCommandValidator : AbstractValidator<C
 
         RuleFor(x => x.Chapters)
             .NotNull()
-            .Must(c => c != null && c.Count > 0)
-            .WithMessage("At least one chapter is required")
             .WithErrorCode("CHAPTERS_REQUIRED");
 
         RuleForEach(x => x.Chapters)
             .ChildRules(chapter =>
             {
                 chapter.RuleFor(c => c.Title)
-                    .NotEmpty()
                     .MaximumLength(200)
-                    .WithMessage("Chapter title is required")
+                    .When(c => !string.IsNullOrWhiteSpace(c.Title))
+                    .WithMessage("Chapter title must be at most 200 characters")
                     .WithErrorCode("INVALID_CHAPTER_TITLE");
-
-                chapter.RuleFor(c => c.Lessons)
-                    .NotNull()
-                    .Must(l => l != null && l.Count > 0)
-                    .WithMessage("Each chapter must have at least one lesson")
-                    .WithErrorCode("LESSONS_REQUIRED");
 
                 chapter.RuleForEach(c => c.Lessons)
                     .ChildRules(lesson =>
                     {
                         lesson.RuleFor(l => l.Title)
-                            .NotEmpty()
                             .MaximumLength(200)
-                            .WithMessage("Lesson title is required")
+                            .When(l => !string.IsNullOrWhiteSpace(l.Title))
+                            .WithMessage("Lesson title must be at most 200 characters")
                             .WithErrorCode("INVALID_LESSON_TITLE");
 
                         lesson.RuleForEach(l => l.Quizzes!)
                             .ChildRules(quiz =>
                             {
                                 quiz.RuleFor(q => q.Title)
-                                    .NotEmpty()
                                     .MaximumLength(200)
-                                    .WithMessage("Quiz title is required")
+                                    .When(q => !string.IsNullOrWhiteSpace(q.Title))
+                                    .WithMessage("Quiz title must be at most 200 characters")
                                     .WithErrorCode("INVALID_QUIZ_TITLE");
 
                                 quiz.RuleForEach(q => q.Questions!)
                                     .ChildRules(question =>
                                     {
                                         question.RuleFor(x => x.QuestionText)
-                                            .NotEmpty()
                                             .MaximumLength(2000)
-                                            .WithMessage("Question text is required")
+                                            .When(x => !string.IsNullOrWhiteSpace(x.QuestionText))
+                                            .WithMessage("Question text must be at most 2000 characters")
                                             .WithErrorCode("INVALID_QUESTION_TEXT");
 
                                         question.RuleFor(x => x.Type)
@@ -115,9 +107,9 @@ public class CreateMentorLearningPathDraftCommandValidator : AbstractValidator<C
                     .ChildRules(task =>
                     {
                         task.RuleFor(t => t.Title)
-                            .NotEmpty()
                             .MaximumLength(200)
-                            .WithMessage("Task title is required")
+                            .When(t => !string.IsNullOrWhiteSpace(t.Title))
+                            .WithMessage("Task title must be at most 200 characters")
                             .WithErrorCode("INVALID_TASK_TITLE");
 
                         task.RuleFor(t => t.TaskType)
