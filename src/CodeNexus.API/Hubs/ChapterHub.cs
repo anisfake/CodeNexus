@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterMentorSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -86,6 +87,50 @@ public class ChapterHub : Hub
                 ChapterId = chapterId,
                 result.ErrorCode,
                 result.ErrorMessage
+            });
+        }
+    }
+
+    public async Task RequestChapterMentorSkeleton(Guid pathId, string chapterTitle, string? chapterDescription)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerationStarted", new { pathId });
+
+            if (string.IsNullOrWhiteSpace(chapterTitle))
+            {
+                await Clients.Caller.SendAsync("ChapterMentorSkeletonError", new
+                {
+                    PathId = pathId,
+                    ErrorCode = "INVALID_CHAPTER_TITLE",
+                    ErrorMessage = "Chapter title is required"
+                });
+                return;
+            }
+
+            var command = new GenerateChapterMentorSkeletonCommand(pathId, chapterTitle, chapterDescription);
+            var result = await _sender.Send(command);
+
+            if (!result.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("ChapterMentorSkeletonError", new
+                {
+                    PathId = pathId,
+                    result.ErrorCode,
+                    result.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerated", result.Value);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonError", new
+            {
+                PathId = pathId,
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
             });
         }
     }

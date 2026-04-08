@@ -1,4 +1,4 @@
-using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Quizzes.DTOs;
 using CodeNexus.Domain.Entities;
@@ -156,7 +156,7 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
 - IMPORTANT: Keep technical terms in English when translating to Vietnamese would cause confusion or change meaning
 - Examples of terms to keep in English: API, REST, JSON, Docker, Kubernetes, Framework, Library, Algorithm, etc.
 - Use Vietnamese for general descriptions and explanations
-- Example: ""Vi?t h�m s?p x?p bubble sort"" (correct) instead of ""Vi?t h�m s?p x?p bong b�ng"" (wrong)
+- Example: ""Viết hàm sắp xếp bubble sort"" (correct) instead of ""Viết hàm sắp xếp bong bóng"" (wrong)
 ",
             LanguageSelection.English => @"
 === LANGUAGE REQUIREMENTS ===
@@ -210,7 +210,7 @@ Lesson content:
 - Generate EXACTLY 6 questions, one per type above
 - Questions MUST be relevant to the quiz title (""{quiz.Title}"") and quiz description (""{quiz.Description}"")
 - Use the lesson content as knowledge source
-- For MultipleChoice and SingleChoice: prefer questions that involve analyzing a code snippet, predicting output, or reasoning about code behavior � not just recalling definitions
+- For MultipleChoice and SingleChoice: prefer questions that involve analyzing a code snippet, predicting output, or reasoning about code behavior — not just recalling definitions
 - For code snippets in questions: use \n for newlines inside the questionText string
 - Points: distribute points across all 6 questions so they sum to EXACTLY 10. Use decimal values (e.g., 1.0, 1.5, 2.0, 2.5). Assign higher points to harder questions.
 - timeLimitMinutes: an integer between 6 and 10 representing the total quiz duration in minutes. Choose based on the overall difficulty of the questions.
