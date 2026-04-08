@@ -54,11 +54,28 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
         try
         {
             var language = quiz.Lesson.Chapter.LearningPath.Language;
-            var prompt = BuildPrompt(quiz, quiz.Lesson, language);
+            var lessonQuizzes = await _context.Quizzes
+                .Include(q => q.Questions)
+                .Where(q => q.LessonId == quiz.LessonId && !q.IsDeleted)
+                .ToListAsync(cancellationToken);
+
+            var existingQuestionTexts = lessonQuizzes
+                .SelectMany(q => q.Questions)
+                .Where(q => !q.IsDeleted && !string.IsNullOrWhiteSpace(q.QuestionText))
+                .Select(q => q.QuestionText)
+                .ToList();
+
+            var prompt = BuildPrompt(quiz, quiz.Lesson, language, existingQuestionTexts);
             var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedQuestionsDto>(prompt, AIUsageType.ContentGeneration);
 
             if (generated?.Questions == null || generated.Questions.Count == 0)
                 return Result<QuizQuestionsDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
+
+            if (HasDuplicateQuestionsInGeneratedSet(generated.Questions))
+                return Result<QuizQuestionsDto>.Failure("DUPLICATE_QUESTION", "AI generated duplicate questions in the same quiz set.");
+
+            if (HasDuplicateWithExistingQuestions(generated.Questions, existingQuestionTexts))
+                return Result<QuizQuestionsDto>.Failure("DUPLICATE_QUESTION", "AI generated questions duplicated with another quiz in the same lesson.");
 
             NormalizePoints(generated.Questions);
 
@@ -144,9 +161,56 @@ public class GenerateQuizQuestionsCommandHandler : IRequestHandler<GenerateQuizQ
         }
     }
 
-    private static string BuildPrompt(Quiz quiz, Lesson lesson, LanguageSelection language)
+    private static bool HasDuplicateQuestionsInGeneratedSet(List<GeneratedQuestionDto> generatedQuestions)
+    {
+        var unique = new HashSet<string>();
+
+        foreach (var question in generatedQuestions)
+        {
+            var normalized = NormalizeText(question.QuestionText);
+            if (string.IsNullOrWhiteSpace(normalized))
+                continue;
+
+            if (!unique.Add(normalized))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static bool HasDuplicateWithExistingQuestions(List<GeneratedQuestionDto> generatedQuestions, List<string> existingQuestionTexts)
+    {
+        var existing = existingQuestionTexts
+            .Select(NormalizeText)
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .ToHashSet();
+
+        return generatedQuestions
+            .Select(q => NormalizeText(q.QuestionText))
+            .Any(normalized => !string.IsNullOrWhiteSpace(normalized) && existing.Contains(normalized));
+    }
+
+    private static string NormalizeText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return string.Empty;
+
+        var filtered = text
+            .Trim()
+            .ToLowerInvariant()
+            .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+            .ToArray();
+
+        return string.Join(' ', new string(filtered)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string BuildPrompt(Quiz quiz, Lesson lesson, LanguageSelection language, List<string> existingQuestionTexts)
     {
         var subject = lesson.Chapter.LearningPath.Subject.Name;
+        var existingQuestionsInstruction = existingQuestionTexts.Count == 0
+            ? "- No existing questions in this lesson"
+            : $"- Existing questions in this lesson (must avoid duplicates):\n- {string.Join("\n- ", existingQuestionTexts.Take(20))}";
 
         var languageInstruction = language switch
         {
@@ -210,10 +274,15 @@ Lesson content:
 - Generate EXACTLY 6 questions, one per type above
 - Questions MUST be relevant to the quiz title (""{quiz.Title}"") and quiz description (""{quiz.Description}"")
 - Use the lesson content as knowledge source
+- Questions MUST NOT duplicate each other within this generated set
+- Questions MUST NOT duplicate existing questions in other quizzes of the same lesson
 - For MultipleChoice and SingleChoice: prefer questions that involve analyzing a code snippet, predicting output, or reasoning about code behavior — not just recalling definitions
 - For code snippets in questions: use \n for newlines inside the questionText string
 - Points: distribute points across all 6 questions so they sum to EXACTLY 10. Use decimal values (e.g., 1.0, 1.5, 2.0, 2.5). Assign higher points to harder questions.
 - timeLimitMinutes: an integer between 6 and 10 representing the total quiz duration in minutes. Choose based on the overall difficulty of the questions.
+
+=== EXISTING QUESTIONS IN THIS LESSON ===
+{existingQuestionsInstruction}
 
 Return ONLY valid JSON (no markdown, no extra text):
 {{

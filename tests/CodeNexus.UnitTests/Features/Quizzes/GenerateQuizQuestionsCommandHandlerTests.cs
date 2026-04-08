@@ -245,6 +245,90 @@ public class GenerateQuizQuestionsCommandHandlerTests
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task Handle_AIReturnsDuplicateQuestionsInSameSet_ReturnsFailure()
+    {
+        // Arrange
+        var userId = NewId.NextGuid();
+        var command = new GenerateQuizQuestionsCommand(NewId.NextGuid());
+
+        var quiz = CreateQuizGraph(command.QuizId, userId);
+
+        var generated = new GeneratedQuestionsDto(8, new List<GeneratedQuestionDto>
+        {
+            new("What is a variable?", QuestionType.SingleChoice,
+                new List<string> { "A", "B", "C", "D" },
+                "A", 2.0m),
+            new("What is a variable?", QuestionType.TrueFalse,
+                new List<string> { "True", "False" },
+                "True", 1.0m)
+        });
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Quizzes).Returns(new[] { quiz }.BuildMockDbSet().Object);
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
+            .ReturnsAsync(generated);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be("DUPLICATE_QUESTION");
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_AIReturnsQuestionDuplicatedWithAnotherQuizInLesson_ReturnsFailure()
+    {
+        // Arrange
+        var userId = NewId.NextGuid();
+        var command = new GenerateQuizQuestionsCommand(NewId.NextGuid());
+
+        var quiz = CreateQuizGraph(command.QuizId, userId);
+        var otherQuiz = new Quiz
+        {
+            QuizId = NewId.NextGuid(),
+            LessonId = quiz.LessonId,
+            Lesson = quiz.Lesson,
+            Title = "Other quiz",
+            Questions = new List<Questions>
+            {
+                new()
+                {
+                    QuestionId = NewId.NextGuid(),
+                    QuizId = NewId.NextGuid(),
+                    QuestionText = "What is a variable?",
+                    Type = QuestionType.SingleChoice,
+                    Options = "A||B||C||D",
+                    CorrectAnswer = "A",
+                    Points = 1,
+                    OrderIndex = 0
+                }
+            }
+        };
+
+        var generated = new GeneratedQuestionsDto(8, new List<GeneratedQuestionDto>
+        {
+            new("What is a variable?", QuestionType.TrueFalse,
+                new List<string> { "True", "False" },
+                "True", 1.0m)
+        });
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Quizzes).Returns(new[] { quiz, otherQuiz }.BuildMockDbSet().Object);
+        _mockAIGeneratorService.Setup(x => x.GenerateStructureAsync<GeneratedQuestionsDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
+            .ReturnsAsync(generated);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsFailure.Should().BeTrue();
+        result.ErrorCode.Should().Be("DUPLICATE_QUESTION");
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private static Quiz CreateQuizGraph(Guid quizId, Guid userId)
     {
         var subject = new Subject
