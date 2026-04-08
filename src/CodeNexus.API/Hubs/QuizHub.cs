@@ -1,4 +1,6 @@
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
+using CodeNexus.Application.Features.Quizzes.Commands.GenerateSingleQuizQuestion;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -28,6 +30,31 @@ public class QuizHub : Hub
         else
         {
             await Clients.Caller.SendAsync("QuizQuestionsError", new
+            {
+                QuizId = quizId,
+                result.ErrorCode,
+                result.ErrorMessage
+            });
+        }
+    }
+
+    public async Task RequestSingleQuizQuestion(Guid quizId, QuestionType questionType)
+    {
+        await Clients.Caller.SendAsync("SingleQuizQuestionLoading", new { quizId, questionType });
+
+        var result = await _sender.Send(new GenerateSingleQuizQuestionCommand(quizId, questionType));
+
+        if (result.IsSuccess)
+        {
+            await Clients.Caller.SendAsync("ReceiveSingleQuizQuestion", new
+            {
+                QuizId = quizId,
+                Question = result.Value
+            });
+        }
+        else
+        {
+            await Clients.Caller.SendAsync("SingleQuizQuestionError", new
             {
                 QuizId = quizId,
                 result.ErrorCode,
