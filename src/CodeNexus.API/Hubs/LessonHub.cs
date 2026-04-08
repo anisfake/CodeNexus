@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
+using CodeNexus.Application.Features.Quizzes.Commands.GenerateSingleQuizSkeleton;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizSkeleton;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -104,6 +105,42 @@ public class LessonHub : Hub
         catch (Exception ex)
         {
             await Clients.Caller.SendAsync("QuizSkeletonError", new
+            {
+                LessonId = lessonId,
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    public async Task RequestSingleQuizSkeleton(Guid lessonId)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("SingleQuizSkeletonLoading", new { lessonId });
+
+            var quizResult = await _sender.Send(new GenerateSingleQuizSkeletonCommand(lessonId));
+
+            if (quizResult.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("ReceiveSingleQuizSkeleton", new
+                {
+                    LessonId = lessonId,
+                    Quiz = quizResult.Value
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("SingleQuizSkeletonError", new
+            {
+                LessonId = lessonId,
+                quizResult.ErrorCode,
+                quizResult.ErrorMessage
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("SingleQuizSkeletonError", new
             {
                 LessonId = lessonId,
                 ErrorCode = "UNEXPECTED_ERROR",
