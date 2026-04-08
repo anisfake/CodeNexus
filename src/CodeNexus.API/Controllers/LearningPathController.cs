@@ -7,7 +7,6 @@ using CodeNexus.Application.Features.Chapters.Queries.GetChapterCompletionStatus
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
-using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterMentorSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
@@ -126,7 +125,7 @@ public class LearningPathController : ControllerBase
             request.Chapters);
 
         var result = await _sender.Send(command, cancellationToken);
-        return ToDraftActionResult(result);
+        return ToActionResult(result);
     }
 
     [HttpPut("manual-draft/{pathId:guid}")]
@@ -146,7 +145,7 @@ public class LearningPathController : ControllerBase
             request.Chapters);
 
         var result = await _sender.Send(command, cancellationToken);
-        return ToDraftActionResult(result);
+        return ToActionResult(result);
     }
 
     [HttpPost("suggestions")]
@@ -285,18 +284,6 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost("{pathId:guid}/chapters/mentor-skeleton")]
-    [Authorize(Roles = "Mentor, Student")]
-    public async Task<IActionResult> GenerateChapterMentorSkeleton(
-        Guid pathId,
-        [FromBody] GenerateChapterMentorSkeletonRequest request,
-        CancellationToken cancellationToken)
-    {
-        var command = new GenerateChapterMentorSkeletonCommand(pathId, request.ChapterTitle, request.ChapterDescription);
-        var result = await _sender.Send(command, cancellationToken);
-        return ToActionResult(result);
-    }
-
     [HttpPost("{pathId:guid}/share/{studentId:guid}")]
     [Authorize(Roles = "Mentor")]
     public async Task<IActionResult> ShareLearningPathViaChat(Guid pathId, Guid studentId, CancellationToken cancellationToken)
@@ -343,21 +330,6 @@ public class LearningPathController : ControllerBase
             "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
-        };
-    }
-
-    private IActionResult ToDraftActionResult<T>(Result<T> result)
-    {
-        if (result.IsSuccess)
-            return Ok(result.Value);
-
-        return result.ErrorCode switch
-        {
-            "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
-            "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "SUBJECT_NOT_FOUND" or "GOAL_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
-            "INVALID_STATUS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            _ => StatusCode(StatusCodes.Status422UnprocessableEntity, new { result.ErrorCode, result.ErrorMessage })
         };
     }
 }
