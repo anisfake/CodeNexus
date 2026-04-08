@@ -56,7 +56,7 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
                 .ThenInclude(q => q.Questions)
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks)
+                .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
             .FirstOrDefaultAsync(lp => lp.PathId == request.PathId, cancellationToken);
 
         if (learningPath == null)
@@ -123,7 +123,9 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                             .ToList()
                     )).ToList()
                 )).ToList(),
-                c.Tasks.Select(t => new TaskDto(
+                c.Tasks
+                    .Where(t => !t.IsDeleted)
+                    .Select(t => new TaskDto(
                     t.TaskId,
                     t.Title,
                     t.Description ?? string.Empty,
