@@ -6,11 +6,25 @@ public record QuizDto(
     Guid QuizzId,
     string Title,
     string Description,
+    List<QuestionDto>? Questions = null,
     string Status = "Not Attempted"
 )
 {
     public Guid QuizId => QuizzId;
     public Guid Id => QuizzId;
+}
+
+public record QuestionDto(
+    Guid QuestionId,
+    string QuestionText,
+    QuestionType Type,
+    List<string> Options,
+    string CorrectAnswer,
+    decimal Points,
+    int OrderIndex
+)
+{
+    public Guid Id => QuestionId;
 }
 public record LessonDto(
     Guid LessonId,
@@ -84,9 +98,40 @@ public record AdoptSuggestedLearningPathRequest(
     LanguageSelection LanguageSelection
 );
 
+public record GenerateChapterMentorSkeletonRequest(
+    string ChapterTitle,
+    string? ChapterDescription = null
+);
+
 public record ManualLessonRequest(
     string Title,
-    DateTime LessonDay
+    DateTime LessonDay,
+    List<ManualQuizRequest>? Quizzes = null,
+    string? Content = null
+);
+
+public record ManualQuizRequest(
+    string Title,
+    string? Description = null,
+    DateTime? DueDate = null,
+    List<ManualQuestionRequest>? Questions = null
+);
+
+public record ManualQuestionRequest(
+    string QuestionText,
+    QuestionType Type,
+    List<string>? Options = null,
+    string? CorrectAnswer = null,
+    decimal Points = 1
+);
+
+public record ManualTaskRequest(
+    string Title,
+    string? Description = null,
+    TaskType TaskType = TaskType.Practice,
+    TaskPriority? Priority = null,
+    DateTime? DueDate = null,
+    string? QuizQuestionsJson = null
 );
 
 public record ManualChapterRequest(
@@ -94,7 +139,8 @@ public record ManualChapterRequest(
     DateTime? StartDate,
     DateTime? EndDate,
     int? EstimatedDays,
-    List<ManualLessonRequest> Lessons
+    List<ManualLessonRequest> Lessons,
+    List<ManualTaskRequest>? Tasks = null
 );
 
 public record CreateMentorLearningPathDraftRequest(
@@ -110,6 +156,7 @@ public record CreateMentorLearningPathDraftRequest(
 );
 
 public record UpdateMentorLearningPathDraftRequest(
+    int VersionNumber,
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
