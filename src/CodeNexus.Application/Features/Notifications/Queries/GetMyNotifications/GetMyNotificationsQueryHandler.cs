@@ -41,6 +41,11 @@ public class GetMyNotificationsQueryHandler : IRequestHandler<GetMyNotifications
             query = query.Where(x => !x.IsRead);
         }
 
+        if (request.Type.HasValue)
+        {
+            query = query.Where(x => x.Type == request.Type.Value);
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var notificationEntities = await query
