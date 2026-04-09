@@ -12,6 +12,11 @@ public class UpdateMentorLearningPathDraftCommandValidator : AbstractValidator<U
             .WithMessage("Path ID is required")
             .WithErrorCode("PATH_REQUIRED");
 
+        RuleFor(x => x.VersionNumber)
+            .GreaterThan(0)
+            .WithMessage("Version number must be greater than 0")
+            .WithErrorCode("INVALID_VERSION_NUMBER");
+
         RuleFor(x => x.SubjectId)
             .NotEmpty()
             .WithMessage("Subject ID is required")

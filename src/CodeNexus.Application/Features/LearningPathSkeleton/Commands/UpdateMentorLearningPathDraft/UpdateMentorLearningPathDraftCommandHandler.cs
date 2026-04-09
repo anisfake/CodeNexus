@@ -160,10 +160,10 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         }
 
         var previousVersion = learningPath.VersionNumber;
-        var nextVersion = previousVersion + 1;
+        var requestedVersion = request.VersionNumber;
 
         learningPath.SubjectId = request.SubjectId;
-        learningPath.Title = BuildVersionedTitle(request.Title, nextVersion);
+        learningPath.Title = BuildVersionedTitle(request.Title, requestedVersion);
         learningPath.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         learningPath.StartDate = request.StartDate;
         learningPath.EndDate = request.EndDate;
@@ -187,7 +187,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         await SyncChaptersAsync(learningPath, normalizedChapters, now, cancellationToken);
         var chapterDtos = BuildChapterDtosFromCurrent(learningPath);
 
-        learningPath.VersionNumber = nextVersion;
+        learningPath.VersionNumber = requestedVersion;
         var currentVersion = learningPath.VersionNumber;
 
         await _context.SaveChangesAsync(cancellationToken);
@@ -677,6 +677,11 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         IReadOnlyCollection<(GoalEntity Goal, decimal Weight)> requestedGoalsWithWeights)
     {
         if (request.SubjectId != learningPath.SubjectId)
+        {
+            return false;
+        }
+
+        if (request.VersionNumber != learningPath.VersionNumber)
         {
             return false;
         }

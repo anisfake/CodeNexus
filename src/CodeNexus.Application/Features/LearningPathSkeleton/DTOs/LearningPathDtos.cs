@@ -155,6 +155,7 @@ public record CreateMentorLearningPathDraftRequest(
 );
 
 public record UpdateMentorLearningPathDraftRequest(
+    int VersionNumber,
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
