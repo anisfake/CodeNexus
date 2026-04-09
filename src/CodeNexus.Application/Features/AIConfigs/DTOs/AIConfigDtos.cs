@@ -57,4 +57,55 @@ namespace CodeNexus.Application.Features.AIConfigs.DTOs
         Dictionary<string, object> ConfigJson,
         Dictionary<string, object> ChatPolicy
     );
+
+    public record TestAIProviderRequest(
+        string ProviderName,
+        string ApiKey,
+        Dictionary<string, object>? ConfigJson = null,
+        bool JsonMode = false
+    );
+
+    public record TestAIProviderResponse(
+        bool IsValid,
+        string ProviderName,
+        string Model,
+        string ResponsePreview,
+        int InputTokens,
+        int OutputTokens,
+        int TotalTokens
+    );
+
+    public record TestStoredAIProviderRequest(
+        bool OnlyActive = true,
+        string? ProviderName = null
+    );
+
+    public record TestStoredAIProviderResponse(
+        Guid ConfigId,
+        string ProviderName,
+        AIUsageType UsageType,
+        AIAccessTier AccessTier,
+        bool IsActive,
+        bool IsValid,
+        string Model,
+        string ResponsePreview,
+        int InputTokens,
+        int OutputTokens,
+        int TotalTokens,
+        string? ErrorCode,
+        string? ErrorMessage
+    );
+
+    public record StoredAIProviderKeyResponse(
+        Guid ConfigId,
+        string ProviderName,
+        AIUsageType UsageType,
+        AIAccessTier AccessTier,
+        bool IsActive,
+        DateTime LastUpdated,
+        string ApiKey,
+        string MaskedApiKey,
+        string Model,
+        string? ReadError
+    );
 }

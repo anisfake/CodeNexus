@@ -121,6 +121,7 @@ public static class DependencyInjection
 
 
         services.AddScoped<IAIConfigCacheService, AIConfigCacheService>();
+        services.AddScoped<IAIProviderHealthService, AIProviderHealthService>();
         services.AddScoped<IOTPCacheService, OTPCacheService>();
         services.AddScoped<IAIProviderAdapter, GroqProviderAdapter>();
         services.AddScoped<IAIProviderAdapter, GeminiProviderAdapter>();

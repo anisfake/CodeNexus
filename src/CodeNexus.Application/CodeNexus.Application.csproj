@@ -8,16 +8,19 @@
 
   <ItemGroup>
     <Compile Remove="Features\Auth\Commands\RefreshToken\**" />
+    <Compile Remove="Features\Goals\Queries\GetGoalsByUserId\**" />
     <Compile Remove="Features\LearningPathSkeleton\Queries\GetLearningPathById\**" />
     <Compile Remove="Features\Lessons\Commands\ConfirmLessonContent\**" />
     <Compile Remove="Features\Subjects\Queries\GetMySubjects\**" />
     <Compile Remove="Features\Users\Queries\GetMyStatistics\**" />
     <EmbeddedResource Remove="Features\Auth\Commands\RefreshToken\**" />
+    <EmbeddedResource Remove="Features\Goals\Queries\GetGoalsByUserId\**" />
     <EmbeddedResource Remove="Features\LearningPathSkeleton\Queries\GetLearningPathById\**" />
     <EmbeddedResource Remove="Features\Lessons\Commands\ConfirmLessonContent\**" />
     <EmbeddedResource Remove="Features\Subjects\Queries\GetMySubjects\**" />
     <EmbeddedResource Remove="Features\Users\Queries\GetMyStatistics\**" />
     <None Remove="Features\Auth\Commands\RefreshToken\**" />
+    <None Remove="Features\Goals\Queries\GetGoalsByUserId\**" />
     <None Remove="Features\LearningPathSkeleton\Queries\GetLearningPathById\**" />
     <None Remove="Features\Lessons\Commands\ConfirmLessonContent\**" />
     <None Remove="Features\Subjects\Queries\GetMySubjects\**" />
@@ -42,7 +45,6 @@
     <Folder Include="Features\DailyCheckins\Queries\GetDailyCheckinBySessionId\" />
     <Folder Include="Features\FocusSessions\Commands\" />
     <Folder Include="Features\FocusSessions\DTOs\" />
-    <Folder Include="Features\Goals\Queries\GetGoalsByUserId\" />
     <Folder Include="Features\LearningPathSkeleton\Queries\GetAllLearningPaths\" />
     <Folder Include="Features\LearningPathSkeleton\Queries\GetLearningPathByUserId\" />
     <Folder Include="Features\Notifications\Commands\SendTestNotificationEmail\" />

@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
+using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
