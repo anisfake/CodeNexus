@@ -77,6 +77,45 @@ public class LessonHub : Hub
         }
     }
 
+    [Authorize(Roles = "Mentor")]
+    public async Task RequestMentorLessonContent(Guid lessonId)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId });
+
+            var lessonResult = await _sender.Send(new GenerateLessonContentCommand(lessonId));
+
+            if (!lessonResult.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("LessonContentError", new
+                {
+                    LessonId = lessonId,
+                    lessonResult.ErrorCode,
+                    lessonResult.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("ReceiveLessonContent", lessonResult.Value);
+
+            await Clients.Caller.SendAsync("LessonGenerationCompleted", new
+            {
+                LessonId = lessonId,
+                Message = "Lesson content generated successfully!"
+            });
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("LessonContentError", new
+            {
+                LessonId = lessonId,
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
     public async Task RequestQuizSkeleton(Guid lessonId)
     {
         try
