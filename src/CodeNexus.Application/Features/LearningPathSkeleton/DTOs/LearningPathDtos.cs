@@ -106,7 +106,8 @@ public record GenerateChapterMentorSkeletonRequest(
 public record ManualLessonRequest(
     string Title,
     DateTime LessonDay,
-    List<ManualQuizRequest>? Quizzes = null
+    List<ManualQuizRequest>? Quizzes = null,
+    string? Content = null
 );
 
 public record ManualQuizRequest(
