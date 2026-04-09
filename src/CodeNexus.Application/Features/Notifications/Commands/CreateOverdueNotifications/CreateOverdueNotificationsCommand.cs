@@ -4,4 +4,4 @@ using MediatR;
 
 namespace CodeNexus.Application.Features.Notifications.Commands.CreateOverdueNotifications;
 
-public record CreateOverdueNotificationsCommand : IRequest<Result<CreateOverdueNotificationsResultDto>>;
+public record CreateOverdueNotificationsCommand(IReadOnlyCollection<Guid>? EligibleUserIds = null) : IRequest<Result<CreateOverdueNotificationsResultDto>>;

@@ -38,7 +38,8 @@ public class GetMyProfileQueryHandlerTests
             AvatarUrl = "https://example.com/avatar.jpg",
             DateOfBirth = new DateTime(1990, 1, 1),
             Phone = "1234567890",
-            Address = "123 Test St"
+            Address = "123 Test St",
+            DailyReminderTime = new TimeSpan(20, 0, 0)
         };
 
         var user = new User
@@ -64,6 +65,7 @@ public class GetMyProfileQueryHandlerTests
         Assert.Equal("Test", result.Value.FirstName);
         Assert.Equal("Test bio", result.Value.Bio);
         Assert.Equal("https://example.com/avatar.jpg", result.Value.AvatarUrl);
+        Assert.Equal(new TimeSpan(20, 0, 0), result.Value.DailyReminderTime);
     }
 
     [Fact]
@@ -112,6 +114,7 @@ public class GetMyProfileQueryHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal(string.Empty, result.Value.Bio);
         Assert.Null(result.Value.AvatarUrl);
+        Assert.Null(result.Value.DailyReminderTime);
     }
 
     [Fact]

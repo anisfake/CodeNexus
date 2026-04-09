@@ -82,7 +82,8 @@ public class RefreshAccessTokenCommandHandler : IRequestHandler<RefreshAccessTok
             user.Username,
             user.LastLogin,
             user.RoleId,
-            user.Role?.RoleName
+            user.Role?.RoleName,
+            false
         ));
     }
 }

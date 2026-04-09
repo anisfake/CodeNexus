@@ -1,5 +1,7 @@
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.Notifications.Commands.CreateOverdueNotifications;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.API.Services;
 
@@ -29,8 +31,15 @@ public class OverdueNotificationBackgroundService : BackgroundService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+                var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
 
-                var result = await sender.Send(new CreateOverdueNotificationsCommand(), stoppingToken);
+                var eligibleUserIds = await GetEligibleUserIdsAsync(context, stoppingToken);
+                if (eligibleUserIds.Count == 0)
+                {
+                    continue;
+                }
+
+                var result = await sender.Send(new CreateOverdueNotificationsCommand(eligibleUserIds), stoppingToken);
                 if (result.IsFailure)
                 {
                     _logger.LogWarning("Overdue notification job failed: {ErrorCode} - {ErrorMessage}", result.ErrorCode, result.ErrorMessage);
@@ -50,5 +59,46 @@ public class OverdueNotificationBackgroundService : BackgroundService
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
+    }
+
+    private static async Task<List<Guid>> GetEligibleUserIdsAsync(IApplicationDbContext context, CancellationToken cancellationToken)
+    {
+        var timezone = ResolveVietnamTimeZone();
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timezone);
+        var previousTickLocal = nowLocal.Subtract(Interval);
+
+        var profiles = await context.UserProfiles
+            .AsNoTracking()
+            .Where(x => x.DailyReminderTime.HasValue)
+            .Select(x => new { x.UserId, ReminderTime = x.DailyReminderTime!.Value })
+            .ToListAsync(cancellationToken);
+
+        return profiles
+            .Where(x => IsInWindow(x.ReminderTime, previousTickLocal.TimeOfDay, nowLocal.TimeOfDay))
+            .Select(x => x.UserId)
+            .Distinct()
+            .ToList();
+    }
+
+    private static bool IsInWindow(TimeSpan value, TimeSpan previous, TimeSpan current)
+    {
+        if (previous <= current)
+        {
+            return value > previous && value <= current;
+        }
+
+        return value > previous || value <= current;
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
     }
 }
