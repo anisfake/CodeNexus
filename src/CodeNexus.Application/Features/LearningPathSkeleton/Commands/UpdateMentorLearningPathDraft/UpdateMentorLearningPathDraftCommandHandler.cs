@@ -430,7 +430,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             chapter.EstimatedDays = chapterRequest.EstimatedDays ?? CalculateEstimatedDays(chapterRequest.StartDate, chapterRequest.EndDate);
             chapter.IsDeleted = false;
             chapter.DeletedAt = null;
-            chapter.UpdatedAt = now;
+            chapter.UpdatedAt = string.IsNullOrWhiteSpace(chapter.Content)
+                ? null
+                : chapter.UpdatedAt ?? now;
 
             await SyncLessonsAsync(chapter, chapterRequest.Lessons, now, cancellationToken);
             await SyncTasksAsync(chapter, learningPath.PathId, chapterRequest.Tasks ?? new List<ManualTaskRequest>(), now, cancellationToken);
@@ -473,7 +475,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             lesson.LessonDay = lessonRequest.LessonDay;
             lesson.IsDeleted = false;
             lesson.DeletedAt = null;
-            lesson.UpdatedAt = now;
+            lesson.UpdatedAt = string.IsNullOrWhiteSpace(lesson.Content)
+                ? null
+                : lesson.UpdatedAt ?? now;
 
             await SyncQuizzesAsync(lesson, lessonRequest.Quizzes ?? new List<ManualQuizRequest>(), now, cancellationToken);
         }
