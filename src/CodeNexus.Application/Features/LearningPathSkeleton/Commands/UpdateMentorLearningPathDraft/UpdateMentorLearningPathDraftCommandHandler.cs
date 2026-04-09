@@ -280,8 +280,10 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         foreach (var lesson in lessons ?? new List<ManualLessonRequest>())
         {
             var quizzes = NormalizeManualQuizzes(lesson.Quizzes);
+            var normalizedContent = lesson.Content is null ? null : lesson.Content.Trim();
             var hasLessonData = !string.IsNullOrWhiteSpace(lesson.Title)
-                                || lesson.LessonDay != default;
+                                || lesson.LessonDay != default
+                                || !string.IsNullOrWhiteSpace(normalizedContent);
 
             if (!hasLessonData && quizzes.Count == 0)
             {
@@ -300,7 +302,8 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             {
                 Title = title,
                 LessonDay = lessonDay,
-                Quizzes = quizzes.Count > 0 ? quizzes : null
+                Quizzes = quizzes.Count > 0 ? quizzes : null,
+                Content = normalizedContent
             });
         }
 
@@ -473,6 +476,10 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             lesson.Title = lessonRequest.Title.Trim();
             lesson.OrderIndex = lessonIndex;
             lesson.LessonDay = lessonRequest.LessonDay;
+            if (lessonRequest.Content is not null)
+            {
+                lesson.Content = lessonRequest.Content;
+            }
             lesson.IsDeleted = false;
             lesson.DeletedAt = null;
             lesson.UpdatedAt = string.IsNullOrWhiteSpace(lesson.Content)
@@ -787,6 +794,15 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 var currentLesson = currentLessons[lessonIndex];
 
                 if (!string.Equals(NormalizeRequiredText(requestedLesson.Title), NormalizeRequiredText(currentLesson.Title), StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                if (requestedLesson.Content is not null
+                    && !string.Equals(
+                        NormalizeOptionalText(requestedLesson.Content),
+                        NormalizeOptionalText(currentLesson.Content),
+                        StringComparison.Ordinal))
                 {
                     return false;
                 }

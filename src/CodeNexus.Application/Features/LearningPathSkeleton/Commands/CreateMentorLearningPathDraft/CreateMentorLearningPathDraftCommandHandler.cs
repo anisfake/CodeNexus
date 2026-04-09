@@ -152,7 +152,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
                     LessonId = NewId.NextGuid(),
                     ChapterId = chapter.ChapterId,
                     Title = lessonRequest.Title.Trim(),
-                    Content = string.Empty,
+                    Content = string.IsNullOrWhiteSpace(lessonRequest.Content) ? string.Empty : lessonRequest.Content.Trim(),
                     OrderIndex = j,
                     LessonDay = lessonRequest.LessonDay,
                     CreatedAt = DateTime.UtcNow
@@ -345,8 +345,10 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
         foreach (var lesson in lessons ?? new List<ManualLessonRequest>())
         {
             var quizzes = NormalizeManualQuizzes(lesson.Quizzes);
+            var normalizedContent = lesson.Content is null ? null : lesson.Content.Trim();
             var hasLessonData = !string.IsNullOrWhiteSpace(lesson.Title)
-                                || lesson.LessonDay != default;
+                                || lesson.LessonDay != default
+                                || !string.IsNullOrWhiteSpace(normalizedContent);
 
             if (!hasLessonData && quizzes.Count == 0)
             {
@@ -365,7 +367,8 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             {
                 Title = title,
                 LessonDay = lessonDay,
-                Quizzes = quizzes.Count > 0 ? quizzes : null
+                Quizzes = quizzes.Count > 0 ? quizzes : null,
+                Content = normalizedContent
             });
         }
 
