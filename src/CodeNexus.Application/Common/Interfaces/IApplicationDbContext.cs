@@ -25,8 +25,6 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<FocusSession> FocusSessions { get; }
         public DbSet<DailyCheckins> DailyCheckins { get; }
         public DbSet<Note> Notes { get; }
-        public DbSet<Tag> Tags { get; }
-        public DbSet<NoteTags> NoteTags { get; }
         public DbSet<Resource> Resources { get; }
         public DbSet<ResourcePage> ResourcePages { get; }
         public DbSet<AISummary> AISummaries { get; }

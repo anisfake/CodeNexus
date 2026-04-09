@@ -18,7 +18,5 @@ namespace CodeNexus.Domain.Entities
         public DateTime? UpdatedAt { get; set; }
         public bool IsDeleted { get; set; } = false;
         public DateTime? DeletedAt { get; set; }
-
-        public virtual ICollection<NoteTags> NoteTags { get; set; } = new List<NoteTags>();
     }
 }

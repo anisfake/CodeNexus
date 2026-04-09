@@ -52,8 +52,6 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
         public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
         public DbSet<Note> Notes => Set<Note>();
-        public DbSet<Tag> Tags => Set<Tag>();
-        public DbSet<NoteTags> NoteTags => Set<NoteTags>();
         public DbSet<Resource> Resources => Set<Resource>();
         public DbSet<ResourcePage> ResourcePages => Set<ResourcePage>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
@@ -262,7 +260,6 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<FocusSession>().HasKey(e => e.SessionId);
             modelBuilder.Entity<DailyCheckins>().HasKey(e => e.CheckinId);
             modelBuilder.Entity<Note>().HasKey(e => e.NoteId);
-            modelBuilder.Entity<Tag>().HasKey(e => e.TagId);
             modelBuilder.Entity<Resource>().HasKey(e => e.ResourceId);
             modelBuilder.Entity<ResourcePage>().HasKey(e => e.ResourcePageId);
             modelBuilder.Entity<AISummary>().HasKey(e => e.SummaryId);
@@ -318,19 +315,6 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany()
                       .HasForeignKey(u => u.SubscriptionPlanId)
                       .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            modelBuilder.Entity<NoteTags>(entity =>
-            {
-                entity.HasKey(nt => new { nt.NoteId, nt.TagId });
-
-                entity.HasOne(nt => nt.Note)
-                      .WithMany(n => n.NoteTags)
-                      .HasForeignKey(nt => nt.NoteId);
-
-                entity.HasOne(nt => nt.Tag)
-                      .WithMany(t => t.NoteTags)
-                      .HasForeignKey(nt => nt.TagId);
             });
 
             modelBuilder.Entity<Tasks>(entity =>
