@@ -17,6 +17,7 @@ namespace CodeNexus.Domain.Entities
         public DateTime? DateOfBirth { get; set; }
         public string? Phone { get; set; }
         public string? Address { get; set; }
+        public TimeSpan? DailyReminderTime { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
 }

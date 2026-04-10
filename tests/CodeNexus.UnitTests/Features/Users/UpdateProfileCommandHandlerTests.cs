@@ -42,7 +42,8 @@ public class UpdateProfileCommandHandlerTests
             "Updated bio",
             new DateTime(1990, 1, 1),
             "0123456789",
-            "Updated address"
+            "Updated address",
+            new TimeSpan(20, 0, 0)
         );
 
         // Act
@@ -56,6 +57,7 @@ public class UpdateProfileCommandHandlerTests
         result.Value.Bio.Should().Be("Updated bio");
         result.Value.Phone.Should().Be("0123456789");
         result.Value.Address.Should().Be("Updated address");
+        result.Value.DailyReminderTime.Should().Be(new TimeSpan(20, 0, 0));
     }
 
     [Fact]
@@ -65,7 +67,7 @@ public class UpdateProfileCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(_userId);
         SetupUsersDbSet(new List<User>());
 
-        var command = new UpdateProfileCommand("John", "Doe", null, null, null, null);
+        var command = new UpdateProfileCommand("John", "Doe", null, null, null, null, null);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -90,6 +92,7 @@ public class UpdateProfileCommandHandlerTests
             null,
             null,
             null,
+            null,
             null
         );
 
@@ -101,6 +104,7 @@ public class UpdateProfileCommandHandlerTests
         result.Value!.FirstName.Should().Be("NewFirstName");
         result.Value.LastName.Should().Be("Doe");
         result.Value.Bio.Should().Be("Original bio");
+        result.Value.DailyReminderTime.Should().Be(new TimeSpan(19, 0, 0));
     }
 
     [Fact]
@@ -119,7 +123,8 @@ public class UpdateProfileCommandHandlerTests
             "New bio text",
             newDate,
             "0987654321",
-            "New address"
+            "New address",
+            new TimeSpan(21, 0, 0)
         );
 
         // Act
@@ -133,6 +138,7 @@ public class UpdateProfileCommandHandlerTests
         result.Value.DateOfBirth.Should().Be(newDate);
         result.Value.Phone.Should().Be("0987654321");
         result.Value.Address.Should().Be("New address");
+        result.Value.DailyReminderTime.Should().Be(new TimeSpan(21, 0, 0));
     }
 
     private User CreateTestUser()
@@ -153,7 +159,8 @@ public class UpdateProfileCommandHandlerTests
                 DateOfBirth = new DateTime(1990, 1, 1),
                 Phone = "0123456789",
                 Address = "Original address",
-                AvatarUrl = "https://example.com/avatar.jpg"
+                AvatarUrl = "https://example.com/avatar.jpg",
+                DailyReminderTime = new TimeSpan(19, 0, 0)
             }
         };
     }

@@ -42,6 +42,7 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
             user.UserProfile.DateOfBirth = request.DateOfBirth ?? user.UserProfile.DateOfBirth;
             user.UserProfile.Phone = request.Phone ?? user.UserProfile.Phone;
             user.UserProfile.Address = request.Address ?? user.UserProfile.Address;
+            user.UserProfile.DailyReminderTime = request.DailyReminderTime ?? user.UserProfile.DailyReminderTime;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -65,7 +66,8 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
                 user.UserProfile.AvatarUrl,
                 user.UserProfile.DateOfBirth,
                 user.UserProfile.Phone,
-                user.UserProfile.Address
+                user.UserProfile.Address,
+                user.UserProfile.DailyReminderTime
             ));
         }
     }

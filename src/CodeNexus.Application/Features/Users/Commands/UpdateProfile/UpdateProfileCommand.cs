@@ -15,7 +15,8 @@ public record UpdateProfileCommand(
     string? Bio,
     DateTime? DateOfBirth,
     string? Phone,
-    string? Address
+    string? Address,
+    TimeSpan? DailyReminderTime
 ) : IRequest<Result<UserProfileRespone>>;
 
 

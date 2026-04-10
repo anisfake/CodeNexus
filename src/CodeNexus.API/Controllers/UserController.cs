@@ -117,7 +117,8 @@ public class UserController : ControllerBase
             request.Bio,
             request.DateOfBirth,
             request.Phone,
-            request.Address
+            request.Address,
+            request.DailyReminderTime
         );
 
         var result = await _sender.Send(command);

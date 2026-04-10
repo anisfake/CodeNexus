@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260409160122_AddDailyReminderTimeToUserProfile")]
+    partial class AddDailyReminderTimeToUserProfile
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -954,6 +957,21 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("Notes");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.NoteTags", b =>
+                {
+                    b.Property<Guid>("NoteId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("NoteId", "TagId");
+
+                    b.HasIndex("TagId");
+
+                    b.ToTable("NoteTags");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Notification", b =>
                 {
                     b.Property<Guid>("NotificationId")
@@ -1471,6 +1489,24 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("SubscriptionPlanLimits");
+                });
+
+            modelBuilder.Entity("CodeNexus.Domain.Entities.Tag", b =>
+                {
+                    b.Property<Guid>("TagId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("TagId");
+
+                    b.ToTable("Tags");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Tasks", b =>
@@ -2043,6 +2079,25 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("FocusSession");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.NoteTags", b =>
+                {
+                    b.HasOne("CodeNexus.Domain.Entities.Note", "Note")
+                        .WithMany("NoteTags")
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CodeNexus.Domain.Entities.Tag", "Tag")
+                        .WithMany("NoteTags")
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Note");
+
+                    b.Navigation("Tag");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Notification", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.User", "User")
@@ -2357,6 +2412,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Quizzes");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.Note", b =>
+                {
+                    b.Navigation("NoteTags");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.Quiz", b =>
                 {
                     b.Navigation("Questions");
@@ -2388,6 +2448,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.SubscriptionPlan", b =>
                 {
                     b.Navigation("Limits");
+                });
+
+            modelBuilder.Entity("CodeNexus.Domain.Entities.Tag", b =>
+                {
+                    b.Navigation("NoteTags");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Tasks", b =>

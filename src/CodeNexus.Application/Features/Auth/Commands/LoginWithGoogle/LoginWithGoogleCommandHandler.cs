@@ -14,17 +14,20 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
     private readonly IGoogleAuthService _googleAuth;
     private readonly ITokenService _tokenService;
     private readonly IAchievementService _achievementService;
+    private readonly IDailyReminderTimeInferenceService _dailyReminderTimeInferenceService;
 
     public LoginWithGoogleCommandHandler(
         IApplicationDbContext context,
         IGoogleAuthService googleAuth,
         ITokenService tokenService,
-        IAchievementService achievementService)
+        IAchievementService achievementService,
+        IDailyReminderTimeInferenceService dailyReminderTimeInferenceService)
     {
         _context = context;
         _googleAuth = googleAuth;
         _tokenService = tokenService;
         _achievementService = achievementService;
+        _dailyReminderTimeInferenceService = dailyReminderTimeInferenceService;
     }
 
     public async Task<Result<LoginResponse>> Handle(LoginWithGoogleCommand request, CancellationToken cancellationToken)
@@ -35,6 +38,7 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
 
         var user = await _context.Users
             .Include(u => u.Role)
+            .Include(u => u.UserProfile)
             .FirstOrDefaultAsync(u => u.Email == googleUser.Email, cancellationToken);
 
         if (user == null)
@@ -72,10 +76,19 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             await _achievementService.InitializeUserAchievementsAsync(user.UserId);
 
             user.Role = defaultRole;
+            user.UserProfile = userProfile;
         }
 
         if (user.Status == "Banned")
             return Result<LoginResponse>.Failure("USER_BANNED", "Your account has been banned. Please contact support.");
+
+        var isFirstSuccessfulLogin = user.LastLogin == null;
+        var shouldPromptDailyReminderTime = isFirstSuccessfulLogin && user.UserProfile?.DailyReminderTime == null;
+        if (user.UserProfile is { DailyReminderTime: null })
+        {
+            user.UserProfile.DailyReminderTime = await _dailyReminderTimeInferenceService
+                .InferDailyReminderTimeAsync(user.UserId, cancellationToken);
+        }
 
         user.LastLogin = DateTime.UtcNow;
 
@@ -102,7 +115,8 @@ public class LoginWithGoogleCommandHandler : IRequestHandler<LoginWithGoogleComm
             user.Username,
             user.LastLogin,
             user.RoleId,
-            user.Role?.RoleName
+            user.Role?.RoleName,
+            shouldPromptDailyReminderTime
         ));
     }
 
