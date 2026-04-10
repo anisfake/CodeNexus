@@ -192,4 +192,5 @@ public class GetSessionHistoryQueryHandlerTests
         Assert.Equal("A1", result.Value.Items[0].Title);
         Assert.Equal(SessionStatus.Abandoned.ToString(), result.Value.Items[0].SessionStatus);
     }
+
 }

@@ -8,11 +8,7 @@ public record QuizDto(
     string Description,
     List<QuestionDto>? Questions = null,
     string Status = "Not Attempted"
-)
-{
-    public Guid QuizId => QuizzId;
-    public Guid Id => QuizzId;
-}
+);
 
 public record QuestionDto(
     Guid QuestionId,
@@ -22,10 +18,7 @@ public record QuestionDto(
     string CorrectAnswer,
     decimal Points,
     int OrderIndex
-)
-{
-    public Guid Id => QuestionId;
-}
+);
 public record LessonDto(
     Guid LessonId,
     string Title,
@@ -33,10 +26,7 @@ public record LessonDto(
     DateTime LessonDay,
     List<QuizDto> Quizzes,
     string Status = "Not Started"
-)
-{
-    public Guid Id => LessonId;
-}
+);
 public record TaskDto(
     Guid TaskId,
     string Title,
@@ -47,11 +37,7 @@ public record TaskDto(
     DateTime? DueDate,
     string? QuizQuestionsJson,
     string Status = "Pending"
-)
-{
-    public Guid Id => TaskId;
-    public string? QuizQuestions => QuizQuestionsJson;
-}
+);
 public record ChapterDto(
     Guid ChapterId,
     string Title,
@@ -59,10 +45,7 @@ public record ChapterDto(
     int OrderIndex,
     List<LessonDto> Lessons,
     List<TaskDto> Tasks
-)
-{
-    public Guid Id => ChapterId;
-}
+);
 public record LearningPathSkeletonDto(
     string Title,
     string Description,
