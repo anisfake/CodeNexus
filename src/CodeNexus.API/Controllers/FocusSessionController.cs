@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.Commands.AbandonSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
+using CodeNexus.Application.Features.FocusSessions.Commands.HeartbeatSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.PauseSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.ReviewSession;
 using CodeNexus.Application.Features.FocusSessions.Commands.ResumeSession;
@@ -104,14 +105,35 @@ public class FocusSessionController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("api/focus-sessions/{sessionId}/heartbeat")]
+    public async Task<IActionResult> HeartbeatSession(Guid sessionId, CancellationToken cancellationToken)
+    {
+        var command = new HeartbeatSessionCommand(sessionId);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpGet("api/focus-sessions/history")]
     public async Task<IActionResult> GetSessionHistory(
         [FromQuery] Guid? taskId = null,
+        [FromQuery] SessionStatus? sessionStatus = null,
+        [FromQuery] SessionType? sessionType = null,
+        [FromQuery] DateTime? startedFrom = null,
+        [FromQuery] DateTime? startedTo = null,
+        [FromQuery] bool includeAbandoned = false,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 10,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetSessionHistoryQuery(taskId, pageNumber, pageSize);
+        var query = new GetSessionHistoryQuery(
+            taskId,
+            sessionStatus,
+            sessionType,
+            startedFrom,
+            startedTo,
+            includeAbandoned,
+            pageNumber,
+            pageSize);
         var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }
@@ -126,6 +148,7 @@ public class FocusSessionController : ControllerBase
             "SESSION_ALREADY_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SESSION_NOT_RUNNING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SESSION_NOT_PAUSED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "SESSION_NOT_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "TASK_NOT_FOUND" or "SESSION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_DURATION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { result.ErrorCode, result.ErrorMessage })
@@ -142,6 +165,7 @@ public class FocusSessionController : ControllerBase
             "SESSION_ALREADY_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SESSION_NOT_RUNNING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SESSION_NOT_PAUSED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "SESSION_NOT_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "TASK_NOT_FOUND" or "SESSION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_DURATION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             "MISSING_CODE_SUBMISSION" or "MISSING_SUMMARY_SUBMISSION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),

@@ -68,16 +68,18 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
 
         try
         {
+            var now = DateTime.UtcNow;
             var focusSession = new FocusSession
             {
                 SessionId = NewId.NextGuid(),
                 TaskId = request.TaskId,
                 Title = request.Title ?? $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} Session - {task.Title}",
-                StartTime = DateTime.UtcNow,
+                StartTime = now,
                 PlannedDurationMinutes = plannedDuration,
                 SessionStatus = SessionStatus.Running,
                 SessionType = request.SessionType,
-                CreatedAt = DateTime.UtcNow
+                LastActivityAt = now,
+                CreatedAt = now
             };
 
             _context.FocusSessions.Add(focusSession);

@@ -35,6 +35,7 @@ public class PauseSessionCommandHandler : IRequestHandler<PauseSessionCommand, R
         var now = DateTime.UtcNow;
         session.SessionStatus = SessionStatus.Paused;
         session.PausedAt = now;
+        session.LastActivityAt = now;
 
         await _context.SaveChangesAsync(cancellationToken);
         var elapsedSeconds = CalculateElapsedSeconds(session, now);

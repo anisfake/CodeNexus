@@ -44,6 +44,7 @@ public class ResumeSessionCommandHandler : IRequestHandler<ResumeSessionCommand,
 
         session.PausedAt = null;
         session.SessionStatus = SessionStatus.Running;
+        session.LastActivityAt = now;
 
         await _context.SaveChangesAsync(cancellationToken);
         var elapsedSeconds = CalculateElapsedSeconds(session, now);

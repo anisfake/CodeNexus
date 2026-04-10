@@ -7,8 +7,6 @@ namespace CodeNexus.API.Services;
 public class PendingPaymentTimeoutBackgroundService : BackgroundService
 {
     private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(20);
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
-    private static readonly TimeSpan PendingTimeout = TimeSpan.FromMinutes(15);
     private const string ExpiredResponseCode = "EXPIRED_TIMEOUT";
 
     private readonly IServiceScopeFactory _scopeFactory;
@@ -26,14 +24,19 @@ public class PendingPaymentTimeoutBackgroundService : BackgroundService
     {
         await Task.Delay(InitialDelay, stoppingToken);
 
-        using var timer = new PeriodicTimer(Interval);
-        do
+        while (!stoppingToken.IsCancellationRequested)
         {
+            var delay = TimeSpan.FromSeconds(60);
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                var cutoffUtc = DateTime.UtcNow - PendingTimeout;
+                var policyService = scope.ServiceProvider.GetRequiredService<CodeNexus.Application.Common.Interfaces.ISystemRuntimePolicyService>();
+                var policy = await policyService.GetRuntimeOperationalPolicyAsync(stoppingToken);
+
+                delay = TimeSpan.FromSeconds(Math.Max(15, policy.PendingPaymentMonitorIntervalSeconds));
+                var cutoffUtc = DateTime.UtcNow.AddMinutes(-policy.PendingPaymentTimeoutMinutes);
 
                 var affectedRows = await dbContext.PaymentTransactions
                     .Where(x => x.Status == PaymentStatus.Pending && x.CreatedAt <= cutoffUtc)
@@ -58,7 +61,15 @@ public class PendingPaymentTimeoutBackgroundService : BackgroundService
             {
                 _logger.LogError(ex, "Pending payment timeout job crashed.");
             }
+
+            try
+            {
+                await Task.Delay(delay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 }

@@ -67,6 +67,7 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
 
         string? aiFeedback = null;
         int? verificationScore = null;
+        session.LastActivityAt = DateTime.UtcNow;
 
         try
         {
@@ -113,6 +114,8 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
             verificationScore,
             "Code reviewed successfully"
         );
+
+        await _context.SaveChangesAsync(cancellationToken);
 
         return Result<ReviewSessionResponseDto>.Success(response);
     }

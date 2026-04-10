@@ -5,8 +5,6 @@ namespace CodeNexus.API.Services;
 
 public class OverdueNotificationBackgroundService : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromMinutes(15);
-
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OverdueNotificationBackgroundService> _logger;
 
@@ -22,13 +20,18 @@ public class OverdueNotificationBackgroundService : BackgroundService
     {
         await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
 
-        using var timer = new PeriodicTimer(Interval);
-        do
+        while (!stoppingToken.IsCancellationRequested)
         {
+            var delay = TimeSpan.FromMinutes(15);
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+                var policyService = scope.ServiceProvider.GetRequiredService<CodeNexus.Application.Common.Interfaces.ISystemRuntimePolicyService>();
+                var policy = await policyService.GetRuntimeOperationalPolicyAsync(stoppingToken);
+
+                delay = TimeSpan.FromMinutes(Math.Max(5, policy.OverdueNotificationIntervalMinutes));
 
                 var result = await sender.Send(new CreateOverdueNotificationsCommand(), stoppingToken);
                 if (result.IsFailure)
@@ -48,7 +51,15 @@ public class OverdueNotificationBackgroundService : BackgroundService
             {
                 _logger.LogError(ex, "Overdue notification job crashed.");
             }
+
+            try
+            {
+                await Task.Delay(delay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
         }
-        while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 }

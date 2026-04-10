@@ -75,6 +75,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies => Set<MentorAiAccessPolicy>();
+        public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -285,6 +286,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
             modelBuilder.Entity<MentorAiAccessPolicy>().HasKey(e => e.MentorAiAccessPolicyId);
+            modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -334,6 +336,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(lp => lp.Tasks)
                       .HasForeignKey(t => t.PathId)
                       .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<FocusSession>(entity =>
+            {
+                entity.HasIndex(e => new { e.SessionStatus, e.LastActivityAt });
             });
 
             modelBuilder.Entity<DailyCheckins>(entity =>
@@ -650,6 +657,27 @@ namespace CodeNexus.Infrastructure.Persistence
 
                 entity.Property(e => e.MentorDowngradeNotifyCooldownHours)
                       .IsRequired();
+
+                entity.HasIndex(e => e.UpdatedAt);
+            });
+
+            modelBuilder.Entity<SystemRuntimePolicy>(entity =>
+            {
+                entity.Property(e => e.PolicyKey)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.Description)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.ConfigJson)
+                      .IsRequired();
+
+                entity.Property(e => e.IsActive)
+                      .HasDefaultValue(true);
+
+                entity.HasIndex(e => e.PolicyKey)
+                      .IsUnique();
 
                 entity.HasIndex(e => e.UpdatedAt);
             });

@@ -15,5 +15,9 @@ public class GetSessionHistoryQueryValidator : AbstractValidator<GetSessionHisto
             .WithMessage("Page size must be greater than 0")
             .LessThanOrEqualTo(50)
             .WithMessage("Page size cannot exceed 50");
+
+        RuleFor(x => x)
+            .Must(x => !x.StartedFrom.HasValue || !x.StartedTo.HasValue || x.StartedFrom <= x.StartedTo)
+            .WithMessage("StartedFrom must be less than or equal to StartedTo");
     }
 }

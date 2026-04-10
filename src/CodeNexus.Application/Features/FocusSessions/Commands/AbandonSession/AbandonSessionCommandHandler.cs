@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.FocusSessions.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MediatR;
@@ -7,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Features.FocusSessions.Commands.AbandonSession;
 
-public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionCommand, Result>
+public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionCommand, Result<AbandonSessionResponseDto>>
 {
     private readonly IApplicationDbContext _context;
 
@@ -16,20 +17,21 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
         _context = context;
     }
 
-    public async Task<Result> Handle(AbandonSessionCommand request, CancellationToken cancellationToken)
+    public async Task<Result<AbandonSessionResponseDto>> Handle(AbandonSessionCommand request, CancellationToken cancellationToken)
     {
         var session = await _context.FocusSessions
+            .Include(fs => fs.Task)
             .FirstOrDefaultAsync(fs => fs.SessionId == request.SessionId, cancellationToken);
 
         if (session == null)
         {
-            return Result.Failure("SESSION_NOT_FOUND", "Session not found");
+            return Result<AbandonSessionResponseDto>.Failure("SESSION_NOT_FOUND", "Session not found");
         }
 
         if (session.SessionStatus != SessionStatus.Running &&
             session.SessionStatus != SessionStatus.Paused)
         {
-            return Result.Failure("SESSION_NOT_ACTIVE", "Session is not active");
+            return Result<AbandonSessionResponseDto>.Failure("SESSION_NOT_ACTIVE", "Session is not active");
         }
 
         try
@@ -40,14 +42,23 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
             session.EndTime = endTime;
             session.ActualDurationMinutes = actualDurationMinutes;
             session.SessionStatus = SessionStatus.Abandoned;
+            session.LastActivityAt = endTime;
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            return Result.Success();
+            var response = new AbandonSessionResponseDto(
+                session.SessionId,
+                endTime,
+                actualDurationMinutes,
+                session.SessionStatus.ToString(),
+                false,
+                "Session abandoned successfully");
+
+            return Result<AbandonSessionResponseDto>.Success(response);
         }
         catch (Exception ex)
         {
-            return Result.Failure(
+            return Result<AbandonSessionResponseDto>.Failure(
                 "ABANDON_SESSION_FAILED",
                 $"An error occurred while abandoning the session: {ex.Message}");
         }
@@ -63,8 +74,9 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
             {
                 pausedMinutes += extra;
                 session.TotalPausedMinutes = pausedMinutes;
-                session.PausedAt = null;
             }
+
+            session.PausedAt = null;
         }
 
         var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
