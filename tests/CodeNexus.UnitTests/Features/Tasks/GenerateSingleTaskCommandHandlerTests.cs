@@ -100,6 +100,52 @@ public class GenerateSingleTaskCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_SameTitleButDifferentTaskType_AllowsGeneration()
+    {
+        // Arrange
+        var userId = NewId.NextGuid();
+        var chapterId = NewId.NextGuid();
+        var command = new GenerateSingleTaskCommand(chapterId, null, TaskType.Theory);
+
+        var chapter = CreateChapterGraph(chapterId, userId);
+        chapter.Tasks = new List<CodeNexus.Domain.Entities.Tasks>
+        {
+            new()
+            {
+                TaskId = NewId.NextGuid(),
+                ChapterId = chapterId,
+                PathId = chapter.PathId,
+                Title = "Implement loop exercises",
+                Description = "Existing practice task",
+                TaskType = TaskType.Practice
+            }
+        };
+
+        var generated = new GeneratedTasksDto(new List<GeneratedTaskItemDto>
+        {
+            new("Implement loop exercises", "Summarize loop concepts", "Medium", "Theory", "Check summary quality", 70, null)
+        });
+
+        var tasksDbSet = new List<CodeNexus.Domain.Entities.Tasks>().BuildMockDbSet().Object;
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Chapters).Returns(new[] { chapter }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(tasksDbSet);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mockAIGeneratorService
+            .Setup(x => x.GenerateStructureAsync<GeneratedTasksDto>(It.IsAny<string>(), It.IsAny<AIUsageType>()))
+            .ReturnsAsync(generated);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_DuplicateQuizQuestionInExistingQuizTask_ReturnsFailure()
     {
         // Arrange

@@ -81,7 +81,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
                 .Where(t => !t.IsDeleted)
                 .ToList();
 
-            if (IsDuplicateTask(existingActiveTasks, finalTitle, finalDescription))
+            if (IsDuplicateTask(existingActiveTasks, request.TaskType, finalTitle, finalDescription))
                 return Result<TaskItemDto>.Failure("DUPLICATE_TASK", "Generated task is too similar to an existing task in this chapter.");
 
             if (request.TaskType == TaskType.Quizz &&
@@ -148,12 +148,14 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
         return invalidKeywords.Any(keyword => combined.Contains(keyword));
     }
 
-    private static bool IsDuplicateTask(List<Domain.Entities.Tasks> existingTasks, string title, string description)
+    private static bool IsDuplicateTask(List<Domain.Entities.Tasks> existingTasks, TaskType taskType, string title, string description)
     {
         var normalizedTitle = NormalizeText(title);
         var normalizedDescription = NormalizeText(description);
 
-        return existingTasks.Any(t =>
+        return existingTasks
+            .Where(t => t.TaskType == taskType)
+            .Any(t =>
             NormalizeText(t.Title) == normalizedTitle ||
             (NormalizeText(t.Title) == normalizedTitle && NormalizeText(t.Description) == normalizedDescription));
     }
@@ -252,14 +254,14 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
             : $"- MUST use this exact title for the task: \"{preferredTitle.Trim()}\".";
 
         var existingTaskTitles = chapter.Tasks
-            .Where(t => !t.IsDeleted && !string.IsNullOrWhiteSpace(t.Title))
+            .Where(t => !t.IsDeleted && t.TaskType == taskType && !string.IsNullOrWhiteSpace(t.Title))
             .Select(t => t.Title.Trim())
             .Distinct()
             .ToList();
 
         var existingTaskTitlesInstruction = existingTaskTitles.Count == 0
-            ? "- No existing tasks in this chapter."
-            : $"- Existing task titles (MUST avoid duplicates):\n- {string.Join("\n- ", existingTaskTitles)}";
+            ? $"- No existing {taskTypeLabel} tasks in this chapter."
+            : $"- Existing {taskTypeLabel} task titles (MUST avoid duplicates):\n- {string.Join("\n- ", existingTaskTitles)}";
 
         return $$"""
 You are a study planning assistant.
@@ -283,7 +285,7 @@ Generate EXACTLY 1 task with TaskType = "{{taskTypeLabel}}" based on chapter and
 - Description must be concrete and related to lessons.
 - Priority must be one of: High, Medium, Low.
 - DO NOT create installation/setup/download/configuration tasks.
-- MUST NOT duplicate existing tasks in this chapter.
+- MUST NOT duplicate existing tasks with the same TaskType in this chapter.
 - For Practice: include verificationPrompt to check submitted code.
 - For Theory: include verificationPrompt to check learner summary.
 - For Quizz: include 3-5 quizQuestions, each with 4 options and correctAnswer from 0-3.
