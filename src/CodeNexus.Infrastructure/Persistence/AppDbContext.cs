@@ -74,7 +74,6 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
         public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
-        public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies => Set<MentorAiAccessPolicy>();
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
@@ -285,7 +284,6 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
             modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
-            modelBuilder.Entity<MentorAiAccessPolicy>().HasKey(e => e.MentorAiAccessPolicyId);
             modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
@@ -579,9 +577,15 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
                 entity.HasIndex(e => new { e.AccessTierUsed, e.UsageType, e.CreatedAt });
+                entity.HasIndex(e => new { e.ConfigId, e.CreatedAt });
                 entity.Property(e => e.AccessTierUsed)
                     .HasConversion<string>();
                 entity.Property(e => e.CostUsd).HasPrecision(18, 8);
+
+                entity.HasOne(e => e.Config)
+                      .WithMany(c => c.AIUsageLogs)
+                      .HasForeignKey(e => e.ConfigId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<PaymentTransaction>(entity =>
@@ -653,17 +657,6 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany(u => u.FeatureUsageLogs)
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
-            });
-
-            modelBuilder.Entity<MentorAiAccessPolicy>(entity =>
-            {
-                entity.Property(e => e.MentorPaidRequestsMonthlyLimit)
-                      .IsRequired();
-
-                entity.Property(e => e.MentorDowngradeNotifyCooldownHours)
-                      .IsRequired();
-
-                entity.HasIndex(e => e.UpdatedAt);
             });
 
             modelBuilder.Entity<SystemRuntimePolicy>(entity =>

@@ -191,6 +191,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
 
         conversation.MessageCount += 2;
 
+        await _planUsageLimitService.RecordTutorMessageUsageAsync(userId, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<TutorChatResponseDto>.Success(new TutorChatResponseDto(

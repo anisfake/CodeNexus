@@ -1,9 +1,12 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.AIAccessPolicy;
 using CodeNexus.Application.Features.AIAccessPolicy.DTOs;
+using CodeNexus.Application.Features.SystemRuntimePolicies;
 using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 
 namespace CodeNexus.Application.Features.AIAccessPolicy.Commands.UpdateMentorAiAccessPolicy;
 
@@ -18,34 +21,34 @@ public class UpdateMentorAiAccessPolicyCommandHandler : IRequestHandler<UpdateMe
 
     public async Task<Result<MentorAiAccessPolicyDto>> Handle(UpdateMentorAiAccessPolicyCommand request, CancellationToken cancellationToken)
     {
-        var policy = await _context.MentorAiAccessPolicies
-            .FirstOrDefaultAsync(cancellationToken);
+        var policy = await _context.SystemRuntimePolicies
+            .FirstOrDefaultAsync(x => x.PolicyKey == MentorAiAccessPolicyConstants.PolicyKey, cancellationToken);
 
         if (policy == null)
         {
-            policy = new MentorAiAccessPolicy
+            policy = new SystemRuntimePolicy
             {
-                MentorAiAccessPolicyId = Guid.NewGuid(),
-                MentorPaidRequestsMonthlyLimit = request.MentorPaidRequestsMonthlyLimit,
-                MentorDowngradeNotifyCooldownHours = request.MentorDowngradeNotifyCooldownHours,
-                UpdatedAt = DateTime.UtcNow
+                SystemRuntimePolicyId = NewId.NextGuid(),
+                PolicyKey = MentorAiAccessPolicyConstants.PolicyKey
             };
 
-            await _context.MentorAiAccessPolicies.AddAsync(policy, cancellationToken);
+            await _context.SystemRuntimePolicies.AddAsync(policy, cancellationToken);
         }
-        else
-        {
-            policy.MentorPaidRequestsMonthlyLimit = request.MentorPaidRequestsMonthlyLimit;
-            policy.MentorDowngradeNotifyCooldownHours = request.MentorDowngradeNotifyCooldownHours;
-            policy.UpdatedAt = DateTime.UtcNow;
-        }
+
+        var config = SystemRuntimePolicyJsonHelper.ParseConfigJson(policy.ConfigJson);
+        config[MentorAiAccessPolicyConstants.MonthlyLimitConfigKey] = request.MentorPaidRequestsMonthlyLimit;
+        config[MentorAiAccessPolicyConstants.CooldownHoursConfigKey] = request.MentorDowngradeNotifyCooldownHours;
+
+        policy.Description = "Mentor AI access policy";
+        policy.ConfigJson = SystemRuntimePolicyJsonHelper.SerializeConfigJson(config);
+        policy.IsActive = true;
+        policy.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<MentorAiAccessPolicyDto>.Success(new MentorAiAccessPolicyDto(
-            policy.MentorPaidRequestsMonthlyLimit,
-            policy.MentorDowngradeNotifyCooldownHours,
+            request.MentorPaidRequestsMonthlyLimit,
+            request.MentorDowngradeNotifyCooldownHours,
             policy.UpdatedAt));
     }
 }
-

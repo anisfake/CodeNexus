@@ -403,6 +403,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
                 taskDtos));
         }
 
+        await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         var goalDtos = goalsWithWeights

@@ -87,6 +87,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                     providerName,
                     accessTier,
                     userId,
+                    configId,
                     isMentor,
                     jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
@@ -156,6 +157,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                 providerName,
                 accessTier,
                 userId,
+                configId,
                 isMentor,
                 jsonMode: false);
         }
@@ -171,6 +173,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                 retry.providerName,
                 retry.accessTier,
                 retry.userId,
+                retry.configId,
                 retry.isMentor,
                 jsonMode: false);
         }
@@ -417,6 +420,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         string providerName,
         AIAccessTier accessTier,
         Guid userId,
+        Guid configId,
         bool isMentor,
         bool jsonMode = false)
     {
@@ -435,6 +439,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             config,
             accessTier,
             userId,
+            configId,
             isMentor,
             invocation.InputTokens,
             invocation.OutputTokens,
@@ -467,6 +472,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         AIProviderRuntimeConfig config,
         AIAccessTier accessTier,
         Guid userId,
+        Guid configId,
         bool isMentor,
         int inputTokens,
         int outputTokens,
@@ -484,6 +490,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             {
                 UsageLogId = usageLogId,
                 UserId = userId == Guid.Empty ? null : userId,
+                ConfigId = configId == Guid.Empty ? null : configId,
                 UsageType = usageType,
                 AccessTierUsed = accessTier,
                 ProviderName = providerName,
@@ -533,6 +540,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             {
                 UsageLogId = usageLogId,
                 UserId = userId == Guid.Empty ? null : userId,
+                ConfigId = configId == Guid.Empty ? null : configId,
                 UsageType = usageType,
                 AccessTierUsed = accessTier,
                 ProviderName = providerName,

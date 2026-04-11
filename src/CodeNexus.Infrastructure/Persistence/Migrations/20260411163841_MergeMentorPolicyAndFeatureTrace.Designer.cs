@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260411163841_MergeMentorPolicyAndFeatureTrace")]
+    partial class MergeMentorPolicyAndFeatureTrace
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -738,11 +741,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal>("VersionNumber")
+                    b.Property<int>("VersionNumber")
                         .ValueGeneratedOnAdd()
-                        .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)")
-                        .HasDefaultValue(1.0m);
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.HasKey("PathId");
 
@@ -781,9 +783,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AcceptedPathId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<decimal?>("IgnoredSourceVersion")
-                        .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)");
+                    b.Property<int?>("IgnoredSourceVersion")
+                        .HasColumnType("int");
 
                     b.Property<string>("InvalidatedReason")
                         .HasMaxLength(100)
@@ -794,9 +795,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<decimal?>("LastNotifiedSourceVersion")
-                        .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)");
+                    b.Property<int?>("LastNotifiedSourceVersion")
+                        .HasColumnType("int");
 
                     b.Property<Guid>("MentorId")
                         .HasColumnType("uniqueidentifier");
@@ -810,9 +810,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("SentAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<decimal?>("SourceVersionAtAccept")
-                        .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)");
+                    b.Property<int?>("SourceVersionAtAccept")
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -980,9 +979,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("NotifiedPathTitle")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal?>("NotifiedSourceVersion")
-                        .HasPrecision(4, 1)
-                        .HasColumnType("decimal(4,1)");
+                    b.Property<int?>("NotifiedSourceVersion")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");

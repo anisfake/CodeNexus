@@ -5,6 +5,7 @@ namespace CodeNexus.Application.Features.AIUsageLogs.DTOs;
 public record AIUsageLogResponse(
     Guid UsageLogId,
     Guid? UserId,
+    Guid? ConfigId,
     AIUsageType UsageType,
     AIAccessTier AccessTierUsed,
     string ProviderName,

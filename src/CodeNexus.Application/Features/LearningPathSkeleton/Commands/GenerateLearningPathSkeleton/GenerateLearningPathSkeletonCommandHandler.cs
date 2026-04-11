@@ -301,6 +301,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 ));
             }
 
+            await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
             var goalDtos = goalsWithWeights.Select(g => new LearningPathGoalDto(

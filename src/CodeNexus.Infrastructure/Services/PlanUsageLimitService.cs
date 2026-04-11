@@ -30,7 +30,7 @@ public class PlanUsageLimitService : IPlanUsageLimitService
         if (!limit.IsEnabled || !limit.LimitCount.HasValue)
             return Result.Success();
 
-        var used = await CountLearningPathUsageAsync(userId, limit.WindowType, cancellationToken);
+        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.LearningPathCreation, limit.WindowType, cancellationToken);
         return used >= limit.LimitCount.Value
             ? Result.Failure(
                 "LEARNING_PATH_LIMIT_EXCEEDED",
@@ -48,12 +48,34 @@ public class PlanUsageLimitService : IPlanUsageLimitService
         if (!limit.IsEnabled || !limit.LimitCount.HasValue)
             return Result.Success();
 
-        var used = await CountTutorMessageUsageAsync(userId, limit.WindowType, cancellationToken);
+        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.TutorMessages, limit.WindowType, cancellationToken);
         return used >= limit.LimitCount.Value
             ? Result.Failure(
                 "TUTOR_MESSAGE_LIMIT_EXCEEDED",
                 $"{plan.Name} plan allows up to {limit.LimitCount.Value} tutor messages per {WindowLabel(limit.WindowType)}.")
             : Result.Success();
+    }
+
+    public async Task RecordLearningPathCreationUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await _context.FeatureUsageLogs.AddAsync(new FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+    }
+
+    public async Task RecordTutorMessageUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await _context.FeatureUsageLogs.AddAsync(new FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.TutorMessages,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
     }
 
     public async Task<Result> CheckFocusSessionReviewAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -83,8 +105,6 @@ public class PlanUsageLimitService : IPlanUsageLimitService
             FeatureKey = SubscriptionFeatureKey.FocusSessionReview,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
-
-        await _context.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<PlanLimitSetting> ResolveLimitAsync(
@@ -99,42 +119,6 @@ public class PlanUsageLimitService : IPlanUsageLimitService
             .FirstOrDefaultAsync(cancellationToken);
 
         return configured ?? BuildFallbackLimit(plan.PlanType, featureKey);
-    }
-
-    private async Task<int> CountLearningPathUsageAsync(Guid userId, UsageWindowType windowType, CancellationToken cancellationToken)
-    {
-        var windowStartUtc = GetWindowStartUtc(windowType);
-        return windowStartUtc.HasValue
-            ? await _context.LearningPaths.AsNoTracking().CountAsync(x => x.UserId == userId && x.CreatedAt >= windowStartUtc.Value, cancellationToken)
-            : await _context.LearningPaths.AsNoTracking().CountAsync(x => x.UserId == userId, cancellationToken);
-    }
-
-    private async Task<int> CountTutorMessageUsageAsync(Guid userId, UsageWindowType windowType, CancellationToken cancellationToken)
-    {
-        var conversationIds = await _context.Conversations
-            .AsNoTracking()
-            .Where(c => c.UserId == userId && !c.IsDeleted)
-            .Select(c => c.ConversationId)
-            .ToListAsync(cancellationToken);
-
-        if (conversationIds.Count == 0)
-            return 0;
-
-        var windowStartUtc = GetWindowStartUtc(windowType);
-        return windowStartUtc.HasValue
-            ? await _context.Messages
-                .AsNoTracking()
-                .CountAsync(
-                    m => conversationIds.Contains(m.ConversationId)
-                         && m.Content.StartsWith("USER:")
-                         && m.CreatedAt >= windowStartUtc.Value,
-                    cancellationToken)
-            : await _context.Messages
-                .AsNoTracking()
-                .CountAsync(
-                    m => conversationIds.Contains(m.ConversationId)
-                         && m.Content.StartsWith("USER:"),
-                    cancellationToken);
     }
 
     private async Task<int> CountFeatureUsageLogAsync(

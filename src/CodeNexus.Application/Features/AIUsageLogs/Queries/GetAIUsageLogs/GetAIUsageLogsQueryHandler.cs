@@ -69,6 +69,7 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
             .Select(x => new AIUsageLogResponse(
                 x.UsageLogId,
                 x.UserId,
+                x.ConfigId,
                 x.UsageType,
                 x.AccessTierUsed,
                 x.ProviderName,

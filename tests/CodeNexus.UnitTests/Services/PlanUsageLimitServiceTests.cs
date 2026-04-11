@@ -37,16 +37,13 @@ public class PlanUsageLimitServiceTests
                 new User { UserId = userId, SubscriptionPlanId = freePlanId, PlanExpiresAt = null }
             });
 
-        _mockContext.Setup(x => x.LearningPaths).Returns(Enumerable.Range(1, 4).Select(i => new LearningPath
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 4).Select(i => new FeatureUsageLog
         {
-            PathId = Guid.NewGuid(),
+            FeatureUsageLogId = Guid.NewGuid(),
             UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
             CreatedAt = DateTime.UtcNow.AddDays(-i)
         }).BuildMockDbSet().Object);
-
-        _mockContext.Setup(x => x.Messages).Returns(new List<Message>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Conversations).Returns(new List<Conversation>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
 
@@ -70,23 +67,23 @@ public class PlanUsageLimitServiceTests
                 new User { UserId = userId, SubscriptionPlanId = standardPlanId, PlanExpiresAt = DateTime.UtcNow.AddDays(10) }
             });
 
-        var learningPaths = Enumerable.Range(1, 9).Select(i => new LearningPath
+        var usageLogs = Enumerable.Range(1, 9).Select(i => new FeatureUsageLog
         {
-            PathId = Guid.NewGuid(),
+            FeatureUsageLogId = Guid.NewGuid(),
             UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
             CreatedAt = DateTime.UtcNow.AddDays(-i)
         }).ToList();
-        learningPaths.Add(new LearningPath
+
+        usageLogs.Add(new FeatureUsageLog
         {
-            PathId = Guid.NewGuid(),
+            FeatureUsageLogId = Guid.NewGuid(),
             UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
             CreatedAt = DateTime.UtcNow.AddMonths(-2)
         });
 
-        _mockContext.Setup(x => x.LearningPaths).Returns(learningPaths.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Messages).Returns(new List<Message>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Conversations).Returns(new List<Conversation>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(usageLogs.BuildMockDbSet().Object);
 
         var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
 
@@ -98,7 +95,6 @@ public class PlanUsageLimitServiceTests
     {
         var userId = Guid.NewGuid();
         var freePlanId = Guid.NewGuid();
-        var conversationId = Guid.NewGuid();
         var now = DateTime.UtcNow;
 
         SeedPlansAndUsers(
@@ -111,24 +107,13 @@ public class PlanUsageLimitServiceTests
                 new User { UserId = userId, SubscriptionPlanId = freePlanId, PlanExpiresAt = null }
             });
 
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Conversations).Returns(new[]
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 30).Select(i => new FeatureUsageLog
         {
-            new Conversation
-            {
-                ConversationId = conversationId,
-                UserId = userId,
-                CreatedAt = DateTime.UtcNow
-            }
-        }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Messages).Returns(Enumerable.Range(1, 30).Select(i => new Message
-        {
-            MessageId = Guid.NewGuid(),
-            ConversationId = conversationId,
-            Content = $"USER: message {i}",
+            FeatureUsageLogId = Guid.NewGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.TutorMessages,
             CreatedAt = now
         }).BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
 
@@ -141,7 +126,6 @@ public class PlanUsageLimitServiceTests
     {
         var userId = Guid.NewGuid();
         var proPlanId = Guid.NewGuid();
-        var conversationId = Guid.NewGuid();
         var now = DateTime.UtcNow;
 
         SeedPlansAndUsers(
@@ -154,24 +138,13 @@ public class PlanUsageLimitServiceTests
                 new User { UserId = userId, SubscriptionPlanId = proPlanId, PlanExpiresAt = DateTime.UtcNow.AddDays(30) }
             });
 
-        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Conversations).Returns(new[]
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 1999).Select(i => new FeatureUsageLog
         {
-            new Conversation
-            {
-                ConversationId = conversationId,
-                UserId = userId,
-                CreatedAt = DateTime.UtcNow
-            }
-        }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Messages).Returns(Enumerable.Range(1, 1999).Select(i => new Message
-        {
-            MessageId = Guid.NewGuid(),
-            ConversationId = conversationId,
-            Content = $"USER: message {i}",
+            FeatureUsageLogId = Guid.NewGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.TutorMessages,
             CreatedAt = now
         }).BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
 
@@ -200,15 +173,6 @@ public class PlanUsageLimitServiceTests
                 }
             });
 
-        _mockContext.Setup(x => x.LearningPaths).Returns(Enumerable.Range(1, 50).Select(i => new LearningPath
-        {
-            PathId = Guid.NewGuid(),
-            UserId = userId,
-            CreatedAt = DateTime.UtcNow.AddDays(-i)
-        }).BuildMockDbSet().Object);
-
-        _mockContext.Setup(x => x.Messages).Returns(new List<Message>().BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Conversations).Returns(new List<Conversation>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
         var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
