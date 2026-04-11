@@ -126,7 +126,7 @@ public class CreateOverdueNotificationsCommandHandlerTests
             Type = NotificationType.TaskOverdue,
             Title = "Task quá hạn: Nộp bài project",
             TargetId = task.TaskId,
-            CreatedAt = DateTime.UtcNow.AddHours(-1)
+            CreatedAt = DateTime.UtcNow
         };
 
         _mockContext.Setup(x => x.Tasks).Returns(new[] { task }.BuildMockDbSet().Object);
