@@ -368,7 +368,8 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasConversion<string>();
 
                 entity.Property(p => p.VersionNumber)
-                      .HasDefaultValue(1);
+                      .HasPrecision(4, 1)
+                      .HasDefaultValue(1.0m);
 
                 entity.HasOne(p => p.Subject)
                       .WithMany(s => s.LearningPaths)
@@ -561,6 +562,10 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Notification>()
                 .Property(n => n.Type)
                 .HasConversion<string>();
+
+            modelBuilder.Entity<Notification>()
+                .Property(n => n.NotifiedSourceVersion)
+                .HasPrecision(4, 1);
 
             modelBuilder.Entity<AIProviderConfig>(entity =>
             {
@@ -815,6 +820,15 @@ namespace CodeNexus.Infrastructure.Persistence
 
                 entity.Property(e => e.InvalidatedReason)
                       .HasMaxLength(100);
+
+                entity.Property(e => e.SourceVersionAtAccept)
+                      .HasPrecision(4, 1);
+
+                entity.Property(e => e.IgnoredSourceVersion)
+                      .HasPrecision(4, 1);
+
+                entity.Property(e => e.LastNotifiedSourceVersion)
+                      .HasPrecision(4, 1);
 
                 entity.HasIndex(e => new { e.StudentId, e.Status, e.SentAt });
                 entity.HasIndex(e => e.AcceptedPathId);

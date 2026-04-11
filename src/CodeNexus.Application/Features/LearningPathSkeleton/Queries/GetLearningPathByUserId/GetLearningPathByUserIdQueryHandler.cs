@@ -78,8 +78,8 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                     MentorUserName = s.Mentor.Username,
                     SourceLearningPathId = (Guid?)s.PathId,
                     SourceVersion = s.SourceVersionAtAccept,
-                    SourceLatestVersion = (int?)s.LearningPath.VersionNumber,
-                    HasSourceUpdate = (s.SourceVersionAtAccept ?? 1) < s.LearningPath.VersionNumber
+                    SourceLatestVersion = (decimal?)s.LearningPath.VersionNumber,
+                    HasSourceUpdate = (s.SourceVersionAtAccept ?? 1.0m) < s.LearningPath.VersionNumber
                         && s.IsTrackingEnabled
                         && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < s.LearningPath.VersionNumber)
                 })

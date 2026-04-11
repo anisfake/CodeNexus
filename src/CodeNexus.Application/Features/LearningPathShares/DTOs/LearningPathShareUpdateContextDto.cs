@@ -7,10 +7,10 @@ public record LearningPathShareUpdateContextDto(
     Guid? AcceptedPathId,
     Guid MentorId,
     string MentorUserName,
-    int CurrentSourceVersion,
-    int LatestSourceVersion,
+    decimal CurrentSourceVersion,
+    decimal LatestSourceVersion,
     bool HasNewVersion,
-    int? IgnoredSourceVersion,
-    int? LastNotifiedSourceVersion,
+    decimal? IgnoredSourceVersion,
+    decimal? LastNotifiedSourceVersion,
     LearningPathShareUpdateChangeSummaryDto? ChangeSummary
 );

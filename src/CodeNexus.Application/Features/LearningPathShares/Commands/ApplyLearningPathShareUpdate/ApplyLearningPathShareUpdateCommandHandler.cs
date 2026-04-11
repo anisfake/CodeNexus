@@ -69,7 +69,7 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
         }
 
         var latestVersion = sourcePath.VersionNumber;
-        var currentSourceVersion = share.SourceVersionAtAccept ?? 1;
+        var currentSourceVersion = share.SourceVersionAtAccept ?? 1.0m;
         var hasNewVersion = latestVersion > currentSourceVersion;
 
         if (!hasNewVersion)

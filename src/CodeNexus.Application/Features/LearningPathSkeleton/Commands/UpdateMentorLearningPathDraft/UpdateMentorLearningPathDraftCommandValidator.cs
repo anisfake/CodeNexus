@@ -12,10 +12,17 @@ public class UpdateMentorLearningPathDraftCommandValidator : AbstractValidator<U
             .WithMessage("Path ID is required")
             .WithErrorCode("PATH_REQUIRED");
 
-        RuleFor(x => x.VersionNumber)
-            .GreaterThan(0)
-            .WithMessage("Version number must be greater than 0")
-            .WithErrorCode("INVALID_VERSION_NUMBER");
+        RuleFor(x => x.VersionUpdateType)
+            .NotNull()
+            .When(x => x.IncreaseVersion)
+            .WithMessage("Version update type is required when increasing version")
+            .WithErrorCode("VERSION_UPDATE_TYPE_REQUIRED");
+
+        RuleFor(x => x.VersionUpdateType)
+            .IsInEnum()
+            .When(x => x.IncreaseVersion && x.VersionUpdateType.HasValue)
+            .WithMessage("Version update type must be Minor or Major")
+            .WithErrorCode("INVALID_VERSION_UPDATE_TYPE");
 
         RuleFor(x => x.SubjectId)
             .NotEmpty()

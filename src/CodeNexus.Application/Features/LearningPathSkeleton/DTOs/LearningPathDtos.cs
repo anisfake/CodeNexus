@@ -155,8 +155,15 @@ public record CreateMentorLearningPathDraftRequest(
     List<ManualChapterRequest> Chapters
 );
 
+public enum DraftVersionUpdateType
+{
+    Minor = 0,
+    Major = 1
+}
+
 public record UpdateMentorLearningPathDraftRequest(
-    int VersionNumber,
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType,
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
@@ -183,8 +190,8 @@ public record CreateLearningPathResponse(
     LanguageSelection? LanguageSelection = null,
     Guid? SubjectId = null,
     string? SubjectName = null,
-    int? Version = null,
-    int? PreviousVersion = null,
+    decimal? Version = null,
+    decimal? PreviousVersion = null,
     bool? HasMeaningfulChange = null
 )
 {
@@ -221,8 +228,8 @@ public record LearningPathResponse(
     Guid? SharedByUserId,
     string? SharedByUserName,
     Guid? SourceLearningPathId,
-    int? SourceVersion,
-    int? SourceLatestVersion,
+    decimal? SourceVersion,
+    decimal? SourceLatestVersion,
     bool HasSourceUpdate
 )
 {
