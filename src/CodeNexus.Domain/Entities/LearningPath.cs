@@ -24,7 +24,7 @@ namespace CodeNexus.Domain.Entities
         public DateTime? EndDate { get; set; }
         public string Status { get; set; } = "Active";
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public int VersionNumber { get; set; } = 1;
+        public decimal VersionNumber { get; set; } = 1.0m;
         public bool CreatedByType { get; set; } // 0: User, 1: AI
         public LanguageSelection Language { get; set; } = LanguageSelection.VietNamese; // Default Vietnamese
         public ComplexityLevel ComplexityLevel { get; set; } = ComplexityLevel.Beginner;

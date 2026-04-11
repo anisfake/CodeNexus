@@ -110,7 +110,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
 
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            5,
+            false,
+            null,
             subjectId,
             new List<LearningPathGoalRequest> { new(goalId, 100m) },
             ComplexityLevel.Intermediate,
@@ -222,7 +223,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
 
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            8,
+            false,
+            null,
             subjectId,
             new List<LearningPathGoalRequest> { new(goalId, 100m) },
             ComplexityLevel.Intermediate,
@@ -254,12 +256,12 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        learningPath.VersionNumber.Should().Be(8);
+        learningPath.VersionNumber.Should().Be(5);
 
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockPublisher.Verify(
             x => x.Publish(
-                It.Is<LearningPathDraftVersionUpdatedEvent>(e => e.PathId == pathId && e.CurrentVersion == 8),
+                It.Is<LearningPathDraftVersionUpdatedEvent>(e => e.PathId == pathId && e.CurrentVersion == 5),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -338,7 +340,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
 
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            9,
+            true,
+            DraftVersionUpdateType.Minor,
             subjectId,
             new List<LearningPathGoalRequest> { new(goalId, 100m) },
             ComplexityLevel.Intermediate,
@@ -370,13 +373,13 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        learningPath.VersionNumber.Should().Be(9);
-        learningPath.Title.Should().Be("TypeScript Path - ver 9");
+        learningPath.VersionNumber.Should().Be(5.1m);
+        learningPath.Title.Should().Be("TypeScript Path - ver 5.1");
 
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockPublisher.Verify(
             x => x.Publish(
-                It.Is<LearningPathDraftVersionUpdatedEvent>(e => e.PathId == pathId && e.CurrentVersion == 9),
+                It.Is<LearningPathDraftVersionUpdatedEvent>(e => e.PathId == pathId && e.CurrentVersion == 5.1m),
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -455,7 +458,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
 
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            5,
+            false,
+            null,
             subjectId,
             new List<LearningPathGoalRequest> { new(goalId, 100m) },
             ComplexityLevel.Intermediate,
@@ -543,7 +547,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
 
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            5,
+            false,
+            null,
             subjectId,
             new List<LearningPathGoalRequest> { new(goalId, 100m) },
             ComplexityLevel.Intermediate,
@@ -671,7 +676,8 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
 
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            5,
+            false,
+            null,
             subjectId,
             new List<LearningPathGoalRequest> { new(goalId, 100m) },
             ComplexityLevel.Intermediate,

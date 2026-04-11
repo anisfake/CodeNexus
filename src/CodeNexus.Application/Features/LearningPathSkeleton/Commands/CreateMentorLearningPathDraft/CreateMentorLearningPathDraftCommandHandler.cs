@@ -6,6 +6,7 @@ using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
@@ -99,7 +100,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             PathId = NewId.NextGuid(),
             UserId = mentorId,
             SubjectId = request.SubjectId,
-            Title = BuildVersionedTitle(request.Title, 1),
+            Title = BuildVersionedTitle(request.Title, 1.0m),
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             Status = LearningPathStatus.Draft.ToString(),
             StartDate = request.StartDate,
@@ -487,15 +488,15 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
         return normalized;
     }
 
-    private static string BuildVersionedTitle(string rawTitle, int versionNumber)
+    private static string BuildVersionedTitle(string rawTitle, decimal versionNumber)
     {
         var baseTitle = string.IsNullOrWhiteSpace(rawTitle)
             ? "Learning Path"
             : rawTitle.Trim();
 
-        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
-        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
 
-        return $"{baseTitle} - ver {versionNumber}";
+        return $"{baseTitle} - ver {versionNumber.ToString("0.0", CultureInfo.InvariantCulture)}";
     }
 }

@@ -6,6 +6,6 @@ public record LearningPathDraftVersionUpdatedEvent(
     Guid PathId,
     Guid MentorId,
     string MentorUserName,
-    int CurrentVersion,
+    decimal CurrentVersion,
     DateTime OccurredAt
 ) : INotification;

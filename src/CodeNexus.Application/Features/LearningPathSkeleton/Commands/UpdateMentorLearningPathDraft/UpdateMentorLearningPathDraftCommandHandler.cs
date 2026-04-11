@@ -7,6 +7,7 @@ using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 
@@ -126,7 +127,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         var normalizedChapters = NormalizeManualChapters(request.Chapters);
 
-        if (IsNoDraftChange(request, normalizedChapters, learningPath, goalsWithWeights))
+        if (!request.IncreaseVersion && IsNoDraftChange(request, normalizedChapters, learningPath, goalsWithWeights))
         {
             var currentChapterDtos = BuildChapterDtosFromCurrent(learningPath);
             var currentGoalDtos = goalsWithWeights
@@ -160,7 +161,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         }
 
         var previousVersion = learningPath.VersionNumber;
-        var requestedVersion = request.VersionNumber;
+        var requestedVersion = CalculateRequestedVersion(previousVersion, request.IncreaseVersion, request.VersionUpdateType);
 
         learningPath.SubjectId = request.SubjectId;
         learningPath.Title = BuildVersionedTitle(request.Title, requestedVersion);
@@ -692,11 +693,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             return false;
         }
 
-        if (request.VersionNumber != learningPath.VersionNumber)
-        {
-            return false;
-        }
-
         if (!string.Equals(NormalizeBaseTitle(request.Title), NormalizeBaseTitle(learningPath.Title), StringComparison.Ordinal))
         {
             return false;
@@ -926,8 +922,8 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             ? "Learning Path"
             : rawTitle.Trim();
 
-        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
-        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
 
         return baseTitle;
     }
@@ -954,8 +950,29 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         return normalized;
     }
 
-    private static string BuildVersionedTitle(string rawTitle, int versionNumber)
+    private static decimal CalculateRequestedVersion(decimal currentVersion, bool increaseVersion, DraftVersionUpdateType? versionUpdateType)
     {
-        return $"{NormalizeBaseTitle(rawTitle)} - ver {versionNumber}";
+        if (!increaseVersion)
+        {
+            return currentVersion;
+        }
+
+        var nextVersion = versionUpdateType switch
+        {
+            DraftVersionUpdateType.Major => Math.Floor(currentVersion) + 1.0m,
+            _ => currentVersion + 0.1m
+        };
+
+        return Math.Round(nextVersion, 1, MidpointRounding.AwayFromZero);
+    }
+
+    private static string FormatVersionLabel(decimal versionNumber)
+    {
+        return versionNumber.ToString("0.0", CultureInfo.InvariantCulture);
+    }
+
+    private static string BuildVersionedTitle(string rawTitle, decimal versionNumber)
+    {
+        return $"{NormalizeBaseTitle(rawTitle)} - ver {FormatVersionLabel(versionNumber)}";
     }
 }

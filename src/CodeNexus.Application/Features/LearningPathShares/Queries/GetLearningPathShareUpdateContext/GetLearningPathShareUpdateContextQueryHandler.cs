@@ -71,7 +71,7 @@ public class GetLearningPathShareUpdateContextQueryHandler
                     cancellationToken);
         }
 
-        var currentVersion = share.SourceVersionAtAccept ?? 1;
+        var currentVersion = share.SourceVersionAtAccept ?? 1.0m;
         var latestVersion = sourcePath.VersionNumber;
         var hasNewVersion = latestVersion > currentVersion
             && (!share.IgnoredSourceVersion.HasValue || share.IgnoredSourceVersion.Value < latestVersion);

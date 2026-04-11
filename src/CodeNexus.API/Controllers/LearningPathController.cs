@@ -134,7 +134,8 @@ public class LearningPathController : ControllerBase
     {
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
-            request.VersionNumber,
+            request.IncreaseVersion,
+            request.VersionUpdateType,
             request.SubjectId,
             request.Goals,
             request.ComplexityLevel,

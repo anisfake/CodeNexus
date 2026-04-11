@@ -15,6 +15,6 @@ public record NotificationDto(
     IReadOnlyList<string> Channels,
     NotificationActionDto Action,
     string? NotifiedPathTitle,
-    int? NotifiedSourceVersion,
+    decimal? NotifiedSourceVersion,
     string? NotifiedMentorUserName
 );

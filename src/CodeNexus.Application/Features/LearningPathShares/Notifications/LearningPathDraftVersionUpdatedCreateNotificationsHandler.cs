@@ -33,7 +33,7 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandler
 
         var sharesToNotify = subscribedShares
             .Where(s => s.AcceptedPathId.HasValue
-                        && (s.SourceVersionAtAccept ?? 1) < notification.CurrentVersion
+                        && (s.SourceVersionAtAccept ?? 1.0m) < notification.CurrentVersion
                         && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < notification.CurrentVersion)
                         && (!s.LastNotifiedSourceVersion.HasValue || s.LastNotifiedSourceVersion.Value < notification.CurrentVersion))
             .ToList();
