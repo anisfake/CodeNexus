@@ -36,7 +36,10 @@ public static class DailyCheckinEvaluationHelper
 
         if (session.ActualDurationMinutes.HasValue && session.ActualDurationMinutes.Value > 0)
         {
-            var pauseRatio = (double)session.TotalPausedMinutes / session.ActualDurationMinutes.Value;
+            var pausedMinutes = session.TotalPausedSeconds > 0
+                ? session.TotalPausedSeconds / 60.0
+                : session.TotalPausedMinutes;
+            var pauseRatio = pausedMinutes / session.ActualDurationMinutes.Value;
             if (pauseRatio <= 0.1)
             {
                 productivity += 1;

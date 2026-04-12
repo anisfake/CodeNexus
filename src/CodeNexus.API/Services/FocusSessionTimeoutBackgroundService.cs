@@ -58,22 +58,24 @@ public class FocusSessionTimeoutBackgroundService : BackgroundService
                 foreach (var session in pausedToAbandon)
                 {
                     var endTime = now;
-                    var pausedMinutes = session.TotalPausedMinutes;
+                    var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
 
                     if (session.PausedAt.HasValue)
                     {
-                        var extraPaused = (int)(endTime - session.PausedAt.Value).TotalMinutes;
+                        var extraPaused = (int)Math.Round((endTime - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
                         if (extraPaused > 0)
                         {
-                            pausedMinutes += extraPaused;
+                            pausedSeconds += extraPaused;
                         }
                     }
 
-                    session.TotalPausedMinutes = pausedMinutes;
+                    session.TotalPausedSeconds = pausedSeconds;
+                    session.TotalPausedMinutes = pausedSeconds / 60;
                     session.PausedAt = null;
                     session.EndTime = endTime;
                     session.LastActivityAt = endTime;
-                    session.ActualDurationMinutes = Math.Max(0, (int)(endTime - session.StartTime).TotalMinutes - pausedMinutes);
+                    var elapsedSeconds = (int)Math.Round((endTime - session.StartTime).TotalSeconds, MidpointRounding.AwayFromZero) - pausedSeconds;
+                    session.ActualDurationMinutes = Math.Max(0, elapsedSeconds / 60);
                     session.SessionStatus = SessionStatus.Abandoned;
                     abandonedCount++;
                 }

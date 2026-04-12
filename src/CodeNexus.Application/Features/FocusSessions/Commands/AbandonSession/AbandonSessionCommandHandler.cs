@@ -66,20 +66,21 @@ public class AbandonSessionCommandHandler : IRequestHandler<AbandonSessionComman
 
     private static int CalculateElapsedMinutes(FocusSession session, DateTime now)
     {
-        var pausedMinutes = session.TotalPausedMinutes;
+        var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)(now - session.PausedAt.Value).TotalMinutes;
+            var extra = (int)Math.Round((now - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
             if (extra > 0)
             {
-                pausedMinutes += extra;
-                session.TotalPausedMinutes = pausedMinutes;
+                pausedSeconds += extra;
+                session.TotalPausedSeconds = pausedSeconds;
+                session.TotalPausedMinutes = pausedSeconds / 60;
             }
 
             session.PausedAt = null;
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
-        return Math.Max(0, elapsed);
+        var elapsedSeconds = (int)Math.Round((now - session.StartTime).TotalSeconds, MidpointRounding.AwayFromZero) - pausedSeconds;
+        return Math.Max(0, elapsedSeconds / 60);
     }
 }

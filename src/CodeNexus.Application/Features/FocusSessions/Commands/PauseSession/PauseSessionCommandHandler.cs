@@ -59,10 +59,10 @@ public class PauseSessionCommandHandler : IRequestHandler<PauseSessionCommand, R
 
     private static int CalculateElapsedSeconds(FocusSession session, DateTime now)
     {
-        var pausedSeconds = session.TotalPausedMinutes * 60;
+        var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)(now - session.PausedAt.Value).TotalSeconds;
+            var extra = (int)Math.Round((now - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
             if (extra > 0)
             {
                 pausedSeconds += extra;

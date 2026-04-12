@@ -42,8 +42,7 @@ public class GetSessionHistoryQueryHandler : IRequestHandler<GetSessionHistoryQu
             else
             {
                 query = query.Where(fs =>
-                    fs.SessionStatus != SessionStatus.Running &&
-                    fs.SessionStatus != SessionStatus.Paused);
+                    fs.SessionStatus != SessionStatus.Running);
             }
 
             if (request.SessionType.HasValue)
