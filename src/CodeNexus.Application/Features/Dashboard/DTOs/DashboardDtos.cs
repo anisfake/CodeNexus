@@ -10,3 +10,19 @@ public record StudentDashboardStatsResponse(
     int TotalStudyMinutes,
     int CurrentStreak
 );
+
+public record MentorRecentStudentMessageDto(
+    Guid MessageId,
+    Guid ConversationId,
+    Guid StudentId,
+    string StudentName,
+    string Content,
+    DateTime SentAt
+);
+
+public record MentorDashboardOverviewResponse(
+    int SupportedStudentsCount,
+    int CreatedSubjectsCount,
+    int DraftLearningPathsCount,
+    List<MentorRecentStudentMessageDto> RecentStudentMessages
+);
