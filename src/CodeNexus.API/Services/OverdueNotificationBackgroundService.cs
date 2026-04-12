@@ -7,6 +7,8 @@ namespace CodeNexus.API.Services;
 
 public class OverdueNotificationBackgroundService : BackgroundService
 {
+    private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(10);
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OverdueNotificationBackgroundService> _logger;
 
@@ -20,7 +22,7 @@ public class OverdueNotificationBackgroundService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        await Task.Delay(InitialDelay, stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -31,21 +33,23 @@ public class OverdueNotificationBackgroundService : BackgroundService
                 using var scope = _scopeFactory.CreateScope();
                 var sender = scope.ServiceProvider.GetRequiredService<ISender>();
                 var context = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
+                var policyService = scope.ServiceProvider.GetRequiredService<ISystemRuntimePolicyService>();
+                var policy = await policyService.GetRuntimeOperationalPolicyAsync(stoppingToken);
 
-                var eligibleUserIds = await GetEligibleUserIdsAsync(context, stoppingToken);
-                if (eligibleUserIds.Count == 0)
-                {
-                    continue;
-                }
+                delay = TimeSpan.FromMinutes(Math.Max(1, policy.OverdueNotificationIntervalMinutes));
 
-                var result = await sender.Send(new CreateOverdueNotificationsCommand(eligibleUserIds), stoppingToken);
-                if (result.IsFailure)
+                var eligibleUserIds = await GetEligibleUserIdsAsync(context, policy.OverdueNotificationIntervalMinutes, stoppingToken);
+                if (eligibleUserIds.Count > 0)
                 {
-                    _logger.LogWarning("Overdue notification job failed: {ErrorCode} - {ErrorMessage}", result.ErrorCode, result.ErrorMessage);
-                }
-                else if (result.Value is { CreatedCount: > 0 })
-                {
-                    _logger.LogInformation("Overdue notification job created {Count} notifications.", result.Value.CreatedCount);
+                    var result = await sender.Send(new CreateOverdueNotificationsCommand(eligibleUserIds), stoppingToken);
+                    if (result.IsFailure)
+                    {
+                        _logger.LogWarning("Overdue notification job failed: {ErrorCode} - {ErrorMessage}", result.ErrorCode, result.ErrorMessage);
+                    }
+                    else if (result.Value is { CreatedCount: > 0 })
+                    {
+                        _logger.LogInformation("Overdue notification job created {Count} notifications.", result.Value.CreatedCount);
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -68,11 +72,14 @@ public class OverdueNotificationBackgroundService : BackgroundService
         }
     }
 
-    private static async Task<List<Guid>> GetEligibleUserIdsAsync(IApplicationDbContext context, CancellationToken cancellationToken)
+    private static async Task<List<Guid>> GetEligibleUserIdsAsync(
+        IApplicationDbContext context,
+        int intervalMinutes,
+        CancellationToken cancellationToken)
     {
         var timezone = ResolveVietnamTimeZone();
         var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timezone);
-        var previousTickLocal = nowLocal.Subtract(TimeSpan.FromMinutes(15));
+        var previousTickLocal = nowLocal.Subtract(TimeSpan.FromMinutes(Math.Max(1, intervalMinutes)));
 
         var profiles = await context.UserProfiles
             .AsNoTracking()
