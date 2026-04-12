@@ -66,14 +66,17 @@ public class GetActiveSessionQueryHandler : IRequestHandler<GetActiveSessionQuer
         var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)Math.Round((now - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
                 pausedSeconds += extra;
             }
         }
 
-        var elapsedSeconds = (int)Math.Round((now - session.StartTime).TotalSeconds, MidpointRounding.AwayFromZero) - pausedSeconds;
+        var elapsedSeconds = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
         return Math.Max(0, elapsedSeconds / 60);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }

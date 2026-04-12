@@ -62,7 +62,7 @@ public class FocusSessionTimeoutBackgroundService : BackgroundService
 
                     if (session.PausedAt.HasValue)
                     {
-                        var extraPaused = (int)Math.Round((endTime - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
+                        var extraPaused = ToWholeSeconds(endTime - session.PausedAt.Value);
                         if (extraPaused > 0)
                         {
                             pausedSeconds += extraPaused;
@@ -74,7 +74,7 @@ public class FocusSessionTimeoutBackgroundService : BackgroundService
                     session.PausedAt = null;
                     session.EndTime = endTime;
                     session.LastActivityAt = endTime;
-                    var elapsedSeconds = (int)Math.Round((endTime - session.StartTime).TotalSeconds, MidpointRounding.AwayFromZero) - pausedSeconds;
+                    var elapsedSeconds = ToWholeSeconds(endTime - session.StartTime) - pausedSeconds;
                     session.ActualDurationMinutes = Math.Max(0, elapsedSeconds / 60);
                     session.SessionStatus = SessionStatus.Abandoned;
                     abandonedCount++;
@@ -112,4 +112,7 @@ public class FocusSessionTimeoutBackgroundService : BackgroundService
             }
         }
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }

@@ -62,14 +62,17 @@ public class PauseSessionCommandHandler : IRequestHandler<PauseSessionCommand, R
         var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)Math.Round((now - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
                 pausedSeconds += extra;
             }
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalSeconds - pausedSeconds;
+        var elapsed = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
         return Math.Max(0, elapsed);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }

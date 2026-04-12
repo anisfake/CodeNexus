@@ -35,7 +35,7 @@ public class ResumeSessionCommandHandler : IRequestHandler<ResumeSessionCommand,
         var now = DateTime.UtcNow;
         if (session.PausedAt.HasValue)
         {
-            var pausedSeconds = (int)Math.Round((now - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
+            var pausedSeconds = ToWholeSeconds(now - session.PausedAt.Value);
             if (pausedSeconds > 0)
             {
                 session.TotalPausedSeconds += pausedSeconds;
@@ -72,14 +72,17 @@ public class ResumeSessionCommandHandler : IRequestHandler<ResumeSessionCommand,
         var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)Math.Round((now - session.PausedAt.Value).TotalSeconds, MidpointRounding.AwayFromZero);
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
                 pausedSeconds += extra;
             }
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalSeconds - pausedSeconds;
+        var elapsed = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
         return Math.Max(0, elapsed);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }
