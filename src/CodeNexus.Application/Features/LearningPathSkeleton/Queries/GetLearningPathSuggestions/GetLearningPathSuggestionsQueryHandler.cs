@@ -57,7 +57,7 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
 
         var goals = await _context.Goals
             .AsNoTracking()
-            .Where(g => uniqueGoalIds.Contains(g.GoalId) && !g.IsDeleted && g.IsActive)
+            .Where(g => uniqueGoalIds.Contains(g.GoalId) && !g.IsDeleted)
             .ToListAsync(cancellationToken);
 
         if (goals.Count != uniqueGoalIds.Count)

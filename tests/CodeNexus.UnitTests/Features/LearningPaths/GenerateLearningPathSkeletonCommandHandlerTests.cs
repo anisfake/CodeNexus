@@ -102,7 +102,6 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
             Title = "Master C#", 
             CreatedByUserId = userId,
             IsSystemDefined = false,
-            IsActive = true,
             Duration = GoalDuration.TwoMonths // 60 days
         };
 
@@ -137,7 +136,6 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
             Title = "Become Full Stack Developer", 
             CreatedByUserId = userId,
             IsSystemDefined = false,
-            IsActive = true,
             Duration = GoalDuration.OneMonth // 30 days
         };
 

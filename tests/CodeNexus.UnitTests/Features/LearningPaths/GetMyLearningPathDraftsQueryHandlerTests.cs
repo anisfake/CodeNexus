@@ -30,7 +30,7 @@ public class GetMyLearningPathDraftsQueryHandlerTests
         var role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" };
         var mentor = new User { UserId = mentorId, Username = "mentor", Role = role };
         var subject = new Subject { SubjectId = NewId.NextGuid(), Name = "C#", CreatedByUserId = mentorId };
-        var goal = new GoalEntity { GoalId = NewId.NextGuid(), Title = "Goal", Duration = GoalDuration.OneWeek, IsSystemDefined = false, IsActive = true };
+        var goal = new GoalEntity { GoalId = NewId.NextGuid(), Title = "Goal", Duration = GoalDuration.OneWeek, IsSystemDefined = false};
 
         var draft = new LearningPath
         {
@@ -101,7 +101,7 @@ public class GetMyLearningPathDraftsQueryHandlerTests
         var role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" };
         var mentor = new User { UserId = mentorId, Username = "mentor", Role = role };
         var subject = new Subject { SubjectId = NewId.NextGuid(), Name = "C#", CreatedByUserId = mentorId };
-        var goal = new GoalEntity { GoalId = NewId.NextGuid(), Title = "Goal", Duration = GoalDuration.OneWeek, IsSystemDefined = false, IsActive = true };
+        var goal = new GoalEntity { GoalId = NewId.NextGuid(), Title = "Goal", Duration = GoalDuration.OneWeek, IsSystemDefined = false};
 
         var activeTaskId = NewId.NextGuid();
         var deletedTaskId = NewId.NextGuid();

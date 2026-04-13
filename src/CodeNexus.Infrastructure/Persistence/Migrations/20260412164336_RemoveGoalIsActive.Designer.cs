@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260412164336_RemoveGoalIsActive")]
+    partial class RemoveGoalIsActive
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -924,6 +927,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("FocusSessionSessionId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -938,7 +944,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasKey("NoteId");
 
-                    b.HasIndex("SessionId");
+                    b.HasIndex("FocusSessionSessionId");
 
                     b.ToTable("Notes");
                 });
@@ -2075,8 +2081,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("CodeNexus.Domain.Entities.FocusSession", "FocusSession")
                         .WithMany("Notes")
-                        .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.NoAction);
+                        .HasForeignKey("FocusSessionSessionId");
 
                     b.Navigation("FocusSession");
                 });

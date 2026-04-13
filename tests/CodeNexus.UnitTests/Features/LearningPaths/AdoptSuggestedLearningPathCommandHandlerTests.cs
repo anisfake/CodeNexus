@@ -110,7 +110,6 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
                 Title = "Build API",
                 IsSystemDefined = false,
                 CreatedByUserId = userId,
-                IsActive = true,
                 Duration = GoalDuration.OneMonth
             }
         }.BuildMockDbSet().Object);
@@ -158,7 +157,6 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
                 Title = "Build API",
                 IsSystemDefined = false,
                 CreatedByUserId = userId,
-                IsActive = true,
                 Duration = GoalDuration.OneMonth
             }
         }.BuildMockDbSet().Object);
@@ -215,7 +213,6 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
                 Title = "Build End-to-End ML Pipeline",
                 IsSystemDefined = false,
                 CreatedByUserId = userId,
-                IsActive = true,
                 Duration = GoalDuration.OneMonth
             }
         }.BuildMockDbSet().Object);

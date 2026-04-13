@@ -120,6 +120,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
                 task.TaskId,
                 task.Title,
                 task.Description ?? string.Empty,
+                task.DueDate,
                 task.TaskType,
                 task.Priority,
                 task.Status,

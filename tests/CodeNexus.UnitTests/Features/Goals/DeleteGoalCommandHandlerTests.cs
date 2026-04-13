@@ -34,7 +34,6 @@ public class DeleteGoalCommandHandlerTests
             CreatedByUserId = _testUserId,
             Title = "Goal to Delete",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
@@ -88,7 +87,6 @@ public class DeleteGoalCommandHandlerTests
             CreatedByUserId = anotherUserId,
             Title = "Another User's Goal",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };
@@ -118,7 +116,6 @@ public class DeleteGoalCommandHandlerTests
             CreatedByUserId = null,
             Title = "System Goal",
             IsSystemDefined = true,
-            IsActive = true,
             CreatedAt = DateTime.UtcNow,
             IsDeleted = false
         };

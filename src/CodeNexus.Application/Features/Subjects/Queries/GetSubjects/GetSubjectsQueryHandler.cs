@@ -45,7 +45,6 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
                 s.Category,
                 s.SubjectGoals
                     .Where(sg =>
-                        sg.Goal.IsActive &&
                         !sg.Goal.IsDeleted &&
                         (sg.Goal.IsSystemDefined || sg.Goal.CreatedByUserId == userId))
                     .OrderBy(sg => sg.Goal.Title)
@@ -54,7 +53,6 @@ public class GetSubjectsQueryHandler : IRequestHandler<GetSubjectsQuery, Result<
                         sg.Goal.Title,
                         sg.Goal.Description,
                         sg.Goal.IsSystemDefined,
-                        sg.Goal.IsActive,
                         sg.Goal.DurationInDays
                     ))
                     .ToList(),

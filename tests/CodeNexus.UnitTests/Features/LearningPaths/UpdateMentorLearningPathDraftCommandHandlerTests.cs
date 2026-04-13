@@ -59,7 +59,6 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             GoalId = goalId,
             Title = "Master TS",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedByUserId = mentorId
         };
 
@@ -172,7 +171,6 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             GoalId = goalId,
             Title = "Master TS",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedByUserId = mentorId
         };
 
@@ -289,7 +287,6 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             GoalId = goalId,
             Title = "Master TS",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedByUserId = mentorId
         };
 
@@ -407,7 +404,6 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             GoalId = goalId,
             Title = "Master TS",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedByUserId = mentorId
         };
 
@@ -521,7 +517,6 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             GoalId = goalId,
             Title = "Master TS",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedByUserId = mentorId
         };
 
@@ -623,7 +618,6 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
             GoalId = goalId,
             Title = "Master TS",
             IsSystemDefined = false,
-            IsActive = true,
             CreatedByUserId = mentorId
         };
 

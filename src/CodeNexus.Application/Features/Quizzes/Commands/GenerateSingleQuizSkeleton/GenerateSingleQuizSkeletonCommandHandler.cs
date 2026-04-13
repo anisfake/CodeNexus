@@ -83,6 +83,7 @@ public class GenerateSingleQuizSkeletonCommandHandler : IRequestHandler<Generate
                 quiz.QuizId,
                 quiz.Title,
                 quiz.Description,
+                quiz.DueDate,
                 quiz.TimeLimit,
                 quiz.PassingScore
             );

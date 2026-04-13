@@ -223,7 +223,6 @@ public class CreateGoalCommandHandlerTests
                 GoalId = Guid.NewGuid(),
                 CreatedByUserId = userId,
                 IsSystemDefined = false,
-                IsActive = true,
                 IsDeleted = false,
                 Title = $"Goal {_}",
                 CreatedAt = DateTime.UtcNow
@@ -272,7 +271,6 @@ public class CreateGoalCommandHandlerTests
                 GoalId = existingGoalId,
                 CreatedByUserId = userId,
                 IsSystemDefined = false,
-                IsActive = true,
                 IsDeleted = false,
                 Title = "learn asp.net core",
                 CreatedAt = DateTime.UtcNow

@@ -351,6 +351,16 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<Note>(entity =>
+            {
+                entity.HasIndex(n => n.SessionId);
+
+                entity.HasOne(n => n.FocusSession)
+                      .WithMany(fs => fs.Notes)
+                      .HasForeignKey(n => n.SessionId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
             modelBuilder.Entity<LearningPath>(entity =>
             {
                 entity.Property(p => p.ComplexityLevel)

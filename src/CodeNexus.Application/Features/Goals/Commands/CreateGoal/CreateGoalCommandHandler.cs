@@ -97,7 +97,6 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             Duration = request.Duration,
             IsSystemDefined = false,
             CreatedByUserId = userId,
-            IsActive = true,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -111,7 +110,7 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             }, cancellationToken);
 
             var systemGoals = await _context.Goals
-                .Where(g => g.IsSystemDefined && g.IsActive && !g.IsDeleted)
+                .Where(g => g.IsSystemDefined && !g.IsDeleted)
                 .Join(
                     _context.SubjectGoals.Where(sg => sg.SubjectId == subject.SubjectId),
                     g => g.GoalId,
@@ -176,7 +175,6 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             .AsNoTracking()
             .Where(g => g.CreatedByUserId == userId
                         && !g.IsDeleted
-                        && g.IsActive
                         && !g.IsSystemDefined)
             .Select(g => g.GoalId)
             .ToListAsync(cancellationToken);

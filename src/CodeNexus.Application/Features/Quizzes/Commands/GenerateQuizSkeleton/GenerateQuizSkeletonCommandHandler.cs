@@ -50,6 +50,7 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
                     q.QuizId,
                     q.Title,
                     q.Description,
+                    q.DueDate,
                     q.TimeLimit,
                     q.PassingScore
                 )).ToList();
@@ -90,6 +91,7 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
                     quiz.QuizId,
                     quiz.Title,
                     quiz.Description,
+                    quiz.DueDate,
                     quiz.TimeLimit,
                     quiz.PassingScore
                 ));
