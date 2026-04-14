@@ -81,9 +81,16 @@ namespace CodeNexus.Infrastructure.Services
 
             var (imageUrl, renderedImageBytes) = await RenderAndUploadPageAsync(pdfBytes, pageNumber - 1, pageNumber, userId);
 
-            var extractedText = await _ocrService.ExtractTextFromImageAsync(renderedImageBytes);
+            // Prefer text directly from PDF text layer when available (more stable and cheaper than OCR).
+            var nativePdfText = TryExtractTextLayer(document, pageNumber);
+            var extractedText = nativePdfText;
 
-            _logger.LogInformation($"Page {pageNumber}: Extracted {extractedText?.Length ?? 0} characters via OCR");
+            if (string.IsNullOrWhiteSpace(extractedText))
+            {
+                extractedText = await ExtractWithOcrRetryAsync(renderedImageBytes, pageNumber);
+            }
+
+            _logger.LogInformation($"Page {pageNumber}: Extracted {extractedText?.Length ?? 0} characters");
 
             return new PdfPageData
             {
@@ -123,6 +130,52 @@ namespace CodeNexus.Infrastructure.Services
             {
                 _logger.LogError(ex, $"Failed to render page {pageNumber}");
                 throw;
+            }
+        }
+
+        private async Task<string?> ExtractWithOcrRetryAsync(byte[] renderedImageBytes, int pageNumber)
+        {
+            const int maxAttempts = 3;
+            for (var attempt = 1; attempt <= maxAttempts; attempt++)
+            {
+                var extractedText = await _ocrService.ExtractTextFromImageAsync(renderedImageBytes);
+                if (!string.IsNullOrWhiteSpace(extractedText))
+                {
+                    if (attempt > 1)
+                    {
+                        _logger.LogInformation("Page {PageNumber}: OCR succeeded at attempt {Attempt}.", pageNumber, attempt);
+                    }
+
+                    return extractedText.Trim();
+                }
+
+                if (attempt < maxAttempts)
+                {
+                    _logger.LogWarning("Page {PageNumber}: OCR returned empty at attempt {Attempt}. Retrying...", pageNumber, attempt);
+                    await Task.Delay(250 * attempt);
+                }
+            }
+
+            return null;
+        }
+
+        private static string? TryExtractTextLayer(PdfPigDocument document, int pageNumber)
+        {
+            try
+            {
+                var page = document.GetPage(pageNumber);
+                var text = page.Text;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    return null;
+                }
+
+                text = text.Replace("\u0000", string.Empty).Trim();
+                return string.IsNullOrWhiteSpace(text) ? null : text;
+            }
+            catch
+            {
+                return null;
             }
         }
     }
