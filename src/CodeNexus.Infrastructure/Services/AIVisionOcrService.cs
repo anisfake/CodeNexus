@@ -37,12 +37,12 @@ public class AIVisionOcrService : IOcrService
             _logger.LogInformation($"Extracting text using AI Vision ({imageBytes.Length} bytes)...");
 
             var aiConfig = await _dbContext.AIProviderConfigs
-                .Where(c => c.UsageType == AIUsageType.Assistant && c.IsActive)
+                .Where(c => c.UsageType == AIUsageType.DocumentExtraction && c.IsActive)
                 .FirstOrDefaultAsync();
 
             if (aiConfig == null)
             {
-                _logger.LogWarning("No AI config found for Assistant usage type");
+                _logger.LogWarning("No AI config found for DocumentExtraction usage type");
                 return null;
             }
 
