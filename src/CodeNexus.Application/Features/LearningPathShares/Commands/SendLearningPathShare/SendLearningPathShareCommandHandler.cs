@@ -140,6 +140,8 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
                 "Each lesson must have at least one quiz before sharing.");
         }
 
+        var now = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
+
         var share = new LearningPathShare
         {
             ShareId = NewId.NextGuid(),
@@ -147,7 +149,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             MentorId = mentorId,
             StudentId = request.StudentId,
             Status = LearningPathShareStatus.Pending,
-            SentAt = DateTime.UtcNow
+            SentAt = now
         };
 
         var conversation = await _context.DirectConversations
@@ -160,7 +162,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
                 ConversationId = NewId.NextGuid(),
                 MentorId = mentorId,
                 StudentId = request.StudentId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now
             };
 
             _context.DirectConversations.Add(conversation);
@@ -174,7 +176,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             Content = $"Shared learning path: {path.Title}",
             MessageType = DirectMessageType.LearningPathShare,
             LearningPathShareId = share.ShareId,
-            SentAt = DateTime.UtcNow
+            SentAt = now
         };
 
         var receipt = new DirectMessageReceipt

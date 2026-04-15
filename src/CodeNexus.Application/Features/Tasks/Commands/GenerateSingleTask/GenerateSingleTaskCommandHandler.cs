@@ -137,7 +137,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 
     private static bool IsInvalidTask(string title, string description)
     {
-        var combined = $"{title} {description}".ToLowerInvariant();
+        var titleLower = title?.Trim().ToLowerInvariant() ?? string.Empty;
 
         var invalidKeywords = new[]
         {
@@ -146,7 +146,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
             "kiểm tra cài đặt", "check version", "kiểm tra phiên bản"
         };
 
-        return invalidKeywords.Any(keyword => combined.Contains(keyword));
+        return invalidKeywords.Any(keyword => titleLower.Contains(keyword));
     }
 
     private static bool IsDuplicateTask(List<Domain.Entities.Tasks> existingTasks, TaskType taskType, string title, string description)
