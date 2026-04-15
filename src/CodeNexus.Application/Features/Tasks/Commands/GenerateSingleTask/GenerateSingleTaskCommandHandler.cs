@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Tasks.DTOs;
@@ -11,260 +12,272 @@ namespace CodeNexus.Application.Features.Tasks.Commands.GenerateSingleTask;
 
 public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTaskCommand, Result<TaskItemDto>>
 {
-    private readonly IApplicationDbContext _context;
-    private readonly ICurrentUserService _currentUserService;
-    private readonly IAIGeneratorService _aiGeneratorService;
+	private readonly IApplicationDbContext _context;
+	private readonly ICurrentUserService _currentUserService;
+	private readonly IAIGeneratorService _aiGeneratorService;
 
-    public GenerateSingleTaskCommandHandler(
-        IApplicationDbContext context,
-        ICurrentUserService currentUserService,
-        IAIGeneratorService aiGeneratorService)
-    {
-        _context = context;
-        _currentUserService = currentUserService;
-        _aiGeneratorService = aiGeneratorService;
-    }
+	public GenerateSingleTaskCommandHandler(
+		IApplicationDbContext context,
+		ICurrentUserService currentUserService,
+		IAIGeneratorService aiGeneratorService)
+	{
+		_context = context;
+		_currentUserService = currentUserService;
+		_aiGeneratorService = aiGeneratorService;
+	}
 
-    public async Task<Result<TaskItemDto>> Handle(GenerateSingleTaskCommand request, CancellationToken cancellationToken)
-    {
-        var userId = _currentUserService.GetUserId();
+	public async Task<Result<TaskItemDto>> Handle(GenerateSingleTaskCommand request, CancellationToken cancellationToken)
+	{
+		var userId = _currentUserService.GetUserId();
 
-        var chapter = await _context.Chapters
-            .Include(c => c.LearningPath)
-                .ThenInclude(lp => lp.Subject)
-            .Include(c => c.LearningPath)
-                .ThenInclude(lp => lp.Chapters)
-            .Include(c => c.Lessons)
-            .Include(c => c.Tasks)
-            .FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId, cancellationToken);
+		var chapter = await _context.Chapters
+			.Include(c => c.LearningPath)
+				.ThenInclude(lp => lp.Subject)
+			.Include(c => c.LearningPath)
+				.ThenInclude(lp => lp.Chapters)
+			.Include(c => c.Lessons)
+			.Include(c => c.Tasks)
+			.FirstOrDefaultAsync(c => c.ChapterId == request.ChapterId, cancellationToken);
 
-        if (chapter == null)
-            return Result<TaskItemDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
+		if (chapter == null)
+			return Result<TaskItemDto>.Failure("CHAPTER_NOT_FOUND", "Chapter not found");
 
-        if (chapter.LearningPath.UserId != userId)
-            return Result<TaskItemDto>.Failure("UNAUTHORIZED", "User not authenticated");
+		if (chapter.LearningPath.UserId != userId)
+			return Result<TaskItemDto>.Failure("UNAUTHORIZED", "User not authenticated");
 
-        if (!chapter.Lessons.Any())
-            return Result<TaskItemDto>.Failure("CHAPTER_NO_LESSONS", "Chapter has no lessons to generate tasks from");
+		if (!chapter.Lessons.Any())
+			return Result<TaskItemDto>.Failure("CHAPTER_NO_LESSONS", "Chapter has no lessons to generate tasks from");
 
-        if (string.IsNullOrWhiteSpace(chapter.Title))
-            return Result<TaskItemDto>.Failure("CHAPTER_TITLE_REQUIRED", "Chapter title is required to generate task");
+		if (string.IsNullOrWhiteSpace(chapter.Title))
+			return Result<TaskItemDto>.Failure("CHAPTER_TITLE_REQUIRED", "Chapter title is required to generate task");
 
-        var hasAnyLessonTitle = chapter.Lessons.Any(l => !string.IsNullOrWhiteSpace(l.Title));
-        if (!hasAnyLessonTitle)
-            return Result<TaskItemDto>.Failure("LESSON_TITLE_REQUIRED", "At least one lesson title is required to generate task");
+		var hasAnyLessonTitle = chapter.Lessons.Any(l => !string.IsNullOrWhiteSpace(l.Title));
+		if (!hasAnyLessonTitle)
+			return Result<TaskItemDto>.Failure("LESSON_TITLE_REQUIRED", "At least one lesson title is required to generate task");
 
-        try
-        {
-            var prompt = BuildPrompt(chapter, request.Title, request.TaskType);
-            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
+		try
+		{
+			var prompt = BuildPrompt(chapter, request.Title, request.TaskType);
+			var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
 
-            if (generated?.Tasks == null || generated.Tasks.Count == 0)
-                return Result<TaskItemDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
+			if (generated?.Tasks == null || generated.Tasks.Count == 0)
+				return Result<TaskItemDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
 
-            var generatedTask = generated.Tasks
-                .FirstOrDefault(t => !IsInvalidTask(t.Title, t.Description));
+			var generatedTask = generated.Tasks.FirstOrDefault(t => !IsInvalidTask(t.Title));
 
-            if (generatedTask == null)
-                return Result<TaskItemDto>.Failure("NO_VALID_TASKS", "AI generated invalid task. Please regenerate.");
+			if (generatedTask == null)
+			{
+				var strictPrompt = prompt + "\n=== STRICT FILTER ===\nDO NOT include ANY task related to install/setup/download/configure. Return ONLY coding/theory/quiz tasks.";
+				generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(strictPrompt, AIUsageType.ContentGeneration);
+				generatedTask = generated?.Tasks?.FirstOrDefault(t => !IsInvalidTask(t.Title));
 
-            var finalTitle = string.IsNullOrWhiteSpace(request.Title)
-                ? generatedTask.Title?.Trim()
-                : request.Title.Trim();
+				if (generatedTask == null)
+					return Result<TaskItemDto>.Failure("NO_VALID_TASKS", "AI could not generate a valid task. Please adjust chapter context or try again.");
+			}
 
-            if (string.IsNullOrWhiteSpace(finalTitle))
-                return Result<TaskItemDto>.Failure("INVALID_AI_RESPONSE", "Task title cannot be empty.");
+			var finalTitle = string.IsNullOrWhiteSpace(request.Title)
+				? generatedTask.Title?.Trim()
+				: request.Title.Trim();
 
-            var finalDescription = generatedTask.Description?.Trim() ?? string.Empty;
+			if (string.IsNullOrWhiteSpace(finalTitle))
+				return Result<TaskItemDto>.Failure("INVALID_AI_RESPONSE", "Task title cannot be empty.");
 
-            var existingActiveTasks = chapter.Tasks
-                .Where(t => !t.IsDeleted)
-                .ToList();
+			var finalDescription = generatedTask.Description?.Trim() ?? string.Empty;
 
-            if (IsDuplicateTask(existingActiveTasks, request.TaskType, finalTitle, finalDescription))
-                return Result<TaskItemDto>.Failure("DUPLICATE_TASK", "Generated task is too similar to an existing task in this chapter.");
+			var existingActiveTasks = chapter.Tasks
+				.Where(t => !t.IsDeleted)
+				.ToList();
 
-            if (request.TaskType == TaskType.Quizz &&
-                generatedTask.QuizQuestions != null &&
-                generatedTask.QuizQuestions.Any() &&
-                HasDuplicateQuizQuestions(existingActiveTasks, generatedTask.QuizQuestions))
-            {
-                return Result<TaskItemDto>.Failure("DUPLICATE_TASK_QUIZ_QUESTION", "Generated quiz questions are duplicated with existing quiz task questions.");
-            }
+			if (IsDuplicateTask(existingActiveTasks, request.TaskType, finalTitle, finalDescription))
+				return Result<TaskItemDto>.Failure("DUPLICATE_TASK", "Generated task is too similar to an existing task in this chapter.");
 
-            var quizQuestionsJson = request.TaskType == TaskType.Quizz && generatedTask.QuizQuestions != null && generatedTask.QuizQuestions.Any()
-                ? JsonSerializer.Serialize(generatedTask.QuizQuestions)
-                : null;
+			if (request.TaskType == TaskType.Quizz &&
+				generatedTask.QuizQuestions != null &&
+				generatedTask.QuizQuestions.Any() &&
+				HasDuplicateQuizQuestions(existingActiveTasks, generatedTask.QuizQuestions))
+			{
+				return Result<TaskItemDto>.Failure("DUPLICATE_TASK_QUIZ_QUESTION", "Generated quiz questions are duplicated with existing quiz task questions.");
+			}
 
-            var task = new Domain.Entities.Tasks
-            {
-                TaskId = NewId.NextGuid(),
-                ChapterId = chapter.ChapterId,
-                PathId = chapter.PathId,
-                Title = finalTitle,
-                Description = finalDescription,
-                DueDate = CalculateDueDate(chapter),
-                Priority = ParsePriority(generatedTask.Priority),
-                Status = TaskStatus_.Pending,
-                CreatedAt = DateTime.UtcNow,
-                TaskType = request.TaskType,
-                VerificationPrompt = generatedTask.VerificationPrompt,
-                MinimumScore = generatedTask.MinimumScore ?? 70,
-                QuizQuestionsJson = quizQuestionsJson
-            };
+			var quizQuestionsJson = request.TaskType == TaskType.Quizz && generatedTask.QuizQuestions != null && generatedTask.QuizQuestions.Any()
+				? JsonSerializer.Serialize(generatedTask.QuizQuestions)
+				: null;
 
-            await _context.Tasks.AddAsync(task, cancellationToken);
-            await _context.SaveChangesAsync(cancellationToken);
+			var task = new Domain.Entities.Tasks
+			{
+				TaskId = NewId.NextGuid(),
+				ChapterId = chapter.ChapterId,
+				PathId = chapter.PathId,
+				Title = finalTitle,
+				Description = finalDescription,
+				DueDate = CalculateDueDate(chapter),
+				Priority = ParsePriority(generatedTask.Priority),
+				Status = TaskStatus_.Pending,
+				CreatedAt = DateTime.UtcNow,
+				TaskType = request.TaskType,
+				VerificationPrompt = generatedTask.VerificationPrompt,
+				MinimumScore = generatedTask.MinimumScore ?? 70,
+				QuizQuestionsJson = quizQuestionsJson
+			};
 
-            var dto = new TaskItemDto(
-                task.TaskId,
-                task.Title,
-                task.Description ?? string.Empty,
-                task.DueDate,
-                task.TaskType,
-                task.Priority,
-                task.Status,
-                task.QuizQuestionsJson
-            );
+			await _context.Tasks.AddAsync(task, cancellationToken);
+			await _context.SaveChangesAsync(cancellationToken);
 
-            return Result<TaskItemDto>.Success(dto);
-        }
-        catch (Exception ex)
-        {
-            return Result<TaskItemDto>.Failure("TASK_GENERATION_FAILED", $"Failed to generate single task: {ex.Message}");
-        }
-    }
+			var dto = new TaskItemDto(
+				task.TaskId,
+				task.Title,
+				task.Description ?? string.Empty,
+				task.DueDate,
+				task.TaskType,
+				task.Priority,
+				task.Status,
+				task.QuizQuestionsJson
+			);
 
-    private static bool IsInvalidTask(string title, string description)
-    {
-        var titleLower = title?.Trim().ToLowerInvariant() ?? string.Empty;
+			return Result<TaskItemDto>.Success(dto);
+		}
+		catch (Exception ex)
+		{
+			return Result<TaskItemDto>.Failure("TASK_GENERATION_FAILED", $"Failed to generate single task: {ex.Message}");
+		}
+	}
 
-        var invalidKeywords = new[]
-        {
-            "install", "cài đặt", "download", "tải xuống", "setup", "thiết lập",
-            "configure environment", "cấu hình môi trường", "verify installation",
-            "kiểm tra cài đặt", "check version", "kiểm tra phiên bản"
-        };
+	private static bool IsInvalidTask(string title)
+	{
+		if (string.IsNullOrWhiteSpace(title))
+			return true;
 
-        return invalidKeywords.Any(keyword => titleLower.Contains(keyword));
-    }
+		var titleLower = title.Trim().ToLowerInvariant();
 
-    private static bool IsDuplicateTask(List<Domain.Entities.Tasks> existingTasks, TaskType taskType, string title, string description)
-    {
-        var normalizedTitle = NormalizeText(title);
-        var normalizedDescription = NormalizeText(description);
+		var invalidKeywords = new[]
+		{
+			"install", "cài đặt", "download", "tải xuống", "setup", "thiết lập",
+			"configure environment", "cấu hình môi trường", "verify installation",
+			"kiểm tra cài đặt", "check version", "kiểm tra phiên bản"
+		};
 
-        return existingTasks
-            .Where(t => t.TaskType == taskType)
-            .Any(t =>
-            NormalizeText(t.Title) == normalizedTitle ||
-            (NormalizeText(t.Title) == normalizedTitle && NormalizeText(t.Description) == normalizedDescription));
-    }
 
-    private static bool HasDuplicateQuizQuestions(List<Domain.Entities.Tasks> existingTasks, List<QuizQuestionDto> generatedQuestions)
-    {
-        var existingQuestionTexts = new HashSet<string>();
+		return invalidKeywords.Any(keyword =>
+			Regex.IsMatch(titleLower, $@"\b{Regex.Escape(keyword)}\b", RegexOptions.IgnoreCase));
+	}
 
-        foreach (var task in existingTasks.Where(t => t.TaskType == TaskType.Quizz && !string.IsNullOrWhiteSpace(t.QuizQuestionsJson)))
-        {
-            try
-            {
-                var questions = JsonSerializer.Deserialize<List<QuizQuestionDto>>(task.QuizQuestionsJson!);
-                if (questions == null)
-                    continue;
+	private static bool IsDuplicateTask(List<Domain.Entities.Tasks> existingTasks, TaskType taskType, string title, string description)
+	{
+		var normalizedTitle = NormalizeText(title);
+		var normalizedDescription = NormalizeText(description);
 
-                foreach (var question in questions)
-                {
-                    var normalized = NormalizeText(question.Question);
-                    if (!string.IsNullOrWhiteSpace(normalized))
-                        existingQuestionTexts.Add(normalized);
-                }
-            }
-            catch
-            {
-            }
-        }
+		return existingTasks
+			.Where(t => t.TaskType == taskType)
+			.Any(t =>
+			NormalizeText(t.Title) == normalizedTitle ||
+			(NormalizeText(t.Title) == normalizedTitle && NormalizeText(t.Description) == normalizedDescription));
+	}
 
-        return generatedQuestions
-            .Select(q => NormalizeText(q.Question))
-            .Any(q => !string.IsNullOrWhiteSpace(q) && existingQuestionTexts.Contains(q));
-    }
+	private static bool HasDuplicateQuizQuestions(List<Domain.Entities.Tasks> existingTasks, List<QuizQuestionDto> generatedQuestions)
+	{
+		var existingQuestionTexts = new HashSet<string>();
 
-    private static string NormalizeText(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-            return string.Empty;
+		foreach (var task in existingTasks.Where(t => t.TaskType == TaskType.Quizz && !string.IsNullOrWhiteSpace(t.QuizQuestionsJson)))
+		{
+			try
+			{
+				var questions = JsonSerializer.Deserialize<List<QuizQuestionDto>>(task.QuizQuestionsJson!);
+				if (questions == null)
+					continue;
 
-        var filtered = text
-            .Trim()
-            .ToLowerInvariant()
-            .Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
-            .ToArray();
+				foreach (var question in questions)
+				{
+					var normalized = NormalizeText(question.Question);
+					if (!string.IsNullOrWhiteSpace(normalized))
+						existingQuestionTexts.Add(normalized);
+				}
+			}
+			catch
+			{
+				// Bỏ qua task có JSON hỏng
+			}
+		}
 
-        return string.Join(' ', new string(filtered)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
+		return generatedQuestions
+			.Select(q => NormalizeText(q.Question))
+			.Any(q => !string.IsNullOrWhiteSpace(q) && existingQuestionTexts.Contains(q));
+	}
 
-    private static TaskPriority ParsePriority(string priority)
-    {
-        return priority?.ToLowerInvariant() switch
-        {
-            "high" => TaskPriority.High,
-            "medium" => TaskPriority.Medium,
-            _ => TaskPriority.Low
-        };
-    }
+	private static string NormalizeText(string? text)
+	{
+		if (string.IsNullOrWhiteSpace(text))
+			return string.Empty;
 
-    private static DateTime? CalculateDueDate(Domain.Entities.Chapter chapter)
-    {
-        var learningPath = chapter.LearningPath;
+		var filtered = text
+			.Trim()
+			.ToLowerInvariant()
+			.Where(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c))
+			.ToArray();
 
-        if (learningPath.StartDate == null || learningPath.EndDate == null)
-            return null;
+		return string.Join(' ', new string(filtered)
+			.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+	}
 
-        var allChapters = learningPath.Chapters.OrderBy(c => c.OrderIndex).ToList();
-        var currentChapterIndex = allChapters.FindIndex(c => c.ChapterId == chapter.ChapterId);
+	private static TaskPriority ParsePriority(string priority)
+	{
+		return priority?.ToLowerInvariant() switch
+		{
+			"high" => TaskPriority.High,
+			"medium" => TaskPriority.Medium,
+			_ => TaskPriority.Low
+		};
+	}
 
-        if (currentChapterIndex == -1 || allChapters.Count == 0)
-            return null;
+	private static DateTime? CalculateDueDate(Domain.Entities.Chapter chapter)
+	{
+		var learningPath = chapter.LearningPath;
 
-        var totalDays = (learningPath.EndDate.Value - learningPath.StartDate.Value).TotalDays;
-        var daysPerChapter = totalDays / allChapters.Count;
+		if (learningPath.StartDate == null || learningPath.EndDate == null)
+			return null;
 
-        return learningPath.StartDate.Value.AddDays((currentChapterIndex + 1) * daysPerChapter);
-    }
+		var allChapters = learningPath.Chapters.OrderBy(c => c.OrderIndex).ToList();
+		var currentChapterIndex = allChapters.FindIndex(c => c.ChapterId == chapter.ChapterId);
 
-    private static string BuildPrompt(Domain.Entities.Chapter chapter, string? preferredTitle, TaskType taskType)
-    {
-        var learningPath = chapter.LearningPath;
-        var lessonTitles = chapter.Lessons
-            .OrderBy(l => l.OrderIndex)
-            .Select(l => l.Title);
+		if (currentChapterIndex == -1 || allChapters.Count == 0)
+			return null;
 
-        var lessons = string.Join("\n- ", lessonTitles);
-        var languageInstruction = BuildLanguageInstruction(learningPath.Language);
-        var taskTypeLabel = taskType switch
-        {
-            TaskType.Theory => "Theory",
-            TaskType.Quizz => "Quizz",
-            _ => "Practice"
-        };
+		var totalDays = (learningPath.EndDate.Value - learningPath.StartDate.Value).TotalDays;
+		var daysPerChapter = totalDays / allChapters.Count;
 
-        var titleInstruction = string.IsNullOrWhiteSpace(preferredTitle)
-            ? "- Task title can be generated by you, but it must be specific and actionable."
-            : $"- MUST use this exact title for the task: \"{preferredTitle.Trim()}\".";
+		return learningPath.StartDate.Value.AddDays((currentChapterIndex + 1) * daysPerChapter);
+	}
 
-        var existingTaskTitles = chapter.Tasks
-            .Where(t => !t.IsDeleted && t.TaskType == taskType && !string.IsNullOrWhiteSpace(t.Title))
-            .Select(t => t.Title.Trim())
-            .Distinct()
-            .ToList();
+	private static string BuildPrompt(Domain.Entities.Chapter chapter, string? preferredTitle, TaskType taskType)
+	{
+		var learningPath = chapter.LearningPath;
+		var lessonTitles = chapter.Lessons
+			.OrderBy(l => l.OrderIndex)
+			.Select(l => l.Title);
 
-        var existingTaskTitlesInstruction = existingTaskTitles.Count == 0
-            ? $"- No existing {taskTypeLabel} tasks in this chapter."
-            : $"- Existing {taskTypeLabel} task titles (MUST avoid duplicates):\n- {string.Join("\n- ", existingTaskTitles)}";
+		var lessons = string.Join("\n- ", lessonTitles);
+		var languageInstruction = BuildLanguageInstruction(learningPath.Language);
+		var taskTypeLabel = taskType switch
+		{
+			TaskType.Theory => "Theory",
+			TaskType.Quizz => "Quizz",
+			_ => "Practice"
+		};
 
-        return $$"""
+		var titleInstruction = string.IsNullOrWhiteSpace(preferredTitle)
+			? "- Task title can be generated by you, but it must be specific and actionable."
+			: $"- MUST use this exact title for the task: \"{preferredTitle.Trim()}\".";
+
+		var existingTaskTitles = chapter.Tasks
+			.Where(t => !t.IsDeleted && t.TaskType == taskType && !string.IsNullOrWhiteSpace(t.Title))
+			.Select(t => t.Title.Trim())
+			.Distinct()
+			.ToList();
+
+		var existingTaskTitlesInstruction = existingTaskTitles.Count == 0
+			? $"- No existing {taskTypeLabel} tasks in this chapter."
+			: $"- Existing {taskTypeLabel} task titles (MUST avoid duplicates):\n- {string.Join("\n- ", existingTaskTitles)}";
+
+		return $$"""
 You are a study planning assistant.
 
 === CONTEXT ===
@@ -283,9 +296,10 @@ Generate EXACTLY 1 task with TaskType = "{{taskTypeLabel}}" based on chapter and
 
 === REQUIREMENTS ===
 {{titleInstruction}}
-- Description must be concrete and related to lessons.
+- FOCUS ONLY on: coding exercises, debugging tasks, conceptual challenges, or algorithmic problems.
+- STRICTLY AVOID installation, environment setup, downloads, or configuration steps.
+- Description must be concrete and directly related to the lessons.
 - Priority must be one of: High, Medium, Low.
-- DO NOT create installation/setup/download/configuration tasks.
 - MUST NOT duplicate existing tasks with the same TaskType in this chapter.
 - For Practice: include verificationPrompt to check submitted code.
 - For Theory: include verificationPrompt to check learner summary.
@@ -310,18 +324,18 @@ Return ONLY valid JSON:
   ]
 }
 """;
-    }
+	}
 
-    private static string BuildLanguageInstruction(LanguageSelection language)
-    {
-        return language switch
-        {
-            LanguageSelection.VietNamese => @"=== LANGUAGE REQUIREMENTS ===
+	private static string BuildLanguageInstruction(LanguageSelection language)
+	{
+		return language switch
+		{
+			LanguageSelection.VietNamese => @"=== LANGUAGE REQUIREMENTS ===
 - Generate content in Vietnamese.
 - Keep technical terms in English.",
-            LanguageSelection.English => @"=== LANGUAGE REQUIREMENTS ===
+			LanguageSelection.English => @"=== LANGUAGE REQUIREMENTS ===
 - Generate content in English.",
-            _ => string.Empty
-        };
-    }
+			_ => string.Empty
+		};
+	}
 }
