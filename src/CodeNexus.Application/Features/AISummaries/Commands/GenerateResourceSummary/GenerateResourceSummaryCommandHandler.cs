@@ -46,6 +46,7 @@ public class GenerateResourceSummaryCommandHandler
             .AsNoTracking()
             .FirstOrDefaultAsync(s =>
                 s.ResourceId == request.ResourceId &&
+                !s.IsDeleted &&
                 s.StartPage == request.StartPage &&
                 s.EndPage == request.EndPage, cancellationToken);
 
