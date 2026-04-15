@@ -66,7 +66,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             ReplyToMessageId = request.ReplyToMessageId,
             Content = request.Content.Trim(),
             MessageType = request.MessageType,
-            SentAt = DateTime.UtcNow.AddHours(7)
+            SentAt = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified)
         };
 
         var recipientId = currentUserId == conversation.MentorId
