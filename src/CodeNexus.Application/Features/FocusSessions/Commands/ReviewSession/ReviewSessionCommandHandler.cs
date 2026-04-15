@@ -68,6 +68,9 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
         string? aiFeedback = null;
         int? verificationScore = null;
         session.LastActivityAt = DateTime.UtcNow;
+        session.SubmittedCode = request.SubmittedCode ?? session.SubmittedCode;
+        session.SubmittedSummary = request.SubmittedSummary ?? session.SubmittedSummary;
+        session.SubmittedQuizAnswers = request.SubmittedQuizAnswers ?? session.SubmittedQuizAnswers;
 
         try
         {

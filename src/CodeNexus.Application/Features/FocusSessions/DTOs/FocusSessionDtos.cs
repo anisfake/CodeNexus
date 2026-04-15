@@ -72,7 +72,10 @@ public record StartSessionResponseDto(
     string Message,
     SessionType SessionType,
     SessionStatus SessionStatus,
-    string Title
+    string Title,
+    string? SubmittedCode = null,
+    string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null
 );
 
 public record CompleteSessionResponseDto(
@@ -95,7 +98,10 @@ public record ActiveSessionDto(
     int ElapsedMinutes,
     int RemainingMinutes,
     string SessionStatus,
-    bool IsOvertime
+    bool IsOvertime,
+    string? SubmittedCode = null,
+    string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null
 );
 
 public record PauseSessionResponseDto(

@@ -48,7 +48,10 @@ public class GetActiveSessionQueryHandler : IRequestHandler<GetActiveSessionQuer
                 elapsedMinutes,
                 remainingMinutes,
                 activeSession.SessionStatus.ToString(),
-                isOvertime
+                isOvertime,
+                activeSession.SubmittedCode,
+                activeSession.SubmittedSummary,
+                activeSession.SubmittedQuizAnswers
             );
 
             return Result<ActiveSessionDto?>.Success(activeSessionDto);

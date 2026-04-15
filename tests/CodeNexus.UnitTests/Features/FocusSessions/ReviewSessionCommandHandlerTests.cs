@@ -313,4 +313,51 @@ public class ReviewSessionCommandHandlerTests
         Assert.Equal("Unable to generate feedback at this time. Please try again later.", result.Value.AIFeedback);
         Assert.Null(result.Value.VerificationScore);
     }
+
+    [Fact]
+    public async Task Handle_WithReviewInput_ShouldPersistDraftContentIntoSession()
+    {
+        // Arrange
+        var sessionId = Guid.NewGuid();
+        var taskId = Guid.NewGuid();
+        var codeDraft = "function bubbleSort(arr){return arr;}";
+        var command = new ReviewSessionCommand(sessionId, codeDraft, null);
+
+        var task = new TaskEntity
+        {
+            TaskId = taskId,
+            Title = "Practice Task",
+            TaskType = TaskType.Practice
+        };
+
+        var session = new FocusSession
+        {
+            SessionId = sessionId,
+            TaskId = taskId,
+            Task = task,
+            SessionStatus = SessionStatus.Running,
+            StartTime = DateTime.UtcNow.AddMinutes(-10),
+            PlannedDurationMinutes = 25
+        };
+
+        var verificationResult = new VerificationResult
+        {
+            IsPass = false,
+            Score = 20,
+            Feedback = "Draft detected"
+        };
+
+        var mockDbSet = new List<FocusSession> { session }.AsQueryable().BuildMockDbSet();
+        _mockContext.Setup(c => c.FocusSessions).Returns(mockDbSet.Object);
+        _mockVerificationService.Setup(v => v.VerifyCodeSubmissionAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(verificationResult);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(codeDraft, session.SubmittedCode);
+    }
 }

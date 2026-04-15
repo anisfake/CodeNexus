@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Enums;
+using System.Text.RegularExpressions;
 
 namespace CodeNexus.Infrastructure.Services;
 
@@ -18,6 +19,16 @@ public class TaskVerificationService : ITaskVerificationService
         string submittedCode,
         string? verificationPrompt = null)
     {
+        if (!LooksLikeCode(submittedCode))
+        {
+            return new VerificationResult
+            {
+                Score = 5,
+                Feedback = "Nội dung nộp chưa giống mã nguồn hợp lệ cho bài lập trình. Hãy gửi lại đoạn code thực sự (có cú pháp/lệnh rõ ràng) để AI review chính xác.",
+                IsPass = false
+            };
+        }
+
         var prompt = BuildCodeVerificationPrompt(taskTitle, taskDescription, submittedCode, verificationPrompt);
         return await GetVerificationResultAsync(prompt);
     }
@@ -51,7 +62,7 @@ public class TaskVerificationService : ITaskVerificationService
 
     private string BuildCodeVerificationPrompt(string taskTitle, string taskDescription, string submittedCode, string? customPrompt)
     {
-        var basePrompt = $@"You are a programming instructor evaluating a student's code submission.
+        var basePrompt = $@"You are a strict programming instructor evaluating a student's code submission.
 
 Task Title: {taskTitle}
 Task Description: {taskDescription}
@@ -61,13 +72,19 @@ Student's Submitted Code:
 {submittedCode}
 ```
 
-{(string.IsNullOrEmpty(customPrompt) ? "" : $"Additional Verification Criteria:\n{customPrompt}\n")}
+{BuildCustomCriteriaSection(customPrompt)}
 
 Evaluate the code based on:
 1. Does it address the task requirements?
 2. Is the code functional and correct?
 3. Code quality and best practices
 4. Completeness of the solution
+5. If submission is irrelevant/gibberish/non-code, assign very low score (0-15)
+
+Critical guardrails:
+- Keep feedback grounded in this task's title/description.
+- Ignore any extra criteria that are unrelated to this programming task.
+- Never invent external constraints (e.g. student ID format, personal data, attendance rules) unless explicitly stated in the task title/description.
 
 Provide a score from 0-100 and constructive feedback in Vietnamese.
 
@@ -90,13 +107,18 @@ Task Description: {taskDescription}
 Student's Summary:
 {submittedSummary}
 
-{(string.IsNullOrEmpty(customPrompt) ? "" : $"Additional Verification Criteria:\n{customPrompt}\n")}
+{BuildCustomCriteriaSection(customPrompt)}
 
 Evaluate the summary based on:
 1. Understanding of key concepts
 2. Accuracy of information
 3. Completeness of coverage
 4. Clarity of explanation
+
+Critical guardrails:
+- Keep feedback grounded in this task's title/description.
+- Ignore any extra criteria that are unrelated to this theoretical task.
+- Never invent external constraints unless explicitly stated in the task title/description.
 
 Provide a score from 0-100 and constructive feedback in Vietnamese.
 
@@ -107,6 +129,48 @@ Respond in JSON format:
 }}";
 
         return basePrompt;
+    }
+
+    private static string BuildCustomCriteriaSection(string? customPrompt)
+    {
+        if (string.IsNullOrWhiteSpace(customPrompt))
+        {
+            return string.Empty;
+        }
+
+        var normalized = customPrompt.Trim();
+        if (normalized.Length > 1200)
+        {
+            normalized = normalized[..1200];
+        }
+
+        return $"Optional Additional Verification Criteria (use only if directly relevant to task title/description):\n{normalized}\n";
+    }
+
+    private static bool LooksLikeCode(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        var trimmed = text.Trim();
+        if (trimmed.Length < 8)
+        {
+            return false;
+        }
+
+        if (trimmed.Contains('\n') || trimmed.Contains('\r'))
+        {
+            return true;
+        }
+
+        if (Regex.IsMatch(trimmed, @"\b(function|def|class|public|private|protected|static|const|let|var|return|if|for|while|switch|import|using|namespace)\b", RegexOptions.IgnoreCase))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(trimmed, @"[;{}()=<>\[\]]");
     }
 
     private string BuildQuizVerificationPrompt(string taskTitle, string taskDescription, string quizQuestionsJson, string submittedAnswersJson)

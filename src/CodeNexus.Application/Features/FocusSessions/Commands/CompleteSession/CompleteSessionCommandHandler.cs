@@ -63,9 +63,9 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             session.EndTime = endTime;
             session.ActualDurationMinutes = actualDurationMinutes;
             session.LastActivityAt = endTime;
-            session.SubmittedCode = request.SubmittedCode;
-            session.SubmittedSummary = request.SubmittedSummary;
-            session.SubmittedQuizAnswers = request.SubmittedQuizAnswers;
+            session.SubmittedCode = request.SubmittedCode ?? session.SubmittedCode;
+            session.SubmittedSummary = request.SubmittedSummary ?? session.SubmittedSummary;
+            session.SubmittedQuizAnswers = request.SubmittedQuizAnswers ?? session.SubmittedQuizAnswers;
 
             if (request.IsEarlyCompletion)
             {

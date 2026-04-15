@@ -43,6 +43,16 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 "There is already an active session for this task");
         }
 
+        var latestDraftSession = await _context.FocusSessions
+            .Where(fs => fs.TaskId == request.TaskId
+                         && fs.SessionStatus != SessionStatus.Running
+                         && fs.SessionStatus != SessionStatus.Paused
+                         && ((fs.SubmittedCode != null && fs.SubmittedCode != "")
+                             || (fs.SubmittedSummary != null && fs.SubmittedSummary != "")
+                             || (fs.SubmittedQuizAnswers != null && fs.SubmittedQuizAnswers != "")))
+            .OrderByDescending(fs => fs.EndTime ?? fs.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
         int plannedDuration;
         if (request.SessionType == SessionType.Pomodoro)
         {
@@ -79,7 +89,10 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 SessionStatus = SessionStatus.Running,
                 SessionType = request.SessionType,
                 LastActivityAt = now,
-                CreatedAt = now
+                CreatedAt = now,
+                SubmittedCode = latestDraftSession?.SubmittedCode,
+                SubmittedSummary = latestDraftSession?.SubmittedSummary,
+                SubmittedQuizAnswers = latestDraftSession?.SubmittedQuizAnswers
             };
 
             _context.FocusSessions.Add(focusSession);
@@ -98,7 +111,10 @@ public class StartSessionCommandHandler : IRequestHandler<StartSessionCommand, R
                 $"{(request.SessionType == SessionType.Pomodoro ? "Pomodoro" : "Study")} session started successfully",
                 focusSession.SessionType,
                 focusSession.SessionStatus,
-                focusSession.Title
+                focusSession.Title,
+                focusSession.SubmittedCode,
+                focusSession.SubmittedSummary,
+                focusSession.SubmittedQuizAnswers
             );
 
             return Result<StartSessionResponseDto>.Success(responseDto);
