@@ -2,6 +2,7 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.SystemRuntimePolicies.Commands.UpdateSystemRuntimePolicy;
 using CodeNexus.Application.Features.SystemRuntimePolicies.DTOs;
+using CodeNexus.Application.Features.SystemRuntimePolicies.Queries.GetAllSystemRuntimePolicies;
 using CodeNexus.Application.Features.SystemRuntimePolicies.Queries.GetSystemRuntimePolicy;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -20,6 +21,13 @@ public class AdminSystemRuntimePolicyController : ControllerBase
     public AdminSystemRuntimePolicyController(ISender sender)
     {
         _sender = sender;
+    }
+
+    [HttpGet("all")]
+    public async Task<IActionResult> GetAllPolicies(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetAllSystemRuntimePoliciesQuery(), cancellationToken);
+        return ToActionResult(result);
     }
 
     [HttpGet("{policyKey?}")]
