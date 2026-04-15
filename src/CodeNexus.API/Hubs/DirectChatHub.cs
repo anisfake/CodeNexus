@@ -213,7 +213,7 @@ public class DirectChatHub : Hub
         await Clients.Group(GetConversationGroup(conversationId)).SendAsync("MessageDelivered", new
         {
             MessageId = messageId,
-            DeliveredAt = DateTime.UtcNow
+            DeliveredAt = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified)
         });
     }
 
@@ -234,7 +234,7 @@ public class DirectChatHub : Hub
         await Clients.Group(GetConversationGroup(conversationId)).SendAsync("MessageSeen", new
         {
             MessageId = messageId,
-            SeenAt = DateTime.UtcNow
+            SeenAt = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified)
         });
 
         await RequestUnreadCount();
