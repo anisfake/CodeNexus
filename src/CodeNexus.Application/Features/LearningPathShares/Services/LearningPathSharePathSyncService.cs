@@ -137,42 +137,6 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
         DateTime now,
         CancellationToken cancellationToken)
     {
-        var oldLessonIds = currentPath.Chapters
-            .SelectMany(c => c.Lessons)
-            .Select(l => l.LessonId)
-            .ToList();
-
-        var oldLessonProgressByLessonId = await _context.LearnProgresses
-            .AsNoTracking()
-            .Where(p => p.UserId == studentId && p.IsLessonContentRead && oldLessonIds.Contains(p.LessonId))
-            .ToDictionaryAsync(p => p.LessonId, p => p.CompletedAt, cancellationToken);
-
-        var lessonProgressMap = new Dictionary<string, DateTime>();
-        foreach (var chapter in currentPath.Chapters.OrderBy(c => c.OrderIndex))
-        {
-            foreach (var lesson in chapter.Lessons.OrderBy(l => l.OrderIndex))
-            {
-                if (oldLessonProgressByLessonId.TryGetValue(lesson.LessonId, out var completedAt))
-                {
-                    var key = BuildLessonKey(chapter.OrderIndex, chapter.Title, lesson.OrderIndex, lesson.Title);
-                    lessonProgressMap[key] = completedAt;
-                }
-            }
-        }
-
-        var taskStatusMap = new Dictionary<string, (TaskStatus_ Status, DateTime? CompletedAt)>();
-        foreach (var chapter in currentPath.Chapters.OrderBy(c => c.OrderIndex))
-        {
-            foreach (var task in chapter.Tasks)
-            {
-                var key = BuildTaskKey(chapter.OrderIndex, chapter.Title, task.TaskType, task.Title);
-                if (!taskStatusMap.ContainsKey(key))
-                {
-                    taskStatusMap[key] = (task.Status, task.CompletedAt);
-                }
-            }
-        }
-
         var targetStart = currentPath.StartDate ?? now;
         var sourceAnchor = ResolveTimelineAnchor(sourcePath) ?? targetStart;
         var timelineShift = targetStart - sourceAnchor;
@@ -202,66 +166,123 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
             }, cancellationToken);
         }
 
-        foreach (var chapter in currentPath.Chapters)
+        var existingChaptersByOrder = currentPath.Chapters
+            .Where(c => !c.IsDeleted)
+            .ToDictionary(c => c.OrderIndex);
+
+        var sourceChapters = sourcePath.Chapters
+            .Where(c => !c.IsDeleted)
+            .OrderBy(c => c.OrderIndex)
+            .ToList();
+
+        var processedChapterOrders = new HashSet<int>();
+
+        foreach (var sourceChapter in sourceChapters)
+        {
+            processedChapterOrders.Add(sourceChapter.OrderIndex);
+
+            Chapter studentChapter;
+            if (existingChaptersByOrder.TryGetValue(sourceChapter.OrderIndex, out var matched))
+            {
+                studentChapter = matched;
+                studentChapter.Title = sourceChapter.Title;
+                studentChapter.Content = sourceChapter.Content;
+                studentChapter.StartDate = ShiftNullable(sourceChapter.StartDate);
+                studentChapter.EndDate = ShiftNullable(sourceChapter.EndDate);
+                studentChapter.EstimatedDays = sourceChapter.EstimatedDays;
+                studentChapter.UpdatedAt = now;
+                studentChapter.IsDeleted = false;
+                studentChapter.DeletedAt = null;
+            }
+            else
+            {
+                studentChapter = new Chapter
+                {
+                    ChapterId = NewId.NextGuid(),
+                    PathId = currentPath.PathId,
+                    Title = sourceChapter.Title,
+                    Content = sourceChapter.Content,
+                    OrderIndex = sourceChapter.OrderIndex,
+                    IsCompleted = false,
+                    StartDate = ShiftNullable(sourceChapter.StartDate),
+                    EndDate = ShiftNullable(sourceChapter.EndDate),
+                    EstimatedDays = sourceChapter.EstimatedDays,
+                    CreatedAt = now
+                };
+                await _context.Chapters.AddAsync(studentChapter, cancellationToken);
+            }
+
+            await SyncStudentLessonsAsync(studentChapter, sourceChapter, now, Shift, ShiftNullable, cancellationToken);
+            await SyncStudentTasksAsync(studentChapter, sourceChapter, currentPath.PathId, now, ShiftNullable, cancellationToken);
+        }
+
+        foreach (var chapter in currentPath.Chapters.Where(c => !c.IsDeleted && !processedChapterOrders.Contains(c.OrderIndex)))
         {
             chapter.IsDeleted = true;
             chapter.DeletedAt = now;
             chapter.UpdatedAt = now;
 
-            foreach (var lesson in chapter.Lessons)
+            foreach (var lesson in chapter.Lessons.Where(l => !l.IsDeleted))
             {
                 lesson.IsDeleted = true;
                 lesson.DeletedAt = now;
                 lesson.UpdatedAt = now;
             }
         }
+    }
 
-        foreach (var sourceChapter in sourcePath.Chapters.OrderBy(c => c.OrderIndex))
+    private async Task SyncStudentLessonsAsync(
+        Chapter studentChapter,
+        Chapter sourceChapter,
+        DateTime now,
+        Func<DateTime, DateTime> shift,
+        Func<DateTime?, DateTime?> shiftNullable,
+        CancellationToken cancellationToken)
+    {
+        var existingLessonsByOrder = studentChapter.Lessons
+            .Where(l => !l.IsDeleted)
+            .ToDictionary(l => l.OrderIndex);
+
+        var sourceLessons = sourceChapter.Lessons
+            .Where(l => !l.IsDeleted)
+            .OrderBy(l => l.OrderIndex)
+            .ToList();
+
+        var processedLessonOrders = new HashSet<int>();
+
+        foreach (var sourceLesson in sourceLessons)
         {
-            var newChapterId = NewId.NextGuid();
-            await _context.Chapters.AddAsync(new Chapter
-            {
-                ChapterId = newChapterId,
-                PathId = currentPath.PathId,
-                Title = sourceChapter.Title,
-                Content = sourceChapter.Content,
-                OrderIndex = sourceChapter.OrderIndex,
-                IsCompleted = false,
-                StartDate = ShiftNullable(sourceChapter.StartDate),
-                EndDate = ShiftNullable(sourceChapter.EndDate),
-                EstimatedDays = sourceChapter.EstimatedDays,
-                CreatedAt = now
-            }, cancellationToken);
+            processedLessonOrders.Add(sourceLesson.OrderIndex);
 
-            foreach (var sourceLesson in sourceChapter.Lessons.OrderBy(l => l.OrderIndex))
+            if (existingLessonsByOrder.TryGetValue(sourceLesson.OrderIndex, out var studentLesson))
+            {
+                studentLesson.Title = sourceLesson.Title;
+                studentLesson.LessonDay = shift(sourceLesson.LessonDay);
+                if (sourceLesson.Content is not null)
+                {
+                    studentLesson.Content = sourceLesson.Content;
+                }
+                studentLesson.UpdatedAt = now;
+                studentLesson.IsDeleted = false;
+                studentLesson.DeletedAt = null;
+
+                SyncStudentQuizzes(studentLesson, sourceLesson, now, shiftNullable);
+            }
+            else
             {
                 var newLessonId = NewId.NextGuid();
                 await _context.Lessons.AddAsync(new Lesson
                 {
                     LessonId = newLessonId,
-                    ChapterId = newChapterId,
+                    ChapterId = studentChapter.ChapterId,
                     Title = sourceLesson.Title,
-                    Content = sourceLesson.Content,
+                    Content = sourceLesson.Content ?? string.Empty,
                     OrderIndex = sourceLesson.OrderIndex,
-                    LessonDay = Shift(sourceLesson.LessonDay),
+                    LessonDay = shift(sourceLesson.LessonDay),
                     CreatedAt = now
                 }, cancellationToken);
 
-                var lessonKey = BuildLessonKey(sourceChapter.OrderIndex, sourceChapter.Title, sourceLesson.OrderIndex, sourceLesson.Title);
-                if (lessonProgressMap.TryGetValue(lessonKey, out var completedAt))
-                {
-                    await _context.LearnProgresses.AddAsync(new LearnProgress
-                    {
-                        ProgressId = NewId.NextGuid(),
-                        LessonId = newLessonId,
-                        UserId = studentId,
-                        IsLessonContentRead = true,
-                        CompletedAt = completedAt,
-                        CreatedAt = now
-                    }, cancellationToken);
-                }
-
-                foreach (var sourceQuiz in sourceLesson.Quizzes)
+                foreach (var sourceQuiz in sourceLesson.Quizzes.Where(q => !q.IsDeleted))
                 {
                     await _context.Quizzes.AddAsync(new Quiz
                     {
@@ -271,37 +292,133 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                         Description = sourceQuiz.Description,
                         TimeLimit = sourceQuiz.TimeLimit,
                         PassingScore = sourceQuiz.PassingScore,
-                        DueDate = ShiftNullable(sourceQuiz.DueDate),
+                        DueDate = shiftNullable(sourceQuiz.DueDate),
                         CreatedAt = now
                     }, cancellationToken);
                 }
             }
+        }
 
-            foreach (var sourceTask in sourceChapter.Tasks)
+        foreach (var lesson in studentChapter.Lessons.Where(l => !l.IsDeleted && !processedLessonOrders.Contains(l.OrderIndex)))
+        {
+            lesson.IsDeleted = true;
+            lesson.DeletedAt = now;
+            lesson.UpdatedAt = now;
+        }
+    }
+
+    private void SyncStudentQuizzes(
+        Lesson studentLesson,
+        Lesson sourceLesson,
+        DateTime now,
+        Func<DateTime?, DateTime?> shiftNullable)
+    {
+        var existingQuizzes = studentLesson.Quizzes
+            .Where(q => !q.IsDeleted)
+            .OrderBy(q => q.CreatedAt)
+            .ToList();
+
+        var sourceQuizzes = sourceLesson.Quizzes
+            .Where(q => !q.IsDeleted)
+            .OrderBy(q => q.CreatedAt)
+            .ToList();
+
+        for (int i = 0; i < sourceQuizzes.Count; i++)
+        {
+            var source = sourceQuizzes[i];
+            if (i < existingQuizzes.Count)
             {
-                var taskKey = BuildTaskKey(sourceChapter.OrderIndex, sourceChapter.Title, sourceTask.TaskType, sourceTask.Title);
-                var taskState = taskStatusMap.TryGetValue(taskKey, out var oldState)
-                    ? oldState
-                    : (sourceTask.Status, sourceTask.CompletedAt);
+                var existing = existingQuizzes[i];
+                existing.Title = source.Title;
+                existing.Description = source.Description;
+                existing.TimeLimit = source.TimeLimit;
+                existing.PassingScore = source.PassingScore;
+                existing.DueDate = shiftNullable(source.DueDate);
+                existing.IsDeleted = false;
+                existing.DeletedAt = null;
+            }
+            else
+            {
+                studentLesson.Quizzes.Add(new Quiz
+                {
+                    QuizId = NewId.NextGuid(),
+                    LessonId = studentLesson.LessonId,
+                    Title = source.Title,
+                    Description = source.Description,
+                    TimeLimit = source.TimeLimit,
+                    PassingScore = source.PassingScore,
+                    DueDate = shiftNullable(source.DueDate),
+                    CreatedAt = now
+                });
+            }
+        }
 
+        foreach (var quiz in existingQuizzes.Skip(sourceQuizzes.Count))
+        {
+            quiz.IsDeleted = true;
+            quiz.DeletedAt = now;
+        }
+    }
+
+    private async Task SyncStudentTasksAsync(
+        Chapter studentChapter,
+        Chapter sourceChapter,
+        Guid pathId,
+        DateTime now,
+        Func<DateTime?, DateTime?> shiftNullable,
+        CancellationToken cancellationToken)
+    {
+        var existingTasks = studentChapter.Tasks
+            .Where(t => !t.IsDeleted)
+            .OrderBy(t => t.CreatedAt)
+            .ToList();
+
+        var sourceTasks = sourceChapter.Tasks
+            .OrderBy(t => t.CreatedAt)
+            .ToList();
+
+        for (int i = 0; i < sourceTasks.Count; i++)
+        {
+            var source = sourceTasks[i];
+            if (i < existingTasks.Count)
+            {
+                var existing = existingTasks[i];
+                existing.Title = source.Title;
+                existing.Description = source.Description;
+                existing.DueDate = shiftNullable(source.DueDate);
+                existing.Priority = source.Priority;
+                existing.TaskType = source.TaskType;
+                existing.VerificationPrompt = source.VerificationPrompt;
+                existing.MinimumScore = source.MinimumScore;
+                existing.QuizQuestionsJson = source.QuizQuestionsJson;
+                existing.UpdatedAt = now;
+            }
+            else
+            {
                 await _context.Tasks.AddAsync(new TaskEntity
                 {
                     TaskId = NewId.NextGuid(),
-                    ChapterId = newChapterId,
-                    PathId = currentPath.PathId,
-                    Title = sourceTask.Title,
-                    Description = sourceTask.Description,
-                    DueDate = ShiftNullable(sourceTask.DueDate),
-                    Priority = sourceTask.Priority,
-                    Status = taskState.Status,
+                    ChapterId = studentChapter.ChapterId,
+                    PathId = pathId,
+                    Title = source.Title,
+                    Description = source.Description,
+                    DueDate = shiftNullable(source.DueDate),
+                    Priority = source.Priority,
+                    Status = source.Status,
                     CreatedAt = now,
-                    CompletedAt = taskState.CompletedAt,
-                    TaskType = sourceTask.TaskType,
-                    VerificationPrompt = sourceTask.VerificationPrompt,
-                    MinimumScore = sourceTask.MinimumScore,
-                    QuizQuestionsJson = sourceTask.QuizQuestionsJson
+                    TaskType = source.TaskType,
+                    VerificationPrompt = source.VerificationPrompt,
+                    MinimumScore = source.MinimumScore,
+                    QuizQuestionsJson = source.QuizQuestionsJson
                 }, cancellationToken);
             }
+        }
+
+        foreach (var task in existingTasks.Skip(sourceTasks.Count))
+        {
+            task.IsDeleted = true;
+            task.DeletedAt = now;
+            task.UpdatedAt = now;
         }
     }
 
@@ -351,21 +468,5 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
         }
 
         return current;
-    }
-
-    private static string BuildLessonKey(int chapterOrder, string chapterTitle, int lessonOrder, string lessonTitle)
-        => $"{chapterOrder}|{Normalize(chapterTitle)}|{lessonOrder}|{Normalize(lessonTitle)}";
-
-    private static string BuildTaskKey(int chapterOrder, string chapterTitle, TaskType taskType, string taskTitle)
-        => $"{chapterOrder}|{Normalize(chapterTitle)}|{taskType}|{Normalize(taskTitle)}";
-
-    private static string Normalize(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        return string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 }

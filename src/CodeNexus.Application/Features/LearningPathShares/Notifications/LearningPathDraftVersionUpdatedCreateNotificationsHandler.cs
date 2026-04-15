@@ -54,26 +54,31 @@ public class LearningPathDraftVersionUpdatedCreateNotificationsHandler
             : sourceLearningPathTitle.Trim();
 
         var notifications = sharesToNotify
-            .Select(share => new Notification
+            .GroupBy(s => s.StudentId)
+            .Select(g =>
             {
-                NotificationId = NewId.NextGuid(),
-                UserId = share.StudentId,
-                // Return i18n keys so FE can fully control locale switch.
-                Title = "notification.shareVersionUpdated.title",
-                Message = "notification.shareVersionUpdated.message",
-                Type = NotificationType.ShareVersionUpdated,
-                Severity = "Info",
-                Channels = "Web,Main",
-                TargetType = "learningPathShareUpdate",
-                TargetId = share.ShareId,
-                TargetUrl = $"/learning-path-shares/{share.ShareId}/updates",
-                Route = "/learningpath-shares/:shareId/updates",
-                LearningPathId = share.AcceptedPathId,
-                NotifiedPathTitle = notificationTitleSnapshot,
-                NotifiedSourceVersion = notification.CurrentVersion,
-                NotifiedMentorUserName = notification.MentorUserName,
-                IsRead = false,
-                CreatedAt = notification.OccurredAt
+                var representativeShare = g.OrderByDescending(s => s.RespondedAt).First();
+                return new Notification
+                {
+                    NotificationId = NewId.NextGuid(),
+                    UserId = representativeShare.StudentId,
+                    // Return i18n keys so FE can fully control locale switch.
+                    Title = "notification.shareVersionUpdated.title",
+                    Message = "notification.shareVersionUpdated.message",
+                    Type = NotificationType.ShareVersionUpdated,
+                    Severity = "Info",
+                    Channels = "Web,Main",
+                    TargetType = "learningPathShareUpdate",
+                    TargetId = representativeShare.ShareId,
+                    TargetUrl = $"/learning-path-shares/{representativeShare.ShareId}/updates",
+                    Route = "/learningpath-shares/:shareId/updates",
+                    LearningPathId = representativeShare.AcceptedPathId,
+                    NotifiedPathTitle = notificationTitleSnapshot,
+                    NotifiedSourceVersion = notification.CurrentVersion,
+                    NotifiedMentorUserName = notification.MentorUserName,
+                    IsRead = false,
+                    CreatedAt = notification.OccurredAt
+                };
             })
             .ToList();
 
