@@ -21,6 +21,42 @@ public record BillingTransactionResponse(
     DateTime? UpdatedAt
 );
 
+public record MyBillingTransactionResponse(
+    Guid PaymentTransactionId,
+    Guid? TokenPackageId,
+    string? TokenPackageName,
+    decimal Amount,
+    decimal CreditedAmountVnd,
+    string Provider,
+    string TxnRef,
+    string OrderInfo,
+    PaymentStatus Status,
+    string? ResponseCode,
+    string? TransactionNo,
+    string? BankCode,
+    DateTime? PaidAt,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
+);
+
+public record MyBillingTransactionDetailResponse(
+    Guid PaymentTransactionId,
+    Guid? TokenPackageId,
+    string? TokenPackageName,
+    decimal Amount,
+    decimal CreditedAmountVnd,
+    string Provider,
+    string TxnRef,
+    string OrderInfo,
+    PaymentStatus Status,
+    string? ResponseCode,
+    string? TransactionNo,
+    string? BankCode,
+    DateTime? PaidAt,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
+);
+
 public record BillingTransactionDetailResponse(
     Guid PaymentTransactionId,
     Guid UserId,
@@ -60,4 +96,3 @@ public record BillingSummaryResponse(
     decimal TotalRevenueVnd,
     List<BillingSummaryItemResponse> DailyRevenue
 );
-

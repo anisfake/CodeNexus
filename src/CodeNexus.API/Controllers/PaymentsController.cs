@@ -2,6 +2,9 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Payments.Commands.CreateVnPayPayment;
 using CodeNexus.Application.Features.Payments.Commands.ProcessVnPayCallback;
+using CodeNexus.Application.Features.Payments.DTOs;
+using CodeNexus.Application.Features.Payments.Queries.GetMyBillingTransactionDetail;
+using CodeNexus.Application.Features.Payments.Queries.GetMyBillingTransactions;
 using CodeNexus.Infrastructure.Settings;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -23,6 +26,24 @@ public class PaymentsController : ControllerBase
     {
         _sender = sender;
         _vnPaySettings = vnPayOptions.Value;
+    }
+
+    [HttpGet("my-transactions")]
+    [Authorize]
+    [ProducesResponseType(typeof(PaginationDto<MyBillingTransactionResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyTransactions([FromQuery] GetMyBillingTransactionsQuery query, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-transactions/{paymentTransactionId:guid}")]
+    [Authorize]
+    [ProducesResponseType(typeof(MyBillingTransactionDetailResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyTransactionDetail(Guid paymentTransactionId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMyBillingTransactionDetailQuery(paymentTransactionId), cancellationToken);
+        return ToActionResult(result);
     }
 
     [HttpPost("vnpay/create")]
