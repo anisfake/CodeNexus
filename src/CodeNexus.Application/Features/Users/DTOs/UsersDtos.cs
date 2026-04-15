@@ -21,7 +21,8 @@ public record UserProfileRespone(
     DateTime? DateOfBirth,
     string? Phone,
     string? Address,
-    TimeSpan? DailyReminderTime
+    TimeSpan? DailyReminderTime,
+    decimal BalanceVnd
 );
 
 public record UpdateProfileRequest(
