@@ -176,7 +176,8 @@ public class GetLearningPathShareUpdateContextQueryHandler
 
         var updatedLessons = sourceLessonMap.Keys
             .Intersect(currentLessonMap.Keys)
-            .Where(key => !TextEquals(sourceLessonMap[key].Title, currentLessonMap[key].Title))
+            .Where(key => !TextEquals(sourceLessonMap[key].Title, currentLessonMap[key].Title)
+                          || !TextEquals(sourceLessonMap[key].Content, currentLessonMap[key].Content))
             .Select(key => sourceLessonMap[key].Label)
             .ToList();
 

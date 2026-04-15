@@ -212,7 +212,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                 await _context.Chapters.AddAsync(studentChapter, cancellationToken);
             }
 
-            await SyncStudentLessonsAsync(studentChapter, sourceChapter, now, Shift, ShiftNullable, cancellationToken);
+            await SyncStudentLessonsAsync(studentChapter, sourceChapter, studentId, now, Shift, ShiftNullable, cancellationToken);
             await SyncStudentTasksAsync(studentChapter, sourceChapter, currentPath.PathId, now, ShiftNullable, cancellationToken);
         }
 
@@ -234,6 +234,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
     private async Task SyncStudentLessonsAsync(
         Chapter studentChapter,
         Chapter sourceChapter,
+        Guid studentId,
         DateTime now,
         Func<DateTime, DateTime> shift,
         Func<DateTime?, DateTime?> shiftNullable,
@@ -256,6 +257,10 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
 
             if (existingLessonsByOrder.TryGetValue(sourceLesson.OrderIndex, out var studentLesson))
             {
+                var oldContent = studentLesson.Content?.Trim() ?? string.Empty;
+                var newContent = sourceLesson.Content?.Trim() ?? string.Empty;
+                var contentChanged = !string.Equals(oldContent, newContent, StringComparison.OrdinalIgnoreCase);
+
                 studentLesson.Title = sourceLesson.Title;
                 studentLesson.LessonDay = shift(sourceLesson.LessonDay);
                 if (sourceLesson.Content is not null)
@@ -267,6 +272,17 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                 studentLesson.DeletedAt = null;
 
                 SyncStudentQuizzes(studentLesson, sourceLesson, now, shiftNullable);
+
+                if (contentChanged)
+                {
+                    var progress = await _context.LearnProgresses
+                        .FirstOrDefaultAsync(p => p.LessonId == studentLesson.LessonId && p.UserId == studentId, cancellationToken);
+                    if (progress != null)
+                    {
+                        progress.IsLessonContentRead = false;
+                        progress.UpdatedAt = now;
+                    }
+                }
             }
             else
             {

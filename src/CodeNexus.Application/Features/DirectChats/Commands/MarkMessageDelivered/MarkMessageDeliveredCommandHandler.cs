@@ -68,14 +68,14 @@ public class MarkMessageDeliveredCommandHandler : IRequestHandler<MarkMessageDel
                 ReceiptId = NewId.NextGuid(),
                 MessageId = request.MessageId,
                 UserId = currentUserId,
-                DeliveredAt = DateTime.UtcNow
+                DeliveredAt = DateTime.UtcNow.AddHours(7)
             };
 
             _context.DirectMessageReceipts.Add(receipt);
         }
         else if (!receipt.DeliveredAt.HasValue)
         {
-            receipt.DeliveredAt = DateTime.UtcNow;
+            receipt.DeliveredAt = DateTime.UtcNow.AddHours(7);
         }
 
         await _context.SaveChangesAsync(cancellationToken);
