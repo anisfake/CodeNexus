@@ -101,6 +101,7 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
                     .Include(lp => lp.LearningPathGoals)
                     .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                         .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
+                            .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
                     .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                         .ThenInclude(c => c.Tasks)
                     .FirstOrDefaultAsync(lp => lp.PathId == share.AcceptedPathId.Value && lp.UserId == studentId, cancellationToken);
