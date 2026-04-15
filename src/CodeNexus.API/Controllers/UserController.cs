@@ -55,6 +55,27 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("me/balance")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyBalance()
+    {
+        var query = new GetMyProfileQuery();
+        var result = await _sender.Send(query);
+
+        if (!result.IsSuccess || result.Value == null)
+        {
+            return ToActionResult(result);
+        }
+
+        return Ok(new
+        {
+            balanceVnd = result.Value.BalanceVnd,
+            updatedAtUtc = DateTime.UtcNow
+        });
+    }
+
     [HttpGet]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(PaginationDto<UserRespone>), StatusCodes.Status200OK)]

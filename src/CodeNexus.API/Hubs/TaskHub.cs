@@ -1,5 +1,6 @@
 using CodeNexus.Application.Features.Tasks.Commands.GenerateChapterTasks;
 using CodeNexus.Application.Features.Tasks.Commands.GenerateSingleTask;
+using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -26,6 +27,7 @@ public class TaskHub : Hub
         if (result.IsSuccess)
         {
             await Clients.Caller.SendAsync("ReceiveChapterTasks", result.Value);
+            await SendWalletBalanceUpdatedAsync();
         }
         else
         {
@@ -47,6 +49,7 @@ public class TaskHub : Hub
         if (result.IsSuccess)
         {
             await Clients.Caller.SendAsync("ReceiveSingleTask", result.Value);
+            await SendWalletBalanceUpdatedAsync();
         }
         else
         {
@@ -57,5 +60,20 @@ public class TaskHub : Hub
                 result.ErrorMessage
             });
         }
+    }
+
+    private async Task SendWalletBalanceUpdatedAsync()
+    {
+        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        if (!profileResult.IsSuccess || profileResult.Value == null)
+        {
+            return;
+        }
+
+        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        {
+            BalanceVnd = profileResult.Value.BalanceVnd,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
     }
 }

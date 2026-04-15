@@ -1,6 +1,7 @@
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterMentorSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
+using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -36,6 +37,7 @@ public class ChapterHub : Hub
                 if (contentResult.IsSuccess)
                 {
                     await Clients.Caller.SendAsync("ReceiveChapterContent", contentResult.Value);
+                    await SendWalletBalanceUpdatedAsync();
                 }
                 else
                 {
@@ -79,6 +81,7 @@ public class ChapterHub : Hub
         if (result.IsSuccess)
         {
             await Clients.Caller.SendAsync("ReceiveChapterContent", result.Value);
+            await SendWalletBalanceUpdatedAsync();
         }
         else
         {
@@ -123,6 +126,7 @@ public class ChapterHub : Hub
             }
 
             await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerated", result.Value);
+            await SendWalletBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -133,5 +137,20 @@ public class ChapterHub : Hub
                 ErrorMessage = ex.Message
             });
         }
+    }
+
+    private async Task SendWalletBalanceUpdatedAsync()
+    {
+        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        if (!profileResult.IsSuccess || profileResult.Value == null)
+        {
+            return;
+        }
+
+        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        {
+            BalanceVnd = profileResult.Value.BalanceVnd,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
     }
 }

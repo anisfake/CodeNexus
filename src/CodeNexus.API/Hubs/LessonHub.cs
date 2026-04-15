@@ -1,6 +1,7 @@
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateSingleQuizSkeleton;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizSkeleton;
+using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -65,6 +66,7 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 Message = "Lesson content and quizzes generated successfully!"
             });
+            await SendWalletBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -104,6 +106,7 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 Message = "Lesson content generated successfully!"
             });
+            await SendWalletBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -131,6 +134,7 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     Quizzes = quizResult.Value.Quizzes
                 });
+                await SendWalletBalanceUpdatedAsync();
                 return;
             }
 
@@ -167,6 +171,7 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     Quiz = quizResult.Value
                 });
+                await SendWalletBalanceUpdatedAsync();
                 return;
             }
 
@@ -186,5 +191,20 @@ public class LessonHub : Hub
                 ErrorMessage = ex.Message
             });
         }
+    }
+
+    private async Task SendWalletBalanceUpdatedAsync()
+    {
+        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        if (!profileResult.IsSuccess || profileResult.Value == null)
+        {
+            return;
+        }
+
+        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        {
+            BalanceVnd = profileResult.Value.BalanceVnd,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
     }
 }
