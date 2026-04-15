@@ -70,9 +70,8 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AIUsageLog> AIUsageLogs => Set<AIUsageLog>();
         public DbSet<Achievement> Achievements => Set<Achievement>();
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+        public DbSet<TokenPackage> TokenPackages => Set<TokenPackage>();
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
-        public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
-        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -244,6 +243,8 @@ namespace CodeNexus.Infrastructure.Persistence
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Ignore<SubscriptionPlan>();
+            modelBuilder.Ignore<SubscriptionPlanLimit>();
 
             modelBuilder.Entity<User>().HasKey(e => e.UserId);
             modelBuilder.Entity<Role>().HasKey(e => e.RoleId);
@@ -281,8 +282,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<DirectMessageReceipt>().HasKey(e => e.ReceiptId);
             modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
             modelBuilder.Entity<AIUsageLog>().HasKey(e => e.UsageLogId);
-            modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
-            modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
+            modelBuilder.Entity<TokenPackage>().HasKey(e => e.TokenPackageId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
             modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
 
@@ -305,16 +305,12 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasIndex(u => u.Email).IsUnique();
                 entity.HasIndex(u => u.Username).IsUnique();
+                entity.Property(u => u.BalanceVnd).HasPrecision(18, 2);
 
                 entity.HasOne(u => u.UserProfile)
                       .WithOne(p => p.User)
                       .HasForeignKey<UserProfile>(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(u => u.SubscriptionPlan)
-                      .WithMany()
-                      .HasForeignKey(u => u.SubscriptionPlanId)
-                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<Tasks>(entity =>
@@ -603,6 +599,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasKey(e => e.PaymentTransactionId);
 
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.CreditedAmountVnd).HasPrecision(18, 2);
                 entity.Property(e => e.Status).HasConversion<string>();
 
                 entity.HasIndex(e => e.TxnRef).IsUnique();
@@ -612,17 +609,14 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.NoAction);
 
-                entity.HasOne(e => e.SubscriptionPlan)
+                entity.HasOne(e => e.TokenPackage)
                       .WithMany()
-                      .HasForeignKey(e => e.SubscriptionPlanId)
+                      .HasForeignKey(e => e.TokenPackageId)
                       .OnDelete(DeleteBehavior.SetNull);
             });
 
-            modelBuilder.Entity<SubscriptionPlan>(entity =>
+            modelBuilder.Entity<TokenPackage>(entity =>
             {
-                entity.Property(e => e.PlanType)
-                      .HasConversion<string>();
-
                 entity.Property(e => e.Name)
                       .HasMaxLength(120);
 
@@ -632,28 +626,10 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.PriceVnd)
                       .HasPrecision(18, 2);
 
-                entity.HasIndex(e => e.PlanType)
-                      .IsUnique();
+                entity.Property(e => e.CreditedBalanceVnd)
+                      .HasPrecision(18, 2);
 
                 entity.HasIndex(e => e.DisplayOrder);
-
-            });
-
-            modelBuilder.Entity<SubscriptionPlanLimit>(entity =>
-            {
-                entity.Property(e => e.FeatureKey)
-                      .HasConversion<string>();
-
-                entity.Property(e => e.WindowType)
-                      .HasConversion<string>();
-
-                entity.HasIndex(e => new { e.SubscriptionPlanId, e.FeatureKey })
-                      .IsUnique();
-
-                entity.HasOne(e => e.SubscriptionPlan)
-                      .WithMany(p => p.Limits)
-                      .HasForeignKey(e => e.SubscriptionPlanId)
-                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<FeatureUsageLog>(entity =>

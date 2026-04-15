@@ -21,7 +21,6 @@ public class GetBillingTransactionDetailQueryHandler
         var payment = await _context.PaymentTransactions
             .AsNoTracking()
             .Include(x => x.User)
-            .Include(x => x.SubscriptionPlan)
             .FirstOrDefaultAsync(x => x.PaymentTransactionId == request.PaymentTransactionId, cancellationToken);
 
         if (payment == null)
@@ -35,7 +34,7 @@ public class GetBillingTransactionDetailQueryHandler
             payment.User.Username,
             payment.User.Email,
             payment.SubscriptionPlanId,
-            payment.SubscriptionPlan?.Name,
+            null,
             payment.Amount,
             payment.Provider,
             payment.TxnRef,
@@ -50,4 +49,3 @@ public class GetBillingTransactionDetailQueryHandler
             payment.User.PlanExpiresAt));
     }
 }
-

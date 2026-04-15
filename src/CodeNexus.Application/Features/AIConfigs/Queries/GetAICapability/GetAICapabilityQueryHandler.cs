@@ -10,28 +10,28 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
-    private readonly ISubscriptionAccessService _subscriptionAccessService;
 
     public GetAICapabilityQueryHandler(
         IApplicationDbContext context,
-        ICurrentUserService currentUserService,
-        ISubscriptionAccessService subscriptionAccessService)
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _currentUserService = currentUserService;
-        _subscriptionAccessService = subscriptionAccessService;
     }
 
     public async Task<GetAICapabilityResponse> Handle(GetAICapabilityQuery request, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetUserId();
 
-        var planExpiresAt = await _context.Users
+        var userAccess = await _context.Users
             .AsNoTracking()
             .Where(x => x.UserId == userId)
-            .Select(x => x.PlanExpiresAt)
+            .Select(x => new
+            {
+                RoleName = x.Role != null ? x.Role.RoleName : string.Empty,
+                x.BalanceVnd
+            })
             .FirstOrDefaultAsync(cancellationToken);
-        var effectivePlan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
 
         var activeConfigs = await _context.AIProviderConfigs
             .AsNoTracking()
@@ -46,15 +46,14 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
                 activeConfigs.Any(x => x.UsageType == usageType && x.AccessTier == AIAccessTier.Paid)))
             .ToList();
 
-        var isFreePlan = string.Equals(
-            effectivePlan.PlanType.ToString(),
-            SubscriptionPlanType.Free.ToString(),
-            StringComparison.OrdinalIgnoreCase);
+        var hasPaidAccess = string.Equals(userAccess?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(userAccess?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase)
+                            || (userAccess?.BalanceVnd ?? 0m) > 0m;
 
         return new GetAICapabilityResponse(
-            HasPaidAccess: !isFreePlan,
-            CurrentPlan: effectivePlan.Name,
-            PlanExpiresAt: isFreePlan ? null : planExpiresAt,
+            HasPaidAccess: hasPaidAccess,
+            CurrentPlan: "Token Billing",
+            PlanExpiresAt: null,
             Capabilities: capabilities);
     }
 }

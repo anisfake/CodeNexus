@@ -38,27 +38,53 @@ public class CreateVnPayPaymentCommandHandler
             return Result<VnPayCreatePaymentResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
-        if (!request.SubscriptionPlanId.HasValue)
+        decimal amount;
+        decimal creditedAmountVnd;
+        Guid? tokenPackageId = null;
+        string defaultOrderInfo;
+
+        if (request.TokenPackageId.HasValue)
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
+            var tokenPackage = await _context.TokenPackages
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TokenPackageId == request.TokenPackageId.Value && x.IsActive, cancellationToken);
+
+            if (tokenPackage == null)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("TOKEN_PACKAGE_NOT_FOUND", "Token package not found.");
+            }
+
+            amount = tokenPackage.PriceVnd;
+            creditedAmountVnd = tokenPackage.CreditedBalanceVnd;
+            tokenPackageId = tokenPackage.TokenPackageId;
+            defaultOrderInfo = $"Buy package {tokenPackage.Name}";
         }
-
-        var subscriptionPlan = await _context.SubscriptionPlans
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.SubscriptionPlanId == request.SubscriptionPlanId.Value && x.IsActive, cancellationToken);
-
-        if (subscriptionPlan == null)
+        else
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
-        }
+            if (!request.TopUpAmountVnd.HasValue)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount must be provided.");
+            }
 
-        if (subscriptionPlan.PriceVnd <= 0)
-        {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_SUBSCRIPTION_PLAN", "Free plan cannot be purchased through payment.");
-        }
+            amount = Math.Round(request.TopUpAmountVnd.Value, 0, MidpointRounding.AwayFromZero);
+            if (amount <= 0)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount must be greater than 0.");
+            }
 
-        var amount = subscriptionPlan.PriceVnd;
-        var defaultOrderInfo = $"Purchase {subscriptionPlan.Name} plan";
+            if (amount < 10000m)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Minimum top-up amount is 10,000 VND.");
+            }
+
+            if (amount > 50000000m)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too large.");
+            }
+
+            creditedAmountVnd = amount;
+            defaultOrderInfo = $"Top-up {amount:N0} VND";
+        }
 
         var txnRef = NewId.NextGuid().ToString("N");
         var orderInfo = string.IsNullOrWhiteSpace(request.OrderInfo)
@@ -69,8 +95,10 @@ public class CreateVnPayPaymentCommandHandler
         {
             PaymentTransactionId = NewId.NextGuid(),
             UserId = userId,
-            SubscriptionPlanId = subscriptionPlan.SubscriptionPlanId,
+            SubscriptionPlanId = null,
+            TokenPackageId = tokenPackageId,
             Amount = amount,
+            CreditedAmountVnd = creditedAmountVnd,
             Provider = "VNPAY",
             TxnRef = txnRef,
             OrderInfo = orderInfo,

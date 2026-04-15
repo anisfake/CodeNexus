@@ -91,14 +91,6 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
             return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
         }
 
-        var hasPersonalGoals = goals.Any(g => !g.IsSystemDefined);
-        if (hasPersonalGoals && !await _subscriptionAccessService.CanUsePersonalGoalsAsync(userId, cancellationToken))
-        {
-            return Result<CreateLearningPathResponse>.Failure(
-                "SUBSCRIPTION_REQUIRED",
-                "Your current plan does not allow using personal goals in learning path generation.");
-        }
-
         var systemGoalIds = goals
             .Where(g => g.IsSystemDefined)
             .Select(g => g.GoalId)

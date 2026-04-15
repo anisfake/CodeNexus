@@ -29,6 +29,8 @@ public class GroqServiceWithCache : IAIGeneratorService
     private const int DefaultMaxTokens = 8192;
     private const float DefaultTemperature = 0.4f;
     private const int DefaultRequestTimeoutSeconds = 120;
+    private const decimal DefaultUsdToVndRate = 26000m;
+    private const decimal ReserveSafetyMultiplier = 1.20m;
 
     public GroqServiceWithCache(
         HttpClient httpClient,
@@ -74,7 +76,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             Guid selectedConfigId = Guid.Empty;
             try
             {
-                var (apiKey, config, providerName, accessTier, userId, isMentor, configId) = await GetConfigAsync(usageType);
+                var (apiKey, config, providerName, accessTier, userId, isMentor, isPrivilegedRole, configId) = await GetConfigAsync(usageType, prompt);
                 selectedConfigId = configId;
 
                 var adjustedConfig = attempt == 1 ? config : AdjustConfigForAttempt(config, attempt);
@@ -89,6 +91,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                     userId,
                     configId,
                     isMentor,
+                    isPrivilegedRole,
                     jsonMode: true);
                 allAttempts.Add($"Attempt {attempt}: {responseText?.Substring(0, Math.Min(200, responseText?.Length ?? 0))}...");
 
@@ -146,7 +149,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (string.IsNullOrWhiteSpace(prompt))
             throw new ArgumentException("Prompt cannot be empty", nameof(prompt));
 
-        var (apiKey, config, providerName, accessTier, userId, isMentor, configId) = await GetConfigAsync(usageType);
+        var (apiKey, config, providerName, accessTier, userId, isMentor, isPrivilegedRole, configId) = await GetConfigAsync(usageType, prompt);
         try
         {
             return await CallProviderApiAsync(
@@ -159,12 +162,13 @@ public class GroqServiceWithCache : IAIGeneratorService
                 userId,
                 configId,
                 isMentor,
+                isPrivilegedRole,
                 jsonMode: false);
         }
         catch (Exception ex) when (ShouldRotateApiKey(ex))
         {
             await TryRotateActiveConfigAsync(usageType, configId, accessTier, CancellationToken.None);
-            var retry = await GetConfigAsync(usageType);
+            var retry = await GetConfigAsync(usageType, prompt);
             return await CallProviderApiAsync(
                 prompt,
                 retry.apiKey,
@@ -175,11 +179,12 @@ public class GroqServiceWithCache : IAIGeneratorService
                 retry.userId,
                 retry.configId,
                 retry.isMentor,
+                retry.isPrivilegedRole,
                 jsonMode: false);
         }
     }
 
-    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName, AIAccessTier accessTier, Guid userId, bool isMentor, Guid configId)> GetConfigAsync(AIUsageType usageType)
+    private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName, AIAccessTier accessTier, Guid userId, bool isMentor, bool isPrivilegedRole, Guid configId)> GetConfigAsync(AIUsageType usageType, string prompt)
     {
         var accessResolution = await ResolveAccessResolutionAsync(CancellationToken.None);
         var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, accessResolution.PreferredTier);
@@ -187,6 +192,26 @@ public class GroqServiceWithCache : IAIGeneratorService
         if (selectedConfig == null)
         {
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
+        }
+
+        var config = ParseConfigJson(selectedConfig.ConfigJson);
+
+        if (ShouldChargePaidCall(accessResolution, selectedConfig.AccessTier))
+        {
+            var reserveAmountVnd = EstimateReserveAmountVnd(prompt, config);
+            if (reserveAmountVnd > 0m && accessResolution.CurrentBalanceVnd < reserveAmountVnd)
+            {
+                var freeConfig = await ResolveConfigWithTierPreferenceAsync(usageType, AIAccessTier.Free);
+                if (freeConfig != null)
+                {
+                    selectedConfig = freeConfig;
+                    config = ParseConfigJson(selectedConfig.ConfigJson);
+                }
+                else
+                {
+                    throw new InvalidOperationException("INSUFFICIENT_BALANCE");
+                }
+            }
         }
 
         var decryptedApiKey = _encryptionService.Decrypt(selectedConfig.EncryptedApiKey);
@@ -201,8 +226,6 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             await TryCreateMentorDowngradeNotificationAsync(accessResolution.UserId, usageType, CancellationToken.None);
         }
-
-        var config = ParseConfigJson(selectedConfig.ConfigJson);
         return (
             apiKey,
             config,
@@ -210,6 +233,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             selectedConfig.AccessTier,
             accessResolution.UserId,
             accessResolution.IsMentor,
+            accessResolution.IsPrivilegedRole,
             selectedConfig.ConfigId);
     }
 
@@ -239,15 +263,22 @@ public class GroqServiceWithCache : IAIGeneratorService
         try
         {
             var userId = _currentUserService.GetUserId();
-            var roleName = await _context.Users
+            var userAccess = await _context.Users
                 .AsNoTracking()
                 .Where(u => u.UserId == userId)
-                .Select(u => u.Role != null ? u.Role.RoleName : null)
+                .Select(u => new
+                {
+                    RoleName = u.Role != null ? u.Role.RoleName : null,
+                    u.BalanceVnd
+                })
                 .FirstOrDefaultAsync(cancellationToken);
+
+            var roleName = userAccess?.RoleName;
+            var balanceVnd = userAccess?.BalanceVnd ?? 0m;
 
             if (IsPrivilegedRole(roleName))
             {
-                return new AccessResolution(userId, false, true, AIAccessTier.Paid, false);
+                return new AccessResolution(userId, false, true, AIAccessTier.Paid, false, balanceVnd);
             }
 
             if (IsMentorRole(roleName))
@@ -255,25 +286,25 @@ public class GroqServiceWithCache : IAIGeneratorService
                 var mentorLimit = await _aiAccessPolicyService.GetMentorPaidRequestsMonthlyLimitAsync(cancellationToken);
                 if (mentorLimit <= 0)
                 {
-                    return new AccessResolution(userId, true, false, AIAccessTier.Paid, false);
+                    return new AccessResolution(userId, true, false, AIAccessTier.Paid, false, balanceVnd);
                 }
 
                 var used = await CountMentorPaidAiUsageThisMonthAsync(userId, cancellationToken);
                 if (used >= mentorLimit)
                 {
-                    return new AccessResolution(userId, true, false, AIAccessTier.Free, true);
+                    return new AccessResolution(userId, true, false, AIAccessTier.Free, true, balanceVnd);
                 }
 
-                return new AccessResolution(userId, true, false, AIAccessTier.Paid, false);
+                return new AccessResolution(userId, true, false, AIAccessTier.Paid, false, balanceVnd);
             }
 
-            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId, cancellationToken);
-            return new AccessResolution(userId, false, false, canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free, false);
+            var preferredTier = balanceVnd > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
+            return new AccessResolution(userId, false, false, preferredTier, false, balanceVnd);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "ResolveAccessResolutionAsync failed. Falling back to free tier with anonymous user.");
-            return new AccessResolution(Guid.Empty, false, false, AIAccessTier.Free, false);
+            return new AccessResolution(Guid.Empty, false, false, AIAccessTier.Free, false, 0m);
         }
     }
 
@@ -422,30 +453,51 @@ public class GroqServiceWithCache : IAIGeneratorService
         Guid userId,
         Guid configId,
         bool isMentor,
+        bool isPrivilegedRole,
         bool jsonMode = false)
     {
         var adapter = ResolveProviderAdapter(providerName);
-        var invocation = await adapter.GenerateAsync(prompt, apiKey, config, jsonMode, CancellationToken.None);
-        if (string.Equals(invocation.FinishReason, "length", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(invocation.FinishReason, "max_tokens", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(invocation.FinishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
-        }
-
-        await TryLogUsageAsync(
-            usageType,
-            providerName,
+        var billingReservation = await TryReservePaidUsageAsync(
+            prompt,
             config,
             accessTier,
             userId,
-            configId,
             isMentor,
-            invocation.InputTokens,
-            invocation.OutputTokens,
-            invocation.TotalTokens);
+            isPrivilegedRole,
+            CancellationToken.None);
 
-        return invocation.Content;
+        try
+        {
+            var invocation = await adapter.GenerateAsync(prompt, apiKey, config, jsonMode, CancellationToken.None);
+            if (string.Equals(invocation.FinishReason, "length", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(invocation.FinishReason, "max_tokens", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(invocation.FinishReason, "MAX_TOKENS", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
+            }
+
+            var actualCostUsd = CalculateCostUsd(config, invocation.InputTokens, invocation.OutputTokens);
+            await SettlePaidUsageAsync(billingReservation, actualCostUsd, CancellationToken.None);
+
+            await TryLogUsageAsync(
+                usageType,
+                providerName,
+                config,
+                accessTier,
+                userId,
+                configId,
+                isMentor,
+                invocation.InputTokens,
+                invocation.OutputTokens,
+                invocation.TotalTokens);
+
+            return invocation.Content;
+        }
+        catch
+        {
+            await RefundReservedUsageAsync(billingReservation, CancellationToken.None);
+            throw;
+        }
     }
 
     private IAIProviderAdapter ResolveProviderAdapter(string providerName)
@@ -612,6 +664,182 @@ public class GroqServiceWithCache : IAIGeneratorService
         var inputCost = (inputTokens / OneMillion) * config.InputCostPer1M;
         var outputCost = (outputTokens / OneMillion) * config.OutputCostPer1M;
         return Math.Round(inputCost + outputCost, 6);
+    }
+
+    private static bool ShouldChargePaidCall(AccessResolution resolution, AIAccessTier tier)
+        => tier == AIAccessTier.Paid
+           && resolution.UserId != Guid.Empty
+           && !resolution.IsMentor
+           && !resolution.IsPrivilegedRole;
+
+    private static bool ShouldReservePaidUsage(
+        AIAccessTier tier,
+        Guid userId,
+        bool isMentor,
+        bool isPrivilegedRole)
+        => tier == AIAccessTier.Paid
+           && userId != Guid.Empty
+           && !isMentor
+           && !isPrivilegedRole;
+
+    private static decimal EstimateReserveAmountVnd(string prompt, AIProviderRuntimeConfig config)
+    {
+        if (config.InputCostPer1M <= 0 && config.OutputCostPer1M <= 0)
+        {
+            return 0m;
+        }
+
+        var estimatedInputTokens = Math.Max(EstimateTokenCount(prompt), 128);
+        var reservedOutputTokens = Math.Max(config.MaxTokens, 128);
+        var estimatedUsd = CalculateCostUsd(config, estimatedInputTokens, reservedOutputTokens) * ReserveSafetyMultiplier;
+        return ConvertUsdToVnd(estimatedUsd);
+    }
+
+    private static decimal ConvertUsdToVnd(decimal amountUsd)
+        => Math.Round(amountUsd * DefaultUsdToVndRate, 2, MidpointRounding.AwayFromZero);
+
+    private static int EstimateTokenCount(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return 0;
+        }
+
+        var charEstimate = (int)Math.Ceiling(text.Length / 4.0);
+        var wordCount = text
+            .Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Length;
+        var wordEstimate = (int)Math.Ceiling(wordCount * 1.35);
+        return Math.Max(charEstimate, wordEstimate);
+    }
+
+    private async Task<BillingReservation> TryReservePaidUsageAsync(
+        string prompt,
+        AIProviderRuntimeConfig config,
+        AIAccessTier accessTier,
+        Guid userId,
+        bool isMentor,
+        bool isPrivilegedRole,
+        CancellationToken cancellationToken)
+    {
+        if (!ShouldReservePaidUsage(accessTier, userId, isMentor, isPrivilegedRole))
+        {
+            return BillingReservation.None;
+        }
+
+        var reserveAmountVnd = EstimateReserveAmountVnd(prompt, config);
+        if (reserveAmountVnd <= 0m)
+        {
+            return BillingReservation.None;
+        }
+
+        var reserved = await TryReserveBalanceAsync(userId, reserveAmountVnd, cancellationToken);
+        if (!reserved)
+        {
+            throw new InvalidOperationException("INSUFFICIENT_BALANCE");
+        }
+
+        return new BillingReservation(userId, reserveAmountVnd);
+    }
+
+    private async Task SettlePaidUsageAsync(
+        BillingReservation reservation,
+        decimal actualCostUsd,
+        CancellationToken cancellationToken)
+    {
+        if (!reservation.IsReserved)
+        {
+            return;
+        }
+
+        var actualCostVnd = ConvertUsdToVnd(actualCostUsd);
+        var refund = reservation.ReservedAmountVnd - actualCostVnd;
+
+        if (refund > 0m)
+        {
+            await AddBalanceAsync(reservation.UserId, refund, cancellationToken);
+            return;
+        }
+
+        var additionalCharge = Math.Abs(refund);
+        if (additionalCharge <= 0m)
+        {
+            return;
+        }
+
+        var charged = await TryReserveBalanceAsync(reservation.UserId, additionalCharge, cancellationToken);
+        if (!charged)
+        {
+            _logger.LogWarning(
+                "Additional AI billing charge failed. UserId={UserId}, AdditionalChargeVnd={AdditionalChargeVnd}",
+                reservation.UserId,
+                additionalCharge);
+        }
+    }
+
+    private async Task RefundReservedUsageAsync(BillingReservation reservation, CancellationToken cancellationToken)
+    {
+        if (!reservation.IsReserved)
+        {
+            return;
+        }
+
+        await AddBalanceAsync(reservation.UserId, reservation.ReservedAmountVnd, cancellationToken);
+    }
+
+    private async Task<bool> TryReserveBalanceAsync(Guid userId, decimal amountVnd, CancellationToken cancellationToken)
+    {
+        if (amountVnd <= 0m)
+        {
+            return true;
+        }
+
+        if (_context is DbContext dbContext)
+        {
+            var affected = await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $@"UPDATE [Users]
+                   SET [BalanceVnd] = [BalanceVnd] - {amountVnd}
+                   WHERE [UserId] = {userId} AND [BalanceVnd] >= {amountVnd}",
+                cancellationToken);
+            return affected > 0;
+        }
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+        if (user == null || user.BalanceVnd < amountVnd)
+        {
+            return false;
+        }
+
+        user.BalanceVnd -= amountVnd;
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    private async Task AddBalanceAsync(Guid userId, decimal amountVnd, CancellationToken cancellationToken)
+    {
+        if (amountVnd <= 0m)
+        {
+            return;
+        }
+
+        if (_context is DbContext dbContext)
+        {
+            await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $@"UPDATE [Users]
+                   SET [BalanceVnd] = [BalanceVnd] + {amountVnd}
+                   WHERE [UserId] = {userId}",
+                cancellationToken);
+            return;
+        }
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
+        if (user == null)
+        {
+            return;
+        }
+
+        user.BalanceVnd += amountVnd;
+        await _context.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<int> CountMentorPaidAiUsageThisMonthAsync(Guid userId, CancellationToken cancellationToken)
@@ -999,11 +1227,18 @@ public class GroqServiceWithCache : IAIGeneratorService
         return -1;
     }
 
+    private readonly record struct BillingReservation(Guid UserId, decimal ReservedAmountVnd)
+    {
+        public bool IsReserved => UserId != Guid.Empty && ReservedAmountVnd > 0m;
+        public static BillingReservation None => new(Guid.Empty, 0m);
+    }
+
     private sealed record AccessResolution(
         Guid UserId,
         bool IsMentor,
         bool IsPrivilegedRole,
         AIAccessTier PreferredTier,
-        bool ForceFreeDueToMentorLimit);
+        bool ForceFreeDueToMentorLimit,
+        decimal CurrentBalanceVnd);
 
 }

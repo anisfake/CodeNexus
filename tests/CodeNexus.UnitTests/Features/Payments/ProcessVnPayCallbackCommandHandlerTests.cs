@@ -37,17 +37,15 @@ public class ProcessVnPayCallbackCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithSuccessResponse_ShouldActivateSubscription()
+    public async Task Handle_WithSuccessResponse_ShouldTopUpUserBalance()
     {
-        var planId = Guid.NewGuid();
-        var user = new User { UserId = Guid.NewGuid() };
+        var user = new User { UserId = Guid.NewGuid(), BalanceVnd = 10000m };
         var payment = new PaymentTransaction
         {
             PaymentTransactionId = Guid.NewGuid(),
             UserId = user.UserId,
             User = user,
             Amount = 100000m,
-            SubscriptionPlanId = planId,
             TxnRef = "txn123",
             Status = PaymentStatus.Pending
         };
@@ -55,16 +53,6 @@ public class ProcessVnPayCallbackCommandHandlerTests
         _mockVnPayService.Setup(x => x.ValidateSignature(It.IsAny<IDictionary<string, string>>()))
             .Returns(true);
 
-        _mockContext.Setup(x => x.SubscriptionPlans).Returns(new[]
-        {
-            new SubscriptionPlan
-            {
-                SubscriptionPlanId = planId,
-                Name = "Standard",
-                DurationDays = 30,
-                IsActive = true
-            }
-        }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.PaymentTransactions).Returns(new[] { payment }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Users).Returns(new[] { user }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -82,7 +70,6 @@ public class ProcessVnPayCallbackCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(PaymentStatus.Success, result.Value!.Status);
-        Assert.Equal(planId, user.SubscriptionPlanId);
-        Assert.True(user.PlanExpiresAt > DateTime.UtcNow);
+        Assert.Equal(110000m, user.BalanceVnd);
     }
 }

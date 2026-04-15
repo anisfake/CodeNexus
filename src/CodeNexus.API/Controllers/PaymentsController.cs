@@ -42,7 +42,8 @@ public class PaymentsController : ControllerBase
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "127.0.0.1";
         var command = new CreateVnPayPaymentCommand(
-            request.SubscriptionPlanId,
+            request.TokenPackageId,
+            request.TopUpAmountVnd,
             request.OrderInfo,
             callbackUrl,
             ipAddress,

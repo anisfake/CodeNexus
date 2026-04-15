@@ -24,7 +24,6 @@ public class GetBillingTransactionsQueryHandler
         var query = _context.PaymentTransactions
             .AsNoTracking()
             .Include(x => x.User)
-            .Include(x => x.SubscriptionPlan)
             .AsQueryable();
 
         if (request.FromUtc.HasValue)
@@ -81,7 +80,7 @@ public class GetBillingTransactionsQueryHandler
                 x.User.Username,
                 x.User.Email,
                 x.SubscriptionPlanId,
-                x.SubscriptionPlan != null ? x.SubscriptionPlan.Name : null,
+                null,
                 x.Amount,
                 x.Provider,
                 x.TxnRef,
@@ -103,4 +102,3 @@ public class GetBillingTransactionsQueryHandler
         });
     }
 }
-

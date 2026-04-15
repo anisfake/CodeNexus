@@ -90,32 +90,16 @@ public class ProcessVnPayCallbackCommandHandler
                 payment.ResponseCode ?? string.Empty,
                 payment.Amount,
                 payment.SubscriptionPlanId,
-                payment.User.PlanExpiresAt));
+                payment.User.PlanExpiresAt,
+                payment.User.BalanceVnd,
+                payment.CreditedAmountVnd));
         }
 
         if (responseCode == "00")
         {
             payment.Status = PaymentStatus.Success;
-            if (!payment.SubscriptionPlanId.HasValue)
-            {
-                return Result<VnPayCallbackResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
-            }
-
-            var subscriptionPlan = await _context.SubscriptionPlans
-                .FirstOrDefaultAsync(x => x.SubscriptionPlanId == payment.SubscriptionPlanId.Value && x.IsActive, cancellationToken);
-
-            if (subscriptionPlan == null)
-            {
-                return Result<VnPayCallbackResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
-            }
-
-            var now = DateTime.UtcNow;
-            var effectiveEnd = payment.User.PlanExpiresAt.HasValue && payment.User.PlanExpiresAt.Value > now
-                ? payment.User.PlanExpiresAt.Value.AddDays(subscriptionPlan.DurationDays)
-                : now.AddDays(subscriptionPlan.DurationDays);
-
-            payment.User.SubscriptionPlanId = subscriptionPlan.SubscriptionPlanId;
-            payment.User.PlanExpiresAt = effectiveEnd;
+            var creditedAmount = payment.CreditedAmountVnd > 0m ? payment.CreditedAmountVnd : payment.Amount;
+            payment.User.BalanceVnd += creditedAmount;
         }
         else if (responseCode == "24")
         {
@@ -136,7 +120,9 @@ public class ProcessVnPayCallbackCommandHandler
             payment.ResponseCode ?? string.Empty,
             payment.Amount,
             payment.SubscriptionPlanId,
-            payment.User.PlanExpiresAt));
+            payment.User.PlanExpiresAt,
+            payment.User.BalanceVnd,
+            payment.CreditedAmountVnd));
     }
 
     private static bool TryParsePayDate(IDictionary<string, string> parameters, out DateTime? paidAt)
