@@ -136,7 +136,7 @@ public class GetLearningPathShareUpdateContextQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_OnlyLessonContentDifferent_DoesNotMarkLessonUpdated()
+    public async Task Handle_OnlyLessonContentDifferent_MarksLessonUpdated()
     {
         var mentorId = NewId.NextGuid();
         var studentId = NewId.NextGuid();
@@ -219,8 +219,8 @@ public class GetLearningPathShareUpdateContextQueryHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.ChangeSummary.Should().NotBeNull();
-        result.Value.ChangeSummary!.UpdatedLessonCount.Should().Be(0);
-        result.Value.ChangeSummary.UpdatedLessons.Should().BeEmpty();
+        result.Value.ChangeSummary!.UpdatedLessonCount.Should().Be(1);
+        result.Value.ChangeSummary.UpdatedLessons.Should().ContainSingle();
     }
 
     [Fact]
