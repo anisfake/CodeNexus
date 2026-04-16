@@ -68,11 +68,17 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("EndPage")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("GeneratedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<Guid>("ResourceId")
                         .HasColumnType("uniqueidentifier");
@@ -104,9 +110,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<decimal>("CostUsd")
+                    b.Property<decimal>("ChargedTokens")
                         .HasPrecision(18, 8)
                         .HasColumnType("decimal(18,8)");
+
+                    b.Property<Guid?>("ConfigId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -135,6 +144,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("UsageLogId");
+
+                    b.HasIndex("ConfigId", "CreatedAt");
 
                     b.HasIndex("UsageType", "CreatedAt");
 
@@ -313,6 +324,38 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("CodeNexus.Domain.Entities.ConversationSummary", b =>
+                {
+                    b.Property<Guid>("SummaryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("EndMessageCreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("MessageCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("StartMessageCreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SummaryContent")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("SummaryId");
+
+                    b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.ToTable("ConversationSummaries");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DailyCheckins", b =>
@@ -501,6 +544,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsVerified")
                         .HasColumnType("bit");
 
+                    b.Property<DateTime>("LastActivityAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("PausedAt")
                         .HasColumnType("datetime2");
 
@@ -534,12 +580,17 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<int>("TotalPausedMinutes")
                         .HasColumnType("int");
 
+                    b.Property<int>("TotalPausedSeconds")
+                        .HasColumnType("int");
+
                     b.Property<int?>("VerificationScore")
                         .HasColumnType("int");
 
                     b.HasKey("SessionId");
 
                     b.HasIndex("TaskId");
+
+                    b.HasIndex("SessionStatus", "LastActivityAt");
 
                     b.ToTable("FocusSessions");
                 });
@@ -596,9 +647,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Duration")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -696,6 +744,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("VersionNumber")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)")
+                        .HasDefaultValue(1.0m);
+
                     b.HasKey("PathId");
 
                     b.HasIndex("SubjectId");
@@ -730,6 +784,26 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AcceptedPathId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal?>("IgnoredSourceVersion")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)");
+
+                    b.Property<string>("InvalidatedReason")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsTrackingEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<decimal?>("LastNotifiedSourceVersion")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)");
+
                     b.Property<Guid>("MentorId")
                         .HasColumnType("uniqueidentifier");
 
@@ -742,6 +816,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("SentAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal?>("SourceVersionAtAccept")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -751,6 +829,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasKey("ShareId");
 
+                    b.HasIndex("AcceptedPathId");
+
                     b.HasIndex("MentorId");
 
                     b.HasIndex("PathId", "MentorId", "StudentId")
@@ -758,6 +838,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasFilter("[Status] = 'Pending'");
 
                     b.HasIndex("StudentId", "Status", "SentAt");
+
+                    b.HasIndex("PathId", "StudentId", "Status", "IsTrackingEnabled");
 
                     b.ToTable("LearningPathShares");
                 });
@@ -804,28 +886,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("Lessons");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.MentorAiAccessPolicy", b =>
-                {
-                    b.Property<Guid>("MentorAiAccessPolicyId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("MentorDowngradeNotifyCooldownHours")
-                        .HasColumnType("int");
-
-                    b.Property<int>("MentorPaidRequestsMonthlyLimit")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("MentorAiAccessPolicyId");
-
-                    b.HasIndex("UpdatedAt");
-
-                    b.ToTable("MentorAiAccessPolicies");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.Message", b =>
                 {
                     b.Property<Guid>("MessageId")
@@ -870,9 +930,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid?>("FocusSessionSessionId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -887,24 +944,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasKey("NoteId");
 
-                    b.HasIndex("FocusSessionSessionId");
+                    b.HasIndex("SessionId");
 
                     b.ToTable("Notes");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.NoteTags", b =>
-                {
-                    b.Property<Guid>("NoteId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("TagId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("NoteId", "TagId");
-
-                    b.HasIndex("TagId");
-
-                    b.ToTable("NoteTags");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Notification", b =>
@@ -934,6 +976,16 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Message")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NotifiedMentorUserName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NotifiedPathTitle")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("NotifiedSourceVersion")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("decimal(4,1)");
 
                     b.Property<DateTime?>("ReadAt")
                         .HasColumnType("datetime2");
@@ -990,6 +1042,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<decimal>("CreditedTokens")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<string>("OrderInfo")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1008,7 +1064,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("SubscriptionPlanId")
+                    b.Property<Guid?>("TokenPackageId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TransactionNo")
@@ -1026,7 +1082,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasKey("PaymentTransactionId");
 
-                    b.HasIndex("SubscriptionPlanId");
+                    b.HasIndex("TokenPackageId");
 
                     b.HasIndex("TxnRef")
                         .IsUnique();
@@ -1044,6 +1100,12 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CorrectAnswer")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Options")
                         .HasColumnType("nvarchar(max)");
@@ -1064,6 +1126,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Type")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("QuestionId");
 
@@ -1335,95 +1400,41 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("SubjectGoals");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.SubscriptionPlan", b =>
+            modelBuilder.Entity("CodeNexus.Domain.Entities.SystemRuntimePolicy", b =>
                 {
-                    b.Property<Guid>("SubscriptionPlanId")
+                    b.Property<Guid>("SystemRuntimePolicyId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ConfigJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("DurationDays")
-                        .HasColumnType("int");
-
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("PlanType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<decimal>("PriceVnd")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("SubscriptionPlanId");
-
-                    b.HasIndex("DisplayOrder");
-
-                    b.HasIndex("PlanType")
-                        .IsUnique();
-
-                    b.ToTable("SubscriptionPlans");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.SubscriptionPlanLimit", b =>
-                {
-                    b.Property<Guid>("SubscriptionPlanLimitId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
-                    b.Property<string>("FeatureKey")
+                    b.Property<string>("PolicyKey")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IsEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int?>("LimitCount")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("SubscriptionPlanId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("WindowType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("SubscriptionPlanLimitId");
-
-                    b.HasIndex("SubscriptionPlanId", "FeatureKey")
-                        .IsUnique();
-
-                    b.ToTable("SubscriptionPlanLimits");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.Tag", b =>
-                {
-                    b.Property<Guid>("TagId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.HasKey("SystemRuntimePolicyId");
 
-                    b.HasKey("TagId");
+                    b.HasIndex("PolicyKey")
+                        .IsUnique();
 
-                    b.ToTable("Tags");
+                    b.HasIndex("UpdatedAt");
+
+                    b.ToTable("SystemRuntimePolicies");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Tasks", b =>
@@ -1441,11 +1452,17 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("DueDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<int>("MinimumScore")
                         .HasColumnType("int");
@@ -1469,6 +1486,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("VerificationPrompt")
                         .HasColumnType("nvarchar(max)");
@@ -1506,6 +1526,48 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.ToTable("TokenBlacklist");
                 });
 
+            modelBuilder.Entity("CodeNexus.Domain.Entities.TokenPackage", b =>
+                {
+                    b.Property<Guid>("TokenPackageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("CreditedTokens")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<decimal>("PriceVnd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TokenPackageId");
+
+                    b.HasIndex("DisplayOrder");
+
+                    b.ToTable("TokenPackages");
+                });
+
             modelBuilder.Entity("CodeNexus.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("UserId")
@@ -1532,17 +1594,15 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime?>("PlanExpiresAt")
-                        .HasColumnType("datetime2");
-
                     b.Property<Guid?>("RoleId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Status")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid?>("SubscriptionPlanId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<decimal>("TokenBalance")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
 
                     b.Property<string>("Username")
                         .IsRequired()
@@ -1554,8 +1614,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.HasIndex("RoleId");
-
-                    b.HasIndex("SubscriptionPlanId");
 
                     b.HasIndex("Username")
                         .IsUnique();
@@ -1650,6 +1708,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("Bio")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<TimeSpan?>("DailyReminderTime")
+                        .HasColumnType("time");
+
                     b.Property<DateTime?>("DateOfBirth")
                         .HasColumnType("datetime2");
 
@@ -1679,6 +1740,16 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Resource");
+                });
+
+            modelBuilder.Entity("CodeNexus.Domain.Entities.AIUsageLog", b =>
+                {
+                    b.HasOne("CodeNexus.Domain.Entities.AIProviderConfig", "Config")
+                        .WithMany("AIUsageLogs")
+                        .HasForeignKey("ConfigId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Config");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.AuditLog", b =>
@@ -1718,6 +1789,17 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Provider");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("CodeNexus.Domain.Entities.ConversationSummary", b =>
+                {
+                    b.HasOne("CodeNexus.Domain.Entities.Conversation", "Conversation")
+                        .WithMany("Summaries")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DailyCheckins", b =>
@@ -1910,6 +1992,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPathShare", b =>
                 {
+                    b.HasOne("CodeNexus.Domain.Entities.LearningPath", "AcceptedPath")
+                        .WithMany()
+                        .HasForeignKey("AcceptedPathId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("CodeNexus.Domain.Entities.User", "Mentor")
                         .WithMany()
                         .HasForeignKey("MentorId")
@@ -1927,6 +2014,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasForeignKey("StudentId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
+
+                    b.Navigation("AcceptedPath");
 
                     b.Navigation("LearningPath");
 
@@ -1961,28 +2050,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("CodeNexus.Domain.Entities.FocusSession", "FocusSession")
                         .WithMany("Notes")
-                        .HasForeignKey("FocusSessionSessionId");
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("FocusSession");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.NoteTags", b =>
-                {
-                    b.HasOne("CodeNexus.Domain.Entities.Note", "Note")
-                        .WithMany("NoteTags")
-                        .HasForeignKey("NoteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CodeNexus.Domain.Entities.Tag", "Tag")
-                        .WithMany("NoteTags")
-                        .HasForeignKey("TagId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Note");
-
-                    b.Navigation("Tag");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Notification", b =>
@@ -1998,9 +2069,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.PaymentTransaction", b =>
                 {
-                    b.HasOne("CodeNexus.Domain.Entities.SubscriptionPlan", "SubscriptionPlan")
+                    b.HasOne("CodeNexus.Domain.Entities.TokenPackage", "TokenPackage")
                         .WithMany()
-                        .HasForeignKey("SubscriptionPlanId")
+                        .HasForeignKey("TokenPackageId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("CodeNexus.Domain.Entities.User", "User")
@@ -2009,7 +2080,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("SubscriptionPlan");
+                    b.Navigation("TokenPackage");
 
                     b.Navigation("User");
                 });
@@ -2124,17 +2195,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Subject");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.SubscriptionPlanLimit", b =>
-                {
-                    b.HasOne("CodeNexus.Domain.Entities.SubscriptionPlan", "SubscriptionPlan")
-                        .WithMany("Limits")
-                        .HasForeignKey("SubscriptionPlanId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SubscriptionPlan");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.Tasks", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.Chapter", "Chapter")
@@ -2160,14 +2220,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .WithMany("Users")
                         .HasForeignKey("RoleId");
 
-                    b.HasOne("CodeNexus.Domain.Entities.SubscriptionPlan", "SubscriptionPlan")
-                        .WithMany()
-                        .HasForeignKey("SubscriptionPlanId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.Navigation("Role");
-
-                    b.Navigation("SubscriptionPlan");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.UserAchievement", b =>
@@ -2229,6 +2282,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.AIProviderConfig", b =>
                 {
+                    b.Navigation("AIUsageLogs");
+
                     b.Navigation("Conversations");
                 });
 
@@ -2247,6 +2302,8 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.Conversation", b =>
                 {
                     b.Navigation("Messages");
+
+                    b.Navigation("Summaries");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.DirectConversation", b =>
@@ -2297,11 +2354,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Quizzes");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.Note", b =>
-                {
-                    b.Navigation("NoteTags");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.Quiz", b =>
                 {
                     b.Navigation("Questions");
@@ -2328,16 +2380,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("Resources");
 
                     b.Navigation("SubjectGoals");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.SubscriptionPlan", b =>
-                {
-                    b.Navigation("Limits");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.Tag", b =>
-                {
-                    b.Navigation("NoteTags");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Tasks", b =>

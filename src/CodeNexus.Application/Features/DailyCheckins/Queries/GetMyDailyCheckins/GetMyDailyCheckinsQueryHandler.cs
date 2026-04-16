@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DailyCheckin.DTOs;
 using MediatR;
@@ -48,20 +49,21 @@ public class GetMyDailyCheckinsQueryHandler : IRequestHandler<GetMyDailyCheckins
             var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
             var pageSize = request.PageSize <= 0 ? 20 : request.PageSize;
 
-            var checkins = await query
+            var raws = await query
                 .OrderByDescending(dc => dc.CheckinDate)
                 .ThenByDescending(dc => dc.CreatedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .Select(dc => new DailyCheckinDto(
-                    dc.CheckinId,
-                    dc.UserId,
-                    dc.CheckinDate,
-                    dc.Mood,
-                    dc.Productivity,
-                    dc.CreatedAt
-                ))
                 .ToListAsync(cancellationToken);
+
+            var checkins = raws.Select(dc => new DailyCheckinDto(
+                dc.CheckinId,
+                dc.UserId,
+                dc.CheckinDate,
+                dc.Mood,
+                DailyCheckinEvaluationHelper.MapProductivityKey(dc.Productivity),
+                dc.CreatedAt
+            )).ToList();
 
             return Result<List<DailyCheckinDto>>.Success(checkins);
         }

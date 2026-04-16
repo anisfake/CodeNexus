@@ -20,6 +20,8 @@ public static class DependencyInjection
     {
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("MyCnn")));
+        services.AddDbContextFactory<AppDbContext>(options =>
+            options.UseSqlServer(configuration.GetConnectionString("MyCnn")), ServiceLifetime.Scoped);
 
         services.AddScoped<IApplicationDbContext>(provider =>
             provider.GetRequiredService<AppDbContext>());
@@ -35,6 +37,7 @@ public static class DependencyInjection
         services.Configure<VnPaySettings>(configuration.GetSection(VnPaySettings.SectionName));
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<IDateTimeProvider, DateTimeProvider>();
 
         var jwtSettings = configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>();
         services.AddAuthentication(options =>
@@ -118,6 +121,7 @@ public static class DependencyInjection
 
 
         services.AddScoped<IAIConfigCacheService, AIConfigCacheService>();
+        services.AddScoped<IAIProviderHealthService, AIProviderHealthService>();
         services.AddScoped<IOTPCacheService, OTPCacheService>();
         services.AddScoped<IAIProviderAdapter, GroqProviderAdapter>();
         services.AddScoped<IAIProviderAdapter, GeminiProviderAdapter>();
@@ -135,6 +139,7 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionAccessService, SubscriptionAccessService>();
         services.AddScoped<IPlanUsageLimitService, PlanUsageLimitService>();
         services.AddScoped<IAIAccessPolicyService, AIAccessPolicyService>();
+        services.AddScoped<ISystemRuntimePolicyService, SystemRuntimePolicyService>();
 
         services.AddMemoryCache();
 

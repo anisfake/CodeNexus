@@ -6,7 +6,18 @@ public record QuizDto(
     Guid QuizzId,
     string Title,
     string Description,
+    List<QuestionDto>? Questions = null,
     string Status = "Not Attempted"
+);
+
+public record QuestionDto(
+    Guid QuestionId,
+    string QuestionText,
+    QuestionType Type,
+    List<string> Options,
+    string CorrectAnswer,
+    decimal Points,
+    int OrderIndex
 );
 public record LessonDto(
     Guid LessonId,
@@ -70,9 +81,40 @@ public record AdoptSuggestedLearningPathRequest(
     LanguageSelection LanguageSelection
 );
 
+public record GenerateChapterMentorSkeletonRequest(
+    string ChapterTitle,
+    string? ChapterDescription = null
+);
+
 public record ManualLessonRequest(
     string Title,
-    DateTime LessonDay
+    DateTime LessonDay,
+    List<ManualQuizRequest>? Quizzes = null,
+    string? Content = null
+);
+
+public record ManualQuizRequest(
+    string Title,
+    string? Description = null,
+    DateTime? DueDate = null,
+    List<ManualQuestionRequest>? Questions = null
+);
+
+public record ManualQuestionRequest(
+    string QuestionText,
+    QuestionType Type,
+    List<string>? Options = null,
+    string? CorrectAnswer = null,
+    decimal Points = 1
+);
+
+public record ManualTaskRequest(
+    string Title,
+    string? Description = null,
+    TaskType TaskType = TaskType.Practice,
+    TaskPriority? Priority = null,
+    DateTime? DueDate = null,
+    string? QuizQuestionsJson = null
 );
 
 public record ManualChapterRequest(
@@ -80,7 +122,8 @@ public record ManualChapterRequest(
     DateTime? StartDate,
     DateTime? EndDate,
     int? EstimatedDays,
-    List<ManualLessonRequest> Lessons
+    List<ManualLessonRequest> Lessons,
+    List<ManualTaskRequest>? Tasks = null
 );
 
 public record CreateMentorLearningPathDraftRequest(
@@ -95,7 +138,15 @@ public record CreateMentorLearningPathDraftRequest(
     List<ManualChapterRequest> Chapters
 );
 
+public enum DraftVersionUpdateType
+{
+    Minor = 0,
+    Major = 1
+}
+
 public record UpdateMentorLearningPathDraftRequest(
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType,
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
@@ -121,8 +172,14 @@ public record CreateLearningPathResponse(
     ComplexityLevel? ComplexityLevel = null,
     LanguageSelection? LanguageSelection = null,
     Guid? SubjectId = null,
-    string? SubjectName = null
-);
+    string? SubjectName = null,
+    decimal? Version = null,
+    decimal? PreviousVersion = null,
+    bool? HasMeaningfulChange = null
+)
+{
+    public List<ChapterDto> Chapters => ChapterDtos;
+}
 
 public record LearningPathSuggestionDto(
     Guid PathId,
@@ -149,9 +206,63 @@ public record LearningPathResponse(
     List<ChapterDto> ChapterDtos,
     int? ChapterCount,
     DateTime CreatedAt,
-    ComplexityLevel? ComplexityLevel = null,
-    LanguageSelection? LanguageSelection = null
-);
+    ComplexityLevel? ComplexityLevel,
+    LanguageSelection? LanguageSelection,
+    Guid? SharedByUserId,
+    string? SharedByUserName,
+    Guid? SourceLearningPathId,
+    decimal? SourceVersion,
+    decimal? SourceLatestVersion,
+    bool HasSourceUpdate
+)
+{
+    public List<ChapterDto> Chapters => ChapterDtos;
+
+    public LearningPathResponse(
+        Guid PathId,
+        Guid SubjectId,
+        string SubjectName,
+        List<LearningPathGoalDto> Goals,
+        DateTime? StartDate,
+        DateTime? EndDate,
+        string Title,
+        string Description,
+        string Status,
+        bool CreatedByType,
+        Guid UserId,
+        string UserName,
+        List<ChapterDto> ChapterDtos,
+        int? ChapterCount,
+        DateTime CreatedAt,
+        ComplexityLevel? ComplexityLevel,
+        LanguageSelection? LanguageSelection)
+        : this(
+            PathId,
+            SubjectId,
+            SubjectName,
+            Goals,
+            StartDate,
+            EndDate,
+            Title,
+            Description,
+            Status,
+            CreatedByType,
+            UserId,
+            UserName,
+            ChapterDtos,
+            ChapterCount,
+            CreatedAt,
+            ComplexityLevel,
+            LanguageSelection,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false)
+    {
+    }
+}
 public record GetAllLearningPathRequest(
     int PageNumber = 1,
     int PageSize = 10,

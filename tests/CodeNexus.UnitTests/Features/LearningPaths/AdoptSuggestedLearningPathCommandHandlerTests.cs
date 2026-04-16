@@ -39,7 +39,7 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenLearningPathLimitExceeded_ShouldReturnFailure()
+    public async Task Handle_WhenSubjectMissing_ShouldReturnFailure()
     {
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
@@ -53,13 +53,12 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
             LanguageSelection.English);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("LEARNING_PATH_LIMIT_EXCEEDED", "Limit reached"));
+        _mockContext.Setup(x => x.Subjects).Returns(new List<Subject>().BuildMockDbSet().Object);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal("LEARNING_PATH_LIMIT_EXCEEDED", result.ErrorCode);
+        Assert.Equal("SUBJECT_NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -110,7 +109,6 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
                 Title = "Build API",
                 IsSystemDefined = false,
                 CreatedByUserId = userId,
-                IsActive = true,
                 Duration = GoalDuration.OneMonth
             }
         }.BuildMockDbSet().Object);
@@ -158,7 +156,6 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
                 Title = "Build API",
                 IsSystemDefined = false,
                 CreatedByUserId = userId,
-                IsActive = true,
                 Duration = GoalDuration.OneMonth
             }
         }.BuildMockDbSet().Object);
@@ -215,7 +212,6 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
                 Title = "Build End-to-End ML Pipeline",
                 IsSystemDefined = false,
                 CreatedByUserId = userId,
-                IsActive = true,
                 Duration = GoalDuration.OneMonth
             }
         }.BuildMockDbSet().Object);

@@ -2,7 +2,6 @@ using MediatR;
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.AIConfigs.DTOs;
 using CodeNexus.Domain.Entities;
-using Microsoft.Extensions.Caching.Memory;
 using CodeNexus.Application.Common.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -14,17 +13,13 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
     {
         private readonly IApplicationDbContext _context;
         private readonly IEncryptionService _encryptionService;
-        private readonly IMemoryCache _cache;
-        private const string CACHE_KEY_ALL = "ai_configs_all";
 
         public CreateAIConfigCommandHandler(
             IApplicationDbContext context,
-            IEncryptionService encryptionService,
-            IMemoryCache cache)
+            IEncryptionService encryptionService)
         {
             _context = context;
             _encryptionService = encryptionService;
-            _cache = cache;
         }
 
         public async Task<Result<CreateAIConfigResponse>> Handle(CreateAIConfigCommand request, CancellationToken cancellationToken)
@@ -72,12 +67,15 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.CreateAIConfig
                         item.IsActive = false;
                         item.LastUpdated = DateTime.UtcNow;
                     }
+
+                    if (sameGroupActive.Count > 0)
+                    {
+                        await _context.SaveChangesAsync(cancellationToken);
+                    }
                 }
 
                 _context.AIProviderConfigs.Add(config);
                 await _context.SaveChangesAsync(cancellationToken);
-
-                _cache.Remove(CACHE_KEY_ALL);
 
                 return Result<CreateAIConfigResponse>.Success(new CreateAIConfigResponse(
                     "Config added successfully",

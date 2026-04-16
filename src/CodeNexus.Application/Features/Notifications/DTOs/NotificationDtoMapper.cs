@@ -32,7 +32,10 @@ public static class NotificationDtoMapper
                 notification.TaskId,
                 notification.ChapterId,
                 notification.LessonId,
-                notification.LearningPathId)
+                notification.LearningPathId),
+            notification.NotifiedPathTitle,
+            notification.NotifiedSourceVersion,
+            notification.NotifiedMentorUserName
         );
     }
 }

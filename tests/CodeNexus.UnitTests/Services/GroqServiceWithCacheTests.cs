@@ -2,8 +2,10 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.Infrastructure.Services;
+using CodeNexus.Infrastructure.Persistence;
 using CodeNexus.UnitTests.Helpers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
 using System.Net;
@@ -24,6 +26,8 @@ public class GroqServiceWithCacheTests
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
     private readonly Mock<IAIAccessPolicyService> _mockAiAccessPolicyService;
+    private readonly Mock<ILogger<GroqServiceWithCache>> _mockLogger;
+    private readonly Mock<IDbContextFactory<AppDbContext>> _mockDbContextFactory;
 
     public GroqServiceWithCacheTests()
     {
@@ -34,6 +38,8 @@ public class GroqServiceWithCacheTests
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
         _mockAiAccessPolicyService = new Mock<IAIAccessPolicyService>();
+        _mockLogger = new Mock<ILogger<GroqServiceWithCache>>();
+        _mockDbContextFactory = new Mock<IDbContextFactory<AppDbContext>>();
         _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
         _mockAiAccessPolicyService.Setup(x => x.GetMentorPaidRequestsMonthlyLimitAsync(It.IsAny<CancellationToken>()))
@@ -49,7 +55,9 @@ public class GroqServiceWithCacheTests
             _mockEncryptionService.Object,
             _mockCurrentUserService.Object,
             _mockSubscriptionAccessService.Object,
-            _mockAiAccessPolicyService.Object);
+            _mockAiAccessPolicyService.Object,
+            _mockLogger.Object,
+            _mockDbContextFactory.Object);
 
         SetupAIProviderConfigsDbSet();
         SetupUsersDbSet();
@@ -262,7 +270,9 @@ public class GroqServiceWithCacheTests
             _mockEncryptionService.Object,
             _mockCurrentUserService.Object,
             _mockSubscriptionAccessService.Object,
-            _mockAiAccessPolicyService.Object);
+            _mockAiAccessPolicyService.Object,
+            _mockLogger.Object,
+            _mockDbContextFactory.Object);
 
         SetupHttpResponse(CreateGroqResponse("{\"title\":\"Mentor Fallback\",\"chapters\":[]}"));
         SetupCacheService();
@@ -329,8 +339,7 @@ public class GroqServiceWithCacheTests
             {
                 new()
                 {
-                    UserId = userId,
-                    PlanExpiresAt = null
+                    UserId = userId
                 }
             }.BuildMockDbSet().Object);
     }

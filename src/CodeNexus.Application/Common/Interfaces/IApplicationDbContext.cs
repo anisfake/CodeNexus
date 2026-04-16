@@ -25,12 +25,11 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<FocusSession> FocusSessions { get; }
         public DbSet<DailyCheckins> DailyCheckins { get; }
         public DbSet<Note> Notes { get; }
-        public DbSet<Tag> Tags { get; }
-        public DbSet<NoteTags> NoteTags { get; }
         public DbSet<Resource> Resources { get; }
         public DbSet<ResourcePage> ResourcePages { get; }
         public DbSet<AISummary> AISummaries { get; }
         public DbSet<Conversation> Conversations { get; }
+        public DbSet<ConversationSummary> ConversationSummaries { get; }
         public DbSet<Message> Messages { get; }
         public DbSet<DirectConversation> DirectConversations { get; }
         public DbSet<DirectMessage> DirectMessages { get; }
@@ -44,11 +43,10 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<TokenBlacklist> TokenBlacklist { get; }
         public DbSet<Achievement> Achievements { get; }
         public DbSet<UserAchievement> UserAchievements { get; }
+        public DbSet<TokenPackage> TokenPackages { get; }
         public DbSet<PaymentTransaction> PaymentTransactions { get; }
-        public DbSet<SubscriptionPlan> SubscriptionPlans { get; }
-        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
-        public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies { get; }
+        public DbSet<SystemRuntimePolicy> SystemRuntimePolicies { get; }
         void SetAuditUserId(Guid userId);
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

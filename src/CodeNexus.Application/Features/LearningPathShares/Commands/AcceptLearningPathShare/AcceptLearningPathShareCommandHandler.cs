@@ -1,8 +1,8 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPathShares.DTOs;
+using CodeNexus.Application.Features.LearningPathShares.Services;
 using CodeNexus.Domain.Enums;
-using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,11 +12,19 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly ILearningPathSharePathSyncService _pathSyncService;
 
-    public AcceptLearningPathShareCommandHandler(IApplicationDbContext context, ICurrentUserService currentUserService)
+    public AcceptLearningPathShareCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUserService currentUserService,
+        IDateTimeProvider dateTimeProvider,
+        ILearningPathSharePathSyncService pathSyncService)
     {
         _context = context;
         _currentUserService = currentUserService;
+        _dateTimeProvider = dateTimeProvider;
+        _pathSyncService = pathSyncService;
     }
 
     public async Task<Result<LearningPathShareDto>> Handle(AcceptLearningPathShareCommand request, CancellationToken cancellationToken)
@@ -66,7 +74,7 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks)
+                .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
             .FirstOrDefaultAsync(lp => lp.PathId == share.PathId, cancellationToken);
 
         if (sourcePath == null)
@@ -74,115 +82,21 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             return Result<LearningPathShareDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
-        var acceptedAt = DateTime.UtcNow.AddHours(7);
-        var timelineAnchor = ResolveTimelineAnchor(sourcePath) ?? acceptedAt;
-        var timelineShift = acceptedAt - timelineAnchor;
-
-        DateTime? ShiftNullable(DateTime? value)
-            => value.HasValue ? value.Value.Add(timelineShift) : null;
-
-        DateTime Shift(DateTime value)
-            => value.Add(timelineShift);
-
-        var studentPathId = NewId.NextGuid();
-        var studentPath = new Domain.Entities.LearningPath
-        {
-            PathId = studentPathId,
-            UserId = studentId,
-            SubjectId = sourcePath.SubjectId,
-            Title = sourcePath.Title,
-            Description = sourcePath.Description,
-            StartDate = acceptedAt,
-            EndDate = ShiftNullable(sourcePath.EndDate),
-            Status = LearningPathStatus.Active.ToString(),
-            CreatedAt = acceptedAt,
-            CreatedByType = sourcePath.CreatedByType,
-            Language = sourcePath.Language,
-            ComplexityLevel = sourcePath.ComplexityLevel
-        };
-
-        await _context.LearningPaths.AddAsync(studentPath, cancellationToken);
-
-        foreach (var goal in sourcePath.LearningPathGoals)
-        {
-            await _context.LearningPathGoals.AddAsync(new Domain.Entities.LearningPathGoal
-            {
-                PathId = studentPathId,
-                GoalId = goal.GoalId,
-                Weight = goal.Weight
-            }, cancellationToken);
-        }
-
-        foreach (var sourceChapter in sourcePath.Chapters.OrderBy(c => c.OrderIndex))
-        {
-            var newChapterId = NewId.NextGuid();
-            await _context.Chapters.AddAsync(new Domain.Entities.Chapter
-            {
-                ChapterId = newChapterId,
-                PathId = studentPathId,
-                Title = sourceChapter.Title,
-                Content = sourceChapter.Content,
-                OrderIndex = sourceChapter.OrderIndex,
-                IsCompleted = false,
-                StartDate = ShiftNullable(sourceChapter.StartDate),
-                EndDate = ShiftNullable(sourceChapter.EndDate),
-                EstimatedDays = sourceChapter.EstimatedDays,
-                CreatedAt = acceptedAt
-            }, cancellationToken);
-
-            foreach (var sourceLesson in sourceChapter.Lessons.OrderBy(l => l.OrderIndex))
-            {
-                var newLessonId = NewId.NextGuid();
-                await _context.Lessons.AddAsync(new Domain.Entities.Lesson
-                {
-                    LessonId = newLessonId,
-                    ChapterId = newChapterId,
-                    Title = sourceLesson.Title,
-                    Content = sourceLesson.Content,
-                    OrderIndex = sourceLesson.OrderIndex,
-                    LessonDay = Shift(sourceLesson.LessonDay),
-                    CreatedAt = acceptedAt
-                }, cancellationToken);
-
-                foreach (var sourceQuiz in sourceLesson.Quizzes)
-                {
-                    await _context.Quizzes.AddAsync(new Domain.Entities.Quiz
-                    {
-                        QuizId = NewId.NextGuid(),
-                        LessonId = newLessonId,
-                        Title = sourceQuiz.Title,
-                        Description = sourceQuiz.Description,
-                        TimeLimit = sourceQuiz.TimeLimit,
-                        PassingScore = sourceQuiz.PassingScore,
-                        DueDate = ShiftNullable(sourceQuiz.DueDate),
-                        CreatedAt = acceptedAt
-                    }, cancellationToken);
-                }
-            }
-
-            foreach (var sourceTask in sourceChapter.Tasks)
-            {
-                await _context.Tasks.AddAsync(new Domain.Entities.Tasks
-                {
-                    TaskId = NewId.NextGuid(),
-                    ChapterId = newChapterId,
-                    PathId = studentPathId,
-                    Title = sourceTask.Title,
-                    Description = sourceTask.Description,
-                    DueDate = ShiftNullable(sourceTask.DueDate),
-                    Priority = sourceTask.Priority,
-                    Status = sourceTask.Status,
-                    CreatedAt = acceptedAt,
-                    TaskType = sourceTask.TaskType,
-                    VerificationPrompt = sourceTask.VerificationPrompt,
-                    MinimumScore = sourceTask.MinimumScore,
-                    QuizQuestionsJson = sourceTask.QuizQuestionsJson
-                }, cancellationToken);
-            }
-        }
+        var acceptedAt = _dateTimeProvider.UtcNow.AddHours(7);
+        var studentPathId = await _pathSyncService.ClonePathForStudentAsync(
+            sourcePath,
+            studentId,
+            acceptedAt,
+            cancellationToken);
 
         share.Status = LearningPathShareStatus.Accepted;
         share.RespondedAt = acceptedAt;
+        share.AcceptedPathId = studentPathId;
+        share.SourceVersionAtAccept = sourcePath.VersionNumber;
+        share.IgnoredSourceVersion = null;
+        share.LastNotifiedSourceVersion = null;
+        share.IsTrackingEnabled = true;
+        share.InvalidatedReason = null;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -193,55 +107,13 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
             share.StudentId,
             share.Status,
             share.SentAt,
-            share.RespondedAt
+            share.RespondedAt,
+            share.AcceptedPathId,
+            share.SourceVersionAtAccept,
+            share.IgnoredSourceVersion,
+            share.LastNotifiedSourceVersion,
+            share.IsTrackingEnabled,
+            share.InvalidatedReason
         ));
-    }
-
-    private static DateTime? ResolveTimelineAnchor(Domain.Entities.LearningPath sourcePath)
-    {
-        if (sourcePath.StartDate.HasValue)
-        {
-            return sourcePath.StartDate.Value;
-        }
-
-        DateTime? earliest = sourcePath.EndDate;
-
-        foreach (var chapter in sourcePath.Chapters)
-        {
-            earliest = MinDate(earliest, chapter.StartDate);
-            earliest = MinDate(earliest, chapter.EndDate);
-
-            foreach (var lesson in chapter.Lessons)
-            {
-                earliest = MinDate(earliest, lesson.LessonDay);
-
-                foreach (var quiz in lesson.Quizzes)
-                {
-                    earliest = MinDate(earliest, quiz.DueDate);
-                }
-            }
-
-            foreach (var task in chapter.Tasks)
-            {
-                earliest = MinDate(earliest, task.DueDate);
-            }
-        }
-
-        return earliest;
-    }
-
-    private static DateTime? MinDate(DateTime? current, DateTime? candidate)
-    {
-        if (!candidate.HasValue)
-        {
-            return current;
-        }
-
-        if (!current.HasValue || candidate.Value < current.Value)
-        {
-            return candidate.Value;
-        }
-
-        return current;
     }
 }

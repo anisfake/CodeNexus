@@ -20,7 +20,9 @@ public record UserProfileRespone(
     string? AvatarUrl,
     DateTime? DateOfBirth,
     string? Phone,
-    string? Address
+    string? Address,
+    TimeSpan? DailyReminderTime,
+    decimal TokenBalance
 );
 
 public record UpdateProfileRequest(
@@ -29,7 +31,8 @@ public record UpdateProfileRequest(
     string? Bio,
     DateTime? DateOfBirth,
     string? Phone,
-    string? Address
+    string? Address,
+    TimeSpan? DailyReminderTime
 );
 
 public record UserRespone(

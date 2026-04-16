@@ -25,6 +25,8 @@ builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.IAuditLogNoti
 builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.INotificationRealtimeNotifier, CodeNexus.API.Services.NotificationRealtimeNotifier>();
 builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.ILearningPathShareRealtimeNotifier, CodeNexus.API.Services.LearningPathShareRealtimeNotifier>();
 builder.Services.AddHostedService<CodeNexus.API.Services.OverdueNotificationBackgroundService>();
+builder.Services.AddHostedService<CodeNexus.API.Services.PendingPaymentTimeoutBackgroundService>();
+builder.Services.AddHostedService<CodeNexus.API.Services.FocusSessionTimeoutBackgroundService>();
 
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() ?? [];
 

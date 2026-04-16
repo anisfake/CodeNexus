@@ -35,6 +35,7 @@ public class PauseSessionCommandHandler : IRequestHandler<PauseSessionCommand, R
         var now = DateTime.UtcNow;
         session.SessionStatus = SessionStatus.Paused;
         session.PausedAt = now;
+        session.LastActivityAt = now;
 
         await _context.SaveChangesAsync(cancellationToken);
         var elapsedSeconds = CalculateElapsedSeconds(session, now);
@@ -58,17 +59,20 @@ public class PauseSessionCommandHandler : IRequestHandler<PauseSessionCommand, R
 
     private static int CalculateElapsedSeconds(FocusSession session, DateTime now)
     {
-        var pausedSeconds = session.TotalPausedMinutes * 60;
+        var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)(now - session.PausedAt.Value).TotalSeconds;
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
                 pausedSeconds += extra;
             }
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalSeconds - pausedSeconds;
+        var elapsed = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
         return Math.Max(0, elapsed);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }

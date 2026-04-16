@@ -14,5 +14,6 @@ namespace CodeNexus.Domain.Entities
         public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 
         public virtual ICollection<Conversation> Conversations { get; set; } = new List<Conversation>();
+        public virtual ICollection<AIUsageLog> AIUsageLogs { get; set; } = new List<AIUsageLog>();
     }
 }

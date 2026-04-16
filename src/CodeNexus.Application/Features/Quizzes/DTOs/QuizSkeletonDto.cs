@@ -4,6 +4,7 @@ public record QuizSkeletonDto(
     Guid QuizId,
     string Title,
     string? Description,
+    DateTime? DueDate,
     int? TimeLimit,
     decimal? PassingScore
 );

@@ -7,6 +7,8 @@ namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMen
 
 public record UpdateMentorLearningPathDraftCommand(
     Guid PathId,
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType,
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,

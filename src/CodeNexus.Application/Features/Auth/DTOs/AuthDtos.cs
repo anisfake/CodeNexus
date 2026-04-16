@@ -39,7 +39,8 @@ public record LoginResponse(
     string Username,
     DateTime? LastLogin,
     Guid? RoleId,
-    string? RoleName
+    string? RoleName,
+    bool ShouldPromptDailyReminderTime
 );
 
 public record VerifyOtpResponse(

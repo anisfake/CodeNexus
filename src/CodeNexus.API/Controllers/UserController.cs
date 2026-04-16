@@ -55,6 +55,28 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("me/token-balance")]
+    [HttpGet("me/balance")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyTokenBalance()
+    {
+        var query = new GetMyProfileQuery();
+        var result = await _sender.Send(query);
+
+        if (!result.IsSuccess || result.Value == null)
+        {
+            return ToActionResult(result);
+        }
+
+        return Ok(new
+        {
+            tokenBalance = result.Value.TokenBalance,
+            updatedAtUtc = DateTime.UtcNow
+        });
+    }
+
     [HttpGet]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(PaginationDto<UserRespone>), StatusCodes.Status200OK)]
@@ -117,7 +139,8 @@ public class UserController : ControllerBase
             request.Bio,
             request.DateOfBirth,
             request.Phone,
-            request.Address
+            request.Address,
+            request.DailyReminderTime
         );
 
         var result = await _sender.Send(command);

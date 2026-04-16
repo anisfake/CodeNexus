@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DailyCheckin.DTOs;
 using MediatR;
@@ -29,21 +30,27 @@ public class GetMyTodayDailyCheckinQueryHandler : IRequestHandler<GetMyTodayDail
                 return Result<DailyCheckinDto>.Failure("UNAUTHORIZED", "User context is invalid.");
             }
 
-            var today = DateTime.UtcNow.Date;
+            var today = VietnamDateTimeHelper.GetTodayDate();
 
-            var checkin = await _context.DailyCheckins
+            var raw = await _context.DailyCheckins
                 .AsNoTracking()
                 .Where(dc => dc.UserId == userId && dc.CheckinDate == today)
                 .OrderByDescending(dc => dc.CreatedAt)
-                .Select(dc => new DailyCheckinDto(
-                    dc.CheckinId,
-                    dc.UserId,
-                    dc.CheckinDate,
-                    dc.Mood,
-                    dc.Productivity,
-                    dc.CreatedAt
-                ))
                 .FirstOrDefaultAsync(cancellationToken);
+
+            if (raw == null)
+            {
+                return Result<DailyCheckinDto>.Failure("DAILY_CHECKIN_NOT_FOUND", "Daily check-in not found.");
+            }
+
+            var checkin = new DailyCheckinDto(
+                raw.CheckinId,
+                raw.UserId,
+                raw.CheckinDate,
+                raw.Mood,
+                DailyCheckinEvaluationHelper.MapProductivityKey(raw.Productivity),
+                raw.CreatedAt
+            );
 
             if (checkin == null)
             {

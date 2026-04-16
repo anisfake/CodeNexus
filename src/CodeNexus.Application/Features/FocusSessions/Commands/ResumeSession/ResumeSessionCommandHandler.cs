@@ -35,15 +35,17 @@ public class ResumeSessionCommandHandler : IRequestHandler<ResumeSessionCommand,
         var now = DateTime.UtcNow;
         if (session.PausedAt.HasValue)
         {
-            var pausedMinutes = (int)(now - session.PausedAt.Value).TotalMinutes;
-            if (pausedMinutes > 0)
+            var pausedSeconds = ToWholeSeconds(now - session.PausedAt.Value);
+            if (pausedSeconds > 0)
             {
-                session.TotalPausedMinutes += pausedMinutes;
+                session.TotalPausedSeconds += pausedSeconds;
+                session.TotalPausedMinutes = session.TotalPausedSeconds / 60;
             }
         }
 
         session.PausedAt = null;
         session.SessionStatus = SessionStatus.Running;
+        session.LastActivityAt = now;
 
         await _context.SaveChangesAsync(cancellationToken);
         var elapsedSeconds = CalculateElapsedSeconds(session, now);
@@ -67,17 +69,20 @@ public class ResumeSessionCommandHandler : IRequestHandler<ResumeSessionCommand,
 
     private static int CalculateElapsedSeconds(FocusSession session, DateTime now)
     {
-        var pausedSeconds = session.TotalPausedMinutes * 60;
+        var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)(now - session.PausedAt.Value).TotalSeconds;
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
                 pausedSeconds += extra;
             }
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalSeconds - pausedSeconds;
+        var elapsed = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
         return Math.Max(0, elapsed);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }

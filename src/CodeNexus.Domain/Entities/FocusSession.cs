@@ -19,8 +19,10 @@ namespace CodeNexus.Domain.Entities
         public int? ActualDurationMinutes { get; set; }
         public DateTime? PausedAt { get; set; }
         public int TotalPausedMinutes { get; set; } = 0;
+        public int TotalPausedSeconds { get; set; } = 0;
         public SessionStatus SessionStatus { get; set; } = SessionStatus.Running;
         public SessionType SessionType { get; set; } = SessionType.Study; // Default to Study session
+        public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public string? SubmittedCode { get; set; }

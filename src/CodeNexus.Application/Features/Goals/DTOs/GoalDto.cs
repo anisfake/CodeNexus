@@ -7,7 +7,6 @@ public record GoalDto(
     string Title,
     string? Description,
     bool IsSystemDefined,
-    bool IsActive,
     GoalDuration Duration,
     int DurationInDays,
     DateTime CreatedAt
@@ -43,6 +42,5 @@ public record UpdateGoalRequest(
     Guid SubjectId,
     string Title,
     string? Description,
-    bool IsActive,
     GoalDuration Duration
 );

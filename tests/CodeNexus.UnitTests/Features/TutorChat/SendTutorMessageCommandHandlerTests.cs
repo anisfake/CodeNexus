@@ -15,6 +15,7 @@ public class SendTutorMessageCommandHandlerTests
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<IAIGeneratorService> _mockAiGenerator;
     private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
+    private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
     private readonly SendTutorMessageCommandHandler _handler;
 
     public SendTutorMessageCommandHandlerTests()
@@ -23,14 +24,20 @@ public class SendTutorMessageCommandHandlerTests
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockAiGenerator = new Mock<IAIGeneratorService>();
         _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
         _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
+        _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _mockContext.Setup(x => x.ConversationSummaries)
+            .Returns(new List<ConversationSummary>().BuildMockDbSet().Object);
 
         _handler = new SendTutorMessageCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
             _mockAiGenerator.Object,
-            _mockPlanUsageLimitService.Object);
+            _mockPlanUsageLimitService.Object,
+            _mockSubscriptionAccessService.Object);
     }
 
     [Fact]
@@ -42,6 +49,7 @@ public class SendTutorMessageCommandHandlerTests
         var learningPathId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUserAccess(userId, TokenBalance: 0m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -65,6 +73,7 @@ public class SendTutorMessageCommandHandlerTests
                 LearningPathGoals = new List<LearningPathGoal>()
             }
         }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
 
         var conversations = new List<Conversation>
         {
@@ -105,19 +114,19 @@ public class SendTutorMessageCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenTutorLimitExceeded_ReturnsFailure()
+    public async Task Handle_WhenAssistantConfigMissing_ReturnsFailure()
     {
         var userId = Guid.NewGuid();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("TUTOR_MESSAGE_LIMIT_EXCEEDED", "Limit reached"));
+        SetupUserAccess(userId, TokenBalance: 0m);
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(new List<AIProviderConfig>().BuildMockDbSet().Object);
 
         var command = new SendTutorMessageCommand(null, Guid.NewGuid(), null, null, "Explain async/await");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal("TUTOR_MESSAGE_LIMIT_EXCEEDED", result.ErrorCode);
+        Assert.Equal("AI_CONFIG_NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -131,6 +140,7 @@ public class SendTutorMessageCommandHandlerTests
         var conversationId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUserAccess(userId, TokenBalance: 0m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -164,6 +174,18 @@ public class SendTutorMessageCommandHandlerTests
                         LearningPathGoals = new List<LearningPathGoal>()
                     }
                 }
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.Chapters).Returns(new[]
+        {
+            new Chapter
+            {
+                ChapterId = chapterId,
+                PathId = pathId,
+                OrderIndex = 2,
+                Title = "Nguyên tắc thiết kế với C#",
+                IsDeleted = false
             }
         }.BuildMockDbSet().Object);
 
@@ -204,4 +226,105 @@ public class SendTutorMessageCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(conversationId, result.Value!.ConversationId);
     }
+
+    [Fact]
+    public async Task Handle_WithExistingConversation_ShouldRefreshConversationConfigIdToActiveTierConfig()
+    {
+        var userId = Guid.NewGuid();
+        var freeConfigId = Guid.NewGuid();
+        var paidConfigId = Guid.NewGuid();
+        var pathId = Guid.NewGuid();
+        var conversationId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUserAccess(userId, TokenBalance: 50000m);
+
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
+        {
+            new AIProviderConfig
+            {
+                ConfigId = paidConfigId,
+                ProviderName = "Mistral",
+                UsageType = AIUsageType.Assistant,
+                AccessTier = AIAccessTier.Paid,
+                IsActive = true,
+                LastUpdated = DateTime.UtcNow
+            },
+            new AIProviderConfig
+            {
+                ConfigId = freeConfigId,
+                ProviderName = "Groq",
+                UsageType = AIUsageType.Assistant,
+                AccessTier = AIAccessTier.Free,
+                IsActive = true,
+                LastUpdated = DateTime.UtcNow.AddMinutes(-5)
+            }
+        }.BuildMockDbSet().Object);
+
+        _mockContext.Setup(x => x.LearningPaths).Returns(new[]
+        {
+            new LearningPath
+            {
+                PathId = pathId,
+                UserId = userId,
+                SubjectId = subjectId,
+                Subject = new Subject { SubjectId = subjectId, Name = "Architecture" },
+                Language = LanguageSelection.English,
+                LearningPathGoals = new List<LearningPathGoal>()
+            }
+        }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
+
+        var conversations = new List<Conversation>
+        {
+            new()
+            {
+                ConversationId = conversationId,
+                UserId = userId,
+                ConfigId = freeConfigId,
+                LearningPathId = pathId,
+                Title = "Tutor - Existing",
+                IsDeleted = false
+            }
+        };
+        _mockContext.Setup(x => x.Conversations).Returns(conversations.BuildMockDbSet().Object);
+
+        var messages = new List<Message>();
+        var messagesDbSet = messages.BuildMockDbSet();
+        messagesDbSet.Setup(x => x.AddAsync(It.IsAny<Message>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>)null!));
+        _mockContext.Setup(x => x.Messages).Returns(messagesDbSet.Object);
+
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+        _mockAiGenerator.Setup(x => x.GenerateContentAsync(It.IsAny<string>(), AIUsageType.Assistant))
+            .ReturnsAsync("Updated config tier response");
+
+        var command = new SendTutorMessageCommand(
+            conversationId,
+            pathId,
+            null,
+            null,
+            "Compare clean architecture and mvc");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(paidConfigId, conversations[0].ConfigId);
+    }
+
+    private void SetupUserAccess(Guid userId, decimal TokenBalance)
+    {
+        _mockContext.Setup(x => x.Users).Returns(new[]
+        {
+            new User
+            {
+                UserId = userId,
+                TokenBalance = TokenBalance,
+                Role = new Role { RoleName = "Student" }
+            }
+        }.BuildMockDbSet().Object);
+    }
 }
+

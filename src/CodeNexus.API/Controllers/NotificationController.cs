@@ -1,8 +1,10 @@
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Notifications.Commands.MarkAllNotificationsAsRead;
 using CodeNexus.Application.Features.Notifications.Commands.MarkNotificationAsRead;
 using CodeNexus.Application.Features.Notifications.DTOs;
 using CodeNexus.Application.Features.Notifications.Queries.GetMyNotifications;
 using CodeNexus.Application.Features.Notifications.Queries.GetUnreadNotificationCount;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,9 +28,10 @@ public class NotificationController : ControllerBase
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool unreadOnly = false,
+        [FromQuery] NotificationType? type = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new GetMyNotificationsQuery(pageNumber, pageSize, unreadOnly), cancellationToken);
+        var result = await _sender.Send(new GetMyNotificationsQuery(pageNumber, pageSize, unreadOnly, type), cancellationToken);
         return ToActionResult(result);
     }
 
@@ -39,10 +42,17 @@ public class NotificationController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPatch("{notificationId:guid}/read")]
-    public async Task<IActionResult> MarkAsRead(Guid notificationId, CancellationToken cancellationToken = default)
+    [HttpPatch("read")]
+    public async Task<IActionResult> MarkAsRead([FromBody] IReadOnlyCollection<Guid> notificationIds, CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new MarkNotificationAsReadCommand(notificationId), cancellationToken);
+        var result = await _sender.Send(new MarkNotificationAsReadCommand(notificationIds), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPatch("read-all")]
+    public async Task<IActionResult> MarkAllAsRead(CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new MarkAllNotificationsAsReadCommand(), cancellationToken);
         return ToActionResult(result);
     }
 

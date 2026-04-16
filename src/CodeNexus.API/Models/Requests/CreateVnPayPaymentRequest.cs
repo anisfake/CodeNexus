@@ -1,7 +1,8 @@
 namespace CodeNexus.API.Models.Requests;
 
 public record CreateVnPayPaymentRequest(
-    Guid? SubscriptionPlanId,
+    Guid? TokenPackageId,
+    decimal? TopUpAmountVnd,
     string? OrderInfo,
     string ReturnUrl
 );

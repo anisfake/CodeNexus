@@ -41,7 +41,6 @@ public class GetGoalsQueryHandlerTests
                 Title = "Learn Python Basics",
                 Description = "Master Python fundamentals",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-1)
             },
             new()
@@ -51,7 +50,6 @@ public class GetGoalsQueryHandlerTests
                 Title = "Build Spring Boot App",
                 Description = "Create a REST API with Spring Boot",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };
@@ -105,7 +103,6 @@ public class GetGoalsQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "My Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             },
             new()
@@ -114,7 +111,6 @@ public class GetGoalsQueryHandlerTests
                 CreatedByUserId = otherUserId,
                 Title = "Other User Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };

@@ -37,17 +37,13 @@ public class GetGoalMappingQueryHandlerTests
                 GoalId = userGoalId,
                 CreatedByUserId = userId,
                 Title = "Custom Goal",
-                IsSystemDefined = false,
-                IsActive = true
-            },
+                IsSystemDefined = false},
             new()
             {
                 GoalId = systemGoalId,
                 Title = "System Goal",
                 Description = "System goal description",
-                IsSystemDefined = true,
-                IsActive = true
-            }
+                IsSystemDefined = true}
         };
 
         var mappings = new List<CodeNexus.Domain.Entities.GoalMapping>
@@ -89,9 +85,7 @@ public class GetGoalMappingQueryHandlerTests
                 GoalId = userGoalId,
                 CreatedByUserId = userId,
                 Title = "Custom Goal",
-                IsSystemDefined = false,
-                IsActive = true
-            }
+                IsSystemDefined = false}
         };
 
         _mockContext.Setup(x => x.Goals).Returns(goals.BuildMockDbSet().Object);
@@ -118,9 +112,7 @@ public class GetGoalMappingQueryHandlerTests
                 GoalId = userGoalId,
                 CreatedByUserId = NewId.NextGuid(),
                 Title = "Other User Goal",
-                IsSystemDefined = false,
-                IsActive = true
-            }
+                IsSystemDefined = false}
         };
 
         _mockContext.Setup(x => x.Goals).Returns(goals.BuildMockDbSet().Object);

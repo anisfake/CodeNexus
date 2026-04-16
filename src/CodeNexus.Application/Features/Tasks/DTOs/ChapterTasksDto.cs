@@ -6,6 +6,7 @@ public record TaskItemDto(
     Guid TaskId,
     string Title,
     string Description,
+    DateTime? DueDate,
     TaskType TaskType,
     TaskPriority? Priority,
     TaskStatus_ TaskStatus,

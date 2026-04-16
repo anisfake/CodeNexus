@@ -7,6 +7,7 @@ using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using MassTransit;
 using Moq;
+using System.Text;
 using Xunit;
 
 namespace CodeNexus.UnitTests.Features.Quizzes;
@@ -217,6 +218,87 @@ public class SubmitQuizAttemptCommandHandlerTests
         result.Value.TotalPoints.Should().Be(10);
         result.Value.Percentage.Should().Be(40);
         result.Value.Passed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_EquivalentUnicodeAnswer_ReturnsCorrectScore()
+    {
+        // Arrange
+        var userId = NewId.NextGuid();
+        var quizId = NewId.NextGuid();
+        var questionId = NewId.NextGuid();
+
+        var attempt = new QuizAttempt
+        {
+            AttemptId = NewId.NextGuid(),
+            QuizId = quizId,
+            UserId = userId,
+            StartTime = DateTime.UtcNow.AddMinutes(-1),
+            Status = QuizAttemptStatus.InProgress,
+            Quiz = new Quiz
+            {
+                QuizId = quizId,
+                TimeLimit = 8,
+                PassingScore = 8,
+                Questions = new List<Questions>
+                {
+                    new()
+                    {
+                        QuestionId = questionId,
+                        QuizId = quizId,
+                        Type = QuestionType.FillInTheBlank,
+                        QuestionText = "Điền vào chỗ trống",
+                        CorrectAnswer = "Đáp án đúng",
+                        Points = 10,
+                        OrderIndex = 0
+                    }
+                }
+            }
+        };
+
+        var userAnswerWithDifferentUnicodeForm = "Đa\u0301p a\u0301n đu\u0301ng".Normalize(NormalizationForm.FormD);
+        var command = new SubmitQuizAttemptCommand(attempt.AttemptId, new List<AnswerItemDto>
+        {
+            new(questionId, userAnswerWithDifferentUnicodeForm)
+        });
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.QuizAttempts).Returns(new[] { attempt }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Score.Should().Be(10);
+        result.Value.QuestionResults.Single().IsCorrect.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_SingleChoiceAnswerWithOptionPrefix_ReturnsCorrectScore()
+    {
+        // Arrange
+        var userId = NewId.NextGuid();
+        var attempt = CreateAttemptWithQuiz(userId);
+        var question = attempt.Quiz.Questions.ElementAt(1);
+        var command = new SubmitQuizAttemptCommand(attempt.AttemptId, new List<AnswerItemDto>
+        {
+            new(attempt.Quiz.Questions.First().QuestionId, "False"),
+            new(question.QuestionId, "B. def")
+        });
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.QuizAttempts).Returns(new[] { attempt }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Score.Should().Be(10);
+        result.Value.QuestionResults.Should().AllSatisfy(q => q.IsCorrect.Should().BeTrue());
     }
 
     private static QuizAttempt CreateAttemptWithQuiz(Guid userId)

@@ -3,6 +3,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace CodeNexus.Application.Features.FocusSessions.Commands.ReviewSession;
 
@@ -12,17 +13,20 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
     private readonly ITaskVerificationService _verificationService;
     private readonly ICurrentUserService _currentUserService;
     private readonly IPlanUsageLimitService _planUsageLimitService;
+    private readonly ILogger<ReviewSessionCommandHandler> _logger;
 
     public ReviewSessionCommandHandler(
         IApplicationDbContext context,
         ITaskVerificationService verificationService,
         ICurrentUserService currentUserService,
-        IPlanUsageLimitService planUsageLimitService)
+        IPlanUsageLimitService planUsageLimitService,
+        ILogger<ReviewSessionCommandHandler> logger)
     {
         _context = context;
         _verificationService = verificationService;
         _currentUserService = currentUserService;
         _planUsageLimitService = planUsageLimitService;
+        _logger = logger;
     }
 
     public async Task<Result<ReviewSessionResponseDto>> Handle(ReviewSessionCommand request, CancellationToken cancellationToken)
@@ -65,13 +69,14 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
                 limitCheck.ErrorMessage!);
         }
 
-        string? aiFeedback = null;
-        int? verificationScore = null;
+        session.LastActivityAt = DateTime.UtcNow;
+        session.SubmittedCode = request.SubmittedCode ?? session.SubmittedCode;
+        session.SubmittedSummary = request.SubmittedSummary ?? session.SubmittedSummary;
+        session.SubmittedQuizAnswers = request.SubmittedQuizAnswers ?? session.SubmittedQuizAnswers;
 
+        VerificationResult verificationResult;
         try
         {
-            VerificationResult verificationResult;
-
             if (session.Task.TaskType == TaskType.Practice)
             {
                 verificationResult = await _verificationService.VerifyCodeSubmissionAsync(
@@ -96,23 +101,33 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
                     session.Task.QuizQuestionsJson!,
                     request.SubmittedQuizAnswers!);
             }
-
-            aiFeedback = verificationResult.Feedback;
-            verificationScore = verificationResult.Score;
-            await _planUsageLimitService.RecordFocusSessionReviewUsageAsync(userId, cancellationToken);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            aiFeedback = "Unable to generate feedback at this time. Please try again later.";
+            _logger.LogWarning(
+                ex,
+                "AI review failed for session {SessionId}, task {TaskId}, user {UserId}",
+                session.SessionId,
+                session.TaskId,
+                userId);
+
+            await _context.SaveChangesAsync(cancellationToken);
+            return Result<ReviewSessionResponseDto>.Failure(
+                "AI_REVIEW_FAILED",
+                "AI review is temporarily unavailable. Please try again.");
         }
+
+        await _planUsageLimitService.RecordFocusSessionReviewUsageAsync(userId, cancellationToken);
 
         var response = new ReviewSessionResponseDto(
             request.SessionId,
             DateTime.UtcNow,
-            aiFeedback,
-            verificationScore,
+            verificationResult.Feedback,
+            verificationResult.Score,
             "Code reviewed successfully"
         );
+
+        await _context.SaveChangesAsync(cancellationToken);
 
         return Result<ReviewSessionResponseDto>.Success(response);
     }

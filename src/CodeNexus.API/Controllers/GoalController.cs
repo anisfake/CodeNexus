@@ -69,7 +69,6 @@ public class GoalController : ControllerBase
             request.SubjectId,
             request.Title,
             request.Description,
-            request.IsActive,
             request.Duration);
 
         var result = await _sender.Send(command, cancellationToken);

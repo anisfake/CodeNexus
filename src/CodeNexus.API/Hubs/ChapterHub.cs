@@ -1,5 +1,7 @@
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterMentorSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
+using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -35,6 +37,7 @@ public class ChapterHub : Hub
                 if (contentResult.IsSuccess)
                 {
                     await Clients.Caller.SendAsync("ReceiveChapterContent", contentResult.Value);
+                    await SendWalletTokenBalanceUpdatedAsync();
                 }
                 else
                 {
@@ -78,6 +81,7 @@ public class ChapterHub : Hub
         if (result.IsSuccess)
         {
             await Clients.Caller.SendAsync("ReceiveChapterContent", result.Value);
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         else
         {
@@ -88,5 +92,65 @@ public class ChapterHub : Hub
                 result.ErrorMessage
             });
         }
+    }
+
+    public async Task RequestChapterMentorSkeleton(Guid pathId, string chapterTitle, string? chapterDescription)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerationStarted", new { pathId });
+
+            if (string.IsNullOrWhiteSpace(chapterTitle))
+            {
+                await Clients.Caller.SendAsync("ChapterMentorSkeletonError", new
+                {
+                    PathId = pathId,
+                    ErrorCode = "INVALID_CHAPTER_TITLE",
+                    ErrorMessage = "Chapter title is required"
+                });
+                return;
+            }
+
+            var command = new GenerateChapterMentorSkeletonCommand(pathId, chapterTitle, chapterDescription);
+            var result = await _sender.Send(command);
+
+            if (!result.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("ChapterMentorSkeletonError", new
+                {
+                    PathId = pathId,
+                    result.ErrorCode,
+                    result.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerated", result.Value);
+            await SendWalletTokenBalanceUpdatedAsync();
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonError", new
+            {
+                PathId = pathId,
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    private async Task SendWalletTokenBalanceUpdatedAsync()
+    {
+        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        if (!profileResult.IsSuccess || profileResult.Value == null)
+        {
+            return;
+        }
+
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
+        {
+            TokenBalance = profileResult.Value.TokenBalance,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
     }
 }

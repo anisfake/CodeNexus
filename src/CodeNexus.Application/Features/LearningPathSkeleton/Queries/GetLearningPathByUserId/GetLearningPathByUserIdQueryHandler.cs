@@ -35,7 +35,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks)
+                .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
             .Where(lp => lp.UserId == request.UserId)
             .AsQueryable();
 
@@ -63,10 +63,28 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
             ? query.OrderByDescending(lp => lp.CreatedAt)
             : query.OrderBy(lp => lp.CreatedAt);
 
-        var items = await query
+        var pagedQuery = query
             .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
-            .Select(lp => new LearningPathResponse(
+            .Take(request.PageSize);
+
+        var items = await (
+            from lp in pagedQuery
+            let latestShare = _context.LearningPathShares
+                .Where(s => s.AcceptedPathId == lp.PathId && s.Status == LearningPathShareStatus.Accepted)
+                .OrderByDescending(s => s.RespondedAt ?? s.SentAt)
+                .Select(s => new
+                {
+                    MentorId = (Guid?)s.MentorId,
+                    MentorUserName = s.Mentor.Username,
+                    SourceLearningPathId = (Guid?)s.PathId,
+                    SourceVersion = s.SourceVersionAtAccept,
+                    SourceLatestVersion = (decimal?)s.LearningPath.VersionNumber,
+                    HasSourceUpdate = (s.SourceVersionAtAccept ?? 1.0m) < s.LearningPath.VersionNumber
+                        && s.IsTrackingEnabled
+                        && (!s.IgnoredSourceVersion.HasValue || s.IgnoredSourceVersion.Value < s.LearningPath.VersionNumber)
+                })
+                .FirstOrDefault()
+            select new LearningPathResponse(
                 lp.PathId,
                 lp.SubjectId,
                 lp.Subject.Name,
@@ -92,20 +110,21 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                 lp.CreatedByType,
                 lp.UserId,
                 lp.User.Username,
-                lp.Chapters.Select(c => new ChapterDto(
+                lp.Chapters.Where(c => !c.IsDeleted).Select(c => new ChapterDto(
                     c.ChapterId,
                     c.Title,
                     c.Content,
                     c.OrderIndex,
-                    c.Lessons.Select(l => new LessonDto(
+                    c.Lessons.Where(l => !l.IsDeleted).Select(l => new LessonDto(
                         l.LessonId,
                         l.Title,
                         l.Content,
                         l.LessonDay,
-                        l.Quizzes.Select(q => new QuizDto(
+                        l.Quizzes.Where(q => !q.IsDeleted).Select(q => new QuizDto(
                             q.QuizId,
                             q.Title,
                             q.Description,
+                            null,
                             q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId) != null
                                 ? q.QuizAttempts.FirstOrDefault(qa => qa.UserId == request.UserId)!.Status.ToString()
                                 : "Not Attempted"
@@ -116,7 +135,7 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                                 : "In Progress"
                             : "Not Started"
                     )).ToList(),
-                    c.Tasks.Select(t => new TaskDto(
+                    c.Tasks.Where(t => !t.IsDeleted).Select(t => new TaskDto(
                         t.TaskId,
                         t.Title,
                         t.Description,
@@ -128,10 +147,16 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         t.Status.ToString()
                     )).ToList()
                 )).ToList(),
-                lp.Chapters.Count(),
+                lp.Chapters.Count(c => !c.IsDeleted),
                 lp.CreatedAt,
                 lp.ComplexityLevel,
-                lp.Language
+                lp.Language,
+                latestShare != null ? latestShare.MentorId : null,
+                latestShare != null ? latestShare.MentorUserName : null,
+                latestShare != null ? latestShare.SourceLearningPathId : null,
+                latestShare != null ? latestShare.SourceVersion : null,
+                latestShare != null ? latestShare.SourceLatestVersion : null,
+                latestShare != null && latestShare.HasSourceUpdate
             ))
             .ToListAsync(cancellationToken);
 

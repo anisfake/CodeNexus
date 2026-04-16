@@ -58,7 +58,7 @@ public class MarkMessageSeenCommandHandler : IRequestHandler<MarkMessageSeenComm
             return Result.Failure("INVALID_OPERATION", "Invalid operation.");
         }
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
 
         var receipt = await _context.DirectMessageReceipts
             .FirstOrDefaultAsync(r => r.MessageId == request.MessageId && r.UserId == currentUserId, cancellationToken);

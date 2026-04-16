@@ -13,8 +13,6 @@ namespace CodeNexus.Application.Features.Notifications.Commands.CreateOverdueNot
 public class CreateOverdueNotificationsCommandHandler
     : IRequestHandler<CreateOverdueNotificationsCommand, Result<CreateOverdueNotificationsResultDto>>
 {
-    private static readonly TimeSpan Cooldown = TimeSpan.FromHours(24);
-
     private readonly IApplicationDbContext _context;
     private readonly IEmailService _emailService;
     private readonly INotificationRealtimeNotifier _notificationRealtimeNotifier;
@@ -35,26 +33,29 @@ public class CreateOverdueNotificationsCommandHandler
     public async Task<Result<CreateOverdueNotificationsResultDto>> Handle(CreateOverdueNotificationsCommand request, CancellationToken cancellationToken)
     {
         var nowUtc = DateTime.UtcNow;
+        var eligibleUserIds = request.EligibleUserIds?.Distinct().ToList();
+        if (eligibleUserIds is { Count: 0 })
+        {
+            return Result<CreateOverdueNotificationsResultDto>.Success(new CreateOverdueNotificationsResultDto(0, 0, 0, 0, 0, 0));
+        }
 
         var candidates = new List<OverdueNotificationCandidate>();
-        candidates.AddRange(await DetectOverdueTasksAsync(nowUtc, cancellationToken));
-        candidates.AddRange(await DetectOverdueLearningPathsAsync(nowUtc, cancellationToken));
-        candidates.AddRange(await DetectOverdueChaptersAsync(nowUtc, cancellationToken));
-        candidates.AddRange(await DetectOverdueLessonsAsync(nowUtc, cancellationToken));
-        candidates.AddRange(await DetectPlanExpiringSoonAsync(nowUtc, cancellationToken));
-        candidates.AddRange(await DetectPlanExpiredAsync(nowUtc, cancellationToken));
+        candidates.AddRange(await DetectOverdueTasksAsync(nowUtc, eligibleUserIds, cancellationToken));
+        candidates.AddRange(await DetectOverdueLearningPathsAsync(nowUtc, eligibleUserIds, cancellationToken));
+        candidates.AddRange(await DetectOverdueChaptersAsync(nowUtc, eligibleUserIds, cancellationToken));
+        candidates.AddRange(await DetectOverdueLessonsAsync(nowUtc, eligibleUserIds, cancellationToken));
 
         if (candidates.Count == 0)
         {
-            return Result<CreateOverdueNotificationsResultDto>.Success(new CreateOverdueNotificationsResultDto(0, 0, 0, 0, 0, 0, 0, 0));
+            return Result<CreateOverdueNotificationsResultDto>.Success(new CreateOverdueNotificationsResultDto(0, 0, 0, 0, 0, 0));
         }
 
-        var dedupSinceUtc = nowUtc.Subtract(Cooldown);
+        var (vnDayStartUtc, vnDayEndUtc) = GetVietnamDayWindowUtc(nowUtc);
 
         var existingKeys = await _context.Notifications
             .AsNoTracking()
-            .Where(n => n.Type.HasValue && n.CreatedAt >= dedupSinceUtc)
-            .Select(n => new DedupKey(n.UserId, n.Type!.Value, n.Title))
+            .Where(n => n.Type.HasValue && n.CreatedAt >= vnDayStartUtc && n.CreatedAt < vnDayEndUtc)
+            .Select(n => new DedupKey(n.UserId, n.Type!.Value, n.TargetId, n.Title))
             .ToListAsync(cancellationToken);
 
         var dedupSet = existingKeys.ToHashSet();
@@ -67,7 +68,7 @@ public class CreateOverdueNotificationsCommandHandler
                 continue;
             }
 
-            var key = new DedupKey(candidate.UserId, candidate.Type, candidate.Title);
+            var key = new DedupKey(candidate.UserId, candidate.Type, candidate.Action.TargetId, candidate.Title);
             if (!dedupSet.Add(key))
             {
                 continue;
@@ -117,20 +118,25 @@ public class CreateOverdueNotificationsCommandHandler
             toCreate.Count(x => x.Type == NotificationType.TaskOverdue),
             toCreate.Count(x => x.Type == NotificationType.LearningPathOverdue),
             toCreate.Count(x => x.Type == NotificationType.ChapterOverdue),
-            toCreate.Count(x => x.Type == NotificationType.LessonOverdue),
-            toCreate.Count(x => x.Type == NotificationType.PlanExpiringSoon),
-            toCreate.Count(x => x.Type == NotificationType.PlanExpired));
+            toCreate.Count(x => x.Type == NotificationType.LessonOverdue));
 
         return Result<CreateOverdueNotificationsResultDto>.Success(response);
     }
 
-    private async Task<List<OverdueNotificationCandidate>> DetectOverdueTasksAsync(DateTime nowUtc, CancellationToken cancellationToken)
+    private async Task<List<OverdueNotificationCandidate>> DetectOverdueTasksAsync(DateTime nowUtc, List<Guid>? eligibleUserIds, CancellationToken cancellationToken)
     {
-        var rows = await _context.Tasks
+        var query = _context.Tasks
             .AsNoTracking()
             .Where(t => t.DueDate.HasValue
                         && t.DueDate.Value < nowUtc
-                        && t.Status != TaskStatus_.Completed)
+                        && t.Status != TaskStatus_.Completed);
+
+        if (eligibleUserIds is { Count: > 0 })
+        {
+            query = query.Where(t => eligibleUserIds.Contains(t.LearningPath.UserId));
+        }
+
+        var rows = await query
             .Select(t => new
             {
                 t.TaskId,
@@ -162,15 +168,22 @@ public class CreateOverdueNotificationsCommandHandler
             .ToList();
     }
 
-    private async Task<List<OverdueNotificationCandidate>> DetectOverdueLearningPathsAsync(DateTime nowUtc, CancellationToken cancellationToken)
+    private async Task<List<OverdueNotificationCandidate>> DetectOverdueLearningPathsAsync(DateTime nowUtc, List<Guid>? eligibleUserIds, CancellationToken cancellationToken)
     {
-        var rows = await _context.LearningPaths
+        var query = _context.LearningPaths
             .AsNoTracking()
             .Where(lp => lp.EndDate.HasValue
                          && lp.EndDate.Value < nowUtc
                          && lp.Status != LearningPathStatus.Completed.ToString()
                          && lp.Status != LearningPathStatus.Cancelled.ToString()
-                         && lp.Status != LearningPathStatus.Draft.ToString())
+                         && lp.Status != LearningPathStatus.Draft.ToString());
+
+        if (eligibleUserIds is { Count: > 0 })
+        {
+            query = query.Where(lp => eligibleUserIds.Contains(lp.UserId));
+        }
+
+        var rows = await query
             .Select(lp => new
             {
                 lp.PathId,
@@ -199,14 +212,21 @@ public class CreateOverdueNotificationsCommandHandler
             .ToList();
     }
 
-    private async Task<List<OverdueNotificationCandidate>> DetectOverdueChaptersAsync(DateTime nowUtc, CancellationToken cancellationToken)
+    private async Task<List<OverdueNotificationCandidate>> DetectOverdueChaptersAsync(DateTime nowUtc, List<Guid>? eligibleUserIds, CancellationToken cancellationToken)
     {
-        var rows = await _context.Chapters
+        var query = _context.Chapters
             .AsNoTracking()
             .Where(c => c.EndDate.HasValue
                         && c.EndDate.Value < nowUtc
                         && !c.IsCompleted
-                        && !c.IsDeleted)
+                        && !c.IsDeleted);
+
+        if (eligibleUserIds is { Count: > 0 })
+        {
+            query = query.Where(c => eligibleUserIds.Contains(c.LearningPath.UserId));
+        }
+
+        var rows = await query
             .Select(c => new
             {
                 c.ChapterId,
@@ -237,11 +257,18 @@ public class CreateOverdueNotificationsCommandHandler
             .ToList();
     }
 
-    private async Task<List<OverdueNotificationCandidate>> DetectOverdueLessonsAsync(DateTime nowUtc, CancellationToken cancellationToken)
+    private async Task<List<OverdueNotificationCandidate>> DetectOverdueLessonsAsync(DateTime nowUtc, List<Guid>? eligibleUserIds, CancellationToken cancellationToken)
     {
-        var rows = await _context.Lessons
+        var query = _context.Lessons
             .AsNoTracking()
-            .Where(l => !l.IsDeleted && l.LessonDay < nowUtc)
+            .Where(l => !l.IsDeleted && l.LessonDay < nowUtc);
+
+        if (eligibleUserIds is { Count: > 0 })
+        {
+            query = query.Where(l => eligibleUserIds.Contains(l.Chapter.LearningPath.UserId));
+        }
+
+        var rows = await query
             .Select(l => new
             {
                 l.LessonId,
@@ -274,73 +301,6 @@ public class CreateOverdueNotificationsCommandHandler
                     x.PathId)))
             .ToList();
     }
-
-    private async Task<List<OverdueNotificationCandidate>> DetectPlanExpiringSoonAsync(DateTime nowUtc, CancellationToken cancellationToken)
-    {
-        var thresholdUtc = nowUtc.AddDays(3);
-
-        var rows = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.PlanExpiresAt.HasValue
-                        && u.PlanExpiresAt.Value >= nowUtc
-                        && u.PlanExpiresAt.Value <= thresholdUtc)
-            .Select(u => new
-            {
-                u.UserId,
-                u.PlanExpiresAt
-            })
-            .ToListAsync(cancellationToken);
-
-        return rows.Select(x => new OverdueNotificationCandidate(
-                x.UserId,
-                NotificationType.PlanExpiringSoon,
-                "Gói dịch vụ sắp hết hạn",
-                BuildPlanExpiringSoonMessage(x.PlanExpiresAt),
-                ResolveSeverity(OverdueNotificationKind.PlanExpiringSoon),
-                ResolveChannels(OverdueNotificationKind.PlanExpiringSoon),
-                new NotificationActionDto(
-                    "subscription",
-                    null,
-                    "/subscription/current",
-                    "/subscription/current",
-                    null,
-                    null,
-                    null,
-                    null)))
-            .ToList();
-    }
-
-    private async Task<List<OverdueNotificationCandidate>> DetectPlanExpiredAsync(DateTime nowUtc, CancellationToken cancellationToken)
-    {
-        var rows = await _context.Users
-            .AsNoTracking()
-            .Where(u => u.PlanExpiresAt.HasValue && u.PlanExpiresAt.Value < nowUtc)
-            .Select(u => new
-            {
-                u.UserId,
-                u.PlanExpiresAt
-            })
-            .ToListAsync(cancellationToken);
-
-        return rows.Select(x => new OverdueNotificationCandidate(
-                x.UserId,
-                NotificationType.PlanExpired,
-                "Gói dịch vụ đã hết hạn",
-                BuildPlanExpiredMessage(x.PlanExpiresAt),
-                ResolveSeverity(OverdueNotificationKind.PlanExpired),
-                ResolveChannels(OverdueNotificationKind.PlanExpired),
-                new NotificationActionDto(
-                    "subscription",
-                    null,
-                    "/subscription",
-                    "/subscription",
-                    null,
-                    null,
-                    null,
-                    null)))
-            .ToList();
-    }
-
     private static NotificationChannel[] ResolveChannels(OverdueNotificationKind kind)
     {
         return kind switch
@@ -349,8 +309,6 @@ public class CreateOverdueNotificationsCommandHandler
             OverdueNotificationKind.LearningPathOverdue => [NotificationChannel.Web, NotificationChannel.Main, NotificationChannel.Email],
             OverdueNotificationKind.ChapterOverdue => [NotificationChannel.Web, NotificationChannel.Main],
             OverdueNotificationKind.LessonOverdue => [NotificationChannel.Web],
-            OverdueNotificationKind.PlanExpiringSoon => [NotificationChannel.Web, NotificationChannel.Main, NotificationChannel.Email],
-            OverdueNotificationKind.PlanExpired => [NotificationChannel.Web, NotificationChannel.Main, NotificationChannel.Email],
             _ => [NotificationChannel.Web]
         };
     }
@@ -359,8 +317,6 @@ public class CreateOverdueNotificationsCommandHandler
     {
         return kind switch
         {
-            OverdueNotificationKind.PlanExpired => "Critical",
-            OverdueNotificationKind.PlanExpiringSoon => "High",
             OverdueNotificationKind.LearningPathOverdue => "High",
             OverdueNotificationKind.ChapterOverdue => "Medium",
             OverdueNotificationKind.TaskOverdue => "Medium",
@@ -373,9 +329,7 @@ public class CreateOverdueNotificationsCommandHandler
         TaskOverdue,
         LearningPathOverdue,
         ChapterOverdue,
-        LessonOverdue,
-        PlanExpiringSoon,
-        PlanExpired
+        LessonOverdue
     }
 
     private enum NotificationChannel
@@ -383,6 +337,30 @@ public class CreateOverdueNotificationsCommandHandler
         Web,
         Main,
         Email
+    }
+
+    private static (DateTime StartUtc, DateTime EndUtc) GetVietnamDayWindowUtc(DateTime nowUtc)
+    {
+        var timezone = ResolveVietnamTimeZone();
+        var nowLocal = TimeZoneInfo.ConvertTimeFromUtc(nowUtc, timezone);
+        var startLocal = new DateTime(nowLocal.Year, nowLocal.Month, nowLocal.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        var endLocalExclusive = startLocal.AddDays(1);
+
+        return (
+            TimeZoneInfo.ConvertTimeToUtc(startLocal, timezone),
+            TimeZoneInfo.ConvertTimeToUtc(endLocalExclusive, timezone));
+    }
+
+    private static TimeZoneInfo ResolveVietnamTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Asia/Ho_Chi_Minh");
+        }
     }
 
 	private static string BuildTaskOverdueMessage(string pathTitle, string taskTitle, DateTime? dueDate)
@@ -401,16 +379,6 @@ public class CreateOverdueNotificationsCommandHandler
 		=> $"Learning path '{learningPathTitle}' has been overdue since {endDate:dd/MM/yyyy HH:mm} UTC.\n"
 		 + "Impact: your learning progress may be disrupted and related tasks/chapters will continue to accumulate.\n"
 		 + "Recommendation: open CodeNexus to review your timeline and complete any outstanding items.";
-
-	private static string BuildPlanExpiringSoonMessage(DateTime? planExpiresAt)
-		=> $"Your current subscription plan will expire on {planExpiresAt:dd/MM/yyyy HH:mm} UTC.\n"
-		 + "Impact after expiration: some advanced features may become restricted.\n"
-		 + "Recommendation: renew or upgrade your plan before the expiration date to avoid any interruption.";
-
-	private static string BuildPlanExpiredMessage(DateTime? planExpiresAt)
-		=> $"Your subscription plan has expired as of {planExpiresAt:dd/MM/yyyy HH:mm} UTC.\n"
-		 + "Current impact: features included in your paid plan may no longer be available.\n"
-		 + "Recommendation: visit the Billing/Subscription section to renew immediately.";
 	private async Task SendEmailNotificationsAsync(List<OverdueNotificationCandidate> notifications, CancellationToken cancellationToken)
     {
         var emailCandidates = notifications
@@ -463,5 +431,5 @@ public class CreateOverdueNotificationsCommandHandler
         NotificationChannel[] Channels,
         NotificationActionDto Action);
 
-    private readonly record struct DedupKey(Guid UserId, NotificationType Type, string Title);
+    private readonly record struct DedupKey(Guid UserId, NotificationType Type, Guid? TargetId, string Title);
 }

@@ -20,7 +20,6 @@ public record SubjectGoalDto(
     string Title,
     string? Description,
     bool IsSystemDefined,
-    bool IsActive,
     int DurationInDays
 );
 

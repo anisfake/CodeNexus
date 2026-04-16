@@ -1,4 +1,5 @@
 using FluentValidation;
+using CodeNexus.Application.Features.LearningPaths.DTOs;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
 
@@ -49,34 +50,74 @@ public class CreateMentorLearningPathDraftCommandValidator : AbstractValidator<C
 
         RuleFor(x => x.Chapters)
             .NotNull()
-            .Must(c => c != null && c.Count > 0)
-            .WithMessage("At least one chapter is required")
             .WithErrorCode("CHAPTERS_REQUIRED");
 
         RuleForEach(x => x.Chapters)
             .ChildRules(chapter =>
             {
                 chapter.RuleFor(c => c.Title)
-                    .NotEmpty()
                     .MaximumLength(200)
-                    .WithMessage("Chapter title is required")
+                    .When(c => !string.IsNullOrWhiteSpace(c.Title))
+                    .WithMessage("Chapter title must be at most 200 characters")
                     .WithErrorCode("INVALID_CHAPTER_TITLE");
-
-                chapter.RuleFor(c => c.Lessons)
-                    .NotNull()
-                    .Must(l => l != null && l.Count > 0)
-                    .WithMessage("Each chapter must have at least one lesson")
-                    .WithErrorCode("LESSONS_REQUIRED");
 
                 chapter.RuleForEach(c => c.Lessons)
                     .ChildRules(lesson =>
                     {
                         lesson.RuleFor(l => l.Title)
-                            .NotEmpty()
                             .MaximumLength(200)
-                            .WithMessage("Lesson title is required")
+                            .When(l => !string.IsNullOrWhiteSpace(l.Title))
+                            .WithMessage("Lesson title must be at most 200 characters")
                             .WithErrorCode("INVALID_LESSON_TITLE");
+
+                        lesson.RuleForEach(l => l.Quizzes!)
+                            .ChildRules(quiz =>
+                            {
+                                quiz.RuleFor(q => q.Title)
+                                    .MaximumLength(200)
+                                    .When(q => !string.IsNullOrWhiteSpace(q.Title))
+                                    .WithMessage("Quiz title must be at most 200 characters")
+                                    .WithErrorCode("INVALID_QUIZ_TITLE");
+
+                                quiz.RuleForEach(q => q.Questions!)
+                                    .ChildRules(question =>
+                                    {
+                                        question.RuleFor(x => x.QuestionText)
+                                            .MaximumLength(2000)
+                                            .When(x => !string.IsNullOrWhiteSpace(x.QuestionText))
+                                            .WithMessage("Question text must be at most 2000 characters")
+                                            .WithErrorCode("INVALID_QUESTION_TEXT");
+
+                                        question.RuleFor(x => x.Type)
+                                            .IsInEnum()
+                                            .WithMessage("Question type is invalid")
+                                            .WithErrorCode("INVALID_QUESTION_TYPE");
+
+                                        question.RuleFor(x => x.Points)
+                                            .GreaterThan(0)
+                                            .WithMessage("Question points must be greater than 0")
+                                            .WithErrorCode("INVALID_QUESTION_POINTS");
+                                    })
+                                    .When(q => q.Questions is not null);
+                            })
+                            .When(l => l.Quizzes is not null);
                     });
+
+                chapter.RuleForEach(c => c.Tasks!)
+                    .ChildRules(task =>
+                    {
+                        task.RuleFor(t => t.Title)
+                            .MaximumLength(200)
+                            .When(t => !string.IsNullOrWhiteSpace(t.Title))
+                            .WithMessage("Task title must be at most 200 characters")
+                            .WithErrorCode("INVALID_TASK_TITLE");
+
+                        task.RuleFor(t => t.TaskType)
+                            .IsInEnum()
+                            .WithMessage("Task type is invalid")
+                            .WithErrorCode("INVALID_TASK_TYPE");
+                    })
+                    .When(c => c.Tasks is not null);
             });
 
         RuleFor(x => x.ComplexityLevel)

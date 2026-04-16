@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Goals.DTOs;
+using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,7 +26,7 @@ public class GetGoalsQueryHandler : IRequestHandler<GetGoalsQuery, Result<List<G
 
         var goals = await _context.Goals
             .AsNoTracking()
-            .Where(g => !g.IsDeleted && g.IsActive &&
+            .Where(g => !g.IsDeleted &&
                        (g.IsSystemDefined || g.CreatedByUserId == userId))
             .OrderByDescending(g => g.IsSystemDefined)
             .ThenByDescending(g => g.CreatedAt)
@@ -34,7 +35,6 @@ public class GetGoalsQueryHandler : IRequestHandler<GetGoalsQuery, Result<List<G
                 g.Title,
                 g.Description,
                 g.IsSystemDefined,
-                g.IsActive,
                 g.Duration,
                 g.DurationInDays,
                 g.CreatedAt

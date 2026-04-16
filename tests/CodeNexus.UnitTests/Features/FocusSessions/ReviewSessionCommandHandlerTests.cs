@@ -3,6 +3,7 @@ using CodeNexus.Application.Features.FocusSessions.Commands.ReviewSession;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
+using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xunit;
@@ -16,6 +17,7 @@ public class ReviewSessionCommandHandlerTests
     private readonly Mock<ITaskVerificationService> _mockVerificationService;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
+    private readonly Mock<ILogger<ReviewSessionCommandHandler>> _mockLogger;
     private readonly ReviewSessionCommandHandler _handler;
 
     public ReviewSessionCommandHandlerTests()
@@ -24,6 +26,7 @@ public class ReviewSessionCommandHandlerTests
         _mockVerificationService = new Mock<ITaskVerificationService>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockLogger = new Mock<ILogger<ReviewSessionCommandHandler>>();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(Guid.NewGuid());
         _mockPlanUsageLimitService.Setup(x => x.CheckFocusSessionReviewAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Success());
@@ -33,7 +36,8 @@ public class ReviewSessionCommandHandlerTests
             _mockContext.Object,
             _mockVerificationService.Object,
             _mockCurrentUserService.Object,
-            _mockPlanUsageLimitService.Object);
+            _mockPlanUsageLimitService.Object,
+            _mockLogger.Object);
     }
 
     [Fact]
@@ -274,7 +278,7 @@ public class ReviewSessionCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithVerificationServiceException_ShouldReturnSuccessWithErrorMessage()
+    public async Task Handle_WithVerificationServiceException_ShouldReturnFailure()
     {
         // Arrange
         var sessionId = Guid.NewGuid();
@@ -308,9 +312,54 @@ public class ReviewSessionCommandHandlerTests
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal("AI_REVIEW_FAILED", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task Handle_WithReviewInput_ShouldPersistDraftContentIntoSession()
+    {
+        // Arrange
+        var sessionId = Guid.NewGuid();
+        var taskId = Guid.NewGuid();
+        var codeDraft = "function bubbleSort(arr){return arr;}";
+        var command = new ReviewSessionCommand(sessionId, codeDraft, null);
+
+        var task = new TaskEntity
+        {
+            TaskId = taskId,
+            Title = "Practice Task",
+            TaskType = TaskType.Practice
+        };
+
+        var session = new FocusSession
+        {
+            SessionId = sessionId,
+            TaskId = taskId,
+            Task = task,
+            SessionStatus = SessionStatus.Running,
+            StartTime = DateTime.UtcNow.AddMinutes(-10),
+            PlannedDurationMinutes = 25
+        };
+
+        var verificationResult = new VerificationResult
+        {
+            IsPass = false,
+            Score = 20,
+            Feedback = "Draft detected"
+        };
+
+        var mockDbSet = new List<FocusSession> { session }.AsQueryable().BuildMockDbSet();
+        _mockContext.Setup(c => c.FocusSessions).Returns(mockDbSet.Object);
+        _mockVerificationService.Setup(v => v.VerifyCodeSubmissionAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(verificationResult);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Value);
-        Assert.Equal("Unable to generate feedback at this time. Please try again later.", result.Value.AIFeedback);
-        Assert.Null(result.Value.VerificationScore);
+        Assert.Equal(codeDraft, session.SubmittedCode);
     }
 }

@@ -116,7 +116,8 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             .Select(t => new TaskItemDto(
                 t.TaskId,
                 t.Title,
-                t.Description,
+                t.Description ?? string.Empty,
+                t.DueDate,
                 t.TaskType,
                 t.Priority,
                 t.Status,

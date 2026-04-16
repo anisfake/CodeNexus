@@ -20,6 +20,29 @@ public record FocusSessionDto(
     DateTime CreatedAt
 );
 
+public record FocusSessionHistoryItemDto(
+    Guid SessionId,
+    Guid TaskId,
+    string TaskTitle,
+    Guid ChapterId,
+    string ChapterTitle,
+    Guid PathId,
+    string LearningPathTitle,
+    string Title,
+    DateTime StartTime,
+    DateTime? EndTime,
+    int PlannedDurationMinutes,
+    int? ActualDurationMinutes,
+    string SessionStatus,
+    string SessionType,
+    bool IsVerified,
+    int? VerificationScore,
+    string? SubmittedCode,
+    string? SubmittedSummary,
+    string? AIFeedback,
+    DateTime CreatedAt
+);
+
 public record StartSessionRequest(
     Guid TaskId,
     SessionType SessionType = SessionType.Pomodoro,
@@ -49,7 +72,10 @@ public record StartSessionResponseDto(
     string Message,
     SessionType SessionType,
     SessionStatus SessionStatus,
-    string Title
+    string Title,
+    string? SubmittedCode = null,
+    string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null
 );
 
 public record CompleteSessionResponseDto(
@@ -72,7 +98,10 @@ public record ActiveSessionDto(
     int ElapsedMinutes,
     int RemainingMinutes,
     string SessionStatus,
-    bool IsOvertime
+    bool IsOvertime,
+    string? SubmittedCode = null,
+    string? SubmittedSummary = null,
+    string? SubmittedQuizAnswers = null
 );
 
 public record PauseSessionResponseDto(
@@ -93,6 +122,21 @@ public record ResumeSessionResponseDto(
     bool IsOvertime,
     int ElapsedSeconds,
     int RemainingSeconds
+);
+
+public record AbandonSessionResponseDto(
+    Guid SessionId,
+    DateTime EndTime,
+    int ActualDurationMinutes,
+    string SessionStatus,
+    bool TaskRevertedToPending,
+    string Message
+);
+
+public record SessionHeartbeatResponseDto(
+    Guid SessionId,
+    string SessionStatus,
+    DateTime LastActivityAt
 );
 
 public record ReviewSessionRequest(

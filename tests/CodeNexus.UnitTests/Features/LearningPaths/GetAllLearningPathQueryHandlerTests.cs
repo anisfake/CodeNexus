@@ -196,9 +196,7 @@ public class GetAllLearningPathQueryHandlerTests
             Title = "Learn Calculus",
             Description = "Master calculus",
             CreatedByUserId = _studentUserId,
-            IsSystemDefined = false,
-            IsActive = true
-        };
+            IsSystemDefined = false};
 
         var goalLink = new LearningPathGoal
         {

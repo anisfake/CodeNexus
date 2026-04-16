@@ -11,7 +11,6 @@ namespace CodeNexus.Domain.Entities
         public bool IsSystemDefined { get; set; } = false; 
         public Guid? CreatedByUserId { get; set; } 
         public virtual User? CreatedByUser { get; set; }
-        public bool IsActive { get; set; } = true;
         public GoalDuration Duration { get; set; } = GoalDuration.OneMonth;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? UpdatedAt { get; set; }

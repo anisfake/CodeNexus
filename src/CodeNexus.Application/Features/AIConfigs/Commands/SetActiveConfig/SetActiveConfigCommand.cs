@@ -6,6 +6,6 @@ namespace CodeNexus.Application.Features.AIConfigs.Commands.SetActiveConfig;
 
 public record SetActiveConfigCommand(
     Guid ConfigId,
-    AIUsageType UsageType,
-    AIAccessTier AccessTier
+    AIUsageType? UsageType = null,
+    AIAccessTier? AccessTier = null
 ) : IRequest<Result<string>>;

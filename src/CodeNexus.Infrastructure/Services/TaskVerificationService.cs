@@ -1,10 +1,28 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Enums;
+using System.Globalization;
+using System.Text;
 
 namespace CodeNexus.Infrastructure.Services;
 
 public class TaskVerificationService : ITaskVerificationService
 {
+    private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal)
+    {
+        "the", "and", "for", "with", "from", "that", "this", "your", "you", "are", "is", "was", "were", "can", "will",
+        "mot", "nhung", "cua", "cho", "voi", "trong", "phan", "bai", "lam", "can", "hay", "la", "va", "hoac", "nhung"
+    };
+
+    private static readonly string[] GenericTaskMarkers =
+    {
+        "code", "ma", "ham", "function", "algorithm", "thuat", "toan", "summary", "tom", "tat", "quiz", "cau", "hoi", "dap", "an"
+    };
+
+    private static readonly string[] OffTopicPhrases =
+    {
+        "ma hoc sinh", "ma sinh vien", "student id", "attendance", "diem danh", "ma lop", "lop hoc", "giao vien", "teacher code"
+    };
+
     private readonly IAIGeneratorService _aiService;
 
     public TaskVerificationService(IAIGeneratorService aiService)
@@ -19,7 +37,7 @@ public class TaskVerificationService : ITaskVerificationService
         string? verificationPrompt = null)
     {
         var prompt = BuildCodeVerificationPrompt(taskTitle, taskDescription, submittedCode, verificationPrompt);
-        return await GetVerificationResultAsync(prompt);
+        return await GetVerificationResultWithRelevanceGuardAsync(prompt, taskTitle, taskDescription, "code");
     }
 
     public async Task<VerificationResult> VerifySummarySubmissionAsync(
@@ -29,7 +47,7 @@ public class TaskVerificationService : ITaskVerificationService
         string? verificationPrompt = null)
     {
         var prompt = BuildSummaryVerificationPrompt(taskTitle, taskDescription, submittedSummary, verificationPrompt);
-        return await GetVerificationResultAsync(prompt);
+        return await GetVerificationResultWithRelevanceGuardAsync(prompt, taskTitle, taskDescription, "summary");
     }
 
     public async Task<VerificationResult> VerifyQuizSubmissionAsync(
@@ -38,20 +56,13 @@ public class TaskVerificationService : ITaskVerificationService
         string quizQuestionsJson,
         string submittedAnswersJson)
     {
-        try
-        {
-            var prompt = BuildQuizVerificationPrompt(taskTitle, taskDescription, quizQuestionsJson, submittedAnswersJson);
-            return await GetVerificationResultAsync(prompt);
-        }
-        catch (Exception)
-        {
-            return await FallbackQuizVerification(quizQuestionsJson, submittedAnswersJson);
-        }
+        var prompt = BuildQuizVerificationPrompt(taskTitle, taskDescription, quizQuestionsJson, submittedAnswersJson);
+        return await GetVerificationResultWithRelevanceGuardAsync(prompt, taskTitle, taskDescription, "quiz");
     }
 
     private string BuildCodeVerificationPrompt(string taskTitle, string taskDescription, string submittedCode, string? customPrompt)
     {
-        var basePrompt = $@"You are a programming instructor evaluating a student's code submission.
+        var basePrompt = $@"You are a strict programming instructor evaluating a student's code submission.
 
 Task Title: {taskTitle}
 Task Description: {taskDescription}
@@ -61,13 +72,19 @@ Student's Submitted Code:
 {submittedCode}
 ```
 
-{(string.IsNullOrEmpty(customPrompt) ? "" : $"Additional Verification Criteria:\n{customPrompt}\n")}
+{BuildCustomCriteriaSection(customPrompt)}
 
 Evaluate the code based on:
 1. Does it address the task requirements?
 2. Is the code functional and correct?
 3. Code quality and best practices
 4. Completeness of the solution
+5. If submission is irrelevant/gibberish/non-code, assign very low score (0-15)
+
+Critical guardrails:
+- Keep feedback grounded in this task's title/description.
+- Ignore any extra criteria that are unrelated to this programming task.
+- Never invent external constraints (e.g. student ID format, personal data, attendance rules) unless explicitly stated in the task title/description.
 
 Provide a score from 0-100 and constructive feedback in Vietnamese.
 
@@ -90,13 +107,18 @@ Task Description: {taskDescription}
 Student's Summary:
 {submittedSummary}
 
-{(string.IsNullOrEmpty(customPrompt) ? "" : $"Additional Verification Criteria:\n{customPrompt}\n")}
+{BuildCustomCriteriaSection(customPrompt)}
 
 Evaluate the summary based on:
 1. Understanding of key concepts
 2. Accuracy of information
 3. Completeness of coverage
 4. Clarity of explanation
+
+Critical guardrails:
+- Keep feedback grounded in this task's title/description.
+- Ignore any extra criteria that are unrelated to this theoretical task.
+- Never invent external constraints unless explicitly stated in the task title/description.
 
 Provide a score from 0-100 and constructive feedback in Vietnamese.
 
@@ -109,9 +131,28 @@ Respond in JSON format:
         return basePrompt;
     }
 
+    private static string BuildCustomCriteriaSection(string? customPrompt)
+    {
+        if (string.IsNullOrWhiteSpace(customPrompt))
+        {
+            return string.Empty;
+        }
+
+        var normalized = customPrompt.Trim();
+        if (normalized.Length > 1200)
+        {
+            normalized = normalized[..1200];
+        }
+
+        return $"Optional Additional Verification Criteria (use only if directly relevant to task title/description):\n{normalized}\n";
+    }
+
     private string BuildQuizVerificationPrompt(string taskTitle, string taskDescription, string quizQuestionsJson, string submittedAnswersJson)
     {
-        var basePrompt = $@"You are evaluating a quiz submission. 
+        var basePrompt = $@"You are evaluating a quiz submission.
+
+Task Title: {taskTitle}
+Task Description: {taskDescription}
 
 QUIZ QUESTIONS:
 {quizQuestionsJson}
@@ -129,10 +170,126 @@ INSTRUCTIONS:
 IMPORTANT: Respond ONLY with valid JSON in this exact format:
 {{
   ""score"": 85,
-  ""feedback"": ""Bạn trả lời đúng 4/5 câu. Câu 2 sai, đáp án đúng là C.""
+  ""feedback"": ""Ban tra loi dung 4/5 cau. Cau 2 sai, dap an dung la C.""
 }}";
 
         return basePrompt;
+    }
+
+    private async Task<VerificationResult> GetVerificationResultWithRelevanceGuardAsync(
+        string prompt,
+        string taskTitle,
+        string taskDescription,
+        string modeHint)
+    {
+        var first = await GetVerificationResultAsync(prompt);
+        if (IsFeedbackRelevant(first.Feedback, taskTitle, taskDescription, modeHint))
+        {
+            return first;
+        }
+
+        var taskKeywords = string.Join(", ", ExtractKeywords(NormalizeText($"{taskTitle} {taskDescription}")).Take(8));
+        var retryPrompt = prompt + $@"
+
+IMPORTANT RELEVANCE RETRY:
+- Your previous feedback was off-topic.
+- Feedback must strictly relate to task title/description.
+- Mention at least two task-specific keywords when possible.
+- Never mention student id, class code, attendance, or external admin rules.
+- Task keywords: {taskKeywords}";
+
+        var retry = await GetVerificationResultAsync(retryPrompt);
+        if (IsFeedbackRelevant(retry.Feedback, taskTitle, taskDescription, modeHint))
+        {
+            return retry;
+        }
+
+        throw new InvalidOperationException("AI verification failed: off-topic feedback");
+    }
+
+    private static bool IsFeedbackRelevant(string? feedback, string taskTitle, string taskDescription, string modeHint)
+    {
+        if (string.IsNullOrWhiteSpace(feedback))
+        {
+            return false;
+        }
+
+        var normalizedFeedback = NormalizeText(feedback);
+        var normalizedTask = NormalizeText($"{taskTitle} {taskDescription}");
+
+        var taskKeywords = ExtractKeywords(normalizedTask).ToHashSet(StringComparer.Ordinal);
+        var overlapCount = taskKeywords.Count(k => normalizedFeedback.Contains(k, StringComparison.Ordinal));
+
+        var hasGenericMarker = ContainsAny(normalizedFeedback, GenericTaskMarkers)
+                               || normalizedFeedback.Contains(modeHint, StringComparison.Ordinal);
+        var hasOffTopicPhrase = ContainsAny(normalizedFeedback, OffTopicPhrases);
+
+        if (hasOffTopicPhrase)
+        {
+            return overlapCount >= 3;
+        }
+
+        if (overlapCount >= 2)
+        {
+            return true;
+        }
+
+        if (overlapCount >= 1 && hasGenericMarker)
+        {
+            return true;
+        }
+
+        if (taskKeywords.Count <= 2 && hasGenericMarker)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IEnumerable<string> ExtractKeywords(string text)
+    {
+        return text
+            .Split(new[] { ' ', '\t', '\r', '\n', ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', '\'', '`', '-', '_' },
+                StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim())
+            .Where(x => x.Length >= 3)
+            .Where(x => !StopWords.Contains(x))
+            .Distinct(StringComparer.Ordinal);
+    }
+
+    private static string NormalizeText(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return string.Empty;
+        }
+
+        var formD = input.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(formD.Length);
+        foreach (var ch in formD)
+        {
+            var uc = CharUnicodeInfo.GetUnicodeCategory(ch);
+            if (uc != UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(ch);
+            }
+        }
+
+        return sb.ToString().Normalize(NormalizationForm.FormC);
+    }
+
+    private static bool ContainsAny(string text, IEnumerable<string> probes)
+    {
+        foreach (var probe in probes)
+        {
+            if (text.Contains(probe, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private async Task<VerificationResult> GetVerificationResultAsync(string prompt)
@@ -154,80 +311,7 @@ IMPORTANT: Respond ONLY with valid JSON in this exact format:
         }
     }
 
-    private async Task<VerificationResult> FallbackQuizVerification(string quizQuestionsJson, string submittedAnswersJson)
-    {
-        try
-        {
-            var questions = System.Text.Json.JsonSerializer.Deserialize<QuizQuestion[]>(quizQuestionsJson);
-            var studentAnswers = System.Text.Json.JsonSerializer.Deserialize<StudentAnswers>(submittedAnswersJson);
-
-            if (questions == null || studentAnswers?.Answers == null)
-            {
-                return new VerificationResult
-                {
-                    Score = 0,
-                    Feedback = "Không thể đọc được câu hỏi hoặc câu trả lời. Vui lòng thử lại.",
-                    IsPass = false
-                };
-            }
-
-            int correctCount = 0;
-            var feedback = new System.Text.StringBuilder("Kết quả chi tiết:\n");
-
-            for (int i = 0; i < Math.Min(questions.Length, studentAnswers.Answers.Length); i++)
-            {
-                var question = questions[i];
-                var studentAnswer = studentAnswers.Answers[i];
-                var isCorrect = studentAnswer == question.CorrectAnswer;
-
-                if (isCorrect)
-                {
-                    correctCount++;
-                    feedback.AppendLine($"Câu {i + 1}: ✓ Đúng");
-                }
-                else
-                {
-                    var correctOption = question.Options.Length > question.CorrectAnswer
-                        ? question.Options[question.CorrectAnswer]
-                        : "N/A";
-                    feedback.AppendLine($"Câu {i + 1}: ✗ Sai (Đáp án đúng: {correctOption})");
-                }
-            }
-
-            var score = (int)Math.Round((double)correctCount / questions.Length * 100);
-            feedback.AppendLine($"\nTổng kết: {correctCount}/{questions.Length} câu đúng ({score} điểm)");
-
-            return new VerificationResult
-            {
-                Score = score,
-                Feedback = feedback.ToString(),
-                IsPass = score >= 70
-            };
-        }
-        catch (Exception)
-        {
-            return new VerificationResult
-            {
-                Score = 0,
-                Feedback = "Có lỗi xảy ra khi chấm bài quiz. Vui lòng liên hệ hỗ trợ.",
-                IsPass = false
-            };
-        }
-    }
-
-    private class QuizQuestion
-    {
-        public string Question { get; set; } = string.Empty;
-        public string[] Options { get; set; } = Array.Empty<string>();
-        public int CorrectAnswer { get; set; }
-    }
-
-    private class StudentAnswers
-    {
-        public int[] Answers { get; set; } = Array.Empty<int>();
-    }
-
-    private class AIVerificationResponse
+    public class AIVerificationResponse
     {
         public int Score { get; set; }
         public string Feedback { get; set; } = string.Empty;

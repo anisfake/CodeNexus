@@ -2,6 +2,9 @@ using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Payments.Commands.CreateVnPayPayment;
 using CodeNexus.Application.Features.Payments.Commands.ProcessVnPayCallback;
+using CodeNexus.Application.Features.Payments.DTOs;
+using CodeNexus.Application.Features.Payments.Queries.GetMyBillingTransactionDetail;
+using CodeNexus.Application.Features.Payments.Queries.GetMyBillingTransactions;
 using CodeNexus.Infrastructure.Settings;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -25,6 +28,24 @@ public class PaymentsController : ControllerBase
         _vnPaySettings = vnPayOptions.Value;
     }
 
+    [HttpGet("my-transactions")]
+    [Authorize]
+    [ProducesResponseType(typeof(PaginationDto<MyBillingTransactionResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyTransactions([FromQuery] GetMyBillingTransactionsQuery query, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-transactions/{paymentTransactionId:guid}")]
+    [Authorize]
+    [ProducesResponseType(typeof(MyBillingTransactionDetailResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyTransactionDetail(Guid paymentTransactionId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMyBillingTransactionDetailQuery(paymentTransactionId), cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpPost("vnpay/create")]
     [Authorize]
     public async Task<IActionResult> CreateVnPayPayment([FromBody] CreateVnPayPaymentRequest request, CancellationToken cancellationToken)
@@ -42,7 +63,8 @@ public class PaymentsController : ControllerBase
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "127.0.0.1";
         var command = new CreateVnPayPaymentCommand(
-            request.SubscriptionPlanId,
+            request.TokenPackageId,
+            request.TopUpAmountVnd,
             request.OrderInfo,
             callbackUrl,
             ipAddress,
@@ -112,7 +134,7 @@ public class PaymentsController : ControllerBase
         return result.ErrorCode switch
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" or "SUBSCRIPTION_PLAN_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_SIGNATURE" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
@@ -126,7 +148,7 @@ public class PaymentsController : ControllerBase
         return result.ErrorCode switch
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" or "SUBSCRIPTION_PLAN_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_SIGNATURE" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

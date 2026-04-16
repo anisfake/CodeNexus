@@ -1,14 +1,18 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.TutorChat;
 using CodeNexus.Application.Features.TutorChat.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Features.TutorChat.Queries.GetTutorConversationMessages;
 
 public class GetTutorConversationMessagesQueryHandler
-    : IRequestHandler<GetTutorConversationMessagesQuery, Result<PaginationDto<TutorMessageDto>>>
+    : IRequestHandler<GetTutorConversationMessagesQuery, Result<TutorMessagesPageDto>>
 {
+    private const string DefaultAssistantModel = "meta-llama/llama-4-scout-17b-16e-instruct";
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
 
@@ -20,7 +24,7 @@ public class GetTutorConversationMessagesQueryHandler
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result<PaginationDto<TutorMessageDto>>> Handle(GetTutorConversationMessagesQuery request, CancellationToken cancellationToken)
+    public async Task<Result<TutorMessagesPageDto>> Handle(GetTutorConversationMessagesQuery request, CancellationToken cancellationToken)
     {
         var userId = _currentUserService.GetUserId();
 
@@ -30,12 +34,12 @@ public class GetTutorConversationMessagesQueryHandler
 
         if (conversation == null)
         {
-            return Result<PaginationDto<TutorMessageDto>>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
+            return Result<TutorMessagesPageDto>.Failure("CONVERSATION_NOT_FOUND", "Conversation not found.");
         }
 
         if (conversation.UserId != userId)
         {
-            return Result<PaginationDto<TutorMessageDto>>.Failure("ACCESS_DENIED", "Access denied.");
+            return Result<TutorMessagesPageDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var totalCount = await _context.Messages
@@ -65,13 +69,101 @@ public class GetTutorConversationMessagesQueryHandler
             );
         }).ToList();
 
-        return Result<PaginationDto<TutorMessageDto>>.Success(new PaginationDto<TutorMessageDto>
+        var contextUsagePercent = await ResolveContextUsagePercentAsync(
+            request.ConversationId,
+            userId,
+            conversation.ConfigId,
+            cancellationToken);
+
+        return Result<TutorMessagesPageDto>.Success(new TutorMessagesPageDto
         {
             Items = items,
             PageNumber = request.PageNumber,
             PageSize = request.PageSize,
-            TotalCount = totalCount
+            TotalCount = totalCount,
+            ContextUsagePercent = contextUsagePercent
         });
+    }
+
+    private async Task<double> ResolveContextUsagePercentAsync(
+        Guid conversationId,
+        Guid userId,
+        Guid configId,
+        CancellationToken cancellationToken)
+    {
+        var latestAssistantMessageAt = await _context.Messages
+            .AsNoTracking()
+            .Where(m => m.ConversationId == conversationId && m.Content.StartsWith("ASSISTANT:"))
+            .OrderByDescending(m => m.CreatedAt)
+            .Select(m => (DateTime?)m.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!latestAssistantMessageAt.HasValue)
+        {
+            return 0d;
+        }
+
+        var config = await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.ConfigId == configId)
+            .Select(c => new { c.ConfigJson })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var fallbackModel = DefaultAssistantModel;
+        var chatPolicy = TutorChatRuntimePolicy.Resolve(config?.ConfigJson);
+        var (resolvedModel, contextWindow) = TutorChatRuntimePolicy.ResolveModelContext(config?.ConfigJson, fallbackModel);
+
+        if (chatPolicy.RuntimeContextBudget > 0)
+        {
+            contextWindow = Math.Min(contextWindow, chatPolicy.RuntimeContextBudget);
+        }
+
+        contextWindow = Math.Max(contextWindow, 512);
+
+        if (contextWindow <= 0)
+        {
+            return 0d;
+        }
+
+        var latestAssistantAt = latestAssistantMessageAt.Value;
+        var logWindowStart = latestAssistantAt.AddMinutes(-5);
+        var logWindowEnd = latestAssistantAt.AddSeconds(30);
+
+        var usageLogsInWindow = _context.AIUsageLogs
+            .AsNoTracking()
+            .Where(log =>
+                log.UserId == userId
+                && log.UsageType == AIUsageType.Assistant
+                && log.CreatedAt >= logWindowStart
+                && log.CreatedAt <= logWindowEnd);
+
+        var usageLog = string.IsNullOrWhiteSpace(resolvedModel)
+            ? null
+            : await usageLogsInWindow
+                .Where(log => log.Model == resolvedModel)
+                .OrderByDescending(log => log.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+        usageLog ??= await usageLogsInWindow
+            .OrderByDescending(log => log.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        usageLog ??= await _context.AIUsageLogs
+            .AsNoTracking()
+            .Where(log =>
+                log.UserId == userId
+                && log.UsageType == AIUsageType.Assistant
+                && log.CreatedAt <= latestAssistantAt.AddSeconds(30))
+            .OrderByDescending(log => log.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (usageLog == null)
+        {
+            return 0d;
+        }
+
+        var usagePercent = (usageLog.InputTokens / (double)contextWindow) * 100d;
+        return Math.Round(Math.Clamp(usagePercent, 0d, 100d), 2);
     }
 
     private static string ParseRole(string content)

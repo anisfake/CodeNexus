@@ -7,8 +7,13 @@ public class CreateVnPayPaymentCommandValidator : AbstractValidator<CreateVnPayP
     public CreateVnPayPaymentCommandValidator()
     {
         RuleFor(x => x)
-            .Must(x => x.SubscriptionPlanId.HasValue)
-            .WithMessage("SubscriptionPlanId is required.");
+            .Must(x => x.TokenPackageId.HasValue || x.TopUpAmountVnd.HasValue)
+            .WithMessage("TokenPackageId or TopUpAmountVnd is required.");
+
+        RuleFor(x => x.TopUpAmountVnd)
+            .GreaterThan(0)
+            .When(x => x.TopUpAmountVnd.HasValue)
+            .WithMessage("TopUpAmountVnd must be greater than 0.");
 
         RuleFor(x => x.IpAddress)
             .NotEmpty()

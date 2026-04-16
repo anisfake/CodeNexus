@@ -1,4 +1,4 @@
-﻿﻿using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.DTOs;
 using MediatR;
@@ -18,7 +18,7 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
         private readonly IAchievementService _achievementService;
 
         public UpdateProfileCommandHandler(
-            IApplicationDbContext context, 
+            IApplicationDbContext context,
             ICurrentUserService currentUserService,
             IAchievementService achievementService)
         {
@@ -42,10 +42,11 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
             user.UserProfile.DateOfBirth = request.DateOfBirth ?? user.UserProfile.DateOfBirth;
             user.UserProfile.Phone = request.Phone ?? user.UserProfile.Phone;
             user.UserProfile.Address = request.Address ?? user.UserProfile.Address;
+            user.UserProfile.DailyReminderTime = request.DailyReminderTime ?? user.UserProfile.DailyReminderTime;
 
             await _context.SaveChangesAsync(cancellationToken);
 
-            var isProfileComplete = !string.IsNullOrEmpty(user.FirstName) && 
+            var isProfileComplete = !string.IsNullOrEmpty(user.FirstName) &&
                                    !string.IsNullOrEmpty(user.LastName) &&
                                    !string.IsNullOrEmpty(user.UserProfile.Bio) &&
                                    user.UserProfile.DateOfBirth.HasValue &&
@@ -65,7 +66,9 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
                 user.UserProfile.AvatarUrl,
                 user.UserProfile.DateOfBirth,
                 user.UserProfile.Phone,
-                user.UserProfile.Address
+                user.UserProfile.Address,
+                user.UserProfile.DailyReminderTime,
+                user.TokenBalance
             ));
         }
     }

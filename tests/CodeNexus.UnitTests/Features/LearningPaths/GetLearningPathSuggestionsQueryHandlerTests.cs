@@ -50,9 +50,7 @@ public class GetLearningPathSuggestionsQueryHandlerTests
             {
                 GoalId = systemGoalId,
                 Title = "Become Backend Developer",
-                IsSystemDefined = true,
-                IsActive = true
-            }
+                IsSystemDefined = true}
         }.BuildMockDbSet().Object);
 
         _mockContext.Setup(x => x.SubjectGoals).Returns(new[]
@@ -118,9 +116,7 @@ public class GetLearningPathSuggestionsQueryHandlerTests
             {
                 GoalId = systemGoalId,
                 Title = "Become Backend Developer",
-                IsSystemDefined = true,
-                IsActive = true
-            }
+                IsSystemDefined = true}
         }.BuildMockDbSet().Object);
 
         _mockContext.Setup(x => x.SubjectGoals).Returns(new[]
@@ -187,9 +183,7 @@ public class GetLearningPathSuggestionsQueryHandlerTests
             {
                 GoalId = systemGoalId,
                 Title = "Build API",
-                IsSystemDefined = true,
-                IsActive = true
-            }
+                IsSystemDefined = true}
         }.BuildMockDbSet().Object);
 
         _mockContext.Setup(x => x.SubjectGoals).Returns(new[]

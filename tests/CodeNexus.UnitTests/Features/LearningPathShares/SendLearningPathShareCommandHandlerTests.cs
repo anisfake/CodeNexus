@@ -54,8 +54,51 @@ public class SendLearningPathShareCommandHandlerTests
             Status = LearningPathStatus.Draft.ToString()
         };
 
+        var chapterId = NewId.NextGuid();
+        var lessonId = NewId.NextGuid();
+
+        var chapter = new Chapter
+        {
+            ChapterId = chapterId,
+            PathId = pathId,
+            Title = "Chapter 1",
+            OrderIndex = 1,
+            IsDeleted = false
+        };
+
+        var lesson = new Lesson
+        {
+            LessonId = lessonId,
+            ChapterId = chapterId,
+            Title = "Lesson 1",
+            Content = "Lesson content",
+            OrderIndex = 1,
+            LessonDay = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        var chapterTask = new CodeNexus.Domain.Entities.Tasks
+        {
+            TaskId = NewId.NextGuid(),
+            ChapterId = chapterId,
+            PathId = pathId,
+            Title = "Practice task"
+        };
+
+        var quiz = new Quiz
+        {
+            QuizId = NewId.NextGuid(),
+            LessonId = lessonId,
+            Title = "Quiz 1",
+            IsDeleted = false
+        };
+
         var usersDbSet = new List<User> { mentor, student }.BuildMockDbSet();
         var pathsDbSet = new List<LearningPath> { learningPath }.BuildMockDbSet();
+        var chaptersDbSet = new List<Chapter> { chapter }.BuildMockDbSet();
+        var lessonsDbSet = new List<Lesson> { lesson }.BuildMockDbSet();
+        var tasksDbSet = new List<CodeNexus.Domain.Entities.Tasks> { chapterTask }.BuildMockDbSet();
+        var quizzesDbSet = new List<Quiz> { quiz }.BuildMockDbSet();
 
         var shares = new List<LearningPathShare>();
         var sharesDbSet = shares.BuildMockDbSet();
@@ -80,6 +123,10 @@ public class SendLearningPathShareCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
         _mockContext.Setup(x => x.Users).Returns(usersDbSet.Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(pathsDbSet.Object);
+        _mockContext.Setup(x => x.Chapters).Returns(chaptersDbSet.Object);
+        _mockContext.Setup(x => x.Lessons).Returns(lessonsDbSet.Object);
+        _mockContext.Setup(x => x.Tasks).Returns(tasksDbSet.Object);
+        _mockContext.Setup(x => x.Quizzes).Returns(quizzesDbSet.Object);
         _mockContext.Setup(x => x.LearningPathShares).Returns(sharesDbSet.Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(conversationsDbSet.Object);
         _mockContext.Setup(x => x.DirectMessages).Returns(messagesDbSet.Object);
@@ -103,6 +150,154 @@ public class SendLearningPathShareCommandHandlerTests
             It.IsAny<CodeNexus.Application.Features.DirectChats.DTOs.DirectMessageDto>(),
             It.IsAny<CancellationToken>()), Times.Once);
         _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ChapterWithoutTask_ReturnsFailure()
+    {
+        var mentorId = NewId.NextGuid();
+        var studentId = NewId.NextGuid();
+        var pathId = NewId.NextGuid();
+        var chapterId = NewId.NextGuid();
+        var lessonId = NewId.NextGuid();
+
+        var mentor = new User
+        {
+            UserId = mentorId,
+            Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" }
+        };
+
+        var student = new User
+        {
+            UserId = studentId,
+            Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Student" }
+        };
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = mentorId,
+            SubjectId = NewId.NextGuid(),
+            Title = "Path",
+            Status = LearningPathStatus.Draft.ToString()
+        };
+
+        var chapter = new Chapter
+        {
+            ChapterId = chapterId,
+            PathId = pathId,
+            Title = "Chapter 1",
+            OrderIndex = 1,
+            IsDeleted = false
+        };
+
+        var lesson = new Lesson
+        {
+            LessonId = lessonId,
+            ChapterId = chapterId,
+            Title = "Lesson 1",
+            Content = "Lesson content",
+            OrderIndex = 1,
+            LessonDay = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        var quiz = new Quiz
+        {
+            QuizId = NewId.NextGuid(),
+            LessonId = lessonId,
+            Title = "Quiz 1",
+            IsDeleted = false
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
+        _mockContext.Setup(x => x.Users).Returns(new List<User> { mentor, student }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath> { learningPath }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter> { chapter }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson> { lesson }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(new List<CodeNexus.Domain.Entities.Tasks>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz> { quiz }.BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(new SendLearningPathShareCommand(pathId, studentId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("CHAPTER_TASK_REQUIRED");
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LessonWithoutQuiz_ReturnsFailure()
+    {
+        var mentorId = NewId.NextGuid();
+        var studentId = NewId.NextGuid();
+        var pathId = NewId.NextGuid();
+        var chapterId = NewId.NextGuid();
+        var lessonId = NewId.NextGuid();
+
+        var mentor = new User
+        {
+            UserId = mentorId,
+            Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" }
+        };
+
+        var student = new User
+        {
+            UserId = studentId,
+            Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Student" }
+        };
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = mentorId,
+            SubjectId = NewId.NextGuid(),
+            Title = "Path",
+            Status = LearningPathStatus.Draft.ToString()
+        };
+
+        var chapter = new Chapter
+        {
+            ChapterId = chapterId,
+            PathId = pathId,
+            Title = "Chapter 1",
+            OrderIndex = 1,
+            IsDeleted = false
+        };
+
+        var lesson = new Lesson
+        {
+            LessonId = lessonId,
+            ChapterId = chapterId,
+            Title = "Lesson 1",
+            Content = "Lesson content",
+            OrderIndex = 1,
+            LessonDay = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        var chapterTask = new CodeNexus.Domain.Entities.Tasks
+        {
+            TaskId = NewId.NextGuid(),
+            ChapterId = chapterId,
+            PathId = pathId,
+            Title = "Practice task"
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
+        _mockContext.Setup(x => x.Users).Returns(new List<User> { mentor, student }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath> { learningPath }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter> { chapter }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson> { lesson }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(new List<CodeNexus.Domain.Entities.Tasks> { chapterTask }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(new SendLearningPathShareCommand(pathId, studentId), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("LESSON_QUIZ_REQUIRED");
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

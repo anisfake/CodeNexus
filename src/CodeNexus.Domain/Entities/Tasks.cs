@@ -15,6 +15,9 @@ namespace CodeNexus.Domain.Entities
         public TaskPriority? Priority { get; set; }
         public TaskStatus_ Status { get; set; } = TaskStatus_.Pending;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? UpdatedAt { get; set; }
+        public bool IsDeleted { get; set; } = false;
+        public DateTime? DeletedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
 
         public TaskType TaskType { get; set; } = TaskType.Practice;

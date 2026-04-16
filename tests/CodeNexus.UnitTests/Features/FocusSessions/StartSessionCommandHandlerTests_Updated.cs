@@ -230,6 +230,50 @@ public class StartSessionCommandHandlerTests_Updated
         Assert.Contains("already an active session", result.ErrorMessage);
     }
 
+    [Fact]
+    public async Task Handle_WhenPreviousSessionHasDraft_ShouldCarryDraftToNewSession()
+    {
+        // Arrange
+        var taskId = Guid.NewGuid();
+        var command = new StartSessionCommand(taskId, SessionType.Pomodoro, 25, "Resume Draft");
+
+        var task = new TaskEntity
+        {
+            TaskId = taskId,
+            Title = "Bubble Sort Task",
+            TaskType = TaskType.Practice,
+            Status = TaskStatus_.InProgress
+        };
+
+        var previousSession = new FocusSession
+        {
+            SessionId = Guid.NewGuid(),
+            TaskId = taskId,
+            SessionStatus = SessionStatus.CompletedOnTime,
+            EndTime = DateTime.UtcNow.AddMinutes(-30),
+            SubmittedCode = "function bubbleSort(arr){ return arr; }",
+            SubmittedSummary = null,
+            SubmittedQuizAnswers = null
+        };
+
+        SetupTasksDbSet(new List<TaskEntity> { task });
+        SetupFocusSessionsDbSet(new List<FocusSession> { previousSession });
+
+        _mockContext.Setup(x => x.FocusSessions.AddAsync(It.IsAny<FocusSession>(), It.IsAny<CancellationToken>()))
+            .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<FocusSession>>(
+                (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<FocusSession>)null!));
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
+        Assert.Equal(previousSession.SubmittedCode, result.Value.SubmittedCode);
+    }
+
     private void SetupTasksDbSet(List<TaskEntity> tasks)
     {
         var queryable = new TestAsyncEnumerable<TaskEntity>(tasks);

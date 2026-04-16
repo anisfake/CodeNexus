@@ -108,6 +108,7 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                             q.QuizId,
                             q.Title,
                             q.Description,
+                            null,
                             "Not Attempted"
                         )).ToList()
                         ,

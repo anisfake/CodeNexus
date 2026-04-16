@@ -21,6 +21,9 @@ public class GetLearningPathByUserIdQueryHandlerTests
     public GetLearningPathByUserIdQueryHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
+        _mockContext
+            .Setup(x => x.LearningPathShares)
+            .Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
         _handler = new GetLearningPathByUserIdQueryHandler(_mockContext.Object);
     }
 
@@ -51,9 +54,7 @@ public class GetLearningPathByUserIdQueryHandlerTests
             Title = "Learn Calculus",
             Description = "Master calculus",
             CreatedByUserId = _studentUserId,
-            IsSystemDefined = false,
-            IsActive = true
-        };
+            IsSystemDefined = false};
 
         var goalLink = new LearningPathGoal
         {

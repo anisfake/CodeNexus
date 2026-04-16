@@ -1,6 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Domain.Entities;
-using CodeNexus.Domain.Enums;
 using CodeNexus.Infrastructure.Services;
 using CodeNexus.UnitTests.Helpers;
 using Moq;
@@ -32,20 +31,8 @@ public class SubscriptionAccessServiceTests
             }
         }.BuildMockDbSet().Object);
 
-        _mockContext.Setup(x => x.SubscriptionPlans).Returns(new List<SubscriptionPlan>
-        {
-            new()
-            {
-                SubscriptionPlanId = Guid.NewGuid(),
-                PlanType = SubscriptionPlanType.Free,
-                Name = "Free",
-                IsActive = true
-            }
-        }.BuildMockDbSet().Object);
-
         var result = await _service.CanUsePersonalGoalsAsync(userId, CancellationToken.None);
 
         Assert.True(result);
     }
 }
-

@@ -53,8 +53,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     learningPathLimitCheck.ErrorMessage!);
             }
 
-            var canUsePersonalGoals = await _subscriptionAccessService.CanUsePersonalGoalsAsync(userId, cancellationToken);
-
             var subject = await _context.Subjects.FirstOrDefaultAsync(x => x.SubjectId == request.SubjectId, cancellationToken: cancellationToken);
             if (subject == null)
             {
@@ -90,14 +88,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 .Where(g => g.IsSystemDefined)
                 .Select(g => g.GoalId)
                 .ToList();
-
-            var hasPersonalGoals = goals.Any(g => !g.IsSystemDefined);
-            if (hasPersonalGoals && !canUsePersonalGoals)
-            {
-                return Result<CreateLearningPathResponse>.Failure(
-                    "SUBSCRIPTION_REQUIRED",
-                    "Your current plan does not allow using personal goals in learning path generation.");
-            }
 
             if (systemGoalIds.Count > 0)
             {
@@ -301,6 +291,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 ));
             }
 
+            await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
             var goalDtos = goalsWithWeights.Select(g => new LearningPathGoalDto(

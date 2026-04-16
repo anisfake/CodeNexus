@@ -45,7 +45,6 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn C#",
                 Description = "Master C# fundamentals",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-2)
             },
             new()
@@ -55,7 +54,6 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Build API",
                 Description = "Create REST API",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-1)
             }
         };
@@ -96,7 +94,6 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn C#",
                 Description = "Master C# fundamentals",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             },
             new()
@@ -106,7 +103,6 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn Python",
                 Description = "Master Python",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };
@@ -144,7 +140,6 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn C#",
                 Description = "Master C# fundamentals",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             },
             new()
@@ -154,7 +149,6 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Build API",
                 Description = "Create REST API",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };
@@ -191,7 +185,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Old Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-5)
             },
             new()
@@ -200,7 +193,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "New Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };
@@ -237,7 +229,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Old Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-5)
             },
             new()
@@ -246,7 +237,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "New Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };
@@ -282,7 +272,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Goal 1",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-3)
             },
             new()
@@ -291,7 +280,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Goal 2",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-2)
             },
             new()
@@ -300,7 +288,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Goal 3",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now.AddDays(-1)
             }
         };
@@ -362,7 +349,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "My Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             },
             new()
@@ -371,7 +357,6 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = otherUserId,
                 Title = "Other User Goal",
                 IsSystemDefined = false,
-                IsActive = true,
                 CreatedAt = DateTime.Now
             }
         };

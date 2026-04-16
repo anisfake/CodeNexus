@@ -74,7 +74,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
 
         var goals = await _context.Goals
             .AsNoTracking()
-            .Where(g => uniqueGoalIds.Contains(g.GoalId) && !g.IsDeleted && g.IsActive)
+            .Where(g => uniqueGoalIds.Contains(g.GoalId) && !g.IsDeleted)
             .ToListAsync(cancellationToken);
 
         if (goals.Count != uniqueGoalIds.Count)
@@ -89,14 +89,6 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
         if (invalidUserGoals.Count > 0)
         {
             return Result<CreateLearningPathResponse>.Failure("GOAL_NOT_FOUND", "Goal not found.");
-        }
-
-        var hasPersonalGoals = goals.Any(g => !g.IsSystemDefined);
-        if (hasPersonalGoals && !await _subscriptionAccessService.CanUsePersonalGoalsAsync(userId, cancellationToken))
-        {
-            return Result<CreateLearningPathResponse>.Failure(
-                "SUBSCRIPTION_REQUIRED",
-                "Your current plan does not allow using personal goals in learning path generation.");
         }
 
         var systemGoalIds = goals
@@ -403,6 +395,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
                 taskDtos));
         }
 
+        await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         var goalDtos = goalsWithWeights
@@ -417,7 +410,16 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
             chapterDtoList,
             chapterDtoList.Count,
             newPath.CreatedAt,
-            false));
+            false,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            newPath.VersionNumber,
+            null,
+            true));
     }
 
     private sealed record GoalWeightInfo(CodeNexus.Domain.Entities.Goals Goal, decimal Weight);

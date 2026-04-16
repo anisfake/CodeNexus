@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.LearningPathShares.DTOs;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -49,12 +50,19 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             .AsNoTracking()
             .Include(s => s.Mentor)
             .Include(s => s.Student)
-            .FirstOrDefaultAsync(s => s.ShareId == request.ShareId && s.StudentId == studentId, cancellationToken);
+            .FirstOrDefaultAsync(
+                s => (s.ShareId == request.ShareId || s.AcceptedPathId == request.ShareId)
+                    && s.StudentId == studentId,
+                cancellationToken);
 
         if (share == null)
         {
             return Result<LearningPathSharePreviewDto>.Failure("SHARE_NOT_FOUND", "Learning path share not found.");
         }
+
+        var pathIdToLoad = share.AcceptedPathId.HasValue && share.AcceptedPathId.Value == request.ShareId
+            ? share.AcceptedPathId.Value
+            : share.PathId;
 
         var learningPath = await _context.LearningPaths
             .AsNoTracking()
@@ -66,8 +74,8 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks)
-            .FirstOrDefaultAsync(lp => lp.PathId == share.PathId, cancellationToken);
+                .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
+            .FirstOrDefaultAsync(lp => lp.PathId == pathIdToLoad, cancellationToken);
 
         if (learningPath == null)
         {
@@ -138,6 +146,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             share.Status,
             share.SentAt,
             share.RespondedAt,
+            share.AcceptedPathId,
             learningPathResponse
         ));
     }

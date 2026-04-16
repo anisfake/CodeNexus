@@ -1,5 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.AIAccessPolicy;
+using CodeNexus.Application.Features.SystemRuntimePolicies;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MassTransit;
@@ -10,67 +12,76 @@ namespace CodeNexus.Infrastructure.Services;
 public class PlanUsageLimitService : IPlanUsageLimitService
 {
     private readonly IApplicationDbContext _context;
-    private readonly ISubscriptionAccessService _subscriptionAccessService;
 
-    public PlanUsageLimitService(
-        IApplicationDbContext context,
-        ISubscriptionAccessService subscriptionAccessService)
+    public PlanUsageLimitService(IApplicationDbContext context)
     {
         _context = context;
-        _subscriptionAccessService = subscriptionAccessService;
     }
 
     public async Task<Result> CheckLearningPathCreationAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+        var access = await ResolveAccessProfileAsync(userId, cancellationToken);
+        if (access.IsExemptRole || access.IsPaidUser)
             return Result.Success();
 
-        var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
-        var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.LearningPathCreation, cancellationToken);
-        if (!limit.IsEnabled || !limit.LimitCount.HasValue)
-            return Result.Success();
-
-        var used = await CountLearningPathUsageAsync(userId, limit.WindowType, cancellationToken);
-        return used >= limit.LimitCount.Value
+        var policy = await LoadFreeUsagePolicyAsync(cancellationToken);
+        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.LearningPathCreation, UsageWindowType.Monthly, cancellationToken);
+        return used >= policy.FreeLearningPathMonthlyLimit
             ? Result.Failure(
                 "LEARNING_PATH_LIMIT_EXCEEDED",
-                $"{plan.Name} plan allows up to {limit.LimitCount.Value} learning paths per {WindowLabel(limit.WindowType)}.")
+                $"Free user chi duoc tao toi da {policy.FreeLearningPathMonthlyLimit} learning path moi thang.")
             : Result.Success();
     }
 
     public async Task<Result> CheckTutorMessageAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+        var access = await ResolveAccessProfileAsync(userId, cancellationToken);
+        if (access.IsExemptRole || access.IsPaidUser)
             return Result.Success();
 
-        var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
-        var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.TutorMessages, cancellationToken);
-        if (!limit.IsEnabled || !limit.LimitCount.HasValue)
-            return Result.Success();
-
-        var used = await CountTutorMessageUsageAsync(userId, limit.WindowType, cancellationToken);
-        return used >= limit.LimitCount.Value
+        var policy = await LoadFreeUsagePolicyAsync(cancellationToken);
+        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.TutorMessages, UsageWindowType.Monthly, cancellationToken);
+        return used >= policy.FreeTutorMessagesMonthlyLimit
             ? Result.Failure(
                 "TUTOR_MESSAGE_LIMIT_EXCEEDED",
-                $"{plan.Name} plan allows up to {limit.LimitCount.Value} tutor messages per {WindowLabel(limit.WindowType)}.")
+                $"Free user chi duoc dung toi da {policy.FreeTutorMessagesMonthlyLimit} tutor messages moi thang.")
             : Result.Success();
+    }
+
+    public async Task RecordLearningPathCreationUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await _context.FeatureUsageLogs.AddAsync(new FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
+    }
+
+    public async Task RecordTutorMessageUsageAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        await _context.FeatureUsageLogs.AddAsync(new FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.TutorMessages,
+            CreatedAt = DateTime.UtcNow
+        }, cancellationToken);
     }
 
     public async Task<Result> CheckFocusSessionReviewAllowedAsync(Guid userId, CancellationToken cancellationToken = default)
     {
-        if (await IsPlanLimitExemptRoleAsync(userId, cancellationToken))
+        var access = await ResolveAccessProfileAsync(userId, cancellationToken);
+        if (access.IsExemptRole || access.IsPaidUser)
             return Result.Success();
 
-        var plan = await _subscriptionAccessService.GetEffectivePlanAsync(userId, cancellationToken);
-        var limit = await ResolveLimitAsync(plan, SubscriptionFeatureKey.FocusSessionReview, cancellationToken);
-        if (!limit.IsEnabled || !limit.LimitCount.HasValue)
-            return Result.Success();
-
-        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.FocusSessionReview, limit.WindowType, cancellationToken);
-        return used >= limit.LimitCount.Value
+        var policy = await LoadFreeUsagePolicyAsync(cancellationToken);
+        var used = await CountFeatureUsageLogAsync(userId, SubscriptionFeatureKey.FocusSessionReview, UsageWindowType.Monthly, cancellationToken);
+        return used >= policy.FreeFocusSessionReviewMonthlyLimit
             ? Result.Failure(
                 "FOCUS_REVIEW_LIMIT_EXCEEDED",
-                $"{plan.Name} plan allows up to {limit.LimitCount.Value} focus review requests per {WindowLabel(limit.WindowType)}.")
+                $"Free user chi duoc dung toi da {policy.FreeFocusSessionReviewMonthlyLimit} AI review moi thang.")
             : Result.Success();
     }
 
@@ -83,58 +94,6 @@ public class PlanUsageLimitService : IPlanUsageLimitService
             FeatureKey = SubscriptionFeatureKey.FocusSessionReview,
             CreatedAt = DateTime.UtcNow
         }, cancellationToken);
-
-        await _context.SaveChangesAsync(cancellationToken);
-    }
-
-    private async Task<PlanLimitSetting> ResolveLimitAsync(
-        SubscriptionPlan plan,
-        SubscriptionFeatureKey featureKey,
-        CancellationToken cancellationToken)
-    {
-        var configured = await _context.SubscriptionPlanLimits
-            .AsNoTracking()
-            .Where(x => x.SubscriptionPlanId == plan.SubscriptionPlanId && x.FeatureKey == featureKey)
-            .Select(x => new PlanLimitSetting(x.LimitCount, x.WindowType, x.IsEnabled))
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return configured ?? BuildFallbackLimit(plan.PlanType, featureKey);
-    }
-
-    private async Task<int> CountLearningPathUsageAsync(Guid userId, UsageWindowType windowType, CancellationToken cancellationToken)
-    {
-        var windowStartUtc = GetWindowStartUtc(windowType);
-        return windowStartUtc.HasValue
-            ? await _context.LearningPaths.AsNoTracking().CountAsync(x => x.UserId == userId && x.CreatedAt >= windowStartUtc.Value, cancellationToken)
-            : await _context.LearningPaths.AsNoTracking().CountAsync(x => x.UserId == userId, cancellationToken);
-    }
-
-    private async Task<int> CountTutorMessageUsageAsync(Guid userId, UsageWindowType windowType, CancellationToken cancellationToken)
-    {
-        var conversationIds = await _context.Conversations
-            .AsNoTracking()
-            .Where(c => c.UserId == userId && !c.IsDeleted)
-            .Select(c => c.ConversationId)
-            .ToListAsync(cancellationToken);
-
-        if (conversationIds.Count == 0)
-            return 0;
-
-        var windowStartUtc = GetWindowStartUtc(windowType);
-        return windowStartUtc.HasValue
-            ? await _context.Messages
-                .AsNoTracking()
-                .CountAsync(
-                    m => conversationIds.Contains(m.ConversationId)
-                         && m.Content.StartsWith("USER:")
-                         && m.CreatedAt >= windowStartUtc.Value,
-                    cancellationToken)
-            : await _context.Messages
-                .AsNoTracking()
-                .CountAsync(
-                    m => conversationIds.Contains(m.ConversationId)
-                         && m.Content.StartsWith("USER:"),
-                    cancellationToken);
     }
 
     private async Task<int> CountFeatureUsageLogAsync(
@@ -167,36 +126,6 @@ public class PlanUsageLimitService : IPlanUsageLimitService
         return TimeZoneInfo.ConvertTimeToUtc(startLocal, timezone);
     }
 
-    private static string WindowLabel(UsageWindowType windowType)
-    {
-        return windowType switch
-        {
-            UsageWindowType.Daily => "day",
-            UsageWindowType.Monthly => "month",
-            _ => "lifetime"
-        };
-    }
-
-    private static PlanLimitSetting BuildFallbackLimit(SubscriptionPlanType planType, SubscriptionFeatureKey featureKey)
-    {
-        return (planType, featureKey) switch
-        {
-            (SubscriptionPlanType.Free, SubscriptionFeatureKey.LearningPathCreation) => new PlanLimitSetting(4, UsageWindowType.Lifetime, true),
-            (SubscriptionPlanType.Standard, SubscriptionFeatureKey.LearningPathCreation) => new PlanLimitSetting(10, UsageWindowType.Monthly, true),
-            (SubscriptionPlanType.Pro, SubscriptionFeatureKey.LearningPathCreation) => new PlanLimitSetting(50, UsageWindowType.Monthly, true),
-
-            (SubscriptionPlanType.Free, SubscriptionFeatureKey.TutorMessages) => new PlanLimitSetting(30, UsageWindowType.Daily, true),
-            (SubscriptionPlanType.Standard, SubscriptionFeatureKey.TutorMessages) => new PlanLimitSetting(500, UsageWindowType.Monthly, true),
-            (SubscriptionPlanType.Pro, SubscriptionFeatureKey.TutorMessages) => new PlanLimitSetting(2000, UsageWindowType.Monthly, true),
-
-            (SubscriptionPlanType.Free, SubscriptionFeatureKey.FocusSessionReview) => new PlanLimitSetting(20, UsageWindowType.Daily, true),
-            (SubscriptionPlanType.Standard, SubscriptionFeatureKey.FocusSessionReview) => new PlanLimitSetting(300, UsageWindowType.Monthly, true),
-            (SubscriptionPlanType.Pro, SubscriptionFeatureKey.FocusSessionReview) => new PlanLimitSetting(1000, UsageWindowType.Monthly, true),
-
-            _ => new PlanLimitSetting(null, UsageWindowType.Monthly, true)
-        };
-    }
-
     private static TimeZoneInfo ResolveVietnamTimeZone()
     {
         try
@@ -209,17 +138,86 @@ public class PlanUsageLimitService : IPlanUsageLimitService
         }
     }
 
-    private async Task<bool> IsPlanLimitExemptRoleAsync(Guid userId, CancellationToken cancellationToken)
+    private async Task<UsageAccessProfile> ResolveAccessProfileAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var roleName = await _context.Users
+        var profile = await _context.Users
             .AsNoTracking()
             .Where(u => u.UserId == userId)
-            .Select(u => u.Role != null ? u.Role.RoleName : null)
+            .Select(u => new
+            {
+                RoleName = u.Role != null ? u.Role.RoleName : null,
+                u.TokenBalance
+            })
             .FirstOrDefaultAsync(cancellationToken);
 
-        return string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+        var roleName = profile?.RoleName;
+        var isExemptRole = string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase)
+                           || string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+        var isPaidUser = (profile?.TokenBalance ?? 0m) > 0m;
+        return new UsageAccessProfile(isExemptRole, isPaidUser);
     }
 
-    private sealed record PlanLimitSetting(int? LimitCount, UsageWindowType WindowType, bool IsEnabled);
+    private async Task<FreeUsagePolicy> LoadFreeUsagePolicyAsync(CancellationToken cancellationToken)
+    {
+        const int unlimited = int.MaxValue;
+
+        try
+        {
+            var policy = await _context.SystemRuntimePolicies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(
+                    x => x.PolicyKey == FreeUsagePolicyConstants.PolicyKey && x.IsActive,
+                    cancellationToken);
+
+            if (policy != null)
+            {
+                var config = SystemRuntimePolicyJsonHelper.ParseConfigJson(policy.ConfigJson);
+                var learningPathLimit = ReadPolicyInt(config, FreeUsagePolicyConstants.LearningPathMonthlyLimitConfigKey, unlimited);
+                var tutorMessageLimit = ReadPolicyInt(config, FreeUsagePolicyConstants.TutorMessagesMonthlyLimitConfigKey, unlimited);
+                var focusReviewLimit = ReadPolicyInt(config, FreeUsagePolicyConstants.FocusSessionReviewMonthlyLimitConfigKey, unlimited);
+
+                return new FreeUsagePolicy(learningPathLimit, tutorMessageLimit, focusReviewLimit);
+            }
+        }
+        catch
+        {
+            // fallback when policy table not ready
+        }
+
+        return new FreeUsagePolicy(
+            unlimited,
+            unlimited,
+            unlimited);
+    }
+
+    private static int ReadPolicyInt(
+        IReadOnlyDictionary<string, object> config,
+        string key,
+        int fallbackValue)
+    {
+        if (!config.TryGetValue(key, out var rawValue))
+        {
+            return fallbackValue;
+        }
+
+        var parsed = rawValue switch
+        {
+            int value => value,
+            long value when value is <= int.MaxValue and >= int.MinValue => (int)value,
+            double value when value is <= int.MaxValue and >= int.MinValue => (int)value,
+            decimal value when value is <= int.MaxValue and >= int.MinValue => (int)value,
+            string text when int.TryParse(text, out var value) => value,
+            _ => fallbackValue
+        };
+
+        return parsed < 0 ? fallbackValue : parsed;
+    }
+
+    private sealed record UsageAccessProfile(bool IsExemptRole, bool IsPaidUser);
+
+    private sealed record FreeUsagePolicy(
+        int FreeLearningPathMonthlyLimit,
+        int FreeTutorMessagesMonthlyLimit,
+        int FreeFocusSessionReviewMonthlyLimit);
 }
+

@@ -7,11 +7,16 @@ using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace CodeNexus.Application.Features.Quizzes.Commands.SubmitQuizAttempt;
 
 public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttemptCommand, Result<SubmitQuizResultDto>>
 {
+    private static readonly Regex WhitespaceRegex = new(@"\s+", RegexOptions.Compiled);
+    private static readonly Regex OptionPrefixRegex = new(@"^\s*[A-Da-d][\)\.\:\-]\s*", RegexOptions.Compiled);
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
 
@@ -139,22 +144,50 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         return question.Type switch
         {
             QuestionType.MultipleChoice => CompareMultipleChoice(userAnswer, question.CorrectAnswer),
-            QuestionType.Matching => string.Equals(NormalizeAnswer(userAnswer), NormalizeAnswer(question.CorrectAnswer), StringComparison.OrdinalIgnoreCase),
-            QuestionType.Ordering => string.Equals(NormalizeAnswer(userAnswer), NormalizeAnswer(question.CorrectAnswer), StringComparison.OrdinalIgnoreCase),
-            _ => string.Equals(userAnswer.Trim(), question.CorrectAnswer.Trim(), StringComparison.OrdinalIgnoreCase)
+            QuestionType.Matching => string.Equals(NormalizeDelimitedAnswer(userAnswer), NormalizeDelimitedAnswer(question.CorrectAnswer), StringComparison.OrdinalIgnoreCase),
+            QuestionType.Ordering => string.Equals(NormalizeDelimitedAnswer(userAnswer), NormalizeDelimitedAnswer(question.CorrectAnswer), StringComparison.OrdinalIgnoreCase),
+            _ => string.Equals(NormalizeComparableText(userAnswer), NormalizeComparableText(question.CorrectAnswer), StringComparison.OrdinalIgnoreCase)
         };
     }
 
     private static bool CompareMultipleChoice(string userAnswer, string correctAnswer)
     {
-        var userParts = userAnswer.Split(',').Select(s => s.Trim().ToLowerInvariant()).OrderBy(s => s).ToList();
-        var correctParts = correctAnswer.Split(',').Select(s => s.Trim().ToLowerInvariant()).OrderBy(s => s).ToList();
-        return userParts.SequenceEqual(correctParts);
+        var userParts = userAnswer
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeComparableText)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var correctParts = correctAnswer
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeComparableText)
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .OrderBy(s => s, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return userParts.SequenceEqual(correctParts, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string NormalizeAnswer(string answer)
+    private static string NormalizeDelimitedAnswer(string answer)
     {
-        return string.Join(",", answer.Split(',').Select(s => s.Trim()));
+        return string.Join(",", answer
+            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(NormalizeComparableText));
+    }
+
+    private static string NormalizeComparableText(string answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+            return string.Empty;
+
+        var normalized = answer
+            .Normalize(NormalizationForm.FormKC)
+            .Replace('\u00A0', ' ')
+            .Trim();
+
+        normalized = OptionPrefixRegex.Replace(normalized, string.Empty);
+        return WhitespaceRegex.Replace(normalized, " ");
     }
 
     private async Task UpsertDailyCheckinForQuizAsync(
@@ -163,11 +196,9 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         decimal percentage,
         CancellationToken cancellationToken)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         var existing = await _context.DailyCheckins
             .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
-
-        var evaluated = DailyCheckinEvaluationHelper.EvaluateQuizAttempt(passed, percentage);
 
         if (existing == null)
         {
@@ -176,15 +207,13 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
                 CheckinId = NewId.NextGuid(),
                 UserId = userId,
                 CheckinDate = today,
-                Mood = evaluated.Mood,
-                Productivity = evaluated.Productivity,
+                Productivity = DailyCheckinEvaluationHelper.QuizActivityIncrement,
                 CreatedAt = DateTime.UtcNow
             });
             return;
         }
 
-        var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, evaluated.Productivity);
-        existing.Mood = merged.Mood;
-        existing.Productivity = merged.Productivity;
+        existing.Productivity = DailyCheckinEvaluationHelper.IncrementActivityCount(
+            existing.Productivity, DailyCheckinEvaluationHelper.QuizActivityIncrement);
     }
 }

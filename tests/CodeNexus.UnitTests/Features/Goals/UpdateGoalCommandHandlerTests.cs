@@ -41,7 +41,6 @@ public class UpdateGoalCommandHandlerTests
             Title = "Old Title",
             Description = "Old Description",
             IsSystemDefined = false,
-            IsActive = true,
             Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
@@ -90,7 +89,6 @@ public class UpdateGoalCommandHandlerTests
             subjectId,
             "New Title",
             "New Description",
-            true,
             GoalDuration.TwoMonths
         );
 
@@ -102,7 +100,6 @@ public class UpdateGoalCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal("New Title", result.Value.Title);
         Assert.Equal("New Description", result.Value.Description);
-        Assert.True(result.Value.IsActive);
         Assert.Equal(GoalDuration.TwoMonths, result.Value.Duration);
     }
 
@@ -129,7 +126,6 @@ public class UpdateGoalCommandHandlerTests
             subjectId,
             "New Title",
             "New Description",
-            true,
             GoalDuration.OneMonth
         );
 
@@ -154,7 +150,6 @@ public class UpdateGoalCommandHandlerTests
             CreatedByUserId = anotherUserId,
             Title = "Old Title",
             IsSystemDefined = false,
-            IsActive = true,
             Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
@@ -180,7 +175,7 @@ public class UpdateGoalCommandHandlerTests
         });
         SetupGoalMappingsDbSet(new List<GoalMapping>());
 
-        var command = new UpdateGoalCommand(goalId, subjectId, "New Title", null, true, GoalDuration.TwoMonths);
+        var command = new UpdateGoalCommand(goalId, subjectId, "New Title", null, GoalDuration.TwoMonths);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -202,7 +197,6 @@ public class UpdateGoalCommandHandlerTests
             CreatedByUserId = null,
             Title = "System Goal",
             IsSystemDefined = true,
-            IsActive = true,
             Duration = GoalDuration.OneMonth,
             CreatedAt = DateTime.UtcNow
         };
@@ -228,7 +222,7 @@ public class UpdateGoalCommandHandlerTests
         });
         SetupGoalMappingsDbSet(new List<GoalMapping>());
 
-        var command = new UpdateGoalCommand(goalId, subjectId, "Updated Title", null, true, GoalDuration.ThreeMonths);
+        var command = new UpdateGoalCommand(goalId, subjectId, "Updated Title", null, GoalDuration.ThreeMonths);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

@@ -24,7 +24,6 @@ public class GetBillingTransactionsQueryHandler
         var query = _context.PaymentTransactions
             .AsNoTracking()
             .Include(x => x.User)
-            .Include(x => x.SubscriptionPlan)
             .AsQueryable();
 
         if (request.FromUtc.HasValue)
@@ -45,11 +44,6 @@ public class GetBillingTransactionsQueryHandler
         if (request.UserId.HasValue)
         {
             query = query.Where(x => x.UserId == request.UserId.Value);
-        }
-
-        if (request.SubscriptionPlanId.HasValue)
-        {
-            query = query.Where(x => x.SubscriptionPlanId == request.SubscriptionPlanId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(request.Provider))
@@ -80,8 +74,6 @@ public class GetBillingTransactionsQueryHandler
                 x.UserId,
                 x.User.Username,
                 x.User.Email,
-                x.SubscriptionPlanId,
-                x.SubscriptionPlan != null ? x.SubscriptionPlan.Name : null,
                 x.Amount,
                 x.Provider,
                 x.TxnRef,
@@ -103,4 +95,3 @@ public class GetBillingTransactionsQueryHandler
         });
     }
 }
-

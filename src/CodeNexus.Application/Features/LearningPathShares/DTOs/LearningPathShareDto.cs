@@ -9,5 +9,11 @@ public record LearningPathShareDto(
     Guid StudentId,
     LearningPathShareStatus Status,
     DateTime SentAt,
-    DateTime? RespondedAt
+    DateTime? RespondedAt,
+    Guid? AcceptedPathId = null,
+    decimal? SourceVersionAtAccept = null,
+    decimal? IgnoredSourceVersion = null,
+    decimal? LastNotifiedSourceVersion = null,
+    bool IsTrackingEnabled = true,
+    string? InvalidatedReason = null
 );

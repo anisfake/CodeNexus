@@ -33,7 +33,8 @@ public class AbandonSessionCommandHandlerTests
         {
             TaskId = taskId,
             Title = "Test Task",
-            TaskType = TaskType.Practice
+            TaskType = TaskType.Practice,
+            Status = TaskStatus_.InProgress
         };
 
         var session = new FocusSession
@@ -55,10 +56,13 @@ public class AbandonSessionCommandHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
         Assert.Equal(SessionStatus.Abandoned, session.SessionStatus);
         Assert.NotNull(session.EndTime);
         Assert.NotNull(session.ActualDurationMinutes);
         Assert.True(session.ActualDurationMinutes > 0);
+        Assert.False(result.Value!.TaskRevertedToPending);
+        Assert.Equal(TaskStatus_.InProgress, task.Status);
     }
 
     [Fact]

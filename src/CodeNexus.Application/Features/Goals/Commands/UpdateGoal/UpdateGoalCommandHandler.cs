@@ -91,7 +91,6 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
 
             goal.Title = normalizedTitle;
             goal.Description = normalizedDescription;
-            goal.IsActive = request.IsActive;
             goal.Duration = request.Duration;
             goal.UpdatedAt = DateTime.UtcNow;
 
@@ -125,7 +124,7 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
                 }
 
                 var systemGoals = await _context.Goals
-                    .Where(g => g.IsSystemDefined && g.IsActive && !g.IsDeleted)
+                    .Where(g => g.IsSystemDefined && !g.IsDeleted)
                     .Join(
                         _context.SubjectGoals.Where(sg => sg.SubjectId == subject.SubjectId),
                         g => g.GoalId,
@@ -171,7 +170,6 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
                 goal.Title,
                 goal.Description,
                 goal.IsSystemDefined,
-                goal.IsActive,
                 goal.Duration,
                 goal.DurationInDays,
                 goal.CreatedAt

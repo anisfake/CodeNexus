@@ -102,7 +102,6 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
             Title = "Master C#", 
             CreatedByUserId = userId,
             IsSystemDefined = false,
-            IsActive = true,
             Duration = GoalDuration.TwoMonths // 60 days
         };
 
@@ -137,7 +136,6 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
             Title = "Become Full Stack Developer", 
             CreatedByUserId = userId,
             IsSystemDefined = false,
-            IsActive = true,
             Duration = GoalDuration.OneMonth // 30 days
         };
 
@@ -221,7 +219,7 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenLearningPathLimitExceeded_ShouldReturnFailure()
+    public async Task Handle_WhenSubjectNotFound_ShouldReturnFailure()
     {
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
@@ -230,13 +228,12 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("LEARNING_PATH_LIMIT_EXCEEDED", "Limit reached"));
+        _mockContext.Setup(x => x.Subjects).Returns(new List<Subject>().BuildMockDbSet().Object);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal("LEARNING_PATH_LIMIT_EXCEEDED", result.ErrorCode);
+        Assert.Equal("SUBJECT_NOT_FOUND", result.ErrorCode);
     }
 
     private sealed class ThrowingAIGeneratorService : IAIGeneratorService

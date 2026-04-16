@@ -176,6 +176,19 @@ public class DirectChatHub : Hub
                         BadgeIncrement = 1,
                         PlaySound = true
                     });
+
+                    if (recipientId == updatedConversation.MentorId && currentUserId == updatedConversation.StudentId)
+                    {
+                        await Clients.User(recipientId.ToString()).SendAsync("MentorDashboardRecentMessageReceived", new
+                        {
+                            MessageId = result.Value?.MessageId,
+                            updatedConversation.ConversationId,
+                            StudentId = updatedConversation.StudentId,
+                            StudentName = updatedConversation.StudentName,
+                            Content = result.Value?.Content,
+                            SentAt = result.Value?.SentAt
+                        });
+                    }
                 }
             }
         }
@@ -200,7 +213,7 @@ public class DirectChatHub : Hub
         await Clients.Group(GetConversationGroup(conversationId)).SendAsync("MessageDelivered", new
         {
             MessageId = messageId,
-            DeliveredAt = DateTime.UtcNow
+            DeliveredAt = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified)
         });
     }
 
@@ -221,7 +234,7 @@ public class DirectChatHub : Hub
         await Clients.Group(GetConversationGroup(conversationId)).SendAsync("MessageSeen", new
         {
             MessageId = messageId,
-            SeenAt = DateTime.UtcNow
+            SeenAt = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified)
         });
 
         await RequestUnreadCount();

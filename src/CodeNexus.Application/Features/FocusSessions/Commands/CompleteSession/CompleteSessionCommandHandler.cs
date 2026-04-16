@@ -7,6 +7,7 @@ using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using DailyCheckinEntity = CodeNexus.Domain.Entities.DailyCheckins;
 
 namespace CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
 
@@ -62,9 +63,10 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
             session.EndTime = endTime;
             session.ActualDurationMinutes = actualDurationMinutes;
-            session.SubmittedCode = request.SubmittedCode;
-            session.SubmittedSummary = request.SubmittedSummary;
-            session.SubmittedQuizAnswers = request.SubmittedQuizAnswers;
+            session.LastActivityAt = endTime;
+            session.SubmittedCode = request.SubmittedCode ?? session.SubmittedCode;
+            session.SubmittedSummary = request.SubmittedSummary ?? session.SubmittedSummary;
+            session.SubmittedQuizAnswers = request.SubmittedQuizAnswers ?? session.SubmittedQuizAnswers;
 
             if (request.IsEarlyCompletion)
             {
@@ -221,24 +223,28 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
 
     private static int CalculateElapsedMinutes(FocusSession session, DateTime now, bool finalizePause)
     {
-        var pausedMinutes = session.TotalPausedMinutes;
+        var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)(now - session.PausedAt.Value).TotalMinutes;
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
-                pausedMinutes += extra;
+                pausedSeconds += extra;
                 if (finalizePause)
                 {
-                    session.TotalPausedMinutes = pausedMinutes;
+                    session.TotalPausedSeconds = pausedSeconds;
+                    session.TotalPausedMinutes = pausedSeconds / 60;
                     session.PausedAt = null;
                 }
             }
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
-        return Math.Max(0, elapsed);
+        var elapsedSeconds = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
+        return Math.Max(0, elapsedSeconds / 60);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 
     private async Task TryCreateDailyCheckinAsync(FocusSession session, SubmissionType submissionType, CancellationToken cancellationToken)
     {
@@ -252,28 +258,25 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
             return;
         }
 
-        var today = DateTime.UtcNow.Date;
+        var today = VietnamDateTimeHelper.GetTodayDate();
         var userId = session.Task.LearningPath.UserId;
 
-        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
         var existing = await _context.DailyCheckins
             .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
 
         if (existing != null)
         {
-            var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, productivity);
-            existing.Mood = merged.Mood;
-            existing.Productivity = merged.Productivity;
+            existing.Productivity = DailyCheckinEvaluationHelper.IncrementActivityCount(
+                existing.Productivity, DailyCheckinEvaluationHelper.SessionActivityIncrement);
             return;
         }
 
-        _context.DailyCheckins.Add(new DailyCheckins
+        _context.DailyCheckins.Add(new DailyCheckinEntity
         {
             CheckinId = NewId.NextGuid(),
             UserId = userId,
             CheckinDate = today,
-            Mood = mood,
-            Productivity = productivity,
+            Productivity = DailyCheckinEvaluationHelper.SessionActivityIncrement,
             CreatedAt = DateTime.UtcNow
         });
     }

@@ -10,6 +10,5 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
         Guid SubjectId,
         string Title,
         string? Description,
-        bool IsActive,
         GoalDuration Duration) : IRequest<Result<GoalDto>>;
 }

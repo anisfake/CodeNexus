@@ -100,6 +100,48 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             return Result<LearningPathShareDto>.Failure("SHARE_ALREADY_PENDING", "A pending share already exists for this student.");
         }
 
+        var chapterIds = await _context.Chapters
+            .AsNoTracking()
+            .Where(c => c.PathId == request.PathId && !c.IsDeleted)
+            .Select(c => c.ChapterId)
+            .ToListAsync(cancellationToken);
+
+        var chapterIdsWithTask = await _context.Tasks
+            .AsNoTracking()
+            .Where(t => chapterIds.Contains(t.ChapterId))
+            .Select(t => t.ChapterId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (chapterIds.Except(chapterIdsWithTask).Any())
+        {
+            return Result<LearningPathShareDto>.Failure(
+                "CHAPTER_TASK_REQUIRED",
+                "Each chapter must have at least one task before sharing.");
+        }
+
+        var lessonIds = await _context.Lessons
+            .AsNoTracking()
+            .Where(l => !l.IsDeleted && chapterIds.Contains(l.ChapterId))
+            .Select(l => l.LessonId)
+            .ToListAsync(cancellationToken);
+
+        var lessonIdsWithQuiz = await _context.Quizzes
+            .AsNoTracking()
+            .Where(q => q.LessonId.HasValue && !q.IsDeleted && lessonIds.Contains(q.LessonId.Value))
+            .Select(q => q.LessonId!.Value)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        if (lessonIds.Except(lessonIdsWithQuiz).Any())
+        {
+            return Result<LearningPathShareDto>.Failure(
+                "LESSON_QUIZ_REQUIRED",
+                "Each lesson must have at least one quiz before sharing.");
+        }
+
+        var now = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
+
         var share = new LearningPathShare
         {
             ShareId = NewId.NextGuid(),
@@ -107,7 +149,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             MentorId = mentorId,
             StudentId = request.StudentId,
             Status = LearningPathShareStatus.Pending,
-            SentAt = DateTime.UtcNow
+            SentAt = now
         };
 
         var conversation = await _context.DirectConversations
@@ -120,7 +162,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
                 ConversationId = NewId.NextGuid(),
                 MentorId = mentorId,
                 StudentId = request.StudentId,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now
             };
 
             _context.DirectConversations.Add(conversation);
@@ -134,7 +176,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             Content = $"Shared learning path: {path.Title}",
             MessageType = DirectMessageType.LearningPathShare,
             LearningPathShareId = share.ShareId,
-            SentAt = DateTime.UtcNow
+            SentAt = now
         };
 
         var receipt = new DirectMessageReceipt

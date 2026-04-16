@@ -52,12 +52,11 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
         public DbSet<DailyCheckins> DailyCheckins => Set<DailyCheckins>();
         public DbSet<Note> Notes => Set<Note>();
-        public DbSet<Tag> Tags => Set<Tag>();
-        public DbSet<NoteTags> NoteTags => Set<NoteTags>();
         public DbSet<Resource> Resources => Set<Resource>();
         public DbSet<ResourcePage> ResourcePages => Set<ResourcePage>();
         public DbSet<AISummary> AISummaries => Set<AISummary>();
         public DbSet<Conversation> Conversations => Set<Conversation>();
+        public DbSet<ConversationSummary> ConversationSummaries => Set<ConversationSummary>();
         public DbSet<Message> Messages => Set<Message>();
         public DbSet<DirectConversation> DirectConversations => Set<DirectConversation>();
         public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
@@ -71,11 +70,10 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<AIUsageLog> AIUsageLogs => Set<AIUsageLog>();
         public DbSet<Achievement> Achievements => Set<Achievement>();
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
+        public DbSet<TokenPackage> TokenPackages => Set<TokenPackage>();
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
-        public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
-        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits => Set<SubscriptionPlanLimit>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
-        public DbSet<MentorAiAccessPolicy> MentorAiAccessPolicies => Set<MentorAiAccessPolicy>();
+        public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -261,7 +259,6 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<FocusSession>().HasKey(e => e.SessionId);
             modelBuilder.Entity<DailyCheckins>().HasKey(e => e.CheckinId);
             modelBuilder.Entity<Note>().HasKey(e => e.NoteId);
-            modelBuilder.Entity<Tag>().HasKey(e => e.TagId);
             modelBuilder.Entity<Resource>().HasKey(e => e.ResourceId);
             modelBuilder.Entity<ResourcePage>().HasKey(e => e.ResourcePageId);
             modelBuilder.Entity<AISummary>().HasKey(e => e.SummaryId);
@@ -276,16 +273,16 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
+            modelBuilder.Entity<ConversationSummary>().HasKey(e => e.SummaryId);
             modelBuilder.Entity<Message>().HasKey(e => e.MessageId);
             modelBuilder.Entity<DirectConversation>().HasKey(e => e.ConversationId);
             modelBuilder.Entity<DirectMessage>().HasKey(e => e.MessageId);
             modelBuilder.Entity<DirectMessageReceipt>().HasKey(e => e.ReceiptId);
             modelBuilder.Entity<LearningPathShare>().HasKey(e => e.ShareId);
             modelBuilder.Entity<AIUsageLog>().HasKey(e => e.UsageLogId);
-            modelBuilder.Entity<SubscriptionPlan>().HasKey(e => e.SubscriptionPlanId);
-            modelBuilder.Entity<SubscriptionPlanLimit>().HasKey(e => e.SubscriptionPlanLimitId);
+            modelBuilder.Entity<TokenPackage>().HasKey(e => e.TokenPackageId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
-            modelBuilder.Entity<MentorAiAccessPolicy>().HasKey(e => e.MentorAiAccessPolicyId);
+            modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -306,29 +303,12 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasIndex(u => u.Email).IsUnique();
                 entity.HasIndex(u => u.Username).IsUnique();
+                entity.Property(u => u.TokenBalance).HasPrecision(18, 2);
 
                 entity.HasOne(u => u.UserProfile)
                       .WithOne(p => p.User)
                       .HasForeignKey<UserProfile>(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(u => u.SubscriptionPlan)
-                      .WithMany()
-                      .HasForeignKey(u => u.SubscriptionPlanId)
-                      .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            modelBuilder.Entity<NoteTags>(entity =>
-            {
-                entity.HasKey(nt => new { nt.NoteId, nt.TagId });
-
-                entity.HasOne(nt => nt.Note)
-                      .WithMany(n => n.NoteTags)
-                      .HasForeignKey(nt => nt.NoteId);
-
-                entity.HasOne(nt => nt.Tag)
-                      .WithMany(t => t.NoteTags)
-                      .HasForeignKey(nt => nt.TagId);
             });
 
             modelBuilder.Entity<Tasks>(entity =>
@@ -350,6 +330,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.NoAction);
             });
 
+            modelBuilder.Entity<FocusSession>(entity =>
+            {
+                entity.HasIndex(e => new { e.SessionStatus, e.LastActivityAt });
+            });
+
             modelBuilder.Entity<DailyCheckins>(entity =>
             {
                 entity.HasIndex(dc => new { dc.UserId, dc.CheckinDate }).IsUnique();
@@ -360,10 +345,24 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<Note>(entity =>
+            {
+                entity.HasIndex(n => n.SessionId);
+
+                entity.HasOne(n => n.FocusSession)
+                      .WithMany(fs => fs.Notes)
+                      .HasForeignKey(n => n.SessionId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
             modelBuilder.Entity<LearningPath>(entity =>
             {
                 entity.Property(p => p.ComplexityLevel)
                       .HasConversion<string>();
+
+                entity.Property(p => p.VersionNumber)
+                      .HasPrecision(4, 1)
+                      .HasDefaultValue(1.0m);
 
                 entity.HasOne(p => p.Subject)
                       .WithMany(s => s.LearningPaths)
@@ -557,6 +556,10 @@ namespace CodeNexus.Infrastructure.Persistence
                 .Property(n => n.Type)
                 .HasConversion<string>();
 
+            modelBuilder.Entity<Notification>()
+                .Property(n => n.NotifiedSourceVersion)
+                .HasPrecision(4, 1);
+
             modelBuilder.Entity<AIProviderConfig>(entity =>
             {
                 entity.HasKey(e => e.ConfigId);
@@ -578,9 +581,15 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasIndex(e => new { e.UsageType, e.CreatedAt });
                 entity.HasIndex(e => new { e.AccessTierUsed, e.UsageType, e.CreatedAt });
+                entity.HasIndex(e => new { e.ConfigId, e.CreatedAt });
                 entity.Property(e => e.AccessTierUsed)
                     .HasConversion<string>();
-                entity.Property(e => e.CostUsd).HasPrecision(18, 8);
+                entity.Property(e => e.ChargedTokens).HasPrecision(18, 8);
+
+                entity.HasOne(e => e.Config)
+                      .WithMany(c => c.AIUsageLogs)
+                      .HasForeignKey(e => e.ConfigId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             modelBuilder.Entity<PaymentTransaction>(entity =>
@@ -588,6 +597,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasKey(e => e.PaymentTransactionId);
 
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
+                entity.Property(e => e.CreditedTokens).HasPrecision(18, 2);
                 entity.Property(e => e.Status).HasConversion<string>();
 
                 entity.HasIndex(e => e.TxnRef).IsUnique();
@@ -597,17 +607,14 @@ namespace CodeNexus.Infrastructure.Persistence
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.NoAction);
 
-                entity.HasOne(e => e.SubscriptionPlan)
+                entity.HasOne(e => e.TokenPackage)
                       .WithMany()
-                      .HasForeignKey(e => e.SubscriptionPlanId)
+                      .HasForeignKey(e => e.TokenPackageId)
                       .OnDelete(DeleteBehavior.SetNull);
             });
 
-            modelBuilder.Entity<SubscriptionPlan>(entity =>
+            modelBuilder.Entity<TokenPackage>(entity =>
             {
-                entity.Property(e => e.PlanType)
-                      .HasConversion<string>();
-
                 entity.Property(e => e.Name)
                       .HasMaxLength(120);
 
@@ -617,28 +624,10 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.PriceVnd)
                       .HasPrecision(18, 2);
 
-                entity.HasIndex(e => e.PlanType)
-                      .IsUnique();
+                entity.Property(e => e.CreditedTokens)
+                      .HasPrecision(18, 2);
 
                 entity.HasIndex(e => e.DisplayOrder);
-
-            });
-
-            modelBuilder.Entity<SubscriptionPlanLimit>(entity =>
-            {
-                entity.Property(e => e.FeatureKey)
-                      .HasConversion<string>();
-
-                entity.Property(e => e.WindowType)
-                      .HasConversion<string>();
-
-                entity.HasIndex(e => new { e.SubscriptionPlanId, e.FeatureKey })
-                      .IsUnique();
-
-                entity.HasOne(e => e.SubscriptionPlan)
-                      .WithMany(p => p.Limits)
-                      .HasForeignKey(e => e.SubscriptionPlanId)
-                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<FeatureUsageLog>(entity =>
@@ -654,13 +643,23 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<MentorAiAccessPolicy>(entity =>
+            modelBuilder.Entity<SystemRuntimePolicy>(entity =>
             {
-                entity.Property(e => e.MentorPaidRequestsMonthlyLimit)
+                entity.Property(e => e.PolicyKey)
+                      .IsRequired()
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.Description)
+                      .HasMaxLength(500);
+
+                entity.Property(e => e.ConfigJson)
                       .IsRequired();
 
-                entity.Property(e => e.MentorDowngradeNotifyCooldownHours)
-                      .IsRequired();
+                entity.Property(e => e.IsActive)
+                      .HasDefaultValue(true);
+
+                entity.HasIndex(e => e.PolicyKey)
+                      .IsUnique();
 
                 entity.HasIndex(e => e.UpdatedAt);
             });
@@ -682,6 +681,26 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasMany(c => c.Messages)
                       .WithOne(m => m.Conversation)
                       .HasForeignKey(m => m.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(c => c.Summaries)
+                      .WithOne(s => s.Conversation)
+                      .HasForeignKey(s => s.ConversationId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ConversationSummary>(entity =>
+            {
+                entity.HasKey(e => e.SummaryId);
+
+                entity.Property(e => e.SummaryContent)
+                      .IsRequired();
+
+                entity.HasIndex(e => new { e.ConversationId, e.CreatedAt });
+
+                entity.HasOne(e => e.Conversation)
+                      .WithMany(c => c.Summaries)
+                      .HasForeignKey(e => e.ConversationId)
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -785,7 +804,24 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.Status)
                       .HasConversion<string>();
 
+                entity.Property(e => e.IsTrackingEnabled)
+                      .HasDefaultValue(true);
+
+                entity.Property(e => e.InvalidatedReason)
+                      .HasMaxLength(100);
+
+                entity.Property(e => e.SourceVersionAtAccept)
+                      .HasPrecision(4, 1);
+
+                entity.Property(e => e.IgnoredSourceVersion)
+                      .HasPrecision(4, 1);
+
+                entity.Property(e => e.LastNotifiedSourceVersion)
+                      .HasPrecision(4, 1);
+
                 entity.HasIndex(e => new { e.StudentId, e.Status, e.SentAt });
+                entity.HasIndex(e => e.AcceptedPathId);
+                entity.HasIndex(e => new { e.PathId, e.StudentId, e.Status, e.IsTrackingEnabled });
                 entity.HasIndex(e => new { e.PathId, e.MentorId, e.StudentId })
                       .IsUnique()
                       .HasFilter("[Status] = 'Pending'");
@@ -794,6 +830,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany()
                       .HasForeignKey(e => e.PathId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.AcceptedPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.AcceptedPathId)
+                      .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(e => e.Mentor)
                       .WithMany()
@@ -808,3 +849,4 @@ namespace CodeNexus.Infrastructure.Persistence
         }
     }
 }
+

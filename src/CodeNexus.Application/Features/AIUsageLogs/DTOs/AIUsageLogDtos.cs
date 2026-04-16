@@ -5,6 +5,7 @@ namespace CodeNexus.Application.Features.AIUsageLogs.DTOs;
 public record AIUsageLogResponse(
     Guid UsageLogId,
     Guid? UserId,
+    Guid? ConfigId,
     AIUsageType UsageType,
     AIAccessTier AccessTierUsed,
     string ProviderName,
@@ -12,7 +13,7 @@ public record AIUsageLogResponse(
     int InputTokens,
     int OutputTokens,
     int TotalTokens,
-    decimal CostUsd,
+    decimal ChargedTokens,
     DateTime CreatedAt
 );
 
@@ -25,7 +26,7 @@ public record AIUsageSummaryResponse(
     long TotalInputTokens,
     long TotalOutputTokens,
     long TotalTokens,
-    decimal TotalCostUsd
+    decimal TotalChargedTokens
 );
 
 public record MentorAiQuotaStatusResponse(
@@ -39,3 +40,4 @@ public record MentorAiQuotaStatusResponse(
     bool IsReachedLimit,
     DateTime WindowStartUtc
 );
+

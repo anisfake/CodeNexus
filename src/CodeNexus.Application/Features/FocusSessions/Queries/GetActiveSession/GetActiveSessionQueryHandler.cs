@@ -48,7 +48,10 @@ public class GetActiveSessionQueryHandler : IRequestHandler<GetActiveSessionQuer
                 elapsedMinutes,
                 remainingMinutes,
                 activeSession.SessionStatus.ToString(),
-                isOvertime
+                isOvertime,
+                activeSession.SubmittedCode,
+                activeSession.SubmittedSummary,
+                activeSession.SubmittedQuizAnswers
             );
 
             return Result<ActiveSessionDto?>.Success(activeSessionDto);
@@ -63,17 +66,20 @@ public class GetActiveSessionQueryHandler : IRequestHandler<GetActiveSessionQuer
 
     private static int CalculateElapsedMinutes(FocusSession session, DateTime now)
     {
-        var pausedMinutes = session.TotalPausedMinutes;
+        var pausedSeconds = Math.Max(0, session.TotalPausedSeconds);
         if (session.PausedAt.HasValue)
         {
-            var extra = (int)(now - session.PausedAt.Value).TotalMinutes;
+            var extra = ToWholeSeconds(now - session.PausedAt.Value);
             if (extra > 0)
             {
-                pausedMinutes += extra;
+                pausedSeconds += extra;
             }
         }
 
-        var elapsed = (int)(now - session.StartTime).TotalMinutes - pausedMinutes;
-        return Math.Max(0, elapsed);
+        var elapsedSeconds = ToWholeSeconds(now - session.StartTime) - pausedSeconds;
+        return Math.Max(0, elapsedSeconds / 60);
     }
+
+    private static int ToWholeSeconds(TimeSpan duration)
+        => (int)(duration.Ticks / TimeSpan.TicksPerSecond);
 }

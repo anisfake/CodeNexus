@@ -13,12 +13,18 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
     private readonly IApplicationDbContext _context;
     private readonly IPasswordService _passwordService;
     private readonly ITokenService _tokenService;
+    private readonly IDailyReminderTimeInferenceService _dailyReminderTimeInferenceService;
 
-    public LoginCommandHandler(IApplicationDbContext context, IPasswordService passwordService, ITokenService tokenService)
+    public LoginCommandHandler(
+        IApplicationDbContext context,
+        IPasswordService passwordService,
+        ITokenService tokenService,
+        IDailyReminderTimeInferenceService dailyReminderTimeInferenceService)
     {
         _context = context;
         _passwordService = passwordService;
         _tokenService = tokenService;
+        _dailyReminderTimeInferenceService = dailyReminderTimeInferenceService;
     }
 
     public async Task<Result<LoginResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
@@ -27,6 +33,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
 
         var user = await _context.Users
             .Include(u => u.Role)
+            .Include(u => u.UserProfile)
             .FirstOrDefaultAsync(u => u.Email == identifier || u.Username == identifier, cancellationToken);
 
         if (user == null)
@@ -39,6 +46,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             return Result<LoginResponse>.Failure("INVALID_CREDENTIALS", "Invalid username/email or password");
 
         var now = DateTime.UtcNow;
+        var isFirstSuccessfulLogin = user.LastLogin == null;
 
         var expiredBlacklistedTokens = await _context.TokenBlacklist
             .Where(t => t.ExpiresAt <= now)
@@ -47,6 +55,13 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
         if (expiredBlacklistedTokens.Any())
         {
             _context.TokenBlacklist.RemoveRange(expiredBlacklistedTokens);
+        }
+
+        var shouldPromptDailyReminderTime = isFirstSuccessfulLogin && user.UserProfile?.DailyReminderTime == null;
+        if (user.UserProfile is { DailyReminderTime: null })
+        {
+            user.UserProfile.DailyReminderTime = await _dailyReminderTimeInferenceService
+                .InferDailyReminderTimeAsync(user.UserId, cancellationToken);
         }
 
         user.LastLogin = now;
@@ -74,7 +89,8 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<LoginRes
             user.Username,
             user.LastLogin,
             user.RoleId,
-            user.Role?.RoleName
+            user.Role?.RoleName,
+            shouldPromptDailyReminderTime
         ));
     }
 }
