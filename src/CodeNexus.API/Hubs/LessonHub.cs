@@ -19,11 +19,12 @@ public class LessonHub : Hub
 
     public async Task RequestLessonContent(Guid lessonId)
     {
+        var ct = Context.ConnectionAborted;
         try
         {
-            await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId });
+            await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId }, ct);
 
-            var lessonResult = await _sender.Send(new GenerateLessonContentCommand(lessonId));
+            var lessonResult = await _sender.Send(new GenerateLessonContentCommand(lessonId), ct);
 
             if (!lessonResult.IsSuccess)
             {
@@ -32,15 +33,15 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     lessonResult.ErrorCode,
                     lessonResult.ErrorMessage
-                });
+                }, ct);
                 return;
             }
 
-            await Clients.Caller.SendAsync("ReceiveLessonContent", lessonResult.Value);
+            await Clients.Caller.SendAsync("ReceiveLessonContent", lessonResult.Value, ct);
 
-            await Clients.Caller.SendAsync("QuizSkeletonLoading", new { lessonId });
+            await Clients.Caller.SendAsync("QuizSkeletonLoading", new { lessonId }, ct);
 
-            var quizResult = await _sender.Send(new GenerateQuizSkeletonCommand(lessonId));
+            var quizResult = await _sender.Send(new GenerateQuizSkeletonCommand(lessonId), ct);
 
             if (quizResult.IsSuccess)
             {
@@ -48,7 +49,7 @@ public class LessonHub : Hub
                 {
                     LessonId = lessonId,
                     Quizzes = quizResult.Value.Quizzes
-                });
+                }, ct);
             }
             else
             {
@@ -57,14 +58,14 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     quizResult.ErrorCode,
                     quizResult.ErrorMessage
-                });
+                }, ct);
             }
 
             await Clients.Caller.SendAsync("LessonGenerationCompleted", new
             {
                 LessonId = lessonId,
                 Message = "Lesson content and quizzes generated successfully!"
-            });
+            }, ct);
         }
         catch (Exception ex)
         {
@@ -80,11 +81,12 @@ public class LessonHub : Hub
     [Authorize(Roles = "Mentor")]
     public async Task RequestMentorLessonContent(Guid lessonId)
     {
+        var ct = Context.ConnectionAborted;
         try
         {
-            await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId });
+            await Clients.Caller.SendAsync("LessonContentLoading", new { lessonId }, ct);
 
-            var lessonResult = await _sender.Send(new GenerateLessonContentCommand(lessonId));
+            var lessonResult = await _sender.Send(new GenerateLessonContentCommand(lessonId), ct);
 
             if (!lessonResult.IsSuccess)
             {
@@ -93,17 +95,17 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     lessonResult.ErrorCode,
                     lessonResult.ErrorMessage
-                });
+                }, ct);
                 return;
             }
 
-            await Clients.Caller.SendAsync("ReceiveLessonContent", lessonResult.Value);
+            await Clients.Caller.SendAsync("ReceiveLessonContent", lessonResult.Value, ct);
 
             await Clients.Caller.SendAsync("LessonGenerationCompleted", new
             {
                 LessonId = lessonId,
                 Message = "Lesson content generated successfully!"
-            });
+            }, ct);
         }
         catch (Exception ex)
         {
@@ -118,11 +120,12 @@ public class LessonHub : Hub
 
     public async Task RequestQuizSkeleton(Guid lessonId)
     {
+        var ct = Context.ConnectionAborted;
         try
         {
-            await Clients.Caller.SendAsync("QuizSkeletonLoading", new { lessonId });
+            await Clients.Caller.SendAsync("QuizSkeletonLoading", new { lessonId }, ct);
 
-            var quizResult = await _sender.Send(new GenerateQuizSkeletonCommand(lessonId));
+            var quizResult = await _sender.Send(new GenerateQuizSkeletonCommand(lessonId), ct);
 
             if (quizResult.IsSuccess)
             {
@@ -130,7 +133,7 @@ public class LessonHub : Hub
                 {
                     LessonId = lessonId,
                     Quizzes = quizResult.Value.Quizzes
-                });
+                }, ct);
                 return;
             }
 
@@ -139,7 +142,7 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 quizResult.ErrorCode,
                 quizResult.ErrorMessage
-            });
+            }, ct);
         }
         catch (Exception ex)
         {
@@ -154,11 +157,12 @@ public class LessonHub : Hub
 
     public async Task RequestSingleQuizSkeleton(Guid lessonId)
     {
+        var ct = Context.ConnectionAborted;
         try
         {
-            await Clients.Caller.SendAsync("SingleQuizSkeletonLoading", new { lessonId });
+            await Clients.Caller.SendAsync("SingleQuizSkeletonLoading", new { lessonId }, ct);
 
-            var quizResult = await _sender.Send(new GenerateSingleQuizSkeletonCommand(lessonId));
+            var quizResult = await _sender.Send(new GenerateSingleQuizSkeletonCommand(lessonId), ct);
 
             if (quizResult.IsSuccess)
             {
@@ -166,7 +170,7 @@ public class LessonHub : Hub
                 {
                     LessonId = lessonId,
                     Quiz = quizResult.Value
-                });
+                }, ct);
                 return;
             }
 
@@ -175,7 +179,7 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 quizResult.ErrorCode,
                 quizResult.ErrorMessage
-            });
+            }, ct);
         }
         catch (Exception ex)
         {

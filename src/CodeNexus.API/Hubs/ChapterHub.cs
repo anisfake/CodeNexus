@@ -19,23 +19,28 @@ public class ChapterHub : Hub
 
     public async Task RequestChapterSkeleton(Guid pathId, int orderIndex)
     {
+        var ct = Context.ConnectionAborted;
         try
         {
-            await Clients.Caller.SendAsync("ChapterSkeletonGenerationStarted", new { pathId, orderIndex });
+            await Clients.Caller.SendAsync("ChapterSkeletonGenerationStarted", new { pathId, orderIndex }, ct);
 
             var command = new GenerateChapterSkeletonCommand(pathId, orderIndex);
-            var result = await _sender.Send(command);
+            var result = await _sender.Send(command, ct);
 
             if (result.IsSuccess)
             {
-                await Clients.Caller.SendAsync("ChapterSkeletonGenerated", result.Value);
+                await Clients.Caller.SendAsync("ChapterSkeletonGenerated", result.Value, ct);
 
-                await Clients.Caller.SendAsync("ChapterContentLoading", new { chapterId = result.Value.ChapterId });
-                var contentResult = await _sender.Send(new GenerateChapterContentCommand(result.Value.ChapterId));
+                await Clients.Caller.SendAsync("ChapterContentLoading", new { chapterId = result.Value.ChapterId }, ct);
+                var contentResult = await _sender.Send(new GenerateChapterContentCommand(result.Value.ChapterId), ct);
 
                 if (contentResult.IsSuccess)
                 {
-                    await Clients.Caller.SendAsync("ReceiveChapterContent", contentResult.Value);
+                    await Clients.Caller.SendAsync("ReceiveChapterContent", new
+                    {
+                        ChapterId = result.Value.ChapterId,
+                        Content = contentResult.Value
+                    }, ct);
                 }
                 else
                 {
@@ -44,7 +49,7 @@ public class ChapterHub : Hub
                         ChapterId = result.Value.ChapterId,
                         contentResult.ErrorCode,
                         contentResult.ErrorMessage
-                    });
+                    }, ct);
                 }
             }
             else
@@ -55,7 +60,7 @@ public class ChapterHub : Hub
                     OrderIndex = orderIndex,
                     result.ErrorCode,
                     result.ErrorMessage
-                });
+                }, ct);
             }
         }
         catch (Exception ex)
@@ -72,13 +77,18 @@ public class ChapterHub : Hub
 
     public async Task RequestChapterContent(Guid chapterId)
     {
-        await Clients.Caller.SendAsync("ChapterContentLoading", new { chapterId });
+        var ct = Context.ConnectionAborted;
+        await Clients.Caller.SendAsync("ChapterContentLoading", new { chapterId }, ct);
 
-        var result = await _sender.Send(new GenerateChapterContentCommand(chapterId));
+        var result = await _sender.Send(new GenerateChapterContentCommand(chapterId), ct);
 
         if (result.IsSuccess)
         {
-            await Clients.Caller.SendAsync("ReceiveChapterContent", result.Value);
+            await Clients.Caller.SendAsync("ReceiveChapterContent", new
+            {
+                ChapterId = chapterId,
+                Content = result.Value
+            }, ct);
         }
         else
         {
@@ -87,15 +97,16 @@ public class ChapterHub : Hub
                 ChapterId = chapterId,
                 result.ErrorCode,
                 result.ErrorMessage
-            });
+            }, ct);
         }
     }
 
     public async Task RequestChapterMentorSkeleton(Guid pathId, string chapterTitle, string? chapterDescription)
     {
+        var ct = Context.ConnectionAborted;
         try
         {
-            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerationStarted", new { pathId });
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerationStarted", new { pathId }, ct);
 
             if (string.IsNullOrWhiteSpace(chapterTitle))
             {
@@ -104,12 +115,12 @@ public class ChapterHub : Hub
                     PathId = pathId,
                     ErrorCode = "INVALID_CHAPTER_TITLE",
                     ErrorMessage = "Chapter title is required"
-                });
+                }, ct);
                 return;
             }
 
             var command = new GenerateChapterMentorSkeletonCommand(pathId, chapterTitle, chapterDescription);
-            var result = await _sender.Send(command);
+            var result = await _sender.Send(command, ct);
 
             if (!result.IsSuccess)
             {
@@ -118,11 +129,11 @@ public class ChapterHub : Hub
                     PathId = pathId,
                     result.ErrorCode,
                     result.ErrorMessage
-                });
+                }, ct);
                 return;
             }
 
-            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerated", result.Value);
+            await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerated", result.Value, ct);
         }
         catch (Exception ex)
         {
