@@ -100,6 +100,19 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             return Result<LearningPathShareDto>.Failure("SHARE_ALREADY_PENDING", "A pending share already exists for this student.");
         }
 
+        var existingAcceptedShare = await _context.LearningPathShares
+            .AsNoTracking()
+            .AnyAsync(s => s.PathId == request.PathId
+                        && s.MentorId == mentorId
+                        && s.StudentId == request.StudentId
+                        && s.Status == LearningPathShareStatus.Accepted,
+                cancellationToken);
+
+        if (existingAcceptedShare)
+        {
+            return Result<LearningPathShareDto>.Failure("SHARE_ALREADY_ACCEPTED", "This learning path has already been accepted by the student.");
+        }
+
         var chapterIds = await _context.Chapters
             .AsNoTracking()
             .Where(c => c.PathId == request.PathId && !c.IsDeleted)
@@ -148,6 +161,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             PathId = request.PathId,
             MentorId = mentorId,
             StudentId = request.StudentId,
+            SnapshotTitle = path.Title,
             Status = LearningPathShareStatus.Pending,
             SentAt = now
         };

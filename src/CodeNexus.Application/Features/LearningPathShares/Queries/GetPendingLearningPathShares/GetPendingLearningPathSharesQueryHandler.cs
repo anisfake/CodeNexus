@@ -54,7 +54,7 @@ public class GetPendingLearningPathSharesQueryHandler : IRequestHandler<GetPendi
             .Select(s => new LearningPathShareSummaryDto(
                 s.ShareId,
                 s.PathId,
-                s.LearningPath.Title,
+                s.SnapshotTitle,
                 s.LearningPath.Description,
                 s.MentorId,
                 s.Mentor.Username,
