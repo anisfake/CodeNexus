@@ -79,7 +79,7 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
             .Select(s => new SentLearningPathShareSummaryDto(
                 s.ShareId,
                 s.PathId,
-                s.LearningPath.Title,
+                s.SnapshotTitle,
                 s.LearningPath.Description,
                 s.StudentId,
                 s.Student.Username,

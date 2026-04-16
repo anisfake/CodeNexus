@@ -47,6 +47,7 @@ public class GetPendingLearningPathSharesQueryHandlerTests
             MentorId = mentor.UserId,
             PathId = NewId.NextGuid(),
             Status = LearningPathShareStatus.Pending,
+            SnapshotTitle = "C# Path",
             SentAt = DateTime.UtcNow,
             Mentor = mentor,
             LearningPath = new LearningPath { PathId = NewId.NextGuid(), Title = "C# Path", Description = "desc", UserId = mentor.UserId, SubjectId = NewId.NextGuid() }

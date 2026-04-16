@@ -20,14 +20,18 @@ public class QuizHub : Hub
 
     public async Task RequestQuizQuestions(Guid quizId)
     {
-        await Clients.Caller.SendAsync("QuizQuestionsLoading", new { quizId });
+        var ct = Context.ConnectionAborted;
+        await Clients.Caller.SendAsync("QuizQuestionsLoading", new { quizId }, ct);
 
-        var result = await _sender.Send(new GenerateQuizQuestionsCommand(quizId));
+        var result = await _sender.Send(new GenerateQuizQuestionsCommand(quizId), ct);
 
         if (result.IsSuccess)
         {
-            await Clients.Caller.SendAsync("ReceiveQuizQuestions", result.Value);
-            await SendWalletTokenBalanceUpdatedAsync();
+            await Clients.Caller.SendAsync("ReceiveQuizQuestions", new
+            {
+                QuizId = quizId,
+                Questions = result.Value
+            }, ct);
         }
         else
         {
@@ -36,15 +40,16 @@ public class QuizHub : Hub
                 QuizId = quizId,
                 result.ErrorCode,
                 result.ErrorMessage
-            });
+            }, ct);
         }
     }
 
     public async Task RequestSingleQuizQuestion(Guid quizId, QuestionType questionType)
     {
-        await Clients.Caller.SendAsync("SingleQuizQuestionLoading", new { quizId, questionType });
+        var ct = Context.ConnectionAborted;
+        await Clients.Caller.SendAsync("SingleQuizQuestionLoading", new { quizId, questionType }, ct);
 
-        var result = await _sender.Send(new GenerateSingleQuizQuestionCommand(quizId, questionType));
+        var result = await _sender.Send(new GenerateSingleQuizQuestionCommand(quizId, questionType), ct);
 
         if (result.IsSuccess)
         {
@@ -52,8 +57,7 @@ public class QuizHub : Hub
             {
                 QuizId = quizId,
                 Question = result.Value
-            });
-            await SendWalletTokenBalanceUpdatedAsync();
+            }, ct);
         }
         else
         {
@@ -62,7 +66,7 @@ public class QuizHub : Hub
                 QuizId = quizId,
                 result.ErrorCode,
                 result.ErrorMessage
-            });
+            }, ct);
         }
     }
 

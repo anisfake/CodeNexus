@@ -60,9 +60,16 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             return Result<LearningPathSharePreviewDto>.Failure("SHARE_NOT_FOUND", "Learning path share not found.");
         }
 
-        var pathIdToLoad = share.AcceptedPathId.HasValue && share.AcceptedPathId.Value == request.ShareId
-            ? share.AcceptedPathId.Value
-            : share.PathId;
+        if (share.Status == LearningPathShareStatus.Rejected
+            && share.InvalidatedReason == "SUPERSEDED_BY_NEW_VERSION")
+        {
+            return Result<LearningPathSharePreviewDto>.Failure("SHARE_VERSION_OUTDATED", "This shared version no longer exists or has been updated to a newer version.");
+        }
+
+        if (share.Status != LearningPathShareStatus.Pending)
+        {
+            return Result<LearningPathSharePreviewDto>.Failure("SHARE_ALREADY_DECIDED", "Preview is not available after the share has been accepted or rejected.");
+        }
 
         var learningPath = await _context.LearningPaths
             .AsNoTracking()
@@ -75,7 +82,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
-            .FirstOrDefaultAsync(lp => lp.PathId == pathIdToLoad, cancellationToken);
+            .FirstOrDefaultAsync(lp => lp.PathId == share.PathId, cancellationToken);
 
         if (learningPath == null)
         {
