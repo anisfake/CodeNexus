@@ -60,7 +60,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             return Result<LearningPathSharePreviewDto>.Failure("SHARE_NOT_FOUND", "Learning path share not found.");
         }
 
-        var pathIdToLoad = share.Status == LearningPathShareStatus.Accepted && share.AcceptedPathId.HasValue
+        var pathIdToLoad = share.AcceptedPathId.HasValue && share.AcceptedPathId.Value == request.ShareId
             ? share.AcceptedPathId.Value
             : share.PathId;
 
@@ -146,6 +146,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             share.Status,
             share.SentAt,
             share.RespondedAt,
+            share.AcceptedPathId,
             learningPathResponse
         ));
     }

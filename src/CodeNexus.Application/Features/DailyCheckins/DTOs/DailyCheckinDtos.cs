@@ -7,7 +7,7 @@ public record DailyCheckinDto(
     Guid UserId,
     DateTime CheckinDate,
     string? Mood,
-    int? Productivity,
+    string? ProductivityMessage,
     DateTime CreatedAt
 );
 

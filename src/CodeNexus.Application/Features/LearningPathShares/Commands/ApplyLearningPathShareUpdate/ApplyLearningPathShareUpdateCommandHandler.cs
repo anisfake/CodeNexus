@@ -60,7 +60,7 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
                 .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks)
+                .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
             .FirstOrDefaultAsync(lp => lp.PathId == share.PathId, cancellationToken);
 
         if (sourcePath == null)
@@ -103,7 +103,7 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
                         .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
                             .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
                     .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                        .ThenInclude(c => c.Tasks)
+                        .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
                     .FirstOrDefaultAsync(lp => lp.PathId == share.AcceptedPathId.Value && lp.UserId == studentId, cancellationToken);
 
                 if (acceptedPath == null)

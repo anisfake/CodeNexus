@@ -7,6 +7,7 @@ using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using DailyCheckinEntity = CodeNexus.Domain.Entities.DailyCheckins;
 
 namespace CodeNexus.Application.Features.FocusSessions.Commands.CompleteSession;
 
@@ -260,25 +261,22 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
         var today = VietnamDateTimeHelper.GetTodayDate();
         var userId = session.Task.LearningPath.UserId;
 
-        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
         var existing = await _context.DailyCheckins
             .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
 
         if (existing != null)
         {
-            var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, productivity);
-            existing.Mood = merged.Mood;
-            existing.Productivity = merged.Productivity;
+            existing.Productivity = DailyCheckinEvaluationHelper.IncrementActivityCount(
+                existing.Productivity, DailyCheckinEvaluationHelper.SessionActivityIncrement);
             return;
         }
 
-        _context.DailyCheckins.Add(new DailyCheckins
+        _context.DailyCheckins.Add(new DailyCheckinEntity
         {
             CheckinId = NewId.NextGuid(),
             UserId = userId,
             CheckinDate = today,
-            Mood = mood,
-            Productivity = productivity,
+            Productivity = DailyCheckinEvaluationHelper.SessionActivityIncrement,
             CreatedAt = DateTime.UtcNow
         });
     }
