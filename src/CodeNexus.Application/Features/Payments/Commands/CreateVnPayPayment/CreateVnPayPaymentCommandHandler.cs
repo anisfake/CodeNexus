@@ -77,7 +77,7 @@ public class CreateVnPayPaymentCommandHandler
                 return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Minimum top-up amount is 10,000 VND.");
             }
 
-            if (amount > 50000000m)
+            if (amount > 1000000m)
             {
                 return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too large.");
             }

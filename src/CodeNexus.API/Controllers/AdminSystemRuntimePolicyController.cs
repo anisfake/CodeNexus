@@ -23,7 +23,7 @@ public class AdminSystemRuntimePolicyController : ControllerBase
         _sender = sender;
     }
 
-    [HttpGet("all")]
+    [HttpGet]
     public async Task<IActionResult> GetAllPolicies(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetAllSystemRuntimePoliciesQuery(), cancellationToken);
