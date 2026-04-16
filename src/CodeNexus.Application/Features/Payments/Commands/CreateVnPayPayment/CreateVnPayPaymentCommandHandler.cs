@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Payments.DTOs;
+using CodeNexus.Application.Features.SystemRuntimePolicies;
 using CodeNexus.Domain.Entities;
 using MassTransit;
 using MediatR;
@@ -11,6 +12,10 @@ namespace CodeNexus.Application.Features.Payments.Commands.CreateVnPayPayment;
 public class CreateVnPayPaymentCommandHandler
     : IRequestHandler<CreateVnPayPaymentCommand, Result<VnPayCreatePaymentResponseDto>>
 {
+    private const decimal DefaultCustomTopUpVndPerToken = 100m;
+    private const string TokenPricingPolicyKey = "token_pricing_policy";
+    private const string VndPerTokenConfigKey = "vndPerToken";
+
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IVnPayService _vnPayService;
@@ -82,8 +87,14 @@ public class CreateVnPayPaymentCommandHandler
                 return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too large.");
             }
 
-            creditedTokens = amount;
-            defaultOrderInfo = $"Top-up {amount:N0} VND";
+            var vndPerToken = await ResolveCustomTopUpVndPerTokenAsync(cancellationToken);
+            creditedTokens = Math.Floor(amount / vndPerToken);
+            if (creditedTokens <= 0m)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too small for current token rate.");
+            }
+
+            defaultOrderInfo = $"Top-up {amount:N0} VND ({creditedTokens:N0} tokens)";
         }
 
         var txnRef = NewId.NextGuid().ToString("N");
@@ -122,6 +133,48 @@ public class CreateVnPayPaymentCommandHandler
             payment.PaymentTransactionId,
             txnRef,
             paymentUrl));
+    }
+
+    private async Task<decimal> ResolveCustomTopUpVndPerTokenAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var policy = await _context.SystemRuntimePolicies
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.PolicyKey == TokenPricingPolicyKey && x.IsActive, cancellationToken);
+
+            if (policy == null)
+            {
+                return DefaultCustomTopUpVndPerToken;
+            }
+
+            var config = SystemRuntimePolicyJsonHelper.ParseConfigJson(policy.ConfigJson);
+            if (!config.TryGetValue(VndPerTokenConfigKey, out var rawValue))
+            {
+                return DefaultCustomTopUpVndPerToken;
+            }
+
+            var parsed = ParsePositiveDecimal(rawValue);
+            return parsed > 0m ? parsed : DefaultCustomTopUpVndPerToken;
+        }
+        catch
+        {
+            return DefaultCustomTopUpVndPerToken;
+        }
+    }
+
+    private static decimal ParsePositiveDecimal(object? rawValue)
+    {
+        return rawValue switch
+        {
+            decimal d when d > 0m => d,
+            double d when d > 0d => (decimal)d,
+            float f when f > 0f => (decimal)f,
+            int i when i > 0 => i,
+            long l when l > 0 => l,
+            string s when decimal.TryParse(s, out var parsed) && parsed > 0m => parsed,
+            _ => 0m
+        };
     }
 }
 
