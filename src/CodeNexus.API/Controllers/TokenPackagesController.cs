@@ -2,6 +2,7 @@ using CodeNexus.API.Models.Responses;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.TokenPackages.DTOs;
 using CodeNexus.Application.Features.TokenPackages.Queries.GetAllTokenPackages;
+using CodeNexus.Application.Features.TokenPackages.Queries.GetPublicTokenPricing;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -25,6 +26,18 @@ public class TokenPackagesController : ControllerBase
     {
         var result = await _sender.Send(new GetAllTokenPackagesQuery(ActiveOnly: true), cancellationToken);
         return ToActionResult(result);
+    }
+
+    [HttpGet("pricing")]
+    public async Task<IActionResult> GetPublicPricing(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPublicTokenPricingQuery(), cancellationToken);
+        if (result.IsSuccess)
+        {
+            return Ok(result.Value);
+        }
+
+        return BadRequest(new { result.ErrorCode, result.ErrorMessage });
     }
 
     private IActionResult ToActionResult(Result<List<TokenPackageDto>> result)
