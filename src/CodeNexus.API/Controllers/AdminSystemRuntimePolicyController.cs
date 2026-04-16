@@ -1,5 +1,6 @@
 using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.SystemRuntimePolicies.Commands.CreateSystemRuntimePolicy;
 using CodeNexus.Application.Features.SystemRuntimePolicies.Commands.UpdateSystemRuntimePolicy;
 using CodeNexus.Application.Features.SystemRuntimePolicies.DTOs;
 using CodeNexus.Application.Features.SystemRuntimePolicies.Queries.GetAllSystemRuntimePolicies;
@@ -27,6 +28,21 @@ public class AdminSystemRuntimePolicyController : ControllerBase
     public async Task<IActionResult> GetAllPolicies(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetAllSystemRuntimePoliciesQuery(), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreatePolicy(
+        [FromBody] CreateSystemRuntimePolicyRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new CreateSystemRuntimePolicyCommand(
+            request.PolicyKey,
+            request.Description,
+            request.ConfigJson ?? new Dictionary<string, object>(),
+            request.IsActive);
+
+        var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
 
@@ -66,6 +82,10 @@ public class AdminSystemRuntimePolicyController : ControllerBase
         if (result.IsSuccess)
             return Ok(result.Value);
 
-        return BadRequest(new { result.ErrorCode, result.ErrorMessage });
+        return result.ErrorCode switch
+        {
+            "POLICY_ALREADY_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
+        };
     }
 }
