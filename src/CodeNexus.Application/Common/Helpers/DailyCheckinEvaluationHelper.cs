@@ -26,10 +26,22 @@ public static class DailyCheckinEvaluationHelper
     {
         return activityCount switch
         {
-            null or 0 => null,
-            <= 2 => "productivity.keep_going",
-            <= 5 => "productivity.good_progress",
-            _ => "productivity.excellent_today"
+            null or 0   => null,
+            1           => "productivity.first_step",
+            2           => "productivity.warming_up",
+            3           => "productivity.keep_going",
+            4           => "productivity.building_momentum",
+            5           => "productivity.halfway_there",
+            6           => "productivity.good_progress",
+            7           => "productivity.strong_effort",
+            8           => "productivity.on_fire",
+            9           => "productivity.almost_outstanding",
+            10          => "productivity.excellent_today",
+            11          => "productivity.super_productive",
+            12          => "productivity.unstoppable",
+            13          => "productivity.learning_machine",
+            14          => "productivity.legendary_focus",
+            _           => "productivity.maximum_overdrive"
         };
     }
 }
