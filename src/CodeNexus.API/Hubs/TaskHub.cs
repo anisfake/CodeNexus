@@ -20,14 +20,15 @@ public class TaskHub : Hub
 
     public async Task RequestChapterTasks(Guid chapterId)
     {
-        await Clients.Caller.SendAsync("ChapterTasksLoading", new { chapterId });
+        var ct = Context.ConnectionAborted;
+        await Clients.Caller.SendAsync("ChapterTasksLoading", new { chapterId }, ct);
 
-        var result = await _sender.Send(new GenerateChapterTasksCommand(chapterId));
+        var result = await _sender.Send(new GenerateChapterTasksCommand(chapterId), ct);
 
         if (result.IsSuccess)
         {
-            await Clients.Caller.SendAsync("ReceiveChapterTasks", result.Value);
-            await SendWalletTokenBalanceUpdatedAsync();
+            await Clients.Caller.SendAsync("ReceiveChapterTasks", result.Value, ct);
+            await SendWalletTokenBalanceUpdatedAsync(ct);
         }
         else
         {
@@ -36,20 +37,25 @@ public class TaskHub : Hub
                 ChapterId = chapterId,
                 result.ErrorCode,
                 result.ErrorMessage
-            });
+            }, ct);
         }
     }
 
     public async Task RequestSingleTask(Guid chapterId, string? title, TaskType taskType)
     {
-        await Clients.Caller.SendAsync("SingleTaskLoading", new { chapterId, title, taskType });
+        var ct = Context.ConnectionAborted;
+        await Clients.Caller.SendAsync("SingleTaskLoading", new { chapterId, title, taskType }, ct);
 
-        var result = await _sender.Send(new GenerateSingleTaskCommand(chapterId, title, taskType));
+        var result = await _sender.Send(new GenerateSingleTaskCommand(chapterId, title, taskType), ct);
 
         if (result.IsSuccess)
         {
-            await Clients.Caller.SendAsync("ReceiveSingleTask", result.Value);
-            await SendWalletTokenBalanceUpdatedAsync();
+            await Clients.Caller.SendAsync("ReceiveSingleTask", new
+            {
+                ChapterId = chapterId,
+                Task = result.Value
+            }, ct);
+            await SendWalletTokenBalanceUpdatedAsync(ct);
         }
         else
         {
@@ -58,13 +64,13 @@ public class TaskHub : Hub
                 ChapterId = chapterId,
                 result.ErrorCode,
                 result.ErrorMessage
-            });
+            }, ct);
         }
     }
 
-    private async Task SendWalletTokenBalanceUpdatedAsync()
+    private async Task SendWalletTokenBalanceUpdatedAsync(CancellationToken ct)
     {
-        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        var profileResult = await _sender.Send(new GetMyProfileQuery(), ct);
         if (!profileResult.IsSuccess || profileResult.Value == null)
         {
             return;
@@ -74,6 +80,6 @@ public class TaskHub : Hub
         {
             TokenBalance = profileResult.Value.TokenBalance,
             UpdatedAtUtc = DateTime.UtcNow
-        });
+        }, ct);
     }
 }
