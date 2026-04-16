@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.Quizzes.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -58,19 +59,34 @@ public class GenerateSingleQuizSkeletonCommandHandler : IRequestHandler<Generate
             if (quizData == null || string.IsNullOrWhiteSpace(quizData.Title))
                 return Result<QuizSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
 
+            var generatedTitle = QuizNamingHelper.EnsureRelatedTitle(
+                quizData.Title,
+                lesson.Title ?? string.Empty,
+                lesson.Quizzes.Count,
+                language);
+
+            var safeTitle = generatedTitle;
+            var suffix = 2;
             var hasDuplicateTitle = lesson.Quizzes
                 .Where(q => !q.IsDeleted)
-                .Any(q => Normalize(q.Title) == Normalize(quizData.Title));
+                .Any(q => QuizNamingHelper.Normalize(q.Title) == QuizNamingHelper.Normalize(safeTitle));
 
-            if (hasDuplicateTitle)
-                return Result<QuizSkeletonDto>.Failure("DUPLICATE_QUIZ_SKELETON", "Generated quiz skeleton is too similar to an existing quiz");
+            while (hasDuplicateTitle)
+            {
+                safeTitle = $"{generatedTitle} ({suffix++})";
+                hasDuplicateTitle = lesson.Quizzes
+                    .Where(q => !q.IsDeleted)
+                    .Any(q => QuizNamingHelper.Normalize(q.Title) == QuizNamingHelper.Normalize(safeTitle));
+            }
 
             var quiz = new Quiz
             {
                 QuizId = NewId.NextGuid(),
                 LessonId = lesson.LessonId,
-                Title = quizData.Title.Trim(),
-                Description = quizData.Description?.Trim(),
+                Title = safeTitle,
+                Description = string.IsNullOrWhiteSpace(quizData.Description)
+                    ? QuizNamingHelper.BuildFallbackDescription(lesson.Title ?? string.Empty, lesson.Quizzes.Count, language)
+                    : quizData.Description.Trim(),
                 TimeLimit = null,
                 PassingScore = null,
                 CreatedAt = DateTime.UtcNow
@@ -145,6 +161,8 @@ Lesson Content: {lesson.Content ?? "Content will be generated later"}
 - Generate exactly 1 quiz
 - This is skeleton only, DO NOT generate questions
 - Quiz title should be specific and descriptive
+- Quiz title MUST NOT be identical to lesson title
+- Quiz title MUST stay directly related to the lesson topic
 - Quiz description should explain what this quiz tests
 - Quiz should be relevant to lesson content and learning objectives
 - Quiz topic must be different from existing quiz skeletons for this lesson
@@ -165,18 +183,6 @@ Lesson Content: {lesson.Content ?? "Content will be generated later"}
 }}
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
-    }
-
-    private static string Normalize(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        return new string(value
-            .Trim()
-            .ToLowerInvariant()
-            .Where(c => !char.IsWhiteSpace(c))
-            .ToArray());
     }
 
     private class QuizGenerationData

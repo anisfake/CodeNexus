@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.LearningPathSkeleton.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -77,6 +78,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
             var complexity = GetComplexityFromLearningPath(chapter.LearningPath);
             var lessonsPerChapter = GetLessonsPerChapter(complexity);
+            var language = chapter.LearningPath.Language;
 
             var chapterData = await GenerateChapterFromAI(
                 chapter.LearningPath.Subject.Name,
@@ -125,14 +127,21 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
                 ));
 
                 var quizzesPerLesson = _timelineCalculationService.GetQuizzesPerLesson(complexity);
+                var quizTitles = await GenerateQuizTitlesForLessonAsync(
+                    chapter.LearningPath.Subject.Name,
+                    chapter.Title,
+                    lessonTitle,
+                    quizzesPerLesson,
+                    language);
+
                 for (int k = 0; k < quizzesPerLesson; k++)
                 {
                     var quiz = new Quiz
                     {
                         QuizId = NewId.NextGuid(),
                         LessonId = lesson.LessonId,
-                        Title = $"Quiz {k + 1}: {lessonTitle}",
-                        Description = $"Assessment quiz for {lessonTitle}",
+                        Title = quizTitles[k],
+                        Description = QuizNamingHelper.BuildFallbackDescription(lessonTitle, k, language),
                         DueDate = lessonSchedule.LessonDay.AddDays(2),
                         CreatedAt = DateTime.UtcNow
                     };
@@ -177,6 +186,80 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
             ComplexityLevel.Advanced => 6,
             _ => 4
         };
+    }
+
+    private async Task<IReadOnlyList<string>> GenerateQuizTitlesForLessonAsync(
+        string subjectName,
+        string chapterTitle,
+        string lessonTitle,
+        int quizCount,
+        LanguageSelection language)
+    {
+        if (quizCount <= 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        List<string>? aiTitles = null;
+        try
+        {
+            var prompt = BuildQuizTitlePrompt(subjectName, chapterTitle, lessonTitle, quizCount, language);
+            var generated = await _aiGeneratorService.GenerateStructureAsync<QuizTitleGenerationData>(prompt, AIUsageType.StructureGeneration);
+            aiTitles = generated?.Titles;
+        }
+        catch
+        {
+            // Fallback handled below.
+        }
+
+        return QuizNamingHelper.BuildFinalTitles(aiTitles, lessonTitle, quizCount, language);
+    }
+
+    private static string BuildQuizTitlePrompt(
+        string subjectName,
+        string chapterTitle,
+        string lessonTitle,
+        int quizCount,
+        LanguageSelection language)
+    {
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL titles in Vietnamese
+- Keep technical terms in English where needed (API, JSON, Docker, etc.)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL titles in English
+",
+            _ => string.Empty
+        };
+
+        return $@"Generate {quizCount} quiz titles for a lesson in JSON format.
+
+=== CONTEXT ===
+Subject: {subjectName}
+Chapter: {chapterTitle}
+Lesson: {lessonTitle}
+
+{languageInstruction}
+
+=== REQUIREMENTS ===
+- Return exactly {quizCount} titles
+- Each title MUST be clearly related to the lesson
+- Titles MUST NOT be identical to the lesson title
+- Titles should be concise, specific, and different from each other
+
+=== JSON FORMAT ===
+{{
+  ""titles"": [
+    ""Quiz title 1"",
+    ""Quiz title 2""
+  ]
+}}
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     }
 
     private (int chapters, int lessonsPerChapter, int quizzPercentage, int estimatedDays) CalculateStructureByComplexity(LearningPath learningPath)
@@ -267,6 +350,11 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     {
         public string Title { get; set; } = "";
         public List<string> LessonTitles { get; set; } = new();
+    }
+
+    private class QuizTitleGenerationData
+    {
+        public List<string> Titles { get; set; } = new();
     }
 
     private static string BuildGoalSummary(LearningPath learningPath)

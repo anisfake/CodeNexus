@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.Quizzes.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -71,15 +72,28 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
             if (generatedData?.Quizzes == null || generatedData.Quizzes.Count == 0)
                 return Result<GeneratedQuizSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
 
+            var lessonTitle = lesson.Title ?? string.Empty;
+            var finalTitles = QuizNamingHelper.BuildFinalTitles(
+                generatedData.Quizzes.Select(q => q.Title),
+                lessonTitle,
+                quizCount,
+                language);
+
             var createdQuizzes = new List<QuizSkeletonDto>();
-            foreach (var quizData in generatedData.Quizzes)
+            for (var i = 0; i < quizCount; i++)
             {
+                var aiDescription = i < generatedData.Quizzes.Count
+                    ? generatedData.Quizzes[i].Description
+                    : null;
+
                 var quiz = new Quiz
                 {
                     QuizId = NewId.NextGuid(),
                     LessonId = lesson.LessonId,
-                    Title = quizData.Title,
-                    Description = quizData.Description,
+                    Title = finalTitles[i],
+                    Description = string.IsNullOrWhiteSpace(aiDescription)
+                        ? QuizNamingHelper.BuildFallbackDescription(lessonTitle, i, language)
+                        : aiDescription.Trim(),
                     TimeLimit = null,
                     PassingScore = null,
                     CreatedAt = DateTime.UtcNow
@@ -165,6 +179,8 @@ Lesson Content: {lesson.Content ?? "Content will be generated later"}
 - Generate exactly {quizCount} quiz(zes)
 - Each quiz should focus on different aspects of the lesson
 - Quiz titles should be specific and descriptive
+- Quiz titles MUST NOT be identical to the lesson title
+- Quiz titles MUST stay directly related to the lesson topic
 - Quiz descriptions should explain what the quiz tests
 - Quizzes should be relevant to the lesson content and learning objectives
 
