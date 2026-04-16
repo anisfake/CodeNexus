@@ -31,22 +31,10 @@ public class CreateVnPayPaymentCommandHandlerTests
     public async Task Handle_WithValidRequest_ShouldReturnPaymentUrl()
     {
         var userId = Guid.NewGuid();
-        var subscriptionPlanId = Guid.NewGuid();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Users).Returns(new[]
         {
             new User { UserId = userId }
-        }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.SubscriptionPlans).Returns(new[]
-        {
-            new SubscriptionPlan
-            {
-                SubscriptionPlanId = subscriptionPlanId,
-                Name = "Standard",
-                PriceVnd = 99000m,
-                DurationDays = 30,
-                IsActive = true
-            }
         }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.PaymentTransactions).Returns(new List<PaymentTransaction>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -62,7 +50,8 @@ public class CreateVnPayPaymentCommandHandlerTests
             .Returns("https://vnpay.test/pay");
 
         var command = new CreateVnPayPaymentCommand(
-            subscriptionPlanId,
+            null,
+            100000m,
             "Buy Standard",
             "https://localhost:5001/api/payments/vnpay/return",
             "127.0.0.1");
@@ -77,25 +66,13 @@ public class CreateVnPayPaymentCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithSubscriptionPlanId_ShouldUseConfiguredPrice()
+    public async Task Handle_WithTopUpAmount_ShouldUseRequestedPrice()
     {
         var userId = Guid.NewGuid();
-        var subscriptionPlanId = Guid.NewGuid();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Users).Returns(new[]
         {
             new User { UserId = userId }
-        }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.SubscriptionPlans).Returns(new[]
-        {
-            new SubscriptionPlan
-            {
-                SubscriptionPlanId = subscriptionPlanId,
-                Name = "Standard",
-                PriceVnd = 99000m,
-                DurationDays = 30,
-                IsActive = true
-            }
         }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.PaymentTransactions).Returns(new List<PaymentTransaction>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
@@ -111,7 +88,8 @@ public class CreateVnPayPaymentCommandHandlerTests
             .Returns("https://vnpay.test/pay");
 
         var command = new CreateVnPayPaymentCommand(
-            subscriptionPlanId,
+            null,
+            99000m,
             null,
             "https://localhost:5001/api/payments/vnpay/return",
             "127.0.0.1");

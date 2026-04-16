@@ -49,6 +49,7 @@ public class SendTutorMessageCommandHandlerTests
         var learningPathId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUserAccess(userId, TokenBalance: 0m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -113,19 +114,19 @@ public class SendTutorMessageCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenTutorLimitExceeded_ReturnsFailure()
+    public async Task Handle_WhenAssistantConfigMissing_ReturnsFailure()
     {
         var userId = Guid.NewGuid();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockPlanUsageLimitService.Setup(x => x.CheckTutorMessageAllowedAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CodeNexus.Application.Common.Models.Result.Failure("TUTOR_MESSAGE_LIMIT_EXCEEDED", "Limit reached"));
+        SetupUserAccess(userId, TokenBalance: 0m);
+        _mockContext.Setup(x => x.AIProviderConfigs).Returns(new List<AIProviderConfig>().BuildMockDbSet().Object);
 
         var command = new SendTutorMessageCommand(null, Guid.NewGuid(), null, null, "Explain async/await");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal("TUTOR_MESSAGE_LIMIT_EXCEEDED", result.ErrorCode);
+        Assert.Equal("AI_CONFIG_NOT_FOUND", result.ErrorCode);
     }
 
     [Fact]
@@ -139,6 +140,7 @@ public class SendTutorMessageCommandHandlerTests
         var conversationId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        SetupUserAccess(userId, TokenBalance: 0m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -236,8 +238,7 @@ public class SendTutorMessageCommandHandlerTests
         var subjectId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        _mockSubscriptionAccessService.Setup(x => x.CanUsePaidModelsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        SetupUserAccess(userId, TokenBalance: 50000m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -312,4 +313,18 @@ public class SendTutorMessageCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(paidConfigId, conversations[0].ConfigId);
     }
+
+    private void SetupUserAccess(Guid userId, decimal TokenBalance)
+    {
+        _mockContext.Setup(x => x.Users).Returns(new[]
+        {
+            new User
+            {
+                UserId = userId,
+                TokenBalance = TokenBalance,
+                Role = new Role { RoleName = "Student" }
+            }
+        }.BuildMockDbSet().Object);
+    }
 }
+

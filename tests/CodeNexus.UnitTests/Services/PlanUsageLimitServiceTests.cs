@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Features.AIAccessPolicy;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.Infrastructure.Services;
@@ -11,38 +12,31 @@ namespace CodeNexus.UnitTests.Services;
 public class PlanUsageLimitServiceTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
-    private readonly SubscriptionAccessService _subscriptionAccessService;
     private readonly PlanUsageLimitService _service;
 
     public PlanUsageLimitServiceTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
-        _subscriptionAccessService = new SubscriptionAccessService(_mockContext.Object);
-        _service = new PlanUsageLimitService(_mockContext.Object, _subscriptionAccessService);
+        _service = new PlanUsageLimitService(_mockContext.Object);
     }
 
     [Fact]
-    public async Task CheckLearningPathCreationAllowedAsync_FreeUserWithFourPaths_ShouldFail()
+    public async Task CheckLearningPathCreationAllowedAsync_ShouldRespectRuntimePolicyLimit()
     {
         var userId = Guid.NewGuid();
-        var freePlanId = Guid.NewGuid();
 
-        SeedPlansAndUsers(
-            new[]
-            {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
-            },
-            new[]
-            {
-                new User { UserId = userId, SubscriptionPlanId = freePlanId, PlanExpiresAt = null }
-            });
+        SeedUsers(new[]
+        {
+            new User { UserId = userId, TokenBalance = 0m, Role = new Role { RoleName = "Student" } }
+        });
+        SeedFreeUsagePolicy(learningPathLimit: 2, tutorLimit: 300, focusLimit: 300);
 
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 4).Select(i => new FeatureUsageLog
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 2).Select(i => new FeatureUsageLog
         {
             FeatureUsageLogId = Guid.NewGuid(),
             UserId = userId,
             FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
-            CreatedAt = DateTime.UtcNow.AddDays(-i)
+            CreatedAt = DateTime.UtcNow.AddDays(-i + 1)
         }).BuildMockDbSet().Object);
 
         var result = await _service.CheckLearningPathCreationAllowedAsync(userId, CancellationToken.None);
@@ -52,36 +46,22 @@ public class PlanUsageLimitServiceTests
     }
 
     [Fact]
-    public async Task CheckLearningPathCreationAllowedAsync_StandardUserWithNinePathsThisMonth_ShouldSucceed()
+    public async Task CheckLearningPathCreationAllowedAsync_PaidUser_ShouldBypassLimit()
     {
         var userId = Guid.NewGuid();
-        var standardPlanId = Guid.NewGuid();
-
-        SeedPlansAndUsers(
-            new[]
-            {
-                new SubscriptionPlan { SubscriptionPlanId = standardPlanId, PlanType = SubscriptionPlanType.Standard, Name = "Standard", IsActive = true }
-            },
-            new[]
-            {
-                new User { UserId = userId, SubscriptionPlanId = standardPlanId, PlanExpiresAt = DateTime.UtcNow.AddDays(10) }
-            });
-
-        var usageLogs = Enumerable.Range(1, 9).Select(i => new FeatureUsageLog
+        SeedUsers(new[]
         {
-            FeatureUsageLogId = Guid.NewGuid(),
-            UserId = userId,
-            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
-            CreatedAt = DateTime.UtcNow.AddDays(-i)
-        }).ToList();
-
-        usageLogs.Add(new FeatureUsageLog
-        {
-            FeatureUsageLogId = Guid.NewGuid(),
-            UserId = userId,
-            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
-            CreatedAt = DateTime.UtcNow.AddMonths(-2)
+            new User { UserId = userId, TokenBalance = 5000m, Role = new Role { RoleName = "Student" } }
         });
+        SeedFreeUsagePolicy(learningPathLimit: 1, tutorLimit: 1, focusLimit: 1);
+
+        var usageLogs = Enumerable.Range(1, 999).Select(i => new FeatureUsageLog
+        {
+            FeatureUsageLogId = Guid.NewGuid(),
+            UserId = userId,
+            FeatureKey = SubscriptionFeatureKey.LearningPathCreation,
+            CreatedAt = DateTime.UtcNow
+        }).ToList();
 
         _mockContext.Setup(x => x.FeatureUsageLogs).Returns(usageLogs.BuildMockDbSet().Object);
 
@@ -91,28 +71,21 @@ public class PlanUsageLimitServiceTests
     }
 
     [Fact]
-    public async Task CheckTutorMessageAllowedAsync_FreeUserWithThirtyMessagesToday_ShouldFail()
+    public async Task CheckTutorMessageAllowedAsync_FreeUserWithConfiguredLimit_ShouldFail()
     {
         var userId = Guid.NewGuid();
-        var freePlanId = Guid.NewGuid();
-        var now = DateTime.UtcNow;
+        SeedUsers(new[]
+        {
+            new User { UserId = userId, TokenBalance = 0m, Role = new Role { RoleName = "Student" } }
+        });
+        SeedFreeUsagePolicy(learningPathLimit: 3, tutorLimit: 5, focusLimit: 300);
 
-        SeedPlansAndUsers(
-            new[]
-            {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
-            },
-            new[]
-            {
-                new User { UserId = userId, SubscriptionPlanId = freePlanId, PlanExpiresAt = null }
-            });
-
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 30).Select(i => new FeatureUsageLog
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 5).Select(i => new FeatureUsageLog
         {
             FeatureUsageLogId = Guid.NewGuid(),
             UserId = userId,
             FeatureKey = SubscriptionFeatureKey.TutorMessages,
-            CreatedAt = now
+            CreatedAt = DateTime.UtcNow
         }).BuildMockDbSet().Object);
 
         var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
@@ -122,56 +95,42 @@ public class PlanUsageLimitServiceTests
     }
 
     [Fact]
-    public async Task CheckTutorMessageAllowedAsync_ProUserBelowMonthlyLimit_ShouldSucceed()
+    public async Task CheckFocusSessionReviewAllowedAsync_FreeUserBelowLimit_ShouldSucceed()
     {
         var userId = Guid.NewGuid();
-        var proPlanId = Guid.NewGuid();
-        var now = DateTime.UtcNow;
+        SeedUsers(new[]
+        {
+            new User { UserId = userId, TokenBalance = 0m, Role = new Role { RoleName = "Student" } }
+        });
+        SeedFreeUsagePolicy(learningPathLimit: 3, tutorLimit: 300, focusLimit: 10);
 
-        SeedPlansAndUsers(
-            new[]
-            {
-                new SubscriptionPlan { SubscriptionPlanId = proPlanId, PlanType = SubscriptionPlanType.Pro, Name = "Pro", IsActive = true }
-            },
-            new[]
-            {
-                new User { UserId = userId, SubscriptionPlanId = proPlanId, PlanExpiresAt = DateTime.UtcNow.AddDays(30) }
-            });
-
-        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 1999).Select(i => new FeatureUsageLog
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(Enumerable.Range(1, 9).Select(i => new FeatureUsageLog
         {
             FeatureUsageLogId = Guid.NewGuid(),
             UserId = userId,
-            FeatureKey = SubscriptionFeatureKey.TutorMessages,
-            CreatedAt = now
+            FeatureKey = SubscriptionFeatureKey.FocusSessionReview,
+            CreatedAt = DateTime.UtcNow
         }).BuildMockDbSet().Object);
 
-        var result = await _service.CheckTutorMessageAllowedAsync(userId, CancellationToken.None);
+        var result = await _service.CheckFocusSessionReviewAllowedAsync(userId, CancellationToken.None);
 
         Assert.True(result.IsSuccess);
     }
 
     [Fact]
-    public async Task CheckLearningPathCreationAllowedAsync_Mentor_ShouldBypassPlanLimit()
+    public async Task CheckLearningPathCreationAllowedAsync_Mentor_ShouldBypassLimit()
     {
         var userId = Guid.NewGuid();
-        var freePlanId = Guid.NewGuid();
-
-        SeedPlansAndUsers(
-            new[]
+        SeedUsers(new[]
+        {
+            new User
             {
-                new SubscriptionPlan { SubscriptionPlanId = freePlanId, PlanType = SubscriptionPlanType.Free, Name = "Free", IsActive = true }
-            },
-            new[]
-            {
-                new User
-                {
-                    UserId = userId,
-                    SubscriptionPlanId = freePlanId,
-                    PlanExpiresAt = null,
-                    Role = new Role { RoleName = "Mentor" }
-                }
-            });
+                UserId = userId,
+                TokenBalance = 0m,
+                Role = new Role { RoleName = "Mentor" }
+            }
+        });
+        SeedFreeUsagePolicy(learningPathLimit: 1, tutorLimit: 1, focusLimit: 1);
 
         _mockContext.Setup(x => x.FeatureUsageLogs).Returns(new List<FeatureUsageLog>().BuildMockDbSet().Object);
 
@@ -180,10 +139,23 @@ public class PlanUsageLimitServiceTests
         Assert.True(result.IsSuccess);
     }
 
-    private void SeedPlansAndUsers(IEnumerable<SubscriptionPlan> plans, IEnumerable<User> users)
+    private void SeedUsers(IEnumerable<User> users)
     {
-        _mockContext.Setup(x => x.SubscriptionPlans).Returns(plans.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.SubscriptionPlanLimits).Returns(new List<SubscriptionPlanLimit>().BuildMockDbSet().Object);
+    }
+
+    private void SeedFreeUsagePolicy(int learningPathLimit, int tutorLimit, int focusLimit)
+    {
+        var policy = new SystemRuntimePolicy
+        {
+            SystemRuntimePolicyId = Guid.NewGuid(),
+            PolicyKey = FreeUsagePolicyConstants.PolicyKey,
+            IsActive = true,
+            ConfigJson = $"{{\"{FreeUsagePolicyConstants.LearningPathMonthlyLimitConfigKey}\":{learningPathLimit},\"{FreeUsagePolicyConstants.TutorMessagesMonthlyLimitConfigKey}\":{tutorLimit},\"{FreeUsagePolicyConstants.FocusSessionReviewMonthlyLimitConfigKey}\":{focusLimit}}}"
+        };
+
+        _mockContext.Setup(x => x.SystemRuntimePolicies)
+            .Returns(new List<SystemRuntimePolicy> { policy }.BuildMockDbSet().Object);
     }
 }
+

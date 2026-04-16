@@ -53,7 +53,7 @@ public class FocusSessionController : ControllerBase
             request.SubmittedSummary,
             request.SubmittedQuizAnswers);
         var result = await _sender.Send(command, cancellationToken);
-        return Ok(result);
+        return ToActionResult(result);
     }
 
     [HttpPost("api/focus-sessions/{sessionId}/complete")]
@@ -168,6 +168,7 @@ public class FocusSessionController : ControllerBase
             "SESSION_NOT_ACTIVE" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "TASK_NOT_FOUND" or "SESSION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_DURATION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
+            "AI_REVIEW_FAILED" => StatusCode(StatusCodes.Status503ServiceUnavailable, new { result.ErrorCode, result.ErrorMessage }),
             "MISSING_CODE_SUBMISSION" or "MISSING_SUMMARY_SUBMISSION" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => StatusCode(StatusCodes.Status500InternalServerError, new { result.ErrorCode, result.ErrorMessage })
         };

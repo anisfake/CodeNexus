@@ -13,7 +13,7 @@ public record AIUsageLogResponse(
     int InputTokens,
     int OutputTokens,
     int TotalTokens,
-    decimal CostUsd,
+    decimal ChargedTokens,
     DateTime CreatedAt
 );
 
@@ -26,7 +26,7 @@ public record AIUsageSummaryResponse(
     long TotalInputTokens,
     long TotalOutputTokens,
     long TotalTokens,
-    decimal TotalCostUsd
+    decimal TotalChargedTokens
 );
 
 public record MentorAiQuotaStatusResponse(
@@ -40,3 +40,4 @@ public record MentorAiQuotaStatusResponse(
     bool IsReachedLimit,
     DateTime WindowStartUtc
 );
+

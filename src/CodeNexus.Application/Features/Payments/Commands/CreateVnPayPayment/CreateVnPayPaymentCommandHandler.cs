@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Features.Payments;
 using CodeNexus.Application.Features.Payments.DTOs;
 using CodeNexus.Domain.Entities;
 using MassTransit;
@@ -38,27 +39,62 @@ public class CreateVnPayPaymentCommandHandler
             return Result<VnPayCreatePaymentResponseDto>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
-        if (!request.SubscriptionPlanId.HasValue)
+        decimal amount;
+        decimal creditedTokens;
+        Guid? tokenPackageId = null;
+        string defaultOrderInfo;
+
+        if (request.TokenPackageId.HasValue)
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
+            var tokenPackage = await _context.TokenPackages
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TokenPackageId == request.TokenPackageId.Value && x.IsActive, cancellationToken);
+
+            if (tokenPackage == null)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("TOKEN_PACKAGE_NOT_FOUND", "Token package not found.");
+            }
+
+            amount = tokenPackage.PriceVnd;
+            creditedTokens = tokenPackage.CreditedTokens;
+            tokenPackageId = tokenPackage.TokenPackageId;
+            defaultOrderInfo = $"Buy package {tokenPackage.Name}";
         }
-
-        var subscriptionPlan = await _context.SubscriptionPlans
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.SubscriptionPlanId == request.SubscriptionPlanId.Value && x.IsActive, cancellationToken);
-
-        if (subscriptionPlan == null)
+        else
         {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("SUBSCRIPTION_PLAN_NOT_FOUND", "Subscription plan not found.");
-        }
+            var pricingPolicy = await TokenPricingPolicyResolver.ResolveAsync(_context, cancellationToken);
 
-        if (subscriptionPlan.PriceVnd <= 0)
-        {
-            return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_SUBSCRIPTION_PLAN", "Free plan cannot be purchased through payment.");
-        }
+            if (!request.TopUpAmountVnd.HasValue)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount must be provided.");
+            }
 
-        var amount = subscriptionPlan.PriceVnd;
-        var defaultOrderInfo = $"Purchase {subscriptionPlan.Name} plan";
+            amount = Math.Round(request.TopUpAmountVnd.Value, 0, MidpointRounding.AwayFromZero);
+            if (amount <= 0)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount must be greater than 0.");
+            }
+
+            if (amount < pricingPolicy.MinCustomTopUpVnd)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure(
+                    "INVALID_TOPUP_AMOUNT",
+                    $"Minimum top-up amount is {pricingPolicy.MinCustomTopUpVnd:N0} VND.");
+            }
+
+            if (amount > pricingPolicy.MaxCustomTopUpVnd)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too large.");
+            }
+
+            creditedTokens = Math.Floor(amount / pricingPolicy.VndPerToken);
+            if (creditedTokens <= 0m)
+            {
+                return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too small for current token rate.");
+            }
+
+            defaultOrderInfo = $"Top-up {amount:N0} VND ({creditedTokens:N0} tokens)";
+        }
 
         var txnRef = NewId.NextGuid().ToString("N");
         var orderInfo = string.IsNullOrWhiteSpace(request.OrderInfo)
@@ -69,8 +105,9 @@ public class CreateVnPayPaymentCommandHandler
         {
             PaymentTransactionId = NewId.NextGuid(),
             UserId = userId,
-            SubscriptionPlanId = subscriptionPlan.SubscriptionPlanId,
+            TokenPackageId = tokenPackageId,
             Amount = amount,
+            CreditedTokens = creditedTokens,
             Provider = "VNPAY",
             TxnRef = txnRef,
             OrderInfo = orderInfo,
@@ -96,3 +133,4 @@ public class CreateVnPayPaymentCommandHandler
             paymentUrl));
     }
 }
+

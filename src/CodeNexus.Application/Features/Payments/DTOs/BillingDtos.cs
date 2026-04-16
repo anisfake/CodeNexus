@@ -7,11 +7,46 @@ public record BillingTransactionResponse(
     Guid UserId,
     string? Username,
     string? Email,
-    Guid? SubscriptionPlanId,
-    string? SubscriptionPlanName,
     decimal Amount,
     string Provider,
     string TxnRef,
+    PaymentStatus Status,
+    string? ResponseCode,
+    string? TransactionNo,
+    string? BankCode,
+    string? OrderInfo,
+    DateTime? PaidAt,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
+);
+
+public record MyBillingTransactionResponse(
+    Guid PaymentTransactionId,
+    Guid? TokenPackageId,
+    string? TokenPackageName,
+    decimal Amount,
+    decimal CreditedTokens,
+    string Provider,
+    string TxnRef,
+    string OrderInfo,
+    PaymentStatus Status,
+    string? ResponseCode,
+    string? TransactionNo,
+    string? BankCode,
+    DateTime? PaidAt,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt
+);
+
+public record MyBillingTransactionDetailResponse(
+    Guid PaymentTransactionId,
+    Guid? TokenPackageId,
+    string? TokenPackageName,
+    decimal Amount,
+    decimal CreditedTokens,
+    string Provider,
+    string TxnRef,
+    string OrderInfo,
     PaymentStatus Status,
     string? ResponseCode,
     string? TransactionNo,
@@ -26,8 +61,6 @@ public record BillingTransactionDetailResponse(
     Guid UserId,
     string? Username,
     string? Email,
-    Guid? SubscriptionPlanId,
-    string? SubscriptionPlanName,
     decimal Amount,
     string Provider,
     string TxnRef,
@@ -38,8 +71,7 @@ public record BillingTransactionDetailResponse(
     string? BankCode,
     DateTime? PaidAt,
     DateTime CreatedAt,
-    DateTime? UpdatedAt,
-    DateTime? UserPlanExpiresAt
+    DateTime? UpdatedAt
 );
 
 public record BillingSummaryItemResponse(

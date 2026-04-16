@@ -43,7 +43,7 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
                     g.Sum(x => (long)x.InputTokens),
                     g.Sum(x => (long)x.OutputTokens),
                     g.Sum(x => (long)x.TotalTokens),
-                    g.Sum(x => x.CostUsd)))
+                    g.Sum(x => x.ChargedTokens)))
                 .ToListAsync(cancellationToken);
         }
         else
@@ -59,10 +59,11 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
                     g.Sum(x => (long)x.InputTokens),
                     g.Sum(x => (long)x.OutputTokens),
                     g.Sum(x => (long)x.TotalTokens),
-                    g.Sum(x => x.CostUsd)))
+                    g.Sum(x => x.ChargedTokens)))
                 .ToListAsync(cancellationToken);
         }
 
         return Result<List<AIUsageSummaryResponse>>.Success(summary);
     }
 }
+
