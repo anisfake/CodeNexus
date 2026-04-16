@@ -1,72 +1,37 @@
 using CodeNexus.Application.Common.Helpers;
-using CodeNexus.Domain.Entities;
-using CodeNexus.Domain.Enums;
 using Xunit;
 
 namespace CodeNexus.UnitTests.Features.FocusSessions;
 
 public class DailyCheckinEvaluationHelperTests
 {
-    [Fact]
-    public void Evaluate_WithStrongSessionMetrics_ShouldReturnHighProductivityAndMotivatedMood()
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(0, null)]
+    [InlineData(1, "productivity.keep_going")]
+    [InlineData(2, "productivity.keep_going")]
+    [InlineData(3, "productivity.good_progress")]
+    [InlineData(5, "productivity.good_progress")]
+    [InlineData(6, "productivity.excellent_today")]
+    [InlineData(10, "productivity.excellent_today")]
+    public void MapProductivityKey_ShouldReturnCorrectKey(int? activityCount, string? expectedKey)
     {
-        // Arrange
-        var session = new FocusSession
-        {
-            SessionStatus = SessionStatus.CompletedOnTime,
-            PlannedDurationMinutes = 60,
-            ActualDurationMinutes = 58,
-            TotalPausedMinutes = 2,
-            VerificationScore = 90
-        };
-
-        // Act
-        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
-
-        // Assert
-        Assert.Equal("Motivated", mood);
-        Assert.Equal(5, productivity);
+        var key = DailyCheckinEvaluationHelper.MapProductivityKey(activityCount);
+        Assert.Equal(expectedKey, key);
     }
 
     [Fact]
-    public void Evaluate_WithWeakSessionMetrics_ShouldReturnLowestProductivityAndFrustratedMood()
+    public void IncrementActivityCount_WithNull_ShouldStartFromZero()
     {
-        // Arrange
-        var session = new FocusSession
-        {
-            SessionStatus = SessionStatus.CompletedEarly,
-            PlannedDurationMinutes = 60,
-            ActualDurationMinutes = 20,
-            TotalPausedMinutes = 10,
-            VerificationScore = 45
-        };
-
-        // Act
-        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
-
-        // Assert
-        Assert.Equal("Frustrated", mood);
-        Assert.Equal(1, productivity);
+        var result = DailyCheckinEvaluationHelper.IncrementActivityCount(null, 1);
+        Assert.Equal(1, result);
     }
 
     [Fact]
-    public void Evaluate_WithPlannedDurationZero_ShouldNotDivideByZeroAndReturnValidRange()
+    public void IncrementActivityCount_WithExistingValue_ShouldAccumulate()
     {
-        // Arrange
-        var session = new FocusSession
-        {
-            SessionStatus = SessionStatus.CompletedOnTime,
-            PlannedDurationMinutes = 0,
-            ActualDurationMinutes = 30,
-            TotalPausedMinutes = 3,
-            VerificationScore = null
-        };
-
-        // Act
-        var (mood, productivity) = DailyCheckinEvaluationHelper.Evaluate(session);
-
-        // Assert
-        Assert.Contains(mood, new[] { "Motivated", "Focused", "Neutral", "Tired", "Frustrated" });
-        Assert.InRange(productivity, 1, 5);
+        var result = DailyCheckinEvaluationHelper.IncrementActivityCount(3, 2);
+        Assert.Equal(5, result);
     }
 }
+

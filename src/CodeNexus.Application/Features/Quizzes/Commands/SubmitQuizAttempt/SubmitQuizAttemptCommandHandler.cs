@@ -200,8 +200,6 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
         var existing = await _context.DailyCheckins
             .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
 
-        var evaluated = DailyCheckinEvaluationHelper.EvaluateQuizAttempt(passed, percentage);
-
         if (existing == null)
         {
             _context.DailyCheckins.Add(new DailyCheckins
@@ -209,15 +207,13 @@ public class SubmitQuizAttemptCommandHandler : IRequestHandler<SubmitQuizAttempt
                 CheckinId = NewId.NextGuid(),
                 UserId = userId,
                 CheckinDate = today,
-                Mood = evaluated.Mood,
-                Productivity = evaluated.Productivity,
+                Productivity = DailyCheckinEvaluationHelper.QuizActivityIncrement,
                 CreatedAt = DateTime.UtcNow
             });
             return;
         }
 
-        var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, evaluated.Productivity);
-        existing.Mood = merged.Mood;
-        existing.Productivity = merged.Productivity;
+        existing.Productivity = DailyCheckinEvaluationHelper.IncrementActivityCount(
+            existing.Productivity, DailyCheckinEvaluationHelper.QuizActivityIncrement);
     }
 }
