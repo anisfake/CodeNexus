@@ -103,8 +103,6 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
         var existing = await _context.DailyCheckins
             .FirstOrDefaultAsync(x => x.UserId == userId && x.CheckinDate == today, cancellationToken);
 
-        var evaluated = DailyCheckinEvaluationHelper.EvaluateLessonRead(alreadyRead);
-
         if (existing == null)
         {
             _context.DailyCheckins.Add(new DailyCheckins
@@ -112,15 +110,16 @@ public class MarkLessonContentReadCommandHandler : IRequestHandler<MarkLessonCon
                 CheckinId = NewId.NextGuid(),
                 UserId = userId,
                 CheckinDate = today,
-                Mood = evaluated.Mood,
-                Productivity = evaluated.Productivity,
+                Productivity = alreadyRead ? 0 : DailyCheckinEvaluationHelper.LessonActivityIncrement,
                 CreatedAt = DateTime.UtcNow
             });
             return;
         }
 
-        var merged = DailyCheckinEvaluationHelper.Merge(existing.Productivity, evaluated.Productivity);
-        existing.Mood = merged.Mood;
-        existing.Productivity = merged.Productivity;
+        if (!alreadyRead)
+        {
+            existing.Productivity = DailyCheckinEvaluationHelper.IncrementActivityCount(
+                existing.Productivity, DailyCheckinEvaluationHelper.LessonActivityIncrement);
+        }
     }
 }

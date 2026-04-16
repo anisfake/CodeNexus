@@ -1,9 +1,11 @@
+using CodeNexus.API.Models.Requests;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.DailyCheckin.DTOs;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckins;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckinStatus;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyDailyCheckinStats;
 using CodeNexus.Application.Features.DailyCheckin.Queries.GetMyTodayDailyCheckin;
+using CodeNexus.Application.Features.DailyCheckin.Commands.SetDailyMood;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -54,6 +56,18 @@ public class DailyCheckinController : ControllerBase
 
         var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
+    }
+
+    [HttpPost("me/mood")]
+    public async Task<IActionResult> SetMyMood([FromBody] SetDailyMoodRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new SetDailyMoodCommand(request.Mood), cancellationToken);
+        if (result.IsSuccess) return Ok();
+        return result.ErrorCode switch
+        {
+            "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
+            _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
+        };
     }
 
     private IActionResult ToActionResult<T>(Result<T> result)
