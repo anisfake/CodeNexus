@@ -339,8 +339,7 @@ public class GroqServiceWithCacheTests
             {
                 new()
                 {
-                    UserId = userId,
-                    PlanExpiresAt = null
+                    UserId = userId
                 }
             }.BuildMockDbSet().Object);
     }

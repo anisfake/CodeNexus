@@ -105,7 +105,6 @@ public class CreateVnPayPaymentCommandHandler
         {
             PaymentTransactionId = NewId.NextGuid(),
             UserId = userId,
-            SubscriptionPlanId = null,
             TokenPackageId = tokenPackageId,
             Amount = amount,
             CreditedTokens = creditedTokens,

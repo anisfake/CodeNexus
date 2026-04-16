@@ -33,8 +33,6 @@ public class GetBillingTransactionDetailQueryHandler
             payment.UserId,
             payment.User.Username,
             payment.User.Email,
-            payment.SubscriptionPlanId,
-            null,
             payment.Amount,
             payment.Provider,
             payment.TxnRef,
@@ -45,7 +43,6 @@ public class GetBillingTransactionDetailQueryHandler
             payment.BankCode,
             payment.PaidAt,
             payment.CreatedAt,
-            payment.UpdatedAt,
-            payment.User.PlanExpiresAt));
+            payment.UpdatedAt));
     }
 }

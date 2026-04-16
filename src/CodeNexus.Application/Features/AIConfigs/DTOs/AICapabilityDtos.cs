@@ -11,6 +11,5 @@ public record AICapabilityByUsageDto(
 public record GetAICapabilityResponse(
     bool HasPaidAccess,
     string CurrentPlan,
-    DateTime? PlanExpiresAt,
     List<AICapabilityByUsageDto> Capabilities
 );

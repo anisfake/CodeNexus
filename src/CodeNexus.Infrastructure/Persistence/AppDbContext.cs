@@ -243,8 +243,6 @@ namespace CodeNexus.Infrastructure.Persistence
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            modelBuilder.Ignore<SubscriptionPlan>();
-            modelBuilder.Ignore<SubscriptionPlanLimit>();
 
             modelBuilder.Entity<User>().HasKey(e => e.UserId);
             modelBuilder.Entity<Role>().HasKey(e => e.RoleId);

@@ -53,7 +53,6 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
         return new GetAICapabilityResponse(
             HasPaidAccess: hasPaidAccess,
             CurrentPlan: "Token Billing",
-            PlanExpiresAt: null,
             Capabilities: capabilities);
     }
 }

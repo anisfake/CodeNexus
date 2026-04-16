@@ -134,7 +134,7 @@ public class PaymentsController : ControllerBase
         return result.ErrorCode switch
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" or "SUBSCRIPTION_PLAN_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_SIGNATURE" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
@@ -148,7 +148,7 @@ public class PaymentsController : ControllerBase
         return result.ErrorCode switch
         {
             "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" or "SUBSCRIPTION_PLAN_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "USER_NOT_FOUND" or "PAYMENT_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "INVALID_SIGNATURE" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

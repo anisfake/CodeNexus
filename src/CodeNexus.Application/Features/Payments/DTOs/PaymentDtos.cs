@@ -13,8 +13,6 @@ public record VnPayCallbackResponseDto(
     PaymentStatus Status,
     string ResponseCode,
     decimal Amount,
-    Guid? SubscriptionPlanId,
-    DateTime? PlanExpiresAt,
     decimal TokenBalance,
     decimal CreditedTokens
 );

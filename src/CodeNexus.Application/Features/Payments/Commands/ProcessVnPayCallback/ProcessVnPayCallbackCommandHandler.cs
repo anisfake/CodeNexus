@@ -89,8 +89,6 @@ public class ProcessVnPayCallbackCommandHandler
                 payment.Status,
                 payment.ResponseCode ?? string.Empty,
                 payment.Amount,
-                payment.SubscriptionPlanId,
-                payment.User.PlanExpiresAt,
                 payment.User.TokenBalance,
                 payment.CreditedTokens));
         }
@@ -119,8 +117,6 @@ public class ProcessVnPayCallbackCommandHandler
             payment.Status,
             payment.ResponseCode ?? string.Empty,
             payment.Amount,
-            payment.SubscriptionPlanId,
-            payment.User.PlanExpiresAt,
             payment.User.TokenBalance,
             payment.CreditedTokens));
     }
