@@ -1,5 +1,6 @@
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizQuestions;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateSingleQuizQuestion;
+using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -67,5 +68,20 @@ public class QuizHub : Hub
                 result.ErrorMessage
             }, ct);
         }
+    }
+
+    private async Task SendWalletTokenBalanceUpdatedAsync()
+    {
+        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        if (!profileResult.IsSuccess || profileResult.Value == null)
+        {
+            return;
+        }
+
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
+        {
+            TokenBalance = profileResult.Value.TokenBalance,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
     }
 }

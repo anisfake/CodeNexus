@@ -43,9 +43,8 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<TokenBlacklist> TokenBlacklist { get; }
         public DbSet<Achievement> Achievements { get; }
         public DbSet<UserAchievement> UserAchievements { get; }
+        public DbSet<TokenPackage> TokenPackages { get; }
         public DbSet<PaymentTransaction> PaymentTransactions { get; }
-        public DbSet<SubscriptionPlan> SubscriptionPlans { get; }
-        public DbSet<SubscriptionPlanLimit> SubscriptionPlanLimits { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies { get; }
         void SetAuditUserId(Guid userId);

@@ -77,7 +77,7 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
                 x.InputTokens,
                 x.OutputTokens,
                 x.TotalTokens,
-                x.CostUsd,
+                x.ChargedTokens,
                 x.CreatedAt))
             .ToListAsync(cancellationToken);
 
@@ -92,3 +92,4 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
         return Result<PaginationDto<AIUsageLogResponse>>.Success(result);
     }
 }
+

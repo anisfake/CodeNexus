@@ -41,7 +41,8 @@ namespace CodeNexus.Application.Features.Users.Queries.GetMyProfile
                 user.UserProfile?.DateOfBirth,
                 user.UserProfile?.Phone,
                 user.UserProfile?.Address,
-                user.UserProfile?.DailyReminderTime
+                user.UserProfile?.DailyReminderTime,
+                user.TokenBalance
             ));
         }
     }

@@ -254,8 +254,17 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         Guid userId,
         CancellationToken cancellationToken)
     {
-        var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId, cancellationToken);
-        var preferredTier = canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+        var userAccess = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => new
+            {
+                RoleName = u.Role != null ? u.Role.RoleName : string.Empty,
+                u.TokenBalance
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var preferredTier = ResolvePreferredTier(userAccess?.RoleName, userAccess?.TokenBalance ?? 0m);
 
         var preferred = await _context.AIProviderConfigs
             .AsNoTracking()
@@ -295,6 +304,17 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             .OrderByDescending(c => c.LastUpdated)
             .ThenBy(c => c.ConfigId)
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private static AIAccessTier ResolvePreferredTier(string? roleName, decimal tokenBalance)
+    {
+        if (string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase))
+        {
+            return AIAccessTier.Paid;
+        }
+
+        return tokenBalance > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
     }
 
     private static void ApplyConversationContext(Conversation conversation, TutorContext context)
@@ -1091,3 +1111,4 @@ INSTRUCTIONS:
         return null;
     }
 }
+

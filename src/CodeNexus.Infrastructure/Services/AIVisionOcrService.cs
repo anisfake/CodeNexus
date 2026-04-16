@@ -19,7 +19,6 @@ public class AIVisionOcrService : IOcrService
     private readonly IEncryptionService _encryptionService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICurrentUserService _currentUserService;
-    private readonly ISubscriptionAccessService _subscriptionAccessService;
     private readonly ILogger<AIVisionOcrService> _logger;
 
     public AIVisionOcrService(
@@ -27,14 +26,12 @@ public class AIVisionOcrService : IOcrService
         IEncryptionService encryptionService,
         IHttpClientFactory httpClientFactory,
         ICurrentUserService currentUserService,
-        ISubscriptionAccessService subscriptionAccessService,
         ILogger<AIVisionOcrService> logger)
     {
         _dbContext = dbContext;
         _encryptionService = encryptionService;
         _httpClientFactory = httpClientFactory;
         _currentUserService = currentUserService;
-        _subscriptionAccessService = subscriptionAccessService;
         _logger = logger;
     }
 
@@ -247,8 +244,23 @@ public class AIVisionOcrService : IOcrService
         try
         {
             var userId = _currentUserService.GetUserId();
-            var canUsePaid = await _subscriptionAccessService.CanUsePaidModelsAsync(userId);
-            return canUsePaid ? AIAccessTier.Paid : AIAccessTier.Free;
+            var userAccess = await _dbContext.Users
+                .AsNoTracking()
+                .Where(u => u.UserId == userId)
+                .Select(u => new
+                {
+                    RoleName = u.Role != null ? u.Role.RoleName : string.Empty,
+                    u.TokenBalance
+                })
+                .FirstOrDefaultAsync();
+
+            if (string.Equals(userAccess?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(userAccess?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
+            {
+                return AIAccessTier.Paid;
+            }
+
+            return (userAccess?.TokenBalance ?? 0m) > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
         }
         catch (Exception ex)
         {
@@ -426,3 +438,4 @@ public class AIVisionOcrService : IOcrService
         return "jpeg";
     }
 }
+

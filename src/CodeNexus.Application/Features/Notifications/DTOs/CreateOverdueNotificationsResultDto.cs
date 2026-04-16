@@ -6,7 +6,5 @@ public record CreateOverdueNotificationsResultDto(
     int TaskOverdueCount,
     int LearningPathOverdueCount,
     int ChapterOverdueCount,
-    int LessonOverdueCount,
-    int PlanExpiringSoonCount,
-    int PlanExpiredCount
+    int LessonOverdueCount
 );

@@ -13,8 +13,6 @@ public record GetBillingTransactionsQuery : IRequest<Result<PaginationDto<Billin
     public DateTime? ToUtc { get; init; }
     public PaymentStatus? Status { get; init; }
     public Guid? UserId { get; init; }
-    public Guid? SubscriptionPlanId { get; init; }
     public string? Provider { get; init; }
     public string? Search { get; init; }
 }
-
