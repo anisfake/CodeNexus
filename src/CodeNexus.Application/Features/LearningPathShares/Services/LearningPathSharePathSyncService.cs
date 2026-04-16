@@ -105,7 +105,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                 }
             }
 
-            foreach (var sourceTask in sourceChapter.Tasks)
+            foreach (var sourceTask in sourceChapter.Tasks.Where(t => !t.IsDeleted))
             {
                 await _context.Tasks.AddAsync(new TaskEntity
                 {
@@ -390,6 +390,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
             .ToList();
 
         var sourceTasks = sourceChapter.Tasks
+            .Where(t => !t.IsDeleted)
             .OrderBy(t => t.CreatedAt)
             .ToList();
 
