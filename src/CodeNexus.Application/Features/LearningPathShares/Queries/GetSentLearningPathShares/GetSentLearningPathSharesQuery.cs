@@ -7,5 +7,6 @@ namespace CodeNexus.Application.Features.LearningPathShares.Queries.GetSentLearn
 
 public record GetSentLearningPathSharesQuery(
     LearningPathShareStatus? Status = null,
-    Guid? StudentId = null
+    Guid? StudentId = null,
+    Guid? PathId = null
 ) : IRequest<Result<List<SentLearningPathShareSummaryDto>>>;
