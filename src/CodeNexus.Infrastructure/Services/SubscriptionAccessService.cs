@@ -49,9 +49,10 @@ public class SubscriptionAccessService : ISubscriptionAccessService
         var balance = await _context.Users
             .AsNoTracking()
             .Where(u => u.UserId == userId)
-            .Select(u => (decimal?)u.BalanceVnd)
+            .Select(u => (decimal?)u.TokenBalance)
             .FirstOrDefaultAsync(cancellationToken);
 
         return (balance ?? 0m) > 0m;
     }
 }
+

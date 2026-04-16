@@ -8,7 +8,8 @@ public record CreateTokenPackageCommand(
     string Name,
     string? Description,
     decimal PriceVnd,
-    decimal CreditedBalanceVnd,
+    decimal CreditedTokens,
     bool IsActive,
     int DisplayOrder
 ) : IRequest<Result<TokenPackageDto>>;
+

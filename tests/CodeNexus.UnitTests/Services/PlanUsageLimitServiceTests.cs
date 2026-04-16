@@ -27,7 +27,7 @@ public class PlanUsageLimitServiceTests
 
         SeedUsers(new[]
         {
-            new User { UserId = userId, BalanceVnd = 0m, Role = new Role { RoleName = "Student" } }
+            new User { UserId = userId, TokenBalance = 0m, Role = new Role { RoleName = "Student" } }
         });
         SeedFreeUsagePolicy(learningPathLimit: 2, tutorLimit: 300, focusLimit: 300);
 
@@ -51,7 +51,7 @@ public class PlanUsageLimitServiceTests
         var userId = Guid.NewGuid();
         SeedUsers(new[]
         {
-            new User { UserId = userId, BalanceVnd = 5000m, Role = new Role { RoleName = "Student" } }
+            new User { UserId = userId, TokenBalance = 5000m, Role = new Role { RoleName = "Student" } }
         });
         SeedFreeUsagePolicy(learningPathLimit: 1, tutorLimit: 1, focusLimit: 1);
 
@@ -76,7 +76,7 @@ public class PlanUsageLimitServiceTests
         var userId = Guid.NewGuid();
         SeedUsers(new[]
         {
-            new User { UserId = userId, BalanceVnd = 0m, Role = new Role { RoleName = "Student" } }
+            new User { UserId = userId, TokenBalance = 0m, Role = new Role { RoleName = "Student" } }
         });
         SeedFreeUsagePolicy(learningPathLimit: 3, tutorLimit: 5, focusLimit: 300);
 
@@ -100,7 +100,7 @@ public class PlanUsageLimitServiceTests
         var userId = Guid.NewGuid();
         SeedUsers(new[]
         {
-            new User { UserId = userId, BalanceVnd = 0m, Role = new Role { RoleName = "Student" } }
+            new User { UserId = userId, TokenBalance = 0m, Role = new Role { RoleName = "Student" } }
         });
         SeedFreeUsagePolicy(learningPathLimit: 3, tutorLimit: 300, focusLimit: 10);
 
@@ -126,7 +126,7 @@ public class PlanUsageLimitServiceTests
             new User
             {
                 UserId = userId,
-                BalanceVnd = 0m,
+                TokenBalance = 0m,
                 Role = new Role { RoleName = "Mentor" }
             }
         });
@@ -158,3 +158,4 @@ public class PlanUsageLimitServiceTests
             .Returns(new List<SystemRuntimePolicy> { policy }.BuildMockDbSet().Object);
     }
 }
+

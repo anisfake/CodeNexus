@@ -50,7 +50,7 @@ public class TutorChatHub : Hub
             }
 
             await Clients.Caller.SendAsync("TutorMessageReceived", result.Value);
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -164,7 +164,7 @@ public class TutorChatHub : Hub
         }
     }
 
-    private async Task SendWalletBalanceUpdatedAsync()
+    private async Task SendWalletTokenBalanceUpdatedAsync()
     {
         var profileResult = await _sender.Send(new GetMyProfileQuery());
         if (!profileResult.IsSuccess || profileResult.Value == null)
@@ -172,9 +172,9 @@ public class TutorChatHub : Hub
             return;
         }
 
-        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
         {
-            BalanceVnd = profileResult.Value.BalanceVnd,
+            TokenBalance = profileResult.Value.TokenBalance,
             UpdatedAtUtc = DateTime.UtcNow
         });
     }

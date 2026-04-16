@@ -32,7 +32,7 @@ namespace CodeNexus.Domain.Entities
         public virtual ICollection<UserGoalProgress> UserGoalProgresses { get; set; } = new List<UserGoalProgress>();
         public virtual ICollection<Goals> Goals { get; set; } = new List<Goals>();
         public virtual ICollection<DailyCheckins> DailyCheckins { get; set; } = new List<DailyCheckins>();
-        public decimal BalanceVnd { get; set; } = 0m;
+        public decimal TokenBalance { get; set; } = 0m;
         public Guid? SubscriptionPlanId { get; set; }
         public DateTime? PlanExpiresAt { get; set; }
         public virtual ICollection<FeatureUsageLog> FeatureUsageLogs { get; set; } = new List<FeatureUsageLog>();

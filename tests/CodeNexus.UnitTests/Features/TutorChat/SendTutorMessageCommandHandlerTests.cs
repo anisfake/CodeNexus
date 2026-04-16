@@ -49,7 +49,7 @@ public class SendTutorMessageCommandHandlerTests
         var learningPathId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        SetupUserAccess(userId, balanceVnd: 0m);
+        SetupUserAccess(userId, TokenBalance: 0m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -118,7 +118,7 @@ public class SendTutorMessageCommandHandlerTests
     {
         var userId = Guid.NewGuid();
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        SetupUserAccess(userId, balanceVnd: 0m);
+        SetupUserAccess(userId, TokenBalance: 0m);
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new List<AIProviderConfig>().BuildMockDbSet().Object);
 
         var command = new SendTutorMessageCommand(null, Guid.NewGuid(), null, null, "Explain async/await");
@@ -140,7 +140,7 @@ public class SendTutorMessageCommandHandlerTests
         var conversationId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        SetupUserAccess(userId, balanceVnd: 0m);
+        SetupUserAccess(userId, TokenBalance: 0m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -238,7 +238,7 @@ public class SendTutorMessageCommandHandlerTests
         var subjectId = Guid.NewGuid();
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
-        SetupUserAccess(userId, balanceVnd: 50000m);
+        SetupUserAccess(userId, TokenBalance: 50000m);
 
         _mockContext.Setup(x => x.AIProviderConfigs).Returns(new[]
         {
@@ -314,16 +314,17 @@ public class SendTutorMessageCommandHandlerTests
         Assert.Equal(paidConfigId, conversations[0].ConfigId);
     }
 
-    private void SetupUserAccess(Guid userId, decimal balanceVnd)
+    private void SetupUserAccess(Guid userId, decimal TokenBalance)
     {
         _mockContext.Setup(x => x.Users).Returns(new[]
         {
             new User
             {
                 UserId = userId,
-                BalanceVnd = balanceVnd,
+                TokenBalance = TokenBalance,
                 Role = new Role { RoleName = "Student" }
             }
         }.BuildMockDbSet().Object);
     }
 }
+

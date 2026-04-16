@@ -250,7 +250,7 @@ public class AIVisionOcrService : IOcrService
                 .Select(u => new
                 {
                     RoleName = u.Role != null ? u.Role.RoleName : string.Empty,
-                    u.BalanceVnd
+                    u.TokenBalance
                 })
                 .FirstOrDefaultAsync();
 
@@ -260,7 +260,7 @@ public class AIVisionOcrService : IOcrService
                 return AIAccessTier.Paid;
             }
 
-            return (userAccess?.BalanceVnd ?? 0m) > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
+            return (userAccess?.TokenBalance ?? 0m) > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
         }
         catch (Exception ex)
         {
@@ -438,3 +438,4 @@ public class AIVisionOcrService : IOcrService
         return "jpeg";
     }
 }
+

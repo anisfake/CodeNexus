@@ -38,7 +38,7 @@ public class AdminTokenPackagesController : ControllerBase
             request.Name,
             request.Description,
             request.PriceVnd,
-            request.CreditedBalanceVnd,
+            request.CreditedTokens,
             request.IsActive,
             request.DisplayOrder);
         var result = await _sender.Send(command, cancellationToken);
@@ -53,7 +53,7 @@ public class AdminTokenPackagesController : ControllerBase
             request.Name,
             request.Description,
             request.PriceVnd,
-            request.CreditedBalanceVnd,
+            request.CreditedTokens,
             request.IsActive,
             request.DisplayOrder);
         var result = await _sender.Send(command, cancellationToken);
@@ -107,6 +107,7 @@ public class AdminTokenPackagesController : ControllerBase
     }
 
     private static TokenPackageResponse ToResponse(TokenPackageDto x)
-        => new(x.TokenPackageId, x.Name, x.Description, x.PriceVnd, x.CreditedBalanceVnd, x.IsActive, x.DisplayOrder, x.CreatedAt, x.UpdatedAt);
+        => new(x.TokenPackageId, x.Name, x.Description, x.PriceVnd, x.CreditedTokens, x.IsActive, x.DisplayOrder, x.CreatedAt, x.UpdatedAt);
 }
+
 

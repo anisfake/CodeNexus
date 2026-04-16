@@ -39,7 +39,7 @@ public class CreateVnPayPaymentCommandHandler
         }
 
         decimal amount;
-        decimal creditedAmountVnd;
+        decimal creditedTokens;
         Guid? tokenPackageId = null;
         string defaultOrderInfo;
 
@@ -55,7 +55,7 @@ public class CreateVnPayPaymentCommandHandler
             }
 
             amount = tokenPackage.PriceVnd;
-            creditedAmountVnd = tokenPackage.CreditedBalanceVnd;
+            creditedTokens = tokenPackage.CreditedTokens;
             tokenPackageId = tokenPackage.TokenPackageId;
             defaultOrderInfo = $"Buy package {tokenPackage.Name}";
         }
@@ -82,7 +82,7 @@ public class CreateVnPayPaymentCommandHandler
                 return Result<VnPayCreatePaymentResponseDto>.Failure("INVALID_TOPUP_AMOUNT", "Top-up amount is too large.");
             }
 
-            creditedAmountVnd = amount;
+            creditedTokens = amount;
             defaultOrderInfo = $"Top-up {amount:N0} VND";
         }
 
@@ -98,7 +98,7 @@ public class CreateVnPayPaymentCommandHandler
             SubscriptionPlanId = null,
             TokenPackageId = tokenPackageId,
             Amount = amount,
-            CreditedAmountVnd = creditedAmountVnd,
+            CreditedTokens = creditedTokens,
             Provider = "VNPAY",
             TxnRef = txnRef,
             OrderInfo = orderInfo,
@@ -124,3 +124,4 @@ public class CreateVnPayPaymentCommandHandler
             paymentUrl));
     }
 }
+

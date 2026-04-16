@@ -39,7 +39,7 @@ public class ProcessVnPayCallbackCommandHandlerTests
     [Fact]
     public async Task Handle_WithSuccessResponse_ShouldTopUpUserBalance()
     {
-        var user = new User { UserId = Guid.NewGuid(), BalanceVnd = 10000m };
+        var user = new User { UserId = Guid.NewGuid(), TokenBalance = 10000m };
         var payment = new PaymentTransaction
         {
             PaymentTransactionId = Guid.NewGuid(),
@@ -70,6 +70,7 @@ public class ProcessVnPayCallbackCommandHandlerTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(PaymentStatus.Success, result.Value!.Status);
-        Assert.Equal(110000m, user.BalanceVnd);
+        Assert.Equal(110000m, user.TokenBalance);
     }
 }
+

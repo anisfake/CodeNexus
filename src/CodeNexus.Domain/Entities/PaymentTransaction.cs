@@ -12,7 +12,7 @@ public class PaymentTransaction
     public virtual TokenPackage? TokenPackage { get; set; }
 
     public decimal Amount { get; set; }
-    public decimal CreditedAmountVnd { get; set; }
+    public decimal CreditedTokens { get; set; }
 
     public string Provider { get; set; } = "VNPAY";
     public string TxnRef { get; set; } = string.Empty;

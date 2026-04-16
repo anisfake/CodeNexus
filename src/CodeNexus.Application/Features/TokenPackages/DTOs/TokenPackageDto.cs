@@ -5,9 +5,10 @@ public record TokenPackageDto(
     string Name,
     string? Description,
     decimal PriceVnd,
-    decimal CreditedBalanceVnd,
+    decimal CreditedTokens,
     bool IsActive,
     int DisplayOrder,
     DateTime CreatedAt,
     DateTime? UpdatedAt
 );
+

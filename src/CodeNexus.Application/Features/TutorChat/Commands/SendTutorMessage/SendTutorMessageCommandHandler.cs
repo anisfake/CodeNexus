@@ -260,11 +260,11 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             .Select(u => new
             {
                 RoleName = u.Role != null ? u.Role.RoleName : string.Empty,
-                u.BalanceVnd
+                u.TokenBalance
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var preferredTier = ResolvePreferredTier(userAccess?.RoleName, userAccess?.BalanceVnd ?? 0m);
+        var preferredTier = ResolvePreferredTier(userAccess?.RoleName, userAccess?.TokenBalance ?? 0m);
 
         var preferred = await _context.AIProviderConfigs
             .AsNoTracking()
@@ -306,7 +306,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             .FirstOrDefaultAsync(cancellationToken);
     }
 
-    private static AIAccessTier ResolvePreferredTier(string? roleName, decimal balanceVnd)
+    private static AIAccessTier ResolvePreferredTier(string? roleName, decimal tokenBalance)
     {
         if (string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase)
             || string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase))
@@ -314,7 +314,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             return AIAccessTier.Paid;
         }
 
-        return balanceVnd > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
+        return tokenBalance > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
     }
 
     private static void ApplyConversationContext(Conversation conversation, TutorContext context)
@@ -1111,3 +1111,4 @@ INSTRUCTIONS:
         return null;
     }
 }
+

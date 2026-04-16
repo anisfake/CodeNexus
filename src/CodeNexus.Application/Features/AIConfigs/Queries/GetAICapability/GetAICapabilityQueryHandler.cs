@@ -29,7 +29,7 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
             .Select(x => new
             {
                 RoleName = x.Role != null ? x.Role.RoleName : string.Empty,
-                x.BalanceVnd
+                x.TokenBalance
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -48,7 +48,7 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
 
         var hasPaidAccess = string.Equals(userAccess?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase)
                             || string.Equals(userAccess?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase)
-                            || (userAccess?.BalanceVnd ?? 0m) > 0m;
+                            || (userAccess?.TokenBalance ?? 0m) > 0m;
 
         return new GetAICapabilityResponse(
             HasPaidAccess: hasPaidAccess,
@@ -57,3 +57,4 @@ public class GetAICapabilityQueryHandler : IRequestHandler<GetAICapabilityQuery,
             Capabilities: capabilities);
     }
 }
+

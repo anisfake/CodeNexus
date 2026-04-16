@@ -146,14 +146,14 @@ public class PlanUsageLimitService : IPlanUsageLimitService
             .Select(u => new
             {
                 RoleName = u.Role != null ? u.Role.RoleName : null,
-                u.BalanceVnd
+                u.TokenBalance
             })
             .FirstOrDefaultAsync(cancellationToken);
 
         var roleName = profile?.RoleName;
         var isExemptRole = string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase)
                            || string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
-        var isPaidUser = (profile?.BalanceVnd ?? 0m) > 0m;
+        var isPaidUser = (profile?.TokenBalance ?? 0m) > 0m;
         return new UsageAccessProfile(isExemptRole, isPaidUser);
     }
 
@@ -220,3 +220,4 @@ public class PlanUsageLimitService : IPlanUsageLimitService
         int FreeTutorMessagesMonthlyLimit,
         int FreeFocusSessionReviewMonthlyLimit);
 }
+

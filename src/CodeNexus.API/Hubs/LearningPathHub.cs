@@ -80,7 +80,7 @@ public class LearningPathHub : Hub
                 Message = "Learning path with chapters and lessons created successfully! Click on lessons to generate content."
             });
 
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -210,7 +210,7 @@ public class LearningPathHub : Hub
                 learningPath.ChapterDtos
             });
 
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -222,7 +222,7 @@ public class LearningPathHub : Hub
         }
     }
 
-    private async Task SendWalletBalanceUpdatedAsync()
+    private async Task SendWalletTokenBalanceUpdatedAsync()
     {
         var profileResult = await _sender.Send(new GetMyProfileQuery());
         if (!profileResult.IsSuccess || profileResult.Value == null)
@@ -230,9 +230,9 @@ public class LearningPathHub : Hub
             return;
         }
 
-        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
         {
-            BalanceVnd = profileResult.Value.BalanceVnd,
+            TokenBalance = profileResult.Value.TokenBalance,
             UpdatedAtUtc = DateTime.UtcNow
         });
     }

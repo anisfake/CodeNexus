@@ -16,10 +16,11 @@ public class CreateTokenPackageCommandValidator : AbstractValidator<CreateTokenP
         RuleFor(x => x.PriceVnd)
             .GreaterThan(0);
 
-        RuleFor(x => x.CreditedBalanceVnd)
+        RuleFor(x => x.CreditedTokens)
             .GreaterThan(0);
 
         RuleFor(x => x.DisplayOrder)
             .GreaterThanOrEqualTo(0);
     }
 }
+

@@ -34,7 +34,7 @@ public class CreateTokenPackageCommandHandler : IRequestHandler<CreateTokenPacka
             Name = normalizedName,
             Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim(),
             PriceVnd = request.PriceVnd,
-            CreditedBalanceVnd = request.CreditedBalanceVnd,
+            CreditedTokens = request.CreditedTokens,
             IsActive = request.IsActive,
             DisplayOrder = request.DisplayOrder,
             CreatedAt = DateTime.UtcNow
@@ -52,9 +52,10 @@ public class CreateTokenPackageCommandHandler : IRequestHandler<CreateTokenPacka
             entity.Name,
             entity.Description,
             entity.PriceVnd,
-            entity.CreditedBalanceVnd,
+            entity.CreditedTokens,
             entity.IsActive,
             entity.DisplayOrder,
             entity.CreatedAt,
             entity.UpdatedAt);
 }
+

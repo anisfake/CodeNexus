@@ -29,7 +29,6 @@ public class GroqServiceWithCache : IAIGeneratorService
     private const int DefaultMaxTokens = 8192;
     private const float DefaultTemperature = 0.4f;
     private const int DefaultRequestTimeoutSeconds = 120;
-    private const decimal DefaultUsdToVndRate = 26000m;
     private const decimal ReserveSafetyMultiplier = 1.20m;
 
     public GroqServiceWithCache(
@@ -198,8 +197,8 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         if (ShouldChargePaidCall(accessResolution, selectedConfig.AccessTier))
         {
-            var reserveAmountVnd = EstimateReserveAmountVnd(prompt, config);
-            if (reserveAmountVnd > 0m && accessResolution.CurrentBalanceVnd < reserveAmountVnd)
+            var reserveTokenAmount = EstimateReserveTokenAmount(prompt, config);
+            if (reserveTokenAmount > 0m && accessResolution.CurrentTokenBalance < reserveTokenAmount)
             {
                 var freeConfig = await ResolveConfigWithTierPreferenceAsync(usageType, AIAccessTier.Free);
                 if (freeConfig != null)
@@ -209,7 +208,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                 }
                 else
                 {
-                    throw new InvalidOperationException("INSUFFICIENT_BALANCE");
+                    throw new InvalidOperationException("INSUFFICIENT_TOKEN_BALANCE");
                 }
             }
         }
@@ -269,16 +268,16 @@ public class GroqServiceWithCache : IAIGeneratorService
                 .Select(u => new
                 {
                     RoleName = u.Role != null ? u.Role.RoleName : null,
-                    u.BalanceVnd
+                    u.TokenBalance
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
             var roleName = userAccess?.RoleName;
-            var balanceVnd = userAccess?.BalanceVnd ?? 0m;
+            var tokenBalance = userAccess?.TokenBalance ?? 0m;
 
             if (IsPrivilegedRole(roleName))
             {
-                return new AccessResolution(userId, false, true, AIAccessTier.Paid, false, balanceVnd);
+                return new AccessResolution(userId, false, true, AIAccessTier.Paid, false, tokenBalance);
             }
 
             if (IsMentorRole(roleName))
@@ -286,20 +285,20 @@ public class GroqServiceWithCache : IAIGeneratorService
                 var mentorLimit = await _aiAccessPolicyService.GetMentorPaidRequestsMonthlyLimitAsync(cancellationToken);
                 if (mentorLimit <= 0)
                 {
-                    return new AccessResolution(userId, true, false, AIAccessTier.Paid, false, balanceVnd);
+                    return new AccessResolution(userId, true, false, AIAccessTier.Paid, false, tokenBalance);
                 }
 
                 var used = await CountMentorPaidAiUsageThisMonthAsync(userId, cancellationToken);
                 if (used >= mentorLimit)
                 {
-                    return new AccessResolution(userId, true, false, AIAccessTier.Free, true, balanceVnd);
+                    return new AccessResolution(userId, true, false, AIAccessTier.Free, true, tokenBalance);
                 }
 
-                return new AccessResolution(userId, true, false, AIAccessTier.Paid, false, balanceVnd);
+                return new AccessResolution(userId, true, false, AIAccessTier.Paid, false, tokenBalance);
             }
 
-            var preferredTier = balanceVnd > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
-            return new AccessResolution(userId, false, false, preferredTier, false, balanceVnd);
+            var preferredTier = tokenBalance > 0m ? AIAccessTier.Paid : AIAccessTier.Free;
+            return new AccessResolution(userId, false, false, preferredTier, false, tokenBalance);
         }
         catch (Exception ex)
         {
@@ -476,8 +475,8 @@ public class GroqServiceWithCache : IAIGeneratorService
                 throw new InvalidOperationException("Response was truncated due to max_tokens limit. Consider increasing max_tokens or simplifying the prompt.");
             }
 
-            var actualCostUsd = CalculateCostUsd(config, invocation.InputTokens, invocation.OutputTokens);
-            await SettlePaidUsageAsync(billingReservation, actualCostUsd, CancellationToken.None);
+            var actualChargedTokens = CalculateChargedTokens(config, invocation.InputTokens, invocation.OutputTokens);
+            await SettlePaidUsageAsync(billingReservation, actualChargedTokens, CancellationToken.None);
 
             await TryLogUsageAsync(
                 usageType,
@@ -536,7 +535,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         try
         {
-            var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
+            var chargedTokens = CalculateChargedTokens(config, inputTokens, outputTokens);
 
             _context.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
             {
@@ -550,7 +549,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                 InputTokens = inputTokens,
                 OutputTokens = outputTokens,
                 TotalTokens = totalTokens,
-                CostUsd = costUsd,
+                ChargedTokens = chargedTokens,
                 CreatedAt = createdAt
             });
 
@@ -585,7 +584,7 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         try
         {
-            var costUsd = CalculateCostUsd(config, inputTokens, outputTokens);
+            var chargedTokens = CalculateChargedTokens(config, inputTokens, outputTokens);
             await using var isolatedContext = await _dbContextFactory.CreateDbContextAsync();
 
             isolatedContext.AIUsageLogs.Add(new CodeNexus.Domain.Entities.AIUsageLog
@@ -600,7 +599,7 @@ public class GroqServiceWithCache : IAIGeneratorService
                 InputTokens = inputTokens,
                 OutputTokens = outputTokens,
                 TotalTokens = totalTokens,
-                CostUsd = costUsd,
+                ChargedTokens = chargedTokens,
                 CreatedAt = createdAt
             });
 
@@ -653,7 +652,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         return exception.Message.Contains("duplicate", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static decimal CalculateCostUsd(AIProviderRuntimeConfig config, int inputTokens, int outputTokens)
+    private static decimal CalculateChargedTokens(AIProviderRuntimeConfig config, int inputTokens, int outputTokens)
     {
         if (config.InputCostPer1M <= 0 && config.OutputCostPer1M <= 0)
         {
@@ -663,7 +662,15 @@ public class GroqServiceWithCache : IAIGeneratorService
         const decimal OneMillion = 1_000_000m;
         var inputCost = (inputTokens / OneMillion) * config.InputCostPer1M;
         var outputCost = (outputTokens / OneMillion) * config.OutputCostPer1M;
-        return Math.Round(inputCost + outputCost, 6);
+        var rawCharge = inputCost + outputCost;
+        var chargedTokens = Math.Ceiling(rawCharge);
+
+        if (chargedTokens <= 0m && (inputTokens > 0 || outputTokens > 0))
+        {
+            return 1m;
+        }
+
+        return chargedTokens;
     }
 
     private static bool ShouldChargePaidCall(AccessResolution resolution, AIAccessTier tier)
@@ -682,7 +689,7 @@ public class GroqServiceWithCache : IAIGeneratorService
            && !isMentor
            && !isPrivilegedRole;
 
-    private static decimal EstimateReserveAmountVnd(string prompt, AIProviderRuntimeConfig config)
+    private static decimal EstimateReserveTokenAmount(string prompt, AIProviderRuntimeConfig config)
     {
         if (config.InputCostPer1M <= 0 && config.OutputCostPer1M <= 0)
         {
@@ -691,12 +698,9 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         var estimatedInputTokens = Math.Max(EstimateTokenCount(prompt), 128);
         var reservedOutputTokens = Math.Max(config.MaxTokens, 128);
-        var estimatedUsd = CalculateCostUsd(config, estimatedInputTokens, reservedOutputTokens) * ReserveSafetyMultiplier;
-        return ConvertUsdToVnd(estimatedUsd);
+        var estimatedTokens = CalculateChargedTokens(config, estimatedInputTokens, reservedOutputTokens) * ReserveSafetyMultiplier;
+        return Math.Ceiling(estimatedTokens);
     }
-
-    private static decimal ConvertUsdToVnd(decimal amountUsd)
-        => Math.Round(amountUsd * DefaultUsdToVndRate, 2, MidpointRounding.AwayFromZero);
 
     private static int EstimateTokenCount(string text)
     {
@@ -727,24 +731,24 @@ public class GroqServiceWithCache : IAIGeneratorService
             return BillingReservation.None;
         }
 
-        var reserveAmountVnd = EstimateReserveAmountVnd(prompt, config);
-        if (reserveAmountVnd <= 0m)
+        var reserveTokens = EstimateReserveTokenAmount(prompt, config);
+        if (reserveTokens <= 0m)
         {
             return BillingReservation.None;
         }
 
-        var reserved = await TryReserveBalanceAsync(userId, reserveAmountVnd, cancellationToken);
+        var reserved = await TryReserveTokenBalanceAsync(userId, reserveTokens, cancellationToken);
         if (!reserved)
         {
-            throw new InvalidOperationException("INSUFFICIENT_BALANCE");
+            throw new InvalidOperationException("INSUFFICIENT_TOKEN_BALANCE");
         }
 
-        return new BillingReservation(userId, reserveAmountVnd);
+        return new BillingReservation(userId, reserveTokens);
     }
 
     private async Task SettlePaidUsageAsync(
         BillingReservation reservation,
-        decimal actualCostUsd,
+        decimal actualChargedTokens,
         CancellationToken cancellationToken)
     {
         if (!reservation.IsReserved)
@@ -752,12 +756,11 @@ public class GroqServiceWithCache : IAIGeneratorService
             return;
         }
 
-        var actualCostVnd = ConvertUsdToVnd(actualCostUsd);
-        var refund = reservation.ReservedAmountVnd - actualCostVnd;
+        var refund = reservation.ReservedTokens - actualChargedTokens;
 
         if (refund > 0m)
         {
-            await AddBalanceAsync(reservation.UserId, refund, cancellationToken);
+            await AddTokenBalanceAsync(reservation.UserId, refund, cancellationToken);
             return;
         }
 
@@ -767,11 +770,11 @@ public class GroqServiceWithCache : IAIGeneratorService
             return;
         }
 
-        var charged = await TryReserveBalanceAsync(reservation.UserId, additionalCharge, cancellationToken);
+        var charged = await TryReserveTokenBalanceAsync(reservation.UserId, additionalCharge, cancellationToken);
         if (!charged)
         {
             _logger.LogWarning(
-                "Additional AI billing charge failed. UserId={UserId}, AdditionalChargeVnd={AdditionalChargeVnd}",
+                "Additional AI token charge failed. UserId={UserId}, AdditionalChargeTokens={AdditionalChargeTokens}",
                 reservation.UserId,
                 additionalCharge);
         }
@@ -784,12 +787,12 @@ public class GroqServiceWithCache : IAIGeneratorService
             return;
         }
 
-        await AddBalanceAsync(reservation.UserId, reservation.ReservedAmountVnd, cancellationToken);
+        await AddTokenBalanceAsync(reservation.UserId, reservation.ReservedTokens, cancellationToken);
     }
 
-    private async Task<bool> TryReserveBalanceAsync(Guid userId, decimal amountVnd, CancellationToken cancellationToken)
+    private async Task<bool> TryReserveTokenBalanceAsync(Guid userId, decimal tokenAmount, CancellationToken cancellationToken)
     {
-        if (amountVnd <= 0m)
+        if (tokenAmount <= 0m)
         {
             return true;
         }
@@ -798,26 +801,26 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             var affected = await dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $@"UPDATE [Users]
-                   SET [BalanceVnd] = [BalanceVnd] - {amountVnd}
-                   WHERE [UserId] = {userId} AND [BalanceVnd] >= {amountVnd}",
+                   SET [TokenBalance] = [TokenBalance] - {tokenAmount}
+                   WHERE [UserId] = {userId} AND [TokenBalance] >= {tokenAmount}",
                 cancellationToken);
             return affected > 0;
         }
 
         var user = await _context.Users.FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
-        if (user == null || user.BalanceVnd < amountVnd)
+        if (user == null || user.TokenBalance < tokenAmount)
         {
             return false;
         }
 
-        user.BalanceVnd -= amountVnd;
+        user.TokenBalance -= tokenAmount;
         await _context.SaveChangesAsync(cancellationToken);
         return true;
     }
 
-    private async Task AddBalanceAsync(Guid userId, decimal amountVnd, CancellationToken cancellationToken)
+    private async Task AddTokenBalanceAsync(Guid userId, decimal tokenAmount, CancellationToken cancellationToken)
     {
-        if (amountVnd <= 0m)
+        if (tokenAmount <= 0m)
         {
             return;
         }
@@ -826,7 +829,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         {
             await dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $@"UPDATE [Users]
-                   SET [BalanceVnd] = [BalanceVnd] + {amountVnd}
+                   SET [TokenBalance] = [TokenBalance] + {tokenAmount}
                    WHERE [UserId] = {userId}",
                 cancellationToken);
             return;
@@ -838,7 +841,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             return;
         }
 
-        user.BalanceVnd += amountVnd;
+        user.TokenBalance += tokenAmount;
         await _context.SaveChangesAsync(cancellationToken);
     }
 
@@ -1227,9 +1230,9 @@ public class GroqServiceWithCache : IAIGeneratorService
         return -1;
     }
 
-    private readonly record struct BillingReservation(Guid UserId, decimal ReservedAmountVnd)
+    private readonly record struct BillingReservation(Guid UserId, decimal ReservedTokens)
     {
-        public bool IsReserved => UserId != Guid.Empty && ReservedAmountVnd > 0m;
+        public bool IsReserved => UserId != Guid.Empty && ReservedTokens > 0m;
         public static BillingReservation None => new(Guid.Empty, 0m);
     }
 
@@ -1239,6 +1242,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         bool IsPrivilegedRole,
         AIAccessTier PreferredTier,
         bool ForceFreeDueToMentorLimit,
-        decimal CurrentBalanceVnd);
+        decimal CurrentTokenBalance);
 
 }
+

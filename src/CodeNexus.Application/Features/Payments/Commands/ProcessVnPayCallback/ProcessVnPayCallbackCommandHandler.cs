@@ -91,15 +91,15 @@ public class ProcessVnPayCallbackCommandHandler
                 payment.Amount,
                 payment.SubscriptionPlanId,
                 payment.User.PlanExpiresAt,
-                payment.User.BalanceVnd,
-                payment.CreditedAmountVnd));
+                payment.User.TokenBalance,
+                payment.CreditedTokens));
         }
 
         if (responseCode == "00")
         {
             payment.Status = PaymentStatus.Success;
-            var creditedAmount = payment.CreditedAmountVnd > 0m ? payment.CreditedAmountVnd : payment.Amount;
-            payment.User.BalanceVnd += creditedAmount;
+            var creditedAmount = payment.CreditedTokens > 0m ? payment.CreditedTokens : payment.Amount;
+            payment.User.TokenBalance += creditedAmount;
         }
         else if (responseCode == "24")
         {
@@ -121,8 +121,8 @@ public class ProcessVnPayCallbackCommandHandler
             payment.Amount,
             payment.SubscriptionPlanId,
             payment.User.PlanExpiresAt,
-            payment.User.BalanceVnd,
-            payment.CreditedAmountVnd));
+            payment.User.TokenBalance,
+            payment.CreditedTokens));
     }
 
     private static bool TryParsePayDate(IDictionary<string, string> parameters, out DateTime? paidAt)
@@ -140,3 +140,4 @@ public class ProcessVnPayCallbackCommandHandler
         return false;
     }
 }
+

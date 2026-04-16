@@ -66,7 +66,7 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 Message = "Lesson content and quizzes generated successfully!"
             });
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -106,7 +106,7 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 Message = "Lesson content generated successfully!"
             });
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -134,7 +134,7 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     Quizzes = quizResult.Value.Quizzes
                 });
-                await SendWalletBalanceUpdatedAsync();
+                await SendWalletTokenBalanceUpdatedAsync();
                 return;
             }
 
@@ -171,7 +171,7 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     Quiz = quizResult.Value
                 });
-                await SendWalletBalanceUpdatedAsync();
+                await SendWalletTokenBalanceUpdatedAsync();
                 return;
             }
 
@@ -193,7 +193,7 @@ public class LessonHub : Hub
         }
     }
 
-    private async Task SendWalletBalanceUpdatedAsync()
+    private async Task SendWalletTokenBalanceUpdatedAsync()
     {
         var profileResult = await _sender.Send(new GetMyProfileQuery());
         if (!profileResult.IsSuccess || profileResult.Value == null)
@@ -201,9 +201,9 @@ public class LessonHub : Hub
             return;
         }
 
-        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
         {
-            BalanceVnd = profileResult.Value.BalanceVnd,
+            TokenBalance = profileResult.Value.TokenBalance,
             UpdatedAtUtc = DateTime.UtcNow
         });
     }

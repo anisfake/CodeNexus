@@ -38,6 +38,7 @@ public class TokenPackagesController : ControllerBase
     }
 
     private static TokenPackageResponse ToResponse(TokenPackageDto x)
-        => new(x.TokenPackageId, x.Name, x.Description, x.PriceVnd, x.CreditedBalanceVnd, x.IsActive, x.DisplayOrder, x.CreatedAt, x.UpdatedAt);
+        => new(x.TokenPackageId, x.Name, x.Description, x.PriceVnd, x.CreditedTokens, x.IsActive, x.DisplayOrder, x.CreatedAt, x.UpdatedAt);
 }
+
 

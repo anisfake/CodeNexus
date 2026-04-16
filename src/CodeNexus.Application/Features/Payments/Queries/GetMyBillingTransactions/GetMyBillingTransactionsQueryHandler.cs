@@ -70,7 +70,7 @@ public class GetMyBillingTransactionsQueryHandler
                 x.TokenPackageId,
                 x.TokenPackage != null ? x.TokenPackage.Name : null,
                 x.Amount,
-                x.CreditedAmountVnd,
+                x.CreditedTokens,
                 x.Provider,
                 x.TxnRef,
                 x.OrderInfo,
@@ -92,3 +92,4 @@ public class GetMyBillingTransactionsQueryHandler
         });
     }
 }
+

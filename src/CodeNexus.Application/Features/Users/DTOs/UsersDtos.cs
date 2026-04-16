@@ -22,7 +22,7 @@ public record UserProfileRespone(
     string? Phone,
     string? Address,
     TimeSpan? DailyReminderTime,
-    decimal BalanceVnd
+    decimal TokenBalance
 );
 
 public record UpdateProfileRequest(

@@ -15,6 +15,7 @@ public record VnPayCallbackResponseDto(
     decimal Amount,
     Guid? SubscriptionPlanId,
     DateTime? PlanExpiresAt,
-    decimal BalanceVnd,
-    decimal CreditedAmountVnd
+    decimal TokenBalance,
+    decimal CreditedTokens
 );
+

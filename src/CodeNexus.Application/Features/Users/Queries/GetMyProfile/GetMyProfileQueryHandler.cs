@@ -42,7 +42,7 @@ namespace CodeNexus.Application.Features.Users.Queries.GetMyProfile
                 user.UserProfile?.Phone,
                 user.UserProfile?.Address,
                 user.UserProfile?.DailyReminderTime,
-                user.BalanceVnd
+                user.TokenBalance
             ));
         }
     }

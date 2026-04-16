@@ -36,7 +36,7 @@ public class GetMyBillingTransactionDetailQueryHandlerTests
                 PaymentTransactionId = transactionId,
                 UserId = anotherUserId,
                 Amount = 50000,
-                CreditedAmountVnd = 50000,
+                CreditedTokens = 50000,
                 Provider = "VNPAY",
                 TxnRef = "TXN-999",
                 OrderInfo = "Top-up",
@@ -70,7 +70,7 @@ public class GetMyBillingTransactionDetailQueryHandlerTests
                 TokenPackageId = pkg.TokenPackageId,
                 TokenPackage = pkg,
                 Amount = 200000,
-                CreditedAmountVnd = 220000,
+                CreditedTokens = 220000,
                 Provider = "VNPAY",
                 TxnRef = "TXN-123",
                 OrderInfo = "Buy package Pro",
@@ -89,3 +89,4 @@ public class GetMyBillingTransactionDetailQueryHandlerTests
         Assert.Equal("Pro", result.Value.TokenPackageName);
     }
 }
+

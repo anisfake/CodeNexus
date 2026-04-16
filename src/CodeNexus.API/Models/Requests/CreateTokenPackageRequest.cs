@@ -4,8 +4,9 @@ public record CreateTokenPackageRequest(
     string Name,
     string? Description,
     decimal PriceVnd,
-    decimal CreditedBalanceVnd,
+    decimal CreditedTokens,
     bool IsActive,
     int DisplayOrder
 );
+
 

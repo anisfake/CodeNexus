@@ -37,7 +37,7 @@ public class UpdateTokenPackageCommandHandler : IRequestHandler<UpdateTokenPacka
         entity.Name = normalizedName;
         entity.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         entity.PriceVnd = request.PriceVnd;
-        entity.CreditedBalanceVnd = request.CreditedBalanceVnd;
+        entity.CreditedTokens = request.CreditedTokens;
         entity.IsActive = request.IsActive;
         entity.DisplayOrder = request.DisplayOrder;
         entity.UpdatedAt = DateTime.UtcNow;
@@ -52,9 +52,10 @@ public class UpdateTokenPackageCommandHandler : IRequestHandler<UpdateTokenPacka
             entity.Name,
             entity.Description,
             entity.PriceVnd,
-            entity.CreditedBalanceVnd,
+            entity.CreditedTokens,
             entity.IsActive,
             entity.DisplayOrder,
             entity.CreatedAt,
             entity.UpdatedAt);
 }
+

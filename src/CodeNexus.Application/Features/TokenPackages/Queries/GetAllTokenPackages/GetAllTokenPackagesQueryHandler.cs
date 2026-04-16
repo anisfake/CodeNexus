@@ -31,7 +31,7 @@ public class GetAllTokenPackagesQueryHandler : IRequestHandler<GetAllTokenPackag
                 x.Name,
                 x.Description,
                 x.PriceVnd,
-                x.CreditedBalanceVnd,
+                x.CreditedTokens,
                 x.IsActive,
                 x.DisplayOrder,
                 x.CreatedAt,
@@ -41,3 +41,4 @@ public class GetAllTokenPackagesQueryHandler : IRequestHandler<GetAllTokenPackag
         return Result<List<TokenPackageDto>>.Success(items);
     }
 }
+

@@ -68,7 +68,7 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
                 user.UserProfile.Phone,
                 user.UserProfile.Address,
                 user.UserProfile.DailyReminderTime,
-                user.BalanceVnd
+                user.TokenBalance
             ));
         }
     }

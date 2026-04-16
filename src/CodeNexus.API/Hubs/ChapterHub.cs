@@ -37,7 +37,7 @@ public class ChapterHub : Hub
                 if (contentResult.IsSuccess)
                 {
                     await Clients.Caller.SendAsync("ReceiveChapterContent", contentResult.Value);
-                    await SendWalletBalanceUpdatedAsync();
+                    await SendWalletTokenBalanceUpdatedAsync();
                 }
                 else
                 {
@@ -81,7 +81,7 @@ public class ChapterHub : Hub
         if (result.IsSuccess)
         {
             await Clients.Caller.SendAsync("ReceiveChapterContent", result.Value);
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         else
         {
@@ -126,7 +126,7 @@ public class ChapterHub : Hub
             }
 
             await Clients.Caller.SendAsync("ChapterMentorSkeletonGenerated", result.Value);
-            await SendWalletBalanceUpdatedAsync();
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {
@@ -139,7 +139,7 @@ public class ChapterHub : Hub
         }
     }
 
-    private async Task SendWalletBalanceUpdatedAsync()
+    private async Task SendWalletTokenBalanceUpdatedAsync()
     {
         var profileResult = await _sender.Send(new GetMyProfileQuery());
         if (!profileResult.IsSuccess || profileResult.Value == null)
@@ -147,9 +147,9 @@ public class ChapterHub : Hub
             return;
         }
 
-        await Clients.Caller.SendAsync("WalletBalanceUpdated", new
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
         {
-            BalanceVnd = profileResult.Value.BalanceVnd,
+            TokenBalance = profileResult.Value.TokenBalance,
             UpdatedAtUtc = DateTime.UtcNow
         });
     }

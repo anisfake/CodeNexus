@@ -305,7 +305,7 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.HasIndex(u => u.Email).IsUnique();
                 entity.HasIndex(u => u.Username).IsUnique();
-                entity.Property(u => u.BalanceVnd).HasPrecision(18, 2);
+                entity.Property(u => u.TokenBalance).HasPrecision(18, 2);
 
                 entity.HasOne(u => u.UserProfile)
                       .WithOne(p => p.User)
@@ -586,7 +586,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasIndex(e => new { e.ConfigId, e.CreatedAt });
                 entity.Property(e => e.AccessTierUsed)
                     .HasConversion<string>();
-                entity.Property(e => e.CostUsd).HasPrecision(18, 8);
+                entity.Property(e => e.ChargedTokens).HasPrecision(18, 8);
 
                 entity.HasOne(e => e.Config)
                       .WithMany(c => c.AIUsageLogs)
@@ -599,7 +599,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasKey(e => e.PaymentTransactionId);
 
                 entity.Property(e => e.Amount).HasPrecision(18, 2);
-                entity.Property(e => e.CreditedAmountVnd).HasPrecision(18, 2);
+                entity.Property(e => e.CreditedTokens).HasPrecision(18, 2);
                 entity.Property(e => e.Status).HasConversion<string>();
 
                 entity.HasIndex(e => e.TxnRef).IsUnique();
@@ -626,7 +626,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.PriceVnd)
                       .HasPrecision(18, 2);
 
-                entity.Property(e => e.CreditedBalanceVnd)
+                entity.Property(e => e.CreditedTokens)
                       .HasPrecision(18, 2);
 
                 entity.HasIndex(e => e.DisplayOrder);
@@ -851,3 +851,4 @@ namespace CodeNexus.Infrastructure.Persistence
         }
     }
 }
+

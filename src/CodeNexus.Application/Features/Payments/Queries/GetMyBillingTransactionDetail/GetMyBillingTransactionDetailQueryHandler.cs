@@ -39,7 +39,7 @@ public class GetMyBillingTransactionDetailQueryHandler
             payment.TokenPackageId,
             payment.TokenPackage?.Name,
             payment.Amount,
-            payment.CreditedAmountVnd,
+            payment.CreditedTokens,
             payment.Provider,
             payment.TxnRef,
             payment.OrderInfo,
@@ -52,3 +52,4 @@ public class GetMyBillingTransactionDetailQueryHandler
             payment.UpdatedAt));
     }
 }
+

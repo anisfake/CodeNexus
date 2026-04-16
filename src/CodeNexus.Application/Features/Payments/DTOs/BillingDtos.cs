@@ -26,7 +26,7 @@ public record MyBillingTransactionResponse(
     Guid? TokenPackageId,
     string? TokenPackageName,
     decimal Amount,
-    decimal CreditedAmountVnd,
+    decimal CreditedTokens,
     string Provider,
     string TxnRef,
     string OrderInfo,
@@ -44,7 +44,7 @@ public record MyBillingTransactionDetailResponse(
     Guid? TokenPackageId,
     string? TokenPackageName,
     decimal Amount,
-    decimal CreditedAmountVnd,
+    decimal CreditedTokens,
     string Provider,
     string TxnRef,
     string OrderInfo,
@@ -96,3 +96,4 @@ public record BillingSummaryResponse(
     decimal TotalRevenueVnd,
     List<BillingSummaryItemResponse> DailyRevenue
 );
+
