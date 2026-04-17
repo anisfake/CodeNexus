@@ -22,7 +22,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
     private readonly ICurrentUserService _currentUserService;
     private readonly ITimelineCalculationService _timelineCalculationService;
     private readonly IAIGeneratorService _aiGeneratorService;
-    private readonly ISubscriptionAccessService _subscriptionAccessService;
     private readonly IPlanUsageLimitService _planUsageLimitService;
 
     public GenerateLearningPathSkeletonCommandHandler(
@@ -30,14 +29,12 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         ICurrentUserService currentUserService,
         ITimelineCalculationService timelineCalculationService,
         IAIGeneratorService aiGeneratorService,
-        ISubscriptionAccessService subscriptionAccessService,
         IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _timelineCalculationService = timelineCalculationService;
         _aiGeneratorService = aiGeneratorService;
-        _subscriptionAccessService = subscriptionAccessService;
         _planUsageLimitService = planUsageLimitService;
     }
 
