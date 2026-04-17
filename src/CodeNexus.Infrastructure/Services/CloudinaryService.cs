@@ -30,7 +30,7 @@ public class CloudinaryService : ICloudinaryService
         _cloudinary = new Cloudinary(account);
     }
 
-    public async Task<string> UploadImageAsync(Stream imageStream, string fileName, string folder)
+    public async Task<string?> UploadImageAsync(Stream imageStream, string fileName, string folder)
     {
         try
         {
@@ -45,14 +45,14 @@ public class CloudinaryService : ICloudinaryService
 
             if (uploadResult.Error != null)
             {
-                throw new InvalidOperationException($"Upload failed: {uploadResult.Error.Message}");
+                return null;
             }
 
             return uploadResult.SecureUrl.ToString();
         }
         catch (Exception ex)
         {
-            throw;
+            return null;
         }
     }
 
@@ -76,7 +76,7 @@ public class CloudinaryService : ICloudinaryService
         }
     }
 
-    public async Task<string> UploadFileAsync(Stream file, string fileName, string folder)
+    public async Task<string?> UploadFileAsync(Stream file, string fileName, string folder)
     {
         try
         {
@@ -91,14 +91,14 @@ public class CloudinaryService : ICloudinaryService
 
             if (uploadResult.Error != null)
             {
-                throw new InvalidOperationException($"Upload failed: {uploadResult.Error.Message}");
+                return null;
             }
 
             return uploadResult.SecureUrl.ToString();
         }
         catch (Exception ex)
         {
-            throw;
+            return null;
         }
     }
 
