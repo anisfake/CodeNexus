@@ -137,6 +137,8 @@ public class LessonHub : Hub
                     LessonId = lessonId,
                     Quizzes = quizResult.Value.Quizzes
                 }, ct);
+                await SendWalletTokenBalanceUpdatedAsync();
+
                 return;
             }
 
