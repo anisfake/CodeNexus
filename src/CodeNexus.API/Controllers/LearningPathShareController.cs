@@ -92,7 +92,7 @@ public class LearningPathShareController : ControllerBase
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GetSentShares([FromQuery] GetSentLearningPathSharesRequest request, CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(new GetSentLearningPathSharesQuery(request.Status, request.StudentId), cancellationToken);
+        var result = await _sender.Send(new GetSentLearningPathSharesQuery(request.Status, request.StudentId, request.PathId), cancellationToken);
         return ToActionResult(result);
     }
 
