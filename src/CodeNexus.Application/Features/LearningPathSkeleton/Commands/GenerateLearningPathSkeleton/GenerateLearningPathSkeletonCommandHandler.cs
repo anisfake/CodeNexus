@@ -20,7 +20,8 @@ namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateL
 
 public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<GenerateLearningPathSkeletonCommand, Result<CreateLearningPathResponse>>
 {
-    private const decimal ReserveSafetyMultiplier = 1.20m;
+    private const decimal UpfrontEstimateSafetyMultiplier = 1.05m;
+    private const decimal ChapterRegenerationRatio = 0.20m;
     private const string InsufficientTokenBalanceErrorCode = "INSUFFICIENT_TOKEN_BALANCE";
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
@@ -608,42 +609,43 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
 
         var metaCalls = 1;
         var chapterCalls = chapterCount;
-        var chapterRetryCalls = chapterCount;
+        var chapterRegenerationCalls = Math.Max(1, (int)Math.Ceiling(chapterCount * ChapterRegenerationRatio));
         var quizTitleCalls = totalLessons;
 
         var metaOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1024);
         var chapterOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1400 + (lessonsPerChapter * 260));
-        var chapterRetryOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1100 + (lessonsPerChapter * 220));
+        var chapterRegenerationOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1100 + (lessonsPerChapter * 220));
         var quizTitleOutputTokens = Math.Min(runtimeConfig.MaxTokens, 280 + (Math.Max(quizzesPerLesson, 1) * 160));
 
-        var metaReserve = EstimateReserveTokenAmount(
+        var metaEstimate = EstimateExpectedChargeTokenAmount(
             inputTokens,
             metaOutputTokens,
             runtimeConfig.InputCostPer1M,
             runtimeConfig.OutputCostPer1M) * metaCalls;
 
-        var chapterReserve = EstimateReserveTokenAmount(
+        var chapterEstimate = EstimateExpectedChargeTokenAmount(
             inputTokens,
             chapterOutputTokens,
             runtimeConfig.InputCostPer1M,
             runtimeConfig.OutputCostPer1M) * chapterCalls;
 
-        var chapterRetryReserve = EstimateReserveTokenAmount(
+        var chapterRegenerationEstimate = EstimateExpectedChargeTokenAmount(
             inputTokens,
-            chapterRetryOutputTokens,
+            chapterRegenerationOutputTokens,
             runtimeConfig.InputCostPer1M,
-            runtimeConfig.OutputCostPer1M) * chapterRetryCalls;
+            runtimeConfig.OutputCostPer1M) * chapterRegenerationCalls;
 
-        var quizTitleReserve = EstimateReserveTokenAmount(
+        var quizTitleEstimate = EstimateExpectedChargeTokenAmount(
             inputTokens,
             quizTitleOutputTokens,
             runtimeConfig.InputCostPer1M,
             runtimeConfig.OutputCostPer1M) * quizTitleCalls;
 
-        return metaReserve + chapterReserve + chapterRetryReserve + quizTitleReserve;
+        var baseEstimate = metaEstimate + chapterEstimate + chapterRegenerationEstimate + quizTitleEstimate;
+        return Math.Ceiling(baseEstimate * UpfrontEstimateSafetyMultiplier);
     }
 
-    private static decimal EstimateReserveTokenAmount(
+    private static decimal EstimateExpectedChargeTokenAmount(
         int inputTokens,
         int outputTokens,
         decimal inputCostPer1M,
@@ -659,7 +661,7 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             chargedTokens = 1m;
         }
 
-        return Math.Ceiling(chargedTokens * ReserveSafetyMultiplier);
+        return chargedTokens;
     }
 
     private static PaidRuntimeConfig ParseRuntimeConfig(string? configJson)
