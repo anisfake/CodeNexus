@@ -113,6 +113,26 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 .ToList();
 
             var durationDays = CalculateWeightedDurationDays(goalsWithWeights);
+            var plannedStartDate = DateTime.UtcNow;
+            var plannedEndDate = plannedStartDate.AddDays(durationDays);
+
+            var chapterTimelines = await _timelineCalculationService.CalculateChapterTimelinesAsync(
+                plannedStartDate,
+                plannedEndDate,
+                0,
+                request.ComplexityLevel,
+                cancellationToken);
+
+            var upfrontBudgetValidation = await ValidateUpfrontBudgetAsync(
+                userId,
+                request.ComplexityLevel,
+                chapterTimelines.Count,
+                cancellationToken);
+            if (upfrontBudgetValidation != null)
+            {
+                return upfrontBudgetValidation;
+            }
+
             var (pathTitle, pathDescription) = await GenerateLearningPathMetaAsync(
                 subject.Name,
                 goalsWithWeights,
@@ -128,8 +148,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 Status = request.SaveAsDraft
                     ? LearningPathStatus.Draft.ToString()
                     : LearningPathStatus.Active.ToString(),
-                StartDate = DateTime.UtcNow,
-                EndDate = DateTime.UtcNow.AddDays(durationDays),
+                StartDate = plannedStartDate,
+                EndDate = plannedEndDate,
                 CreatedAt = DateTime.UtcNow,
                 CreatedByType = true,
                 Language = request.LanguageSelection,
@@ -146,23 +166,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     GoalId = goalWithWeight.Goal.GoalId,
                     Weight = goalWithWeight.Weight
                 }, cancellationToken);
-            }
-
-            var chapterTimelines = await _timelineCalculationService.CalculateChapterTimelinesAsync(
-                learningPath.StartDate!.Value,
-                learningPath.EndDate!.Value,
-                0,
-                request.ComplexityLevel,
-                cancellationToken);
-
-            var upfrontBudgetValidation = await ValidateUpfrontBudgetAsync(
-                userId,
-                request.ComplexityLevel,
-                chapterTimelines.Count,
-                cancellationToken);
-            if (upfrontBudgetValidation != null)
-            {
-                return upfrontBudgetValidation;
             }
 
             var chapters = new List<ChapterDto>();

@@ -349,12 +349,35 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockTimelineCalculationService.Setup(x => x.GetQuizzesPerLesson(ComplexityLevel.Intermediate))
             .Returns(2);
 
+        var aiSpy = new CountingAIGeneratorService();
+        var localHandler = new GenerateLearningPathSkeletonCommandHandler(
+            _mockContext.Object,
+            _mockCurrentUserService.Object,
+            _mockTimelineCalculationService.Object,
+            aiSpy,
+            _mockPlanUsageLimitService.Object);
+
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await localHandler.Handle(command, CancellationToken.None);
 
         // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("INSUFFICIENT_TOKEN_BALANCE", result.ErrorCode);
+        Assert.Equal(0, aiSpy.StructureCallCount);
+    }
+
+    private sealed class CountingAIGeneratorService : IAIGeneratorService
+    {
+        public int StructureCallCount { get; private set; }
+
+        public Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
+        {
+            StructureCallCount++;
+            throw new InvalidOperationException("AI should not be called for insufficient upfront budget check.");
+        }
+
+        public Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
+            => Task.FromResult(string.Empty);
     }
 
     private sealed class MockAIGeneratorService : IAIGeneratorService
