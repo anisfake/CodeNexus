@@ -177,9 +177,10 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
                 var chapterData = await GenerateChapterFromAI(
                     subject.Name,
-                    FormatGoalTitles(goalsWithWeights),
+                    FormatGoalTitlesWithWeights(goalsWithWeights, request.LanguageSelection),
                     learningPath.Title,
                     i,
+                    chapterTimelines.Count,
                     request.ComplexityLevel,
                     request.LanguageSelection,
                     cancellationToken);
@@ -209,10 +210,11 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 {
                     var regenerated = await GenerateChapterFromAIWithFixedTitle(
                         subject.Name,
-                        FormatGoalTitles(goalsWithWeights),
+                        FormatGoalTitlesWithWeights(goalsWithWeights, request.LanguageSelection),
                         learningPath.Title,
                         distinctTitleResult.CoreTitle,
                         i,
+                        chapterTimelines.Count,
                         request.ComplexityLevel,
                         request.LanguageSelection,
                         cancellationToken);
@@ -352,15 +354,23 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
     private async Task<ChapterGenerationData?> GenerateChapterFromAI(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         int orderIndex,
+        int totalChapters,
         ComplexityLevel complexity,
         LanguageSelection language,
         CancellationToken cancellationToken)
     {
         var lessonsPerChapter = GetLessonsPerChapter(complexity);
-        var prompt = BuildChapterPrompt(subjectName, goalSummary, learningPathTitle, orderIndex, lessonsPerChapter, language);
+        var prompt = BuildChapterPrompt(
+            subjectName,
+            goalPrioritySummary,
+            learningPathTitle,
+            orderIndex,
+            totalChapters,
+            lessonsPerChapter,
+            language);
 
         try
         {
@@ -382,10 +392,11 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
     private async Task<ChapterGenerationData?> GenerateChapterFromAIWithFixedTitle(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         string fixedTitle,
         int orderIndex,
+        int totalChapters,
         ComplexityLevel complexity,
         LanguageSelection language,
         CancellationToken cancellationToken)
@@ -393,10 +404,11 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         var lessonsPerChapter = GetLessonsPerChapter(complexity);
         var prompt = BuildChapterPromptWithFixedTitle(
             subjectName,
-            goalSummary,
+            goalPrioritySummary,
             learningPathTitle,
             fixedTitle,
             orderIndex,
+            totalChapters,
             lessonsPerChapter,
             language);
 
@@ -705,6 +717,7 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         LanguageSelection language)
     {
         var goalTitles = FormatGoalTitles(goals);
+        var weightedGoalSummary = FormatGoalTitlesWithWeights(goals, language);
 
         var languageInstruction = language switch
         {
@@ -724,11 +737,13 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
 
 Subject: {subjectName}
 Goals: {goalTitles}
+Goal Priorities: {weightedGoalSummary}
 
 {languageInstruction}
 
 REQUIREMENTS:
 - Title should be short, natural, and professional
+- Respect goal priorities when deciding overall emphasis/focus
 - Do NOT include percentages or weights
 - Do NOT use format ""Learning Path: ..."" or ""Lộ trình học: ..."" literally
 - Description should be 1 sentence, clear and friendly
@@ -785,9 +800,10 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
 
     private string BuildChapterPrompt(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         int orderIndex,
+        int totalChapters,
         int lessonsPerChapter,
         LanguageSelection language)
     {
@@ -815,9 +831,9 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalSummary}
+Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
-Chapter Position: {orderIndex + 1} ({chapterPosition})
+Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
 
 {languageInstruction}
 
@@ -826,7 +842,9 @@ REQUIREMENTS:
 - Chapter title should be short and descriptive
 - Do NOT include chapter number prefixes like ""Chapter 1"" or ""Chương 1""
 - Chapter titles across the whole learning path MUST be distinct (no repeated titles)
-- Chapter should be appropriate for position {orderIndex + 1}
+- Chapter should be appropriate for position {orderIndex + 1}/{Math.Max(1, totalChapters)}
+- Respect goal priority percentages when choosing chapter focus and lesson emphasis
+- If there are 2 goals, primary-goal coverage should be broader across the path, but secondary-goal coverage must still be present
 - Lessons should progress logically
 
 JSON FORMAT:
@@ -845,10 +863,11 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
 
     private string BuildChapterPromptWithFixedTitle(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         string fixedTitle,
         int orderIndex,
+        int totalChapters,
         int lessonsPerChapter,
         LanguageSelection language)
     {
@@ -869,9 +888,9 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalSummary}
+Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
-Chapter Position: {orderIndex + 1}
+Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)}
 Fixed Chapter Title: {fixedTitle}
 
 {languageInstruction}
@@ -879,6 +898,7 @@ Fixed Chapter Title: {fixedTitle}
 REQUIREMENTS:
 - Chapter title MUST be exactly ""{fixedTitle}"" (do not change it)
 - Generate {lessonsPerChapter} lesson titles that fit this fixed title
+- Respect goal priority percentages when choosing lesson emphasis for this chapter
 - Lessons should progress logically
 
 JSON FORMAT:
@@ -959,6 +979,23 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             .ToList();
 
         return $"{ordered[0]} and {ordered[1]}";
+    }
+
+    private static string FormatGoalTitlesWithWeights(List<GoalWeightInfo> goals, LanguageSelection language)
+    {
+        if (goals.Count == 0)
+        {
+            return language == LanguageSelection.VietNamese
+                ? "Mục tiêu tổng quát (100%)"
+                : "General learning goal (100%)";
+        }
+
+        var ordered = goals
+            .OrderByDescending(g => g.Weight)
+            .Select(g => $"{g.Goal.Title} ({(g.Weight * 100m):0.##}%)")
+            .ToList();
+
+        return string.Join(" | ", ordered);
     }
 
     private sealed class LearningPathMeta

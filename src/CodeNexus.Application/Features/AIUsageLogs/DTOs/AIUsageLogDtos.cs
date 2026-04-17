@@ -15,7 +15,10 @@ public record AIUsageLogResponse(
     int TotalTokens,
     decimal ChargedTokens,
     DateTime CreatedAt
-);
+)
+{
+    public decimal CostUsd => ChargedTokens;
+}
 
 public record AIUsageSummaryResponse(
     AIAccessTier AccessTierUsed,
@@ -27,7 +30,10 @@ public record AIUsageSummaryResponse(
     long TotalOutputTokens,
     long TotalTokens,
     decimal TotalChargedTokens
-);
+)
+{
+    public decimal TotalCostUsd => TotalChargedTokens;
+}
 
 public record MentorAiQuotaStatusResponse(
     Guid MentorId,

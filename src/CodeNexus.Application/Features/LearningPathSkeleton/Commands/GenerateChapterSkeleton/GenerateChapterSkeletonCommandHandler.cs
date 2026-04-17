@@ -82,7 +82,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
             var chapterData = await GenerateChapterFromAI(
                 chapter.LearningPath.Subject.Name,
-                BuildGoalSummary(chapter.LearningPath),
+                BuildGoalSummary(chapter.LearningPath, chapter.LearningPath.Language),
                 chapter.LearningPath.Title,
                 request.OrderIndex,
                 lessonsPerChapter,
@@ -322,7 +322,7 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalSummary}
+Goal Priorities: {goalSummary}
 Learning Path: {learningPathTitle}
 Chapter Position: {orderIndex + 1} ({chapterPosition})
 
@@ -331,6 +331,7 @@ Chapter Position: {orderIndex + 1} ({chapterPosition})
 REQUIREMENTS:
 - Generate {lessonsPerChapter}-5 lesson titles for this chapter
 - Chapter should be appropriate for position {orderIndex + 1}
+- Respect goal priority percentages when choosing lesson emphasis
 - Lessons should progress logically
 
 JSON FORMAT:
@@ -357,18 +358,20 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         public List<string> Titles { get; set; } = new();
     }
 
-    private static string BuildGoalSummary(LearningPath learningPath)
+    private static string BuildGoalSummary(LearningPath learningPath, LanguageSelection language)
     {
         if (learningPath.LearningPathGoals == null || learningPath.LearningPathGoals.Count == 0)
         {
-            return "General Programming Goal";
+            return language == LanguageSelection.VietNamese
+                ? "Mục tiêu tổng quát (100%)"
+                : "General Programming Goal (100%)";
         }
 
         var ordered = learningPath.LearningPathGoals
             .OrderByDescending(g => g.Weight)
-            .Select(g => g.Goal.Title)
+            .Select(g => $"{g.Goal.Title} ({(g.Weight * 100m):0.##}%)")
             .ToList();
 
-        return ordered.Count == 1 ? ordered[0] : $"{ordered[0]} and {ordered[1]}";
+        return string.Join(" | ", ordered);
     }
 }

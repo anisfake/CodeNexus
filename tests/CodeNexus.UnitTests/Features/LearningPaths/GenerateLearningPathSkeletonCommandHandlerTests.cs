@@ -366,6 +366,96 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         Assert.Equal(0, aiSpy.StructureCallCount);
     }
 
+    [Fact]
+    public async Task Handle_WithTwoGoals_ShouldIncludeGoalPercentagesInAIPrompts()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var subjectId = Guid.NewGuid();
+        var goalAId = Guid.NewGuid();
+        var goalBId = Guid.NewGuid();
+        var goals = new List<LearningPathGoalRequest>
+        {
+            new(goalAId, 70m),
+            new(goalBId, 30m)
+        };
+        var command = new GenerateLearningPathSkeletonCommand(subjectId, goals, ComplexityLevel.Beginner, LanguageSelection.VietNamese);
+
+        var subject = new Subject { SubjectId = subjectId, Name = "Python" };
+        var goalA = new CodeNexus.Domain.Entities.Goals
+        {
+            GoalId = goalAId,
+            Title = "Build End-to-End ML Pipeline",
+            CreatedByUserId = userId,
+            IsSystemDefined = false,
+            Duration = GoalDuration.TwoMonths
+        };
+        var goalB = new CodeNexus.Domain.Entities.Goals
+        {
+            GoalId = goalBId,
+            Title = "Implement Code Quality & Reviews",
+            CreatedByUserId = userId,
+            IsSystemDefined = false,
+            Duration = GoalDuration.OneMonth
+        };
+
+        var chapterTimelines = new List<ChapterTimelineDto>
+        {
+            new(0, DateTime.UtcNow, DateTime.UtcNow.AddDays(6), 7)
+        };
+        var lessonSchedules = new List<LessonScheduleDto>
+        {
+            new(0, DateTime.UtcNow),
+            new(1, DateTime.UtcNow.AddDays(1)),
+            new(2, DateTime.UtcNow.AddDays(2)),
+            new(3, DateTime.UtcNow.AddDays(3))
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
+        _mockContext.Setup(x => x.Subjects).Returns(new[] { subject }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Goals).Returns(new[] { goalA, goalB }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathGoals).Returns(new List<LearningPathGoal>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        _mockTimelineCalculationService.Setup(x => x.CalculateChapterTimelinesAsync(
+                It.IsAny<DateTime>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<int>(),
+                It.IsAny<ComplexityLevel>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(chapterTimelines);
+        _mockTimelineCalculationService.Setup(x => x.CalculateLessonSchedulesAsync(
+                It.IsAny<DateTime>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<int>(),
+                It.IsAny<ComplexityLevel>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lessonSchedules);
+        _mockTimelineCalculationService.Setup(x => x.GetQuizzesPerLesson(ComplexityLevel.Beginner))
+            .Returns(1);
+
+        var aiSpy = new PromptCaptureAIGeneratorService();
+        var localHandler = new GenerateLearningPathSkeletonCommandHandler(
+            _mockContext.Object,
+            _mockCurrentUserService.Object,
+            _mockTimelineCalculationService.Object,
+            aiSpy,
+            _mockPlanUsageLimitService.Object);
+
+        // Act
+        var result = await localHandler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Contains(aiSpy.Prompts, p => p.Contains("Goal Priorities:", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(aiSpy.Prompts, p => p.Contains("(70", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(aiSpy.Prompts, p => p.Contains("(30", StringComparison.OrdinalIgnoreCase));
+    }
+
     private sealed class CountingAIGeneratorService : IAIGeneratorService
     {
         public int StructureCallCount { get; private set; }
@@ -378,6 +468,23 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
 
         public Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
             => Task.FromResult(string.Empty);
+    }
+
+    private sealed class PromptCaptureAIGeneratorService : IAIGeneratorService
+    {
+        public List<string> Prompts { get; } = new();
+
+        public Task<T> GenerateStructureAsync<T>(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
+        {
+            Prompts.Add(prompt);
+            throw new InvalidOperationException("Capture prompt only.");
+        }
+
+        public Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)
+        {
+            Prompts.Add(prompt);
+            return Task.FromResult(string.Empty);
+        }
     }
 
     private sealed class MockAIGeneratorService : IAIGeneratorService

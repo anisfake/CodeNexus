@@ -58,6 +58,9 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
             AIUsageLogSortBy.OutputTokens => request.SortDescending
                 ? query.OrderByDescending(x => x.OutputTokens)
                 : query.OrderBy(x => x.OutputTokens),
+            AIUsageLogSortBy.ChargedTokens or AIUsageLogSortBy.CostUsd => request.SortDescending
+                ? query.OrderByDescending(x => x.ChargedTokens)
+                : query.OrderBy(x => x.ChargedTokens),
             _ => request.SortDescending
                 ? query.OrderByDescending(x => x.CreatedAt)
                 : query.OrderBy(x => x.CreatedAt)
