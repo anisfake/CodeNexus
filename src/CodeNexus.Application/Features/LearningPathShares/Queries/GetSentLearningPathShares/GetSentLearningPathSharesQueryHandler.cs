@@ -51,6 +51,7 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
             .AsNoTracking()
             .Include(s => s.LearningPath)
             .Include(s => s.Student)
+            .Include(s => s.Mentor)
             .AsQueryable();
 
         if (isMentor)
@@ -61,10 +62,22 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
             {
                 query = query.Where(s => s.StudentId == request.StudentId.Value);
             }
+
+            if (request.PathId.HasValue)
+            {
+                query = query.Where(s => s.PathId == request.PathId.Value);
+            }
         }
         else
         {
             query = query.Where(s => s.StudentId == currentUserId);
+
+            if (request.PathId.HasValue)
+            {
+                // Student may pass either the original PathId or their AcceptedPathId
+                var pathId = request.PathId.Value;
+                query = query.Where(s => s.PathId == pathId || s.AcceptedPathId == pathId);
+            }
         }
 
         if (request.Status.HasValue)
@@ -72,20 +85,21 @@ public class GetSentLearningPathSharesQueryHandler : IRequestHandler<GetSentLear
             query = query.Where(s => s.Status == request.Status.Value);
         }
 
-        var hideStatus = isMentor && !request.StudentId.HasValue;
-
         var shares = await query
             .OrderByDescending(s => s.SentAt)
             .Select(s => new SentLearningPathShareSummaryDto(
                 s.ShareId,
                 s.PathId,
+                s.AcceptedPathId,
                 s.SnapshotTitle,
                 s.LearningPath.Description,
                 s.StudentId,
                 s.Student.Username,
-                hideStatus ? null : s.Status,
+                s.MentorId,
+                s.Mentor.Username,
+                s.Status,
                 s.SentAt,
-                hideStatus ? null : s.RespondedAt
+                s.RespondedAt
             ))
             .ToListAsync(cancellationToken);
 
