@@ -13,11 +13,15 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
 public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<GenerateLearningPathSkeletonCommand, Result<CreateLearningPathResponse>>
 {
+    private const decimal ReserveSafetyMultiplier = 1.20m;
+    private const string InsufficientTokenBalanceErrorCode = "INSUFFICIENT_TOKEN_BALANCE";
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ITimelineCalculationService _timelineCalculationService;
@@ -150,6 +154,16 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 0,
                 request.ComplexityLevel,
                 cancellationToken);
+
+            var upfrontBudgetValidation = await ValidateUpfrontBudgetAsync(
+                userId,
+                request.ComplexityLevel,
+                chapterTimelines.Count,
+                cancellationToken);
+            if (upfrontBudgetValidation != null)
+            {
+                return upfrontBudgetValidation;
+            }
 
             var chapters = new List<ChapterDto>();
             var usedChapterKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -475,6 +489,203 @@ Lesson: {lessonTitle}
 IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     }
 
+    private async Task<Result<CreateLearningPathResponse>?> ValidateUpfrontBudgetAsync(
+        Guid userId,
+        ComplexityLevel complexity,
+        int chapterCount,
+        CancellationToken cancellationToken)
+    {
+        if (chapterCount <= 0)
+        {
+            return null;
+        }
+
+        var userAccess = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => new
+            {
+                u.TokenBalance,
+                RoleName = u.Role != null ? u.Role.RoleName : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (userAccess == null)
+        {
+            return null;
+        }
+
+        if (IsPrivilegedRole(userAccess.RoleName) || IsMentorRole(userAccess.RoleName))
+        {
+            return null;
+        }
+
+        if (userAccess.TokenBalance <= 0m)
+        {
+            return null;
+        }
+
+        var paidConfig = await ResolvePaidStructureConfigAsync(cancellationToken);
+        if (paidConfig == null)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                "PAID_AI_CONFIG_NOT_FOUND",
+                "Paid AI configuration for structure generation is missing.");
+        }
+
+        var runtimeConfig = ParseRuntimeConfig(paidConfig.ConfigJson);
+        var estimatedRequiredTokens = EstimateTotalRequiredTokens(runtimeConfig, complexity, chapterCount);
+
+        if (estimatedRequiredTokens <= 0m)
+        {
+            return null;
+        }
+
+        if (userAccess.TokenBalance < estimatedRequiredTokens)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                InsufficientTokenBalanceErrorCode,
+                $"Insufficient token balance to generate full learning path. Required about {estimatedRequiredTokens:0} tokens, current balance {userAccess.TokenBalance:0}.");
+        }
+
+        return null;
+    }
+
+    private async Task<AIProviderConfig?> ResolvePaidStructureConfigAsync(CancellationToken cancellationToken)
+    {
+        var byUsage = await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.IsActive && c.AccessTier == AIAccessTier.Paid && c.UsageType == AIUsageType.StructureGeneration)
+            .OrderByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (byUsage != null)
+        {
+            return byUsage;
+        }
+
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.IsActive && c.AccessTier == AIAccessTier.Paid)
+            .OrderBy(c => c.UsageType == AIUsageType.StructureGeneration ? 0 : 1)
+            .ThenByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private decimal EstimateTotalRequiredTokens(PaidRuntimeConfig runtimeConfig, ComplexityLevel complexity, int chapterCount)
+    {
+        if (runtimeConfig.InputCostPer1M <= 0m && runtimeConfig.OutputCostPer1M <= 0m)
+        {
+            return 0m;
+        }
+
+        var lessonsPerChapter = GetLessonsPerChapter(complexity);
+        var quizzesPerLesson = _timelineCalculationService.GetQuizzesPerLesson(complexity);
+        var totalLessons = chapterCount * lessonsPerChapter;
+        if (totalLessons <= 0)
+        {
+            return 0m;
+        }
+
+        var inputTokens = Math.Max(runtimeConfig.MaxTokens, 512);
+
+        var metaCalls = 1;
+        var chapterCalls = chapterCount;
+        var chapterRetryCalls = chapterCount;
+        var quizTitleCalls = totalLessons;
+
+        var metaOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1024);
+        var chapterOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1400 + (lessonsPerChapter * 260));
+        var chapterRetryOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1100 + (lessonsPerChapter * 220));
+        var quizTitleOutputTokens = Math.Min(runtimeConfig.MaxTokens, 280 + (Math.Max(quizzesPerLesson, 1) * 160));
+
+        var metaReserve = EstimateReserveTokenAmount(
+            inputTokens,
+            metaOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * metaCalls;
+
+        var chapterReserve = EstimateReserveTokenAmount(
+            inputTokens,
+            chapterOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * chapterCalls;
+
+        var chapterRetryReserve = EstimateReserveTokenAmount(
+            inputTokens,
+            chapterRetryOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * chapterRetryCalls;
+
+        var quizTitleReserve = EstimateReserveTokenAmount(
+            inputTokens,
+            quizTitleOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * quizTitleCalls;
+
+        return metaReserve + chapterReserve + chapterRetryReserve + quizTitleReserve;
+    }
+
+    private static decimal EstimateReserveTokenAmount(
+        int inputTokens,
+        int outputTokens,
+        decimal inputCostPer1M,
+        decimal outputCostPer1M)
+    {
+        const decimal oneMillion = 1_000_000m;
+        var rawCharge = ((decimal)inputTokens / oneMillion) * inputCostPer1M
+                        + ((decimal)outputTokens / oneMillion) * outputCostPer1M;
+
+        var chargedTokens = Math.Ceiling(rawCharge);
+        if (chargedTokens <= 0m && (inputTokens > 0 || outputTokens > 0))
+        {
+            chargedTokens = 1m;
+        }
+
+        return Math.Ceiling(chargedTokens * ReserveSafetyMultiplier);
+    }
+
+    private static PaidRuntimeConfig ParseRuntimeConfig(string? configJson)
+    {
+        if (string.IsNullOrWhiteSpace(configJson))
+        {
+            return PaidRuntimeConfig.Default;
+        }
+
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString
+            };
+            var parsed = JsonSerializer.Deserialize<PaidRuntimeConfig>(configJson, options);
+            if (parsed == null)
+            {
+                return PaidRuntimeConfig.Default;
+            }
+
+            if (parsed.MaxTokens <= 0)
+            {
+                parsed.MaxTokens = PaidRuntimeConfig.Default.MaxTokens;
+            }
+
+            return parsed;
+        }
+        catch
+        {
+            return PaidRuntimeConfig.Default;
+        }
+    }
+
+    private static bool IsPrivilegedRole(string? roleName)
+        => string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMentorRole(string? roleName)
+        => string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase);
+
     private int GetLessonsPerChapter(ComplexityLevel complexity)
     {
         return complexity switch
@@ -691,6 +902,16 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     private class QuizTitleGenerationData
     {
         public List<string> Titles { get; set; } = new();
+    }
+
+    private sealed class PaidRuntimeConfig
+    {
+        public string Model { get; set; } = string.Empty;
+        public int MaxTokens { get; set; } = 8192;
+        public decimal InputCostPer1M { get; set; } = 0m;
+        public decimal OutputCostPer1M { get; set; } = 0m;
+
+        public static PaidRuntimeConfig Default => new();
     }
 
 

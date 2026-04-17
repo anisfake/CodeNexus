@@ -30,6 +30,9 @@ public class GroqServiceWithCache : IAIGeneratorService
     private const float DefaultTemperature = 0.4f;
     private const int DefaultRequestTimeoutSeconds = 120;
     private const decimal ReserveSafetyMultiplier = 1.20m;
+    private const string InsufficientTokenBalanceErrorCode = "INSUFFICIENT_TOKEN_BALANCE";
+
+    private PinnedPaidFlow? _pinnedPaidFlow;
 
     public GroqServiceWithCache(
         HttpClient httpClient,
@@ -110,6 +113,11 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
             catch (Exception ex) when (attempt < maxRetries)
             {
+                if (IsInsufficientTokenBalanceException(ex))
+                {
+                    throw;
+                }
+
                 lastException = ex;
                 if (ShouldRotateApiKey(ex))
                 {
@@ -121,9 +129,19 @@ public class GroqServiceWithCache : IAIGeneratorService
             }
             catch (Exception ex)
             {
+                if (IsInsufficientTokenBalanceException(ex))
+                {
+                    throw;
+                }
+
                 lastException = ex;
                 break;
             }
+        }
+
+        if (lastException != null && IsInsufficientTokenBalanceException(lastException))
+        {
+            throw lastException;
         }
 
         try
@@ -186,11 +204,18 @@ public class GroqServiceWithCache : IAIGeneratorService
     private async Task<(string apiKey, AIProviderRuntimeConfig config, string providerName, AIAccessTier accessTier, Guid userId, bool isMentor, bool isPrivilegedRole, Guid configId)> GetConfigAsync(AIUsageType usageType, string prompt)
     {
         var accessResolution = await ResolveAccessResolutionAsync(CancellationToken.None);
-        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, accessResolution.PreferredTier);
+        var enforcePaidOnly = ShouldEnforcePaidOnlySelection(accessResolution);
+        var preferredTier = enforcePaidOnly ? AIAccessTier.Paid : accessResolution.PreferredTier;
+        var selectedConfig = await ResolveConfigWithTierPreferenceAsync(usageType, preferredTier, allowTierFallback: !enforcePaidOnly);
 
         if (selectedConfig == null)
         {
             throw new InvalidOperationException($"AI configuration for {usageType} not found in database. Please configure it via AIConfig API.");
+        }
+
+        if (enforcePaidOnly && selectedConfig.AccessTier != AIAccessTier.Paid)
+        {
+            throw new InvalidOperationException("PAID_AI_CONFIG_NOT_FOUND");
         }
 
         var config = ParseConfigJson(selectedConfig.ConfigJson);
@@ -200,16 +225,7 @@ public class GroqServiceWithCache : IAIGeneratorService
             var reserveTokenAmount = EstimateReserveTokenAmount(prompt, config);
             if (reserveTokenAmount > 0m && accessResolution.CurrentTokenBalance < reserveTokenAmount)
             {
-                var freeConfig = await ResolveConfigWithTierPreferenceAsync(usageType, AIAccessTier.Free);
-                if (freeConfig != null)
-                {
-                    selectedConfig = freeConfig;
-                    config = ParseConfigJson(selectedConfig.ConfigJson);
-                }
-                else
-                {
-                    throw new InvalidOperationException("INSUFFICIENT_TOKEN_BALANCE");
-                }
+                throw new InvalidOperationException(InsufficientTokenBalanceErrorCode);
             }
         }
 
@@ -238,7 +254,8 @@ public class GroqServiceWithCache : IAIGeneratorService
 
     private async Task<AIProviderConfig?> ResolveConfigWithTierPreferenceAsync(
         AIUsageType usageType,
-        AIAccessTier preferredTier)
+        AIAccessTier preferredTier,
+        bool allowTierFallback = true)
     {
         var config = await ResolveConfigByTierAsync(usageType, preferredTier);
         if (config != null)
@@ -247,6 +264,11 @@ public class GroqServiceWithCache : IAIGeneratorService
         config = await ResolveAnyUsageConfigByTierAsync(preferredTier);
         if (config != null)
             return config;
+
+        if (!allowTierFallback)
+        {
+            return null;
+        }
 
         var secondaryTier = preferredTier == AIAccessTier.Paid ? AIAccessTier.Free : AIAccessTier.Paid;
 
@@ -679,6 +701,27 @@ public class GroqServiceWithCache : IAIGeneratorService
            && !resolution.IsMentor
            && !resolution.IsPrivilegedRole;
 
+    private bool ShouldEnforcePaidOnlySelection(AccessResolution resolution)
+    {
+        if (resolution.UserId == Guid.Empty || resolution.IsMentor || resolution.IsPrivilegedRole)
+        {
+            return false;
+        }
+
+        if (_pinnedPaidFlow.HasValue && _pinnedPaidFlow.Value.UserId == resolution.UserId)
+        {
+            return true;
+        }
+
+        if (resolution.PreferredTier == AIAccessTier.Paid)
+        {
+            _pinnedPaidFlow = new PinnedPaidFlow(resolution.UserId);
+            return true;
+        }
+
+        return false;
+    }
+
     private static bool ShouldReservePaidUsage(
         AIAccessTier tier,
         Guid userId,
@@ -900,6 +943,9 @@ public class GroqServiceWithCache : IAIGeneratorService
 
         }
     }
+
+    private static bool IsInsufficientTokenBalanceException(Exception ex)
+        => ex.Message.Contains(InsufficientTokenBalanceErrorCode, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsMentorRole(string? roleName)
         => string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase);
@@ -1235,6 +1281,8 @@ public class GroqServiceWithCache : IAIGeneratorService
         public bool IsReserved => UserId != Guid.Empty && ReservedTokens > 0m;
         public static BillingReservation None => new(Guid.Empty, 0m);
     }
+
+    private readonly record struct PinnedPaidFlow(Guid UserId);
 
     private sealed record AccessResolution(
         Guid UserId,
