@@ -67,6 +67,8 @@ public class LessonHub : Hub
                 LessonId = lessonId,
                 Message = "Lesson content and quizzes generated successfully!"
             }, ct);
+
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         catch (Exception ex)
         {

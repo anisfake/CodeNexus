@@ -32,6 +32,7 @@ public class QuizHub : Hub
                 QuizId = quizId,
                 Questions = result.Value
             }, ct);
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         else
         {

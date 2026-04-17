@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.AISummaries.Commands.GenerateResourceSummary;
+using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -32,6 +33,7 @@ public class SummaryHub : Hub
                 startPage = result.Value.StartPage,
                 endPage = result.Value.EndPage
             });
+            await SendWalletTokenBalanceUpdatedAsync();
         }
         else
         {
@@ -44,5 +46,20 @@ public class SummaryHub : Hub
                 result.ErrorMessage
             });
         }
+    }
+
+    private async Task SendWalletTokenBalanceUpdatedAsync()
+    {
+        var profileResult = await _sender.Send(new GetMyProfileQuery());
+        if (!profileResult.IsSuccess || profileResult.Value == null)
+        {
+            return;
+        }
+
+        await Clients.Caller.SendAsync("WalletTokenBalanceUpdated", new
+        {
+            TokenBalance = profileResult.Value.TokenBalance,
+            UpdatedAtUtc = DateTime.UtcNow
+        });
     }
 }
