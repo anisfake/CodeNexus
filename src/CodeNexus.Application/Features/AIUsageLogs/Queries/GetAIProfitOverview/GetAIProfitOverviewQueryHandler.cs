@@ -50,9 +50,13 @@ public class GetAIProfitOverviewQueryHandler
 
         decimal systemCostFree = 0m;
         decimal systemCostPaid = 0m;
+        decimal studentUsageFree = 0m;
+        decimal studentUsagePaid = 0m;
         decimal studentUsageCost = 0m;
         decimal studentUsageRaw = 0m;
         decimal studentBilledRevenue = 0m;
+        decimal totalRevenueFree = 0m;
+        decimal totalRevenuePaid = 0m;
         decimal studentRevenueRaw = 0m;
 
         foreach (var row in rows)
@@ -68,13 +72,21 @@ public class GetAIProfitOverviewQueryHandler
                 systemCostPaid += costUsd;
             }
 
-            if (IsStudentPaidCall(row, roleMap))
+            if (IsStudentCall(row, roleMap))
             {
-                if (costUsd > 0m)
+                if (costUsd > 0m && row.AccessTierUsed == Domain.Enums.AIAccessTier.Free)
                 {
+                    studentUsageFree += costUsd;
+                }
+                else if (costUsd > 0m && row.AccessTierUsed == Domain.Enums.AIAccessTier.Paid)
+                {
+                    studentUsagePaid += costUsd;
                     studentUsageCost += costUsd;
                 }
+            }
 
+            if (IsStudentPaidCall(row, roleMap))
+            {
                 if (usdPerToken > 0m)
                 {
                     var rawChargedTokens = ResolveRawChargedTokens(row, rateMap);
@@ -96,12 +108,18 @@ public class GetAIProfitOverviewQueryHandler
         systemCostFree = Round8(systemCostFree);
         systemCostPaid = Round8(systemCostPaid);
         var systemCostTotal = Round8(systemCostFree + systemCostPaid);
+        studentUsageFree = Round8(studentUsageFree);
+        studentUsagePaid = Round8(studentUsagePaid);
         studentUsageCost = Round8(studentUsageCost);
         studentUsageRaw = Round8(studentUsageRaw);
         studentBilledRevenue = Round8(studentBilledRevenue);
+        totalRevenueFree = 0m;
+        totalRevenuePaid = studentBilledRevenue;
+        totalRevenuePaid = Round8(totalRevenuePaid);
+        var totalRevenue = Round8(totalRevenueFree + totalRevenuePaid);
+        var totalProfit = Round8(totalRevenue - systemCostTotal);
         studentRevenueRaw = studentUsageRaw;
-        studentRevenueRaw = Round8(studentRevenueRaw);
-        var profit = Round8(studentRevenueRaw - systemCostTotal);
+        var rawProfit = Round8(studentRevenueRaw - systemCostTotal);
 
         return Result<AIProfitOverviewResponse>.Success(new AIProfitOverviewResponse(
             request.FromDate,
@@ -109,11 +127,17 @@ public class GetAIProfitOverviewQueryHandler
             systemCostFree,
             systemCostPaid,
             systemCostTotal,
+            studentUsageFree,
+            studentUsagePaid,
             studentUsageCost,
             studentUsageRaw,
             studentBilledRevenue,
+            totalRevenueFree,
+            totalRevenuePaid,
+            totalRevenue,
+            totalProfit,
             studentRevenueRaw,
-            profit));
+            rawProfit));
     }
 
     private async Task<Dictionary<Guid, AIUsageCostRate>> LoadRateMapAsync(
@@ -230,7 +254,13 @@ public class GetAIProfitOverviewQueryHandler
 
     private static bool IsStudentPaidCall(UsageRow row, IReadOnlyDictionary<Guid, string> roleMap)
     {
-        if (row.AccessTierUsed != Domain.Enums.AIAccessTier.Paid || !row.UserId.HasValue)
+        return row.AccessTierUsed == Domain.Enums.AIAccessTier.Paid
+               && IsStudentCall(row, roleMap);
+    }
+
+    private static bool IsStudentCall(UsageRow row, IReadOnlyDictionary<Guid, string> roleMap)
+    {
+        if (!row.UserId.HasValue)
         {
             return false;
         }

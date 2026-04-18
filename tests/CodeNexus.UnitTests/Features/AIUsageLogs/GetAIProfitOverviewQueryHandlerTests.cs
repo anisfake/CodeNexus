@@ -131,9 +131,15 @@ public class GetAIProfitOverviewQueryHandlerTests
         item.SystemCostFreeUsd.Should().Be(0.0005m);
         item.SystemCostPaidUsd.Should().Be(0.00265m);
         item.SystemCostTotalUsd.Should().Be(0.00315m);
+        item.StudentUsageFreeUsd.Should().Be(0m);
+        item.StudentUsagePaidUsd.Should().Be(0.0019m);
         item.StudentUsageCostUsd.Should().Be(0.0019m);
         item.StudentUsageRawUsd.Should().Be(0.0000076m);
         item.StudentBilledRevenueUsd.Should().Be(0.008m);
+        item.TotalRevenueFreeUsd.Should().Be(0m);
+        item.TotalRevenuePaidUsd.Should().Be(0.008m);
+        item.TotalRevenueUsd.Should().Be(0.008m);
+        item.TotalProfitUsd.Should().Be(0.00485m);
         item.StudentRevenueRawUsd.Should().Be(0.0000076m);
         item.ProfitUsd.Should().Be(-0.0031424m);
     }
