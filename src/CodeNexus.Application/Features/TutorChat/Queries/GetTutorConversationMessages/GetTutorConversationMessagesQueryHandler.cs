@@ -91,14 +91,14 @@ public class GetTutorConversationMessagesQueryHandler
         Guid configId,
         CancellationToken cancellationToken)
     {
-        var latestAssistantMessageAt = await _context.Messages
+        var latestAssistantMessage = await _context.Messages
             .AsNoTracking()
             .Where(m => m.ConversationId == conversationId && m.Content.StartsWith("ASSISTANT:"))
             .OrderByDescending(m => m.CreatedAt)
-            .Select(m => (DateTime?)m.CreatedAt)
+            .Select(m => new { m.CreatedAt, m.InputTokens })
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (!latestAssistantMessageAt.HasValue)
+        if (latestAssistantMessage == null)
         {
             return 0d;
         }
@@ -125,7 +125,13 @@ public class GetTutorConversationMessagesQueryHandler
             return 0d;
         }
 
-        var latestAssistantAt = latestAssistantMessageAt.Value;
+        if (latestAssistantMessage.InputTokens.HasValue && latestAssistantMessage.InputTokens.Value > 0)
+        {
+            var exactUsagePercent = (latestAssistantMessage.InputTokens.Value / (double)contextWindow) * 100d;
+            return Math.Round(Math.Clamp(exactUsagePercent, 0d, 100d), 2);
+        }
+
+        var latestAssistantAt = latestAssistantMessage.CreatedAt;
         var logWindowStart = latestAssistantAt.AddMinutes(-5);
         var logWindowEnd = latestAssistantAt.AddSeconds(30);
 

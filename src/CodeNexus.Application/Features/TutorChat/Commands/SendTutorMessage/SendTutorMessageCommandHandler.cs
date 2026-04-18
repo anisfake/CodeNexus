@@ -156,11 +156,12 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             normalizedUserMessage,
             historySnapshot,
             chatPolicy);
-        var contextUsagePercent = CalculateContextUsagePercent(
+        var estimatedContextUsagePercent = CalculateContextUsagePercent(
             historySnapshot.EstimatedPromptTokens,
             modelTokenBudget.ContextWindow);
 
         string assistantReply;
+        var aiCallStartedAt = DateTime.UtcNow;
         try
         {
             assistantReply = await _aiGeneratorService.GenerateContentAsync(prompt, AIUsageType.Assistant);
@@ -170,11 +171,27 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             return Result<TutorChatResponseDto>.Failure("AI_RESPONSE_FAILED", ex.Message);
         }
 
+        var usageSnapshot = await ResolveLatestAssistantUsageLogAsync(
+            userId,
+            conversation.ConfigId,
+            modelTokenBudget.ModelName,
+            aiCallStartedAt,
+            cancellationToken);
+
+        var effectiveInputTokens = usageSnapshot?.InputTokens > 0
+            ? usageSnapshot.InputTokens
+            : historySnapshot.EstimatedPromptTokens;
+
+        var contextUsagePercent = CalculateContextUsagePercent(
+            effectiveInputTokens,
+            modelTokenBudget.ContextWindow);
+
         var userMessage = new Message
         {
             MessageId = NewId.NextGuid(),
             ConversationId = conversation.ConversationId,
             Content = $"USER: {normalizedUserMessage}",
+            InputTokens = usageSnapshot?.InputTokens,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -183,6 +200,8 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             MessageId = NewId.NextGuid(),
             ConversationId = conversation.ConversationId,
             Content = $"ASSISTANT: {assistantReply.Trim()}",
+            InputTokens = usageSnapshot?.InputTokens,
+            OutputTokens = usageSnapshot?.OutputTokens,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -200,8 +219,61 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
             assistantMessage.MessageId,
             assistantReply.Trim(),
             assistantMessage.CreatedAt,
-            contextUsagePercent
+            usageSnapshot == null ? estimatedContextUsagePercent : contextUsagePercent
         ));
+    }
+
+    private async Task<AssistantUsageSnapshot?> ResolveLatestAssistantUsageLogAsync(
+        Guid userId,
+        Guid configId,
+        string resolvedModel,
+        DateTime callStartedAt,
+        CancellationToken cancellationToken)
+    {
+        if (_context.AIUsageLogs == null)
+        {
+            return null;
+        }
+
+        var windowStart = callStartedAt.AddSeconds(-5);
+        var windowEnd = DateTime.UtcNow.AddSeconds(30);
+
+        var query = _context.AIUsageLogs
+            .AsNoTracking()
+            .Where(log =>
+                log.UserId == userId
+                && log.UsageType == AIUsageType.Assistant
+                && log.CreatedAt >= windowStart
+                && log.CreatedAt <= windowEnd);
+
+        if (configId != Guid.Empty)
+        {
+            query = query.Where(log => log.ConfigId == configId);
+        }
+
+        AIUsageLog? usageLog = null;
+
+        if (!string.IsNullOrWhiteSpace(resolvedModel))
+        {
+            usageLog = await query
+                .Where(log => log.Model == resolvedModel)
+                .OrderByDescending(log => log.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        usageLog ??= await query
+            .OrderByDescending(log => log.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (usageLog == null)
+        {
+            return null;
+        }
+
+        return new AssistantUsageSnapshot(
+            usageLog.InputTokens,
+            usageLog.OutputTokens,
+            usageLog.CreatedAt);
     }
 
     private static string BuildConversationTitle(TutorContext context, string message)
@@ -1041,6 +1113,11 @@ INSTRUCTIONS:
         int SummaryTriggerBudget,
         int ForceSummaryBudget,
         int PromptInputBudget);
+
+    private sealed record AssistantUsageSnapshot(
+        int InputTokens,
+        int OutputTokens,
+        DateTime CreatedAt);
 
     private static (Guid? LearningPathId, Guid? ChapterId, Guid? LessonId) ResolveRequestedContextIds(
         SendTutorMessageCommand request,
