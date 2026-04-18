@@ -11,7 +11,7 @@ namespace CodeNexus.UnitTests.Features.AIUsageLogs;
 public class GetAIProfitOverviewQueryHandlerTests
 {
     [Fact]
-    public async Task Handle_ShouldReturnCostSplitStudentRawRevenueAndProfit()
+    public async Task Handle_ShouldReturnCostSplitStudentRawAndBilledAmountsWithProfit()
     {
         // Arrange
         var freeConfigId = Guid.NewGuid();
@@ -132,6 +132,8 @@ public class GetAIProfitOverviewQueryHandlerTests
         item.SystemCostPaidUsd.Should().Be(0.00265m);
         item.SystemCostTotalUsd.Should().Be(0.00315m);
         item.StudentUsageCostUsd.Should().Be(0.0019m);
+        item.StudentUsageRawUsd.Should().Be(0.0000076m);
+        item.StudentBilledRevenueUsd.Should().Be(0.008m);
         item.StudentRevenueRawUsd.Should().Be(0.0000076m);
         item.ProfitUsd.Should().Be(-0.0031424m);
     }

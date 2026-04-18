@@ -40,7 +40,8 @@ public class GetAIProfitOverviewQueryHandler
                 x.ConfigId,
                 x.AccessTierUsed,
                 x.InputTokens,
-                x.OutputTokens))
+                x.OutputTokens,
+                x.ChargedTokens))
             .ToListAsync(cancellationToken);
 
         var rateMap = await LoadRateMapAsync(rows.Select(x => x.ConfigId), cancellationToken);
@@ -50,32 +51,44 @@ public class GetAIProfitOverviewQueryHandler
         decimal systemCostFree = 0m;
         decimal systemCostPaid = 0m;
         decimal studentUsageCost = 0m;
+        decimal studentUsageRaw = 0m;
+        decimal studentBilledRevenue = 0m;
         decimal studentRevenueRaw = 0m;
 
         foreach (var row in rows)
         {
             var costUsd = ResolveCostUsd(row, rateMap);
-            if (costUsd <= 0m)
-            {
-                continue;
-            }
 
-            if (row.AccessTierUsed == Domain.Enums.AIAccessTier.Free)
+            if (costUsd > 0m && row.AccessTierUsed == Domain.Enums.AIAccessTier.Free)
             {
                 systemCostFree += costUsd;
             }
-            else if (row.AccessTierUsed == Domain.Enums.AIAccessTier.Paid)
+            else if (costUsd > 0m && row.AccessTierUsed == Domain.Enums.AIAccessTier.Paid)
             {
                 systemCostPaid += costUsd;
             }
 
             if (IsStudentPaidCall(row, roleMap))
             {
-                studentUsageCost += costUsd;
+                if (costUsd > 0m)
+                {
+                    studentUsageCost += costUsd;
+                }
+
                 if (usdPerToken > 0m)
                 {
-                    // Raw revenue = no per-request ceiling; compute directly from raw usage.
-                    studentRevenueRaw += (costUsd * usdPerToken);
+                    var rawChargedTokens = ResolveRawChargedTokens(row, rateMap);
+                    if (rawChargedTokens > 0m)
+                    {
+                        // Student usage amount (no rounding at per-request level).
+                        studentUsageRaw += rawChargedTokens * usdPerToken;
+                    }
+
+                    if (row.ChargedTokens > 0m)
+                    {
+                        // Student billed amount (already rounded at per-request level).
+                        studentBilledRevenue += row.ChargedTokens * usdPerToken;
+                    }
                 }
             }
         }
@@ -84,6 +97,9 @@ public class GetAIProfitOverviewQueryHandler
         systemCostPaid = Round8(systemCostPaid);
         var systemCostTotal = Round8(systemCostFree + systemCostPaid);
         studentUsageCost = Round8(studentUsageCost);
+        studentUsageRaw = Round8(studentUsageRaw);
+        studentBilledRevenue = Round8(studentBilledRevenue);
+        studentRevenueRaw = studentUsageRaw;
         studentRevenueRaw = Round8(studentRevenueRaw);
         var profit = Round8(studentRevenueRaw - systemCostTotal);
 
@@ -94,6 +110,8 @@ public class GetAIProfitOverviewQueryHandler
             systemCostPaid,
             systemCostTotal,
             studentUsageCost,
+            studentUsageRaw,
+            studentBilledRevenue,
             studentRevenueRaw,
             profit));
     }
@@ -200,6 +218,16 @@ public class GetAIProfitOverviewQueryHandler
         return AIUsageCostCalculator.CalculateRawCostUsd(row.InputTokens, row.OutputTokens, rate);
     }
 
+    private static decimal ResolveRawChargedTokens(UsageRow row, IReadOnlyDictionary<Guid, AIUsageCostRate> rateMap)
+    {
+        if (!row.ConfigId.HasValue || !rateMap.TryGetValue(row.ConfigId.Value, out var rate))
+        {
+            return 0m;
+        }
+
+        return AIUsageCostCalculator.CalculateRawCostUsd(row.InputTokens, row.OutputTokens, rate);
+    }
+
     private static bool IsStudentPaidCall(UsageRow row, IReadOnlyDictionary<Guid, string> roleMap)
     {
         if (row.AccessTierUsed != Domain.Enums.AIAccessTier.Paid || !row.UserId.HasValue)
@@ -223,5 +251,6 @@ public class GetAIProfitOverviewQueryHandler
         Guid? ConfigId,
         Domain.Enums.AIAccessTier AccessTierUsed,
         int InputTokens,
-        int OutputTokens);
+        int OutputTokens,
+        decimal ChargedTokens);
 }

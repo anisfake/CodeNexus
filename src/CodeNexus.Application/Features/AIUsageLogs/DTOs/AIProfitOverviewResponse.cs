@@ -7,6 +7,8 @@ public record AIProfitOverviewResponse(
     decimal SystemCostPaidUsd,
     decimal SystemCostTotalUsd,
     decimal StudentUsageCostUsd,
+    decimal StudentUsageRawUsd,
+    decimal StudentBilledRevenueUsd,
     decimal StudentRevenueRawUsd,
     decimal ProfitUsd
 );
