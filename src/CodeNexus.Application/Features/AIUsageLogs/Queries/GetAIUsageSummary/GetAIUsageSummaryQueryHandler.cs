@@ -235,10 +235,9 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
     private static decimal ResolveRawRevenueUsd(
         UsageSummaryRow row,
         IReadOnlyDictionary<Guid, string> roleMap,
-        IReadOnlyDictionary<Guid, AIUsageCostRate> rateMap,
-        decimal usdPerToken)
+        IReadOnlyDictionary<Guid, AIUsageCostRate> rateMap)
     {
-        if (!IsBillableStudentPaidCall(row, roleMap) || usdPerToken <= 0m)
+        if (!IsBillableStudentPaidCall(row, roleMap))
         {
             return 0m;
         }
@@ -249,7 +248,7 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
             return 0m;
         }
 
-        return rawChargedTokens * usdPerToken;
+        return rawChargedTokens;
     }
 
     private static AIUsageSummaryResponse BuildSummaryResponse(
@@ -270,7 +269,7 @@ public class GetAIUsageSummaryQueryHandler : IRequestHandler<GetAIUsageSummaryQu
         var totalRawChargedTokens = rows.Sum(x => ResolveRawChargedTokens(x, rateMap));
         var totalCostUsd = rows.Sum(x => ResolveCostUsd(x, rateMap));
         var totalRevenueUsd = rows.Sum(x => ResolveRevenueUsd(x, roleMap, usdPerToken));
-        var totalRawRevenueUsd = rows.Sum(x => ResolveRawRevenueUsd(x, roleMap, rateMap, usdPerToken));
+        var totalRawRevenueUsd = rows.Sum(x => ResolveRawRevenueUsd(x, roleMap, rateMap));
 
         totalRawChargedTokens = decimal.Round(totalRawChargedTokens, 8, MidpointRounding.AwayFromZero);
         totalCostUsd = decimal.Round(totalCostUsd, 8, MidpointRounding.AwayFromZero);

@@ -89,13 +89,6 @@ public class GetAIProfitOverviewQueryHandler
             {
                 if (usdPerToken > 0m)
                 {
-                    var rawChargedTokens = ResolveRawChargedTokens(row, rateMap);
-                    if (rawChargedTokens > 0m)
-                    {
-                        // Student usage amount (no rounding at per-request level).
-                        studentUsageRaw += rawChargedTokens * usdPerToken;
-                    }
-
                     if (row.ChargedTokens > 0m)
                     {
                         // Student billed amount (already rounded at per-request level).
@@ -111,6 +104,7 @@ public class GetAIProfitOverviewQueryHandler
         studentUsageFree = Round8(studentUsageFree);
         studentUsagePaid = Round8(studentUsagePaid);
         studentUsageCost = Round8(studentUsageCost);
+        studentUsageRaw = studentUsagePaid;
         studentUsageRaw = Round8(studentUsageRaw);
         studentBilledRevenue = Round8(studentBilledRevenue);
         totalRevenueFree = 0m;
@@ -233,16 +227,6 @@ public class GetAIProfitOverviewQueryHandler
     }
 
     private static decimal ResolveCostUsd(UsageRow row, IReadOnlyDictionary<Guid, AIUsageCostRate> rateMap)
-    {
-        if (!row.ConfigId.HasValue || !rateMap.TryGetValue(row.ConfigId.Value, out var rate))
-        {
-            return 0m;
-        }
-
-        return AIUsageCostCalculator.CalculateRawCostUsd(row.InputTokens, row.OutputTokens, rate);
-    }
-
-    private static decimal ResolveRawChargedTokens(UsageRow row, IReadOnlyDictionary<Guid, AIUsageCostRate> rateMap)
     {
         if (!row.ConfigId.HasValue || !rateMap.TryGetValue(row.ConfigId.Value, out var rate))
         {

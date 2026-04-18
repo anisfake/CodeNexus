@@ -90,8 +90,8 @@ public class GetAIUsageSummaryQueryHandlerTests
         item.TotalRawChargedTokens.Should().Be(0.0005m);
         item.TotalCostUsd.Should().Be(0.0005m);
         item.TotalRevenueUsd.Should().Be(0.028m);
-        item.TotalRawRevenueUsd.Should().Be(0.000002m);
+        item.TotalRawRevenueUsd.Should().Be(0.0005m);
         item.TotalProfitUsd.Should().Be(0.0275m);
-        item.TotalRawProfitUsd.Should().Be(-0.000498m);
+        item.TotalRawProfitUsd.Should().Be(0m);
     }
 }
