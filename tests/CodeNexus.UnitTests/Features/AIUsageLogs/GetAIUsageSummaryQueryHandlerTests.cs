@@ -15,11 +15,14 @@ public class GetAIUsageSummaryQueryHandlerTests
     {
         // Arrange
         var configId = Guid.NewGuid();
+        var studentRoleId = Guid.NewGuid();
+        var studentId = Guid.NewGuid();
         var logs = new List<AIUsageLog>
         {
             new()
             {
                 UsageLogId = Guid.NewGuid(),
+                UserId = studentId,
                 ConfigId = configId,
                 AccessTierUsed = AIAccessTier.Paid,
                 UsageType = AIUsageType.Assistant,
@@ -42,9 +45,32 @@ public class GetAIUsageSummaryQueryHandlerTests
             }
         };
 
+        var users = new List<User>
+        {
+            new()
+            {
+                UserId = studentId,
+                RoleId = studentRoleId,
+                Role = new Role { RoleId = studentRoleId, RoleName = "Student" }
+            }
+        };
+
+        var policies = new List<SystemRuntimePolicy>
+        {
+            new()
+            {
+                SystemRuntimePolicyId = Guid.NewGuid(),
+                PolicyKey = "token_pricing_policy",
+                ConfigJson = "{\"usdPerToken\":0.004}",
+                IsActive = true
+            }
+        };
+
         var mockContext = new Mock<IApplicationDbContext>();
         mockContext.Setup(x => x.AIUsageLogs).Returns(logs.BuildMockDbSet().Object);
         mockContext.Setup(x => x.AIProviderConfigs).Returns(configs.BuildMockDbSet().Object);
+        mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
+        mockContext.Setup(x => x.SystemRuntimePolicies).Returns(policies.BuildMockDbSet().Object);
 
         var handler = new GetAIUsageSummaryQueryHandler(mockContext.Object);
 
@@ -61,7 +87,11 @@ public class GetAIUsageSummaryQueryHandlerTests
 
         var item = result.Value!.Single();
         item.TotalChargedTokens.Should().Be(7m);
+        item.TotalRawChargedTokens.Should().Be(0.0005m);
         item.TotalCostUsd.Should().Be(0.0005m);
+        item.TotalRevenueUsd.Should().Be(0.028m);
+        item.TotalRawRevenueUsd.Should().Be(0.000002m);
+        item.TotalProfitUsd.Should().Be(0.0275m);
+        item.TotalRawProfitUsd.Should().Be(-0.000498m);
     }
 }
-

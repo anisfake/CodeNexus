@@ -75,7 +75,8 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
                 .Select(x => new
                 {
                     Row = x,
-                    CostUsd = ResolveCostUsd(x, rateMap)
+                    CostUsd = ResolveCostUsd(x, rateMap),
+                    RawChargedTokens = ResolveRawChargedTokens(x, rateMap)
                 });
 
             var ordered = request.SortDescending
@@ -85,7 +86,7 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
             items = ordered
                 .Skip(pageIndex * pageSize)
                 .Take(pageSize)
-                .Select(x => ToResponse(x.Row, x.CostUsd))
+                .Select(x => ToResponse(x.Row, x.CostUsd, x.RawChargedTokens))
                 .ToList();
         }
         else
@@ -129,7 +130,10 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
 
             var rateMap = await LoadRateMapAsync(rows.Select(x => x.ConfigId), cancellationToken);
             items = rows
-                .Select(x => ToResponse(x, ResolveCostUsd(x, rateMap)))
+                .Select(x => ToResponse(
+                    x,
+                    ResolveCostUsd(x, rateMap),
+                    ResolveRawChargedTokens(x, rateMap)))
                 .ToList();
         }
 
@@ -178,7 +182,20 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
         return AIUsageCostCalculator.CalculateCostUsd(row.InputTokens, row.OutputTokens, rate);
     }
 
-    private static AIUsageLogResponse ToResponse(UsageLogProjection row, decimal costUsd)
+    private static decimal ResolveRawChargedTokens(UsageLogProjection row, IReadOnlyDictionary<Guid, AIUsageCostRate> rateMap)
+    {
+        if (!row.ConfigId.HasValue || !rateMap.TryGetValue(row.ConfigId.Value, out var rate))
+        {
+            return 0m;
+        }
+
+        return decimal.Round(
+            AIUsageCostCalculator.CalculateRawCostUsd(row.InputTokens, row.OutputTokens, rate),
+            8,
+            MidpointRounding.AwayFromZero);
+    }
+
+    private static AIUsageLogResponse ToResponse(UsageLogProjection row, decimal costUsd, decimal rawChargedTokens)
         => new(
             row.UsageLogId,
             row.UserId,
@@ -191,6 +208,7 @@ public class GetAIUsageLogsQueryHandler : IRequestHandler<GetAIUsageLogsQuery, R
             row.OutputTokens,
             row.TotalTokens,
             row.ChargedTokens,
+            rawChargedTokens,
             costUsd,
             row.CreatedAt);
 

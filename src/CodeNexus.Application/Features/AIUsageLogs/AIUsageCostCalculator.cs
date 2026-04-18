@@ -9,7 +9,7 @@ public static class AIUsageCostCalculator
 {
     private const decimal OneMillion = 1_000_000m;
 
-    public static decimal CalculateCostUsd(int inputTokens, int outputTokens, AIUsageCostRate rate)
+    public static decimal CalculateRawCostUsd(int inputTokens, int outputTokens, AIUsageCostRate rate)
     {
         if (rate.InputCostPer1M <= 0m && rate.OutputCostPer1M <= 0m)
         {
@@ -18,7 +18,12 @@ public static class AIUsageCostCalculator
 
         var inputCost = ((decimal)Math.Max(inputTokens, 0) / OneMillion) * Math.Max(rate.InputCostPer1M, 0m);
         var outputCost = ((decimal)Math.Max(outputTokens, 0) / OneMillion) * Math.Max(rate.OutputCostPer1M, 0m);
-        return decimal.Round(inputCost + outputCost, 8, MidpointRounding.AwayFromZero);
+        return inputCost + outputCost;
+    }
+
+    public static decimal CalculateCostUsd(int inputTokens, int outputTokens, AIUsageCostRate rate)
+    {
+        return decimal.Round(CalculateRawCostUsd(inputTokens, outputTokens, rate), 8, MidpointRounding.AwayFromZero);
     }
 
     public static Dictionary<Guid, AIUsageCostRate> BuildRateMap(IEnumerable<(Guid ConfigId, string? ConfigJson)> configs)

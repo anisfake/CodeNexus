@@ -93,6 +93,7 @@ public class GetAIUsageLogsQueryHandlerTests
         first.CostUsd.Should().BeGreaterThan(second.CostUsd);
         first.CostUsd.Should().NotBe(first.ChargedTokens);
         second.CostUsd.Should().NotBe(second.ChargedTokens);
+        first.RawChargedTokens.Should().Be(0.01m);
+        second.RawChargedTokens.Should().Be(0.001m);
     }
 }
-
