@@ -21,70 +21,82 @@ public static class LearningPathGoalSemanticMappingHelper
         LanguageSelection language,
         CancellationToken cancellationToken = default)
     {
-        if (context.LearningPathGoals is null
-            || context.LearningPathGoalItemMappings is null
-            || context.Lessons is null
-            || context.Tasks is null
-            || context.Quizzes is null)
+        try
         {
-            return false;
-        }
-
-        var goals = await context.LearningPathGoals
-            .Where(x => x.PathId == pathId)
-            .Select(x => new GoalInfo(
-                x.GoalId,
-                x.Goal.Title,
-                x.Goal.Description ?? string.Empty,
-                x.Weight))
-            .OrderByDescending(x => x.Weight)
-            .ToListAsync(cancellationToken);
-
-        if (goals.Count == 0)
-        {
-            return false;
-        }
-
-        var items = await LoadPathItemsAsync(context, pathId, cancellationToken);
-        var existingRows = await context.LearningPathGoalItemMappings
-            .Where(x => x.PathId == pathId)
-            .ToListAsync(cancellationToken);
-
-        if (items.Count == 0)
-        {
-            if (existingRows.Count > 0)
+            if (context.LearningPathGoals is null
+                || context.LearningPathGoalItemMappings is null
+                || context.Lessons is null
+                || context.Tasks is null
+                || context.Quizzes is null)
             {
-                context.LearningPathGoalItemMappings.RemoveRange(existingRows);
+                return false;
+            }
+
+            var goals = await context.LearningPathGoals
+                .Where(x => x.PathId == pathId)
+                .Select(x => new GoalInfo(
+                    x.GoalId,
+                    x.Goal.Title,
+                    x.Goal.Description ?? string.Empty,
+                    x.Weight))
+                .OrderByDescending(x => x.Weight)
+                .ToListAsync(cancellationToken);
+
+            if (goals.Count == 0)
+            {
+                return false;
+            }
+
+            var items = await LoadPathItemsAsync(context, pathId, cancellationToken);
+            var existingRows = await context.LearningPathGoalItemMappings
+                .Where(x => x.PathId == pathId)
+                .ToListAsync(cancellationToken);
+
+            if (items.Count == 0)
+            {
+                if (existingRows.Count > 0)
+                {
+                    context.LearningPathGoalItemMappings.RemoveRange(existingRows);
+                }
+
+                return true;
+            }
+
+            List<NormalizedGoalScores> scoredItems;
+            if (goals.Count == 1)
+            {
+                scoredItems = BuildSingleGoalScores(goals[0], items);
+            }
+            else
+            {
+                scoredItems = await BuildAiScoresWithFallbackAsync(
+                    aiGeneratorService,
+                    goals,
+                    items,
+                    language,
+                    cancellationToken);
+            }
+
+            var now = DateTime.UtcNow;
+            var newRows = BuildRows(pathId, scoredItems, now);
+
+            context.LearningPathGoalItemMappings.RemoveRange(existingRows);
+            if (newRows.Count > 0)
+            {
+                await context.LearningPathGoalItemMappings.AddRangeAsync(newRows, cancellationToken);
             }
 
             return true;
         }
-
-        List<NormalizedGoalScores> scoredItems;
-        if (goals.Count == 1)
+        catch (OperationCanceledException)
         {
-            scoredItems = BuildSingleGoalScores(goals[0], items);
+            throw;
         }
-        else
+        catch
         {
-            scoredItems = await BuildAiScoresWithFallbackAsync(
-                aiGeneratorService,
-                goals,
-                items,
-                language,
-                cancellationToken);
+            // Semantic mapping is best-effort and must not block core generation flow.
+            return false;
         }
-
-        var now = DateTime.UtcNow;
-        var newRows = BuildRows(pathId, scoredItems, now);
-
-        context.LearningPathGoalItemMappings.RemoveRange(existingRows);
-        if (newRows.Count > 0)
-        {
-            await context.LearningPathGoalItemMappings.AddRangeAsync(newRows, cancellationToken);
-        }
-
-        return true;
     }
 
     private static async Task<List<SemanticItem>> LoadPathItemsAsync(
