@@ -12,6 +12,17 @@ public record GoalDto(
     DateTime CreatedAt
 );
 
+public record GetMyGoalGoalResponse(
+    Guid GoalId,
+    string Title,
+    string? Description,
+    bool IsSystemDefined,
+    GoalDuration Duration,
+    int DurationInDays,
+    decimal? ProgressPercentage,
+    DateTime CreatedAt
+);
+
 public record GoalMappingDto(
     Guid UserGoalId,
     Guid SystemGoalId,

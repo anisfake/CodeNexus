@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
 {
-    public class GetMyGoalQueryHandler : IRequestHandler<GetMyGoalQuery, Result<PaginationDto<GoalDto>>>
+    public class GetMyGoalQueryHandler : IRequestHandler<GetMyGoalQuery, Result<PaginationDto<GetMyGoalGoalResponse>>>
     {
         private readonly IApplicationDbContext _context;
         private readonly ICurrentUserService _currentUserService;
@@ -21,7 +21,7 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
             _context = context;
             _currentUserService = currentUserService;
         }
-        public async Task<Result<PaginationDto<GoalDto>>> Handle(GetMyGoalQuery request, CancellationToken cancellationToken)
+        public async Task<Result<PaginationDto<GetMyGoalGoalResponse>>> Handle(GetMyGoalQuery request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.GetUserId();
 
@@ -41,19 +41,21 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
                 : query.OrderBy(lp => lp.CreatedAt);
 
             var items = await query
+            .Include(u => u.UserGoalProgresses)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(g => new GoalDto(
+            .Select(g => new GetMyGoalGoalResponse(
                 g.GoalId,
                 g.Title,
                 g.Description,
                 g.IsSystemDefined,
                 g.Duration,
                 g.DurationInDays,
+                g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId).ProgressPercent,
                 g.CreatedAt
             )).ToListAsync(cancellationToken);
 
-            return Result<PaginationDto<GoalDto>>.Success(new PaginationDto<GoalDto>
+            return Result<PaginationDto<GetMyGoalGoalResponse>>.Success(new PaginationDto<GetMyGoalGoalResponse>
             {
                 Items = items,
                 PageNumber = request.PageNumber,

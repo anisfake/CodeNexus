@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
 {
-    public record GetMyGoalQuery : IRequest<Result<PaginationDto<GoalDto>>>
+    public record GetMyGoalQuery : IRequest<Result<PaginationDto<GetMyGoalGoalResponse>>>
     {
         public int PageNumber { get; init; } = 1;
         public int PageSize { get; init; } = 10;
