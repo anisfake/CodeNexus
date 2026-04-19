@@ -18,7 +18,6 @@ public static class UserGoalProgressSyncHelper
             context.LearningPathGoalItemMappings is null ||
             context.Lessons is null ||
             context.LearnProgresses is null ||
-            context.Tasks is null ||
             context.Quizzes is null ||
             context.QuizAttempts is null ||
             context.UserGoalProgresses is null)
@@ -58,24 +57,6 @@ public static class UserGoalProgressSyncHelper
 
         var completedLessons = completedLessonIds.Count;
 
-        var totalTasks = await context.Tasks
-            .Where(t => t.PathId == learningPathId && !t.IsDeleted)
-            .CountAsync(cancellationToken);
-
-        var taskRows = await context.Tasks
-            .Where(t => t.PathId == learningPathId && !t.IsDeleted)
-            .Select(t => new { t.TaskId, t.Status })
-            .ToListAsync(cancellationToken);
-
-        var taskIds = taskRows.Select(t => t.TaskId).ToList();
-
-        var completedTaskIds = taskRows
-            .Where(t => t.Status == TaskStatus_.Completed)
-            .Select(t => t.TaskId)
-            .ToHashSet();
-
-        var completedTasks = completedTaskIds.Count;
-
         var totalQuizzes = await context.Quizzes
             .Where(q =>
                 !q.IsDeleted &&
@@ -110,15 +91,10 @@ public static class UserGoalProgressSyncHelper
 
         var completedQuizzes = completedQuizIds.Count;
 
-        var componentRatios = new List<decimal>(3);
+        var componentRatios = new List<decimal>(2);
         if (totalLessons > 0)
         {
             componentRatios.Add((decimal)completedLessons / totalLessons);
-        }
-
-        if (totalTasks > 0)
-        {
-            componentRatios.Add((decimal)completedTasks / totalTasks);
         }
 
         if (totalQuizzes > 0)
@@ -160,8 +136,6 @@ public static class UserGoalProgressSyncHelper
                 mappings,
                 lessonIds,
                 completedLessonIds,
-                taskIds,
-                completedTaskIds,
                 quizIds,
                 completedQuizIds,
                 pathMasteryRatio);
@@ -220,15 +194,12 @@ public static class UserGoalProgressSyncHelper
         IEnumerable<MappingRow> mappings,
         IReadOnlyCollection<Guid> lessonIds,
         IReadOnlyCollection<Guid> completedLessonIds,
-        IReadOnlyCollection<Guid> taskIds,
-        IReadOnlySet<Guid> completedTaskIds,
         IReadOnlyCollection<Guid> quizIds,
         IReadOnlyCollection<Guid> completedQuizIds,
         decimal fallbackRatio)
     {
         var lessonSet = lessonIds.ToHashSet();
         var completedLessonSet = completedLessonIds.ToHashSet();
-        var taskSet = taskIds.ToHashSet();
         var quizSet = quizIds.ToHashSet();
         var completedQuizSet = completedQuizIds.ToHashSet();
 
@@ -241,9 +212,8 @@ public static class UserGoalProgressSyncHelper
             return fallbackRatio;
         }
 
-        var typeRatios = new List<decimal>(3);
+        var typeRatios = new List<decimal>(2);
         typeRatios.AddRange(CalculateTypeRatio(goalMappings, LearningPathGoalItemType.Lesson, lessonSet, completedLessonSet));
-        typeRatios.AddRange(CalculateTypeRatio(goalMappings, LearningPathGoalItemType.Task, taskSet, completedTaskIds));
         typeRatios.AddRange(CalculateTypeRatio(goalMappings, LearningPathGoalItemType.Quiz, quizSet, completedQuizSet));
 
         if (typeRatios.Count == 0)

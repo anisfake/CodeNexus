@@ -26,7 +26,6 @@ public static class LearningPathGoalSemanticMappingHelper
             if (context.LearningPathGoals is null
                 || context.LearningPathGoalItemMappings is null
                 || context.Lessons is null
-                || context.Tasks is null
                 || context.Quizzes is null)
             {
                 return false;
@@ -117,18 +116,6 @@ public static class LearningPathGoalSemanticMappingHelper
                 c.Title ?? string.Empty))
             .ToListAsync(cancellationToken);
 
-        var taskItems = await (
-            from t in context.Tasks
-            join c in context.Chapters on t.ChapterId equals c.ChapterId
-            where !t.IsDeleted && t.PathId == pathId
-            select new SemanticItem(
-                t.TaskId,
-                LearningPathGoalItemType.Task,
-                t.Title,
-                t.Description ?? string.Empty,
-                c.Title ?? string.Empty))
-            .ToListAsync(cancellationToken);
-
         var quizItems = await (
             from q in context.Quizzes
             join l in context.Lessons on q.LessonId equals l.LessonId
@@ -143,7 +130,6 @@ public static class LearningPathGoalSemanticMappingHelper
             .ToListAsync(cancellationToken);
 
         return lessonItems
-            .Concat(taskItems)
             .Concat(quizItems)
             .ToList();
     }
@@ -158,7 +144,6 @@ public static class LearningPathGoalSemanticMappingHelper
             if (context.LearningPathGoals is null
                 || context.LearningPathGoalItemMappings is null
                 || context.Lessons is null
-                || context.Tasks is null
                 || context.Quizzes is null
                 || context.Chapters is null)
             {
@@ -185,11 +170,6 @@ public static class LearningPathGoalSemanticMappingHelper
                 select l.LessonId
             ).ToListAsync(cancellationToken);
 
-            var taskIds = await context.Tasks
-                .Where(t => !t.IsDeleted && t.PathId == pathId)
-                .Select(t => t.TaskId)
-                .ToListAsync(cancellationToken);
-
             var quizIds = await (
                 from q in context.Quizzes
                 join l in context.Lessons on q.LessonId equals l.LessonId
@@ -205,7 +185,6 @@ public static class LearningPathGoalSemanticMappingHelper
             var now = DateTime.UtcNow;
             var rows = new List<LearningPathGoalItemMapping>();
             rows.AddRange(BuildWeightOnlyRows(pathId, LearningPathGoalItemType.Lesson, lessonIds, normalizedGoals, now));
-            rows.AddRange(BuildWeightOnlyRows(pathId, LearningPathGoalItemType.Task, taskIds, normalizedGoals, now));
             rows.AddRange(BuildWeightOnlyRows(pathId, LearningPathGoalItemType.Quiz, quizIds, normalizedGoals, now));
 
             context.LearningPathGoalItemMappings.RemoveRange(existingRows);
@@ -384,7 +363,7 @@ OUTPUT JSON FORMAT:
   ""mappings"": [
     {{
       ""itemId"": ""guid"",
-      ""itemType"": ""Lesson|Task|Quiz"",
+      ""itemType"": ""Lesson|Quiz"",
       ""goalScores"": [
         {{ ""goalId"": ""guid"", ""score"": 0.73 }},
         {{ ""goalId"": ""guid"", ""score"": 0.27 }}
