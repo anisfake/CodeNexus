@@ -95,7 +95,8 @@ public static class LearningPathGoalSemanticMappingHelper
         catch
         {
             // Semantic mapping is best-effort and must not block core generation flow.
-            return false;
+            // If semantic mapping fails, fallback to deterministic weight-based mapping.
+            return await RebuildByGoalWeightFallbackAsync(context, pathId, cancellationToken);
         }
     }
 
@@ -104,44 +105,147 @@ public static class LearningPathGoalSemanticMappingHelper
         Guid pathId,
         CancellationToken cancellationToken)
     {
-        var lessonItems = await context.Lessons
-            .Where(l => !l.IsDeleted && !l.Chapter.IsDeleted && l.Chapter.PathId == pathId)
-            .Select(l => new SemanticItem(
+        var lessonItems = await (
+            from l in context.Lessons
+            join c in context.Chapters on l.ChapterId equals c.ChapterId
+            where !l.IsDeleted && !c.IsDeleted && c.PathId == pathId
+            select new SemanticItem(
                 l.LessonId,
                 LearningPathGoalItemType.Lesson,
                 l.Title,
                 l.Content ?? string.Empty,
-                l.Chapter.Title ?? string.Empty))
+                c.Title ?? string.Empty))
             .ToListAsync(cancellationToken);
 
-        var taskItems = await context.Tasks
-            .Where(t => t.PathId == pathId && !t.IsDeleted)
-            .Select(t => new SemanticItem(
+        var taskItems = await (
+            from t in context.Tasks
+            join c in context.Chapters on t.ChapterId equals c.ChapterId
+            where !t.IsDeleted && t.PathId == pathId
+            select new SemanticItem(
                 t.TaskId,
                 LearningPathGoalItemType.Task,
                 t.Title,
                 t.Description ?? string.Empty,
-                t.Chapter.Title ?? string.Empty))
+                c.Title ?? string.Empty))
             .ToListAsync(cancellationToken);
 
-        var quizItems = await context.Quizzes
-            .Where(q => !q.IsDeleted
-                        && q.LessonId != null
-                        && !q.Lesson!.IsDeleted
-                        && !q.Lesson.Chapter.IsDeleted
-                        && q.Lesson.Chapter.PathId == pathId)
-            .Select(q => new SemanticItem(
+        var quizItems = await (
+            from q in context.Quizzes
+            join l in context.Lessons on q.LessonId equals l.LessonId
+            join c in context.Chapters on l.ChapterId equals c.ChapterId
+            where !q.IsDeleted && !l.IsDeleted && !c.IsDeleted && c.PathId == pathId
+            select new SemanticItem(
                 q.QuizId,
                 LearningPathGoalItemType.Quiz,
                 q.Title,
                 q.Description ?? string.Empty,
-                q.Lesson != null ? q.Lesson.Title : string.Empty))
+                l.Title ?? string.Empty))
             .ToListAsync(cancellationToken);
 
         return lessonItems
             .Concat(taskItems)
             .Concat(quizItems)
             .ToList();
+    }
+
+    private static async Task<bool> RebuildByGoalWeightFallbackAsync(
+        IApplicationDbContext context,
+        Guid pathId,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (context.LearningPathGoals is null
+                || context.LearningPathGoalItemMappings is null
+                || context.Lessons is null
+                || context.Tasks is null
+                || context.Quizzes is null
+                || context.Chapters is null)
+            {
+                return false;
+            }
+
+            var goals = await context.LearningPathGoals
+                .Where(x => x.PathId == pathId)
+                .Select(x => new { x.GoalId, x.Weight })
+                .ToListAsync(cancellationToken);
+            if (goals.Count == 0)
+            {
+                return false;
+            }
+
+            var normalizedGoals = NormalizeGoalScores(
+                goals.Select(g => new GoalScore(g.GoalId, Math.Max(0m, g.Weight))).ToList(),
+                goals.Select(g => new GoalInfo(g.GoalId, string.Empty, string.Empty, g.Weight)).ToList());
+
+            var lessonIds = await (
+                from l in context.Lessons
+                join c in context.Chapters on l.ChapterId equals c.ChapterId
+                where !l.IsDeleted && !c.IsDeleted && c.PathId == pathId
+                select l.LessonId
+            ).ToListAsync(cancellationToken);
+
+            var taskIds = await context.Tasks
+                .Where(t => !t.IsDeleted && t.PathId == pathId)
+                .Select(t => t.TaskId)
+                .ToListAsync(cancellationToken);
+
+            var quizIds = await (
+                from q in context.Quizzes
+                join l in context.Lessons on q.LessonId equals l.LessonId
+                join c in context.Chapters on l.ChapterId equals c.ChapterId
+                where !q.IsDeleted && !l.IsDeleted && !c.IsDeleted && c.PathId == pathId
+                select q.QuizId
+            ).ToListAsync(cancellationToken);
+
+            var existingRows = await context.LearningPathGoalItemMappings
+                .Where(x => x.PathId == pathId)
+                .ToListAsync(cancellationToken);
+
+            var now = DateTime.UtcNow;
+            var rows = new List<LearningPathGoalItemMapping>();
+            rows.AddRange(BuildWeightOnlyRows(pathId, LearningPathGoalItemType.Lesson, lessonIds, normalizedGoals, now));
+            rows.AddRange(BuildWeightOnlyRows(pathId, LearningPathGoalItemType.Task, taskIds, normalizedGoals, now));
+            rows.AddRange(BuildWeightOnlyRows(pathId, LearningPathGoalItemType.Quiz, quizIds, normalizedGoals, now));
+
+            context.LearningPathGoalItemMappings.RemoveRange(existingRows);
+            if (rows.Count > 0)
+            {
+                await context.LearningPathGoalItemMappings.AddRangeAsync(rows, cancellationToken);
+            }
+
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<LearningPathGoalItemMapping> BuildWeightOnlyRows(
+        Guid pathId,
+        LearningPathGoalItemType itemType,
+        IReadOnlyCollection<Guid> itemIds,
+        IReadOnlyCollection<GoalScore> normalizedGoals,
+        DateTime now)
+    {
+        foreach (var itemId in itemIds)
+        {
+            foreach (var goal in normalizedGoals)
+            {
+                yield return new LearningPathGoalItemMapping
+                {
+                    MappingId = NewId.NextGuid(),
+                    PathId = pathId,
+                    GoalId = goal.GoalId,
+                    ItemId = itemId,
+                    ItemType = itemType,
+                    RelevanceScore = Math.Round(goal.Score, 4),
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+            }
+        }
     }
 
     private static List<NormalizedGoalScores> BuildSingleGoalScores(
