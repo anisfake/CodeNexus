@@ -95,65 +95,80 @@ public class GetGoalDashboardQueryHandler : IRequestHandler<GetGoalDashboardQuer
             join lpg in _context.LearningPathGoals on lp.PathId equals lpg.PathId
             join goal in _context.Goals on lpg.GoalId equals goal.GoalId
             join subject in _context.Subjects on lp.SubjectId equals subject.SubjectId
-            join ugp in _context.UserGoalProgresses.Where(x => x.UserId == userId)
-                on new { PathId = lp.PathId, GoalId = goal.GoalId }
-                equals new { PathId = ugp.LearningPathId, GoalId = ugp.GoalId } into ugpJoin
-            from ugp in ugpJoin.OrderByDescending(x => x.LastUpdatedAt).Take(1).DefaultIfEmpty()
             where lp.UserId == userId
                   && learningPathStatuses.Contains(lp.Status)
                   && !goal.IsDeleted
             select new
             {
-                lp,
-                lpg,
-                goal,
-                subject,
-                ugp
+                LearningPathId = lp.PathId,
+                LearningPathTitle = lp.Title,
+                LearningPathStatus = lp.Status,
+                LearningPathCreatedAt = lp.CreatedAt,
+                SubjectId = subject.SubjectId,
+                SubjectName = subject.Name,
+                GoalId = goal.GoalId,
+                GoalTitle = goal.Title,
+                GoalDescription = goal.Description,
+                IsSystemDefined = goal.IsSystemDefined,
+                Weight = lpg.Weight
             };
 
         if (!string.IsNullOrWhiteSpace(normalizedSearch))
         {
             pathGoalsQuery = pathGoalsQuery.Where(x =>
-                x.lp.Title.Contains(normalizedSearch) ||
-                x.goal.Title.Contains(normalizedSearch) ||
-                (x.goal.Description != null && x.goal.Description.Contains(normalizedSearch)) ||
-                x.subject.Name.Contains(normalizedSearch));
+                x.LearningPathTitle.Contains(normalizedSearch) ||
+                x.GoalTitle.Contains(normalizedSearch) ||
+                (x.GoalDescription != null && x.GoalDescription.Contains(normalizedSearch)) ||
+                x.SubjectName.Contains(normalizedSearch));
         }
 
         var totalPathGoalCount = await pathGoalsQuery.CountAsync(cancellationToken);
 
         pathGoalsQuery = request.SortDescending
-            ? pathGoalsQuery.OrderByDescending(x => x.lp.CreatedAt).ThenByDescending(x => x.lpg.Weight)
-            : pathGoalsQuery.OrderBy(x => x.lp.CreatedAt).ThenByDescending(x => x.lpg.Weight);
+            ? pathGoalsQuery.OrderByDescending(x => x.LearningPathCreatedAt).ThenByDescending(x => x.Weight)
+            : pathGoalsQuery.OrderBy(x => x.LearningPathCreatedAt).ThenByDescending(x => x.Weight);
 
         var pageNumber = request.PageNumber <= 0 ? 1 : request.PageNumber;
         var pageSize = request.PageSize <= 0 ? 20 : request.PageSize;
 
-        var rawPathGoals = await pathGoalsQuery
+        var pagePathGoals = await pathGoalsQuery
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
-            .Select(x => new RawPathGoalRow(
-                x.lp.PathId,
-                x.lp.Title,
-                x.lp.Status,
-                x.lp.CreatedAt,
-                x.subject.SubjectId,
-                x.subject.Name,
-                x.goal.GoalId,
-                x.goal.Title,
-                x.goal.Description,
-                x.goal.IsSystemDefined,
-                x.lpg.Weight,
-                x.ugp != null ? x.ugp.ProgressPercent : 0m,
-                x.ugp != null ? (GoalProgressStatus?)x.ugp.Status : null,
-                x.ugp != null ? x.ugp.CompletedAt : null,
-                x.ugp != null ? x.ugp.LastUpdatedAt : null))
             .ToListAsync(cancellationToken);
 
-        var pathGoalDtos = rawPathGoals.Select(x =>
+        var pathGoalProgressLookup = new Dictionary<(Guid LearningPathId, Guid GoalId), PathGoalProgressRow>();
+        if (pagePathGoals.Count > 0)
         {
+            var pagePathIds = pagePathGoals.Select(x => x.LearningPathId).Distinct().ToList();
+            var pageGoalIds = pagePathGoals.Select(x => x.GoalId).Distinct().ToList();
+
+            var progressRows = await _context.UserGoalProgresses
+                .Where(x =>
+                    x.UserId == userId &&
+                    pagePathIds.Contains(x.LearningPathId) &&
+                    pageGoalIds.Contains(x.GoalId))
+                .Select(x => new PathGoalProgressRow(
+                    x.LearningPathId,
+                    x.GoalId,
+                    x.ProgressPercent,
+                    x.Status,
+                    x.CompletedAt,
+                    x.LastUpdatedAt))
+                .ToListAsync(cancellationToken);
+
+            pathGoalProgressLookup = progressRows
+                .GroupBy(x => new { x.LearningPathId, x.GoalId })
+                .ToDictionary(
+                    g => (g.Key.LearningPathId, g.Key.GoalId),
+                    g => g.OrderByDescending(x => x.LastUpdatedAt).First());
+        }
+
+        var pathGoalDtos = pagePathGoals.Select(x =>
+        {
+            pathGoalProgressLookup.TryGetValue((x.LearningPathId, x.GoalId), out var progressRow);
+
             var targetPercent = Math.Round(Math.Clamp(x.Weight, 0m, 1m) * 100m, 2);
-            var progressPercent = Math.Round(Math.Clamp(x.ProgressPercent, 0m, 100m), 2);
+            var progressPercent = Math.Round(Math.Clamp(progressRow?.ProgressPercent ?? 0m, 0m, 100m), 2);
             var completionPercent = targetPercent <= 0m
                 ? 0m
                 : Math.Round(Math.Clamp((progressPercent / targetPercent) * 100m, 0m, 100m), 2);
@@ -172,9 +187,9 @@ public class GetGoalDashboardQueryHandler : IRequestHandler<GetGoalDashboardQuer
                 targetPercent,
                 progressPercent,
                 completionPercent,
-                x.GoalStatus?.ToString() ?? GoalProgressStatus.NotStarted.ToString(),
-                x.CompletedAt,
-                x.LastUpdatedAt);
+                progressRow?.GoalStatus.ToString() ?? GoalProgressStatus.NotStarted.ToString(),
+                progressRow?.CompletedAt,
+                progressRow?.LastUpdatedAt);
         }).ToList();
 
         var pagedPathGoals = new PaginationDto<GoalDashboardPathGoalDto>
@@ -194,20 +209,11 @@ public class GetGoalDashboardQueryHandler : IRequestHandler<GetGoalDashboardQuer
         decimal ProgressPercent,
         DateTime LastUpdatedAt);
 
-    private sealed record RawPathGoalRow(
+    private sealed record PathGoalProgressRow(
         Guid LearningPathId,
-        string LearningPathTitle,
-        string LearningPathStatus,
-        DateTime LearningPathCreatedAt,
-        Guid SubjectId,
-        string SubjectName,
         Guid GoalId,
-        string GoalTitle,
-        string? GoalDescription,
-        bool IsSystemDefined,
-        decimal Weight,
         decimal ProgressPercent,
-        GoalProgressStatus? GoalStatus,
+        GoalProgressStatus GoalStatus,
         DateTime? CompletedAt,
-        DateTime? LastUpdatedAt);
+        DateTime LastUpdatedAt);
 }
