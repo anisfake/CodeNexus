@@ -45,7 +45,8 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn C#",
                 Description = "Master C# fundamentals",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-2)
+                CreatedAt = DateTime.Now.AddDays(-2),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -54,7 +55,8 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Build API",
                 Description = "Create REST API",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-1)
+                CreatedAt = DateTime.Now.AddDays(-1),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 
@@ -94,7 +96,8 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn C#",
                 Description = "Master C# fundamentals",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -103,7 +106,8 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn Python",
                 Description = "Master Python",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 
@@ -140,7 +144,8 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Learn C#",
                 Description = "Master C# fundamentals",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -149,7 +154,8 @@ public class GetMyGoalQueryHandlerTests
                 Title = "Build API",
                 Description = "Create REST API",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 
@@ -185,7 +191,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Old Goal",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-5)
+                CreatedAt = DateTime.Now.AddDays(-5),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -193,7 +200,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "New Goal",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 
@@ -229,7 +237,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Old Goal",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-5)
+                CreatedAt = DateTime.Now.AddDays(-5),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -237,7 +246,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "New Goal",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 
@@ -272,7 +282,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Goal 1",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-3)
+                CreatedAt = DateTime.Now.AddDays(-3),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -280,7 +291,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Goal 2",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-2)
+                CreatedAt = DateTime.Now.AddDays(-2),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -288,7 +300,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "Goal 3",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now.AddDays(-1)
+                CreatedAt = DateTime.Now.AddDays(-1),
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 
@@ -349,7 +362,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = userId,
                 Title = "My Goal",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             },
             new()
             {
@@ -357,7 +371,8 @@ public class GetMyGoalQueryHandlerTests
                 CreatedByUserId = otherUserId,
                 Title = "Other User Goal",
                 IsSystemDefined = false,
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.Now,
+                UserGoalProgresses = new List<CodeNexus.Domain.Entities.UserGoalProgress>()
             }
         };
 

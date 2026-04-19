@@ -51,7 +51,9 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
                 g.IsSystemDefined,
                 g.Duration,
                 g.DurationInDays,
-                g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId).ProgressPercent,
+                g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId) != null 
+                    ? g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId)!.ProgressPercent 
+                    : 0m,
                 g.CreatedAt
             )).ToListAsync(cancellationToken);
 
