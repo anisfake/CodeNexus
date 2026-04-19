@@ -45,6 +45,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<SubjectGoal> SubjectGoals => Set<SubjectGoal>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
         public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
+        public DbSet<LearningPathGoalItemMapping> LearningPathGoalItemMappings => Set<LearningPathGoalItemMapping>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
         public DbSet<LearnProgress> LearnProgresses => Set<LearnProgress>();
@@ -270,6 +271,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<GoalMapping>().HasKey(e => e.MappingId);
             modelBuilder.Entity<SubjectGoal>().HasKey(e => new { e.SubjectId, e.GoalId });
             modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
+            modelBuilder.Entity<LearningPathGoalItemMapping>().HasKey(e => e.MappingId);
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
@@ -391,6 +393,30 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<LearningPathGoalItemMapping>(entity =>
+            {
+                entity.Property(e => e.ItemType)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.RelevanceScore)
+                      .HasPrecision(5, 4);
+
+                entity.HasIndex(e => new { e.PathId, e.GoalId, e.ItemType, e.ItemId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.PathId, e.ItemType, e.ItemId });
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany(lp => lp.GoalItemMappings)
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Goal)
+                      .WithMany(g => g.LearningPathGoalItemMappings)
+                      .HasForeignKey(e => e.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<Subject>()
                 .HasOne(s => s.CreatedByUser)
                 .WithMany(u => u.Subjects)
@@ -414,6 +440,9 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.Property(e => e.Status)
                       .HasConversion<string>();
+
+                entity.Property(e => e.ProgressPercent)
+                      .HasPrecision(5, 2);
 
                 entity.HasIndex(e => new { e.UserId, e.GoalId, e.LearningPathId })
                       .IsUnique();

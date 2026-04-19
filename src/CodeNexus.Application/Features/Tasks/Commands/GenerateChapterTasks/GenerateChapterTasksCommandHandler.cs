@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Tasks.DTOs;
 using CodeNexus.Domain.Enums;
@@ -96,6 +97,17 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                chapter.PathId,
+                chapter.LearningPath.Language,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             var savedChapter = await _context.Chapters
                     .Include(c => c.Tasks)

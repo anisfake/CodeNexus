@@ -86,7 +86,9 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                     g.Weight,
                     g.Goal.DurationInDays,
                     "NotStarted",
-                    null
+                    null,
+                    0m,
+                    g.Weight * 100m
                 )).ToList(),
             learningPath.StartDate,
             learningPath.EndDate,

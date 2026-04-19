@@ -137,7 +137,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                     g.Weight,
                     g.Goal.DurationInDays,
                     "NotStarted",
-                    null))
+                    null,
+                    0m,
+                    g.Weight * 100m))
                 .ToList();
 
             return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
@@ -208,7 +210,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                 g.Weight,
                 g.Goal.DurationInDays,
                 "NotStarted",
-                null))
+                null,
+                0m,
+                g.Weight * 100m))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(

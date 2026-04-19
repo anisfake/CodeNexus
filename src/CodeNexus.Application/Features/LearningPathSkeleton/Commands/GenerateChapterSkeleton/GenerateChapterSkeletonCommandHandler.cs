@@ -152,6 +152,17 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                chapter.PathId,
+                chapter.LearningPath.Language,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             return Result<ChapterSkeletonDto>.Success(
                 new ChapterSkeletonDto(
                     chapter.ChapterId,

@@ -319,13 +319,26 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                learningPath.PathId,
+                request.LanguageSelection,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             var goalDtos = goalsWithWeights.Select(g => new LearningPathGoalDto(
                 g.Goal.GoalId,
                 g.Goal.Title,
                 g.Weight,
                 g.Goal.DurationInDays,
                 "NotStarted",
-                null
+                null,
+                0m,
+                g.Weight * 100m
             )).ToList();
 
             return Result<CreateLearningPathResponse>.Success(

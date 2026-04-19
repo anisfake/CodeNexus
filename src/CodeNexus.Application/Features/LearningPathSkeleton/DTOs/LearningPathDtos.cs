@@ -63,7 +63,9 @@ public record LearningPathGoalDto(
     decimal Weight,
     int DurationInDays,
     string Status,
-    DateTime? CompletedAt
+    DateTime? CompletedAt,
+    decimal ProgressPercent = 0m,
+    decimal TargetPercent = 100m
 );
 
 public record GenerateLearningPathSkeletonRequest(

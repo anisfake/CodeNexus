@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260419091008_AddProgressPercentToUserGoalProgress")]
+    partial class AddProgressPercentToUserGoalProgress
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -776,47 +779,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.HasIndex("GoalId");
 
                     b.ToTable("LearningPathGoals");
-                });
-
-            modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPathGoalItemMapping", b =>
-                {
-                    b.Property<Guid>("MappingId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("GoalId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ItemId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ItemType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<Guid>("PathId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("RelevanceScore")
-                        .HasPrecision(5, 4)
-                        .HasColumnType("decimal(5,4)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("MappingId");
-
-                    b.HasIndex("GoalId");
-
-                    b.HasIndex("PathId", "ItemType", "ItemId");
-
-                    b.HasIndex("PathId", "GoalId", "ItemType", "ItemId")
-                        .IsUnique();
-
-                    b.ToTable("LearningPathGoalItemMappings");
                 });
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPathShare", b =>
@@ -2039,25 +2001,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Navigation("LearningPath");
                 });
 
-            modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPathGoalItemMapping", b =>
-                {
-                    b.HasOne("CodeNexus.Domain.Entities.Goals", "Goal")
-                        .WithMany("LearningPathGoalItemMappings")
-                        .HasForeignKey("GoalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("CodeNexus.Domain.Entities.LearningPath", "LearningPath")
-                        .WithMany("GoalItemMappings")
-                        .HasForeignKey("PathId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Goal");
-
-                    b.Navigation("LearningPath");
-                });
-
             modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPathShare", b =>
                 {
                     b.HasOne("CodeNexus.Domain.Entities.LearningPath", "AcceptedPath")
@@ -2393,8 +2336,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.Goals", b =>
                 {
-                    b.Navigation("LearningPathGoalItemMappings");
-
                     b.Navigation("LearningPathGoals");
 
                     b.Navigation("SubjectGoals");
@@ -2409,8 +2350,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("CodeNexus.Domain.Entities.LearningPath", b =>
                 {
                     b.Navigation("Chapters");
-
-                    b.Navigation("GoalItemMappings");
 
                     b.Navigation("LearningPathGoals");
 

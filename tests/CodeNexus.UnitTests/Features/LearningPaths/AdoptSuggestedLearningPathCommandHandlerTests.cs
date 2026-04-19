@@ -16,6 +16,7 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
     private readonly Mock<ITimelineCalculationService> _mockTimelineCalculationService;
     private readonly Mock<ISubscriptionAccessService> _mockSubscriptionAccessService;
     private readonly Mock<IPlanUsageLimitService> _mockPlanUsageLimitService;
+    private readonly Mock<IAIGeneratorService> _mockAiGeneratorService;
     private readonly AdoptSuggestedLearningPathCommandHandler _handler;
 
     public AdoptSuggestedLearningPathCommandHandlerTests()
@@ -25,6 +26,7 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
         _mockTimelineCalculationService = new Mock<ITimelineCalculationService>();
         _mockSubscriptionAccessService = new Mock<ISubscriptionAccessService>();
         _mockPlanUsageLimitService = new Mock<IPlanUsageLimitService>();
+        _mockAiGeneratorService = new Mock<IAIGeneratorService>();
         _mockSubscriptionAccessService.Setup(x => x.CanUsePersonalGoalsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _mockPlanUsageLimitService.Setup(x => x.CheckLearningPathCreationAllowedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -35,7 +37,8 @@ public class AdoptSuggestedLearningPathCommandHandlerTests
             _mockCurrentUserService.Object,
             _mockTimelineCalculationService.Object,
             _mockSubscriptionAccessService.Object,
-            _mockPlanUsageLimitService.Object);
+            _mockPlanUsageLimitService.Object,
+            _mockAiGeneratorService.Object);
     }
 
     [Fact]

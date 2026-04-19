@@ -113,6 +113,17 @@ public class GenerateQuizSkeletonCommandHandler : IRequestHandler<GenerateQuizSk
 
             await _context.SaveChangesAsync(cancellationToken);
 
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                lesson.Chapter.PathId,
+                lesson.Chapter.LearningPath.Language,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             return Result<GeneratedQuizSkeletonDto>.Success(new GeneratedQuizSkeletonDto(createdQuizzes));
         }
         catch (Exception ex)

@@ -184,14 +184,23 @@ public class CreateGoalCommandHandler : IRequestHandler<CreateGoalCommand, Resul
             return 0;
         }
 
-        var completedGoalIds = await _context.UserGoalProgresses
+        var completedGoalProgress = await _context.UserGoalProgresses
             .AsNoTracking()
             .Where(x => x.UserId == userId
-                        && userGoalIds.Contains(x.GoalId)
-                        && x.Status == GoalProgressStatus.Completed)
-            .Select(x => x.GoalId)
-            .Distinct()
+                        && userGoalIds.Contains(x.GoalId))
+            .GroupBy(x => x.GoalId)
+            .Select(g => new
+            {
+                GoalId = g.Key,
+                TotalProgressPercent = g.Sum(x => x.ProgressPercent),
+                HasCompletedStatus = g.Any(x => x.Status == GoalProgressStatus.Completed)
+            })
             .ToListAsync(cancellationToken);
+
+        var completedGoalIds = completedGoalProgress
+            .Where(x => x.HasCompletedStatus || x.TotalProgressPercent >= 100m)
+            .Select(x => x.GoalId)
+            .ToHashSet();
 
         return userGoalIds.Count - completedGoalIds.Count;
     }

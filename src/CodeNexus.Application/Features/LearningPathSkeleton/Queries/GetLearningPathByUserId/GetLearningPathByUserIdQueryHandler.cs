@@ -100,7 +100,11 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                             : GoalProgressStatus.NotStarted.ToString(),
                         lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId) != null
                             ? lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId)!.CompletedAt
-                            : null
+                            : null,
+                        lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId) != null
+                            ? lp.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId && ugp.UserId == request.UserId)!.ProgressPercent
+                            : 0m,
+                        g.Weight * 100m
                     )).ToList(),
                 lp.StartDate,
                 lp.EndDate,

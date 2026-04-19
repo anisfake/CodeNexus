@@ -16,6 +16,8 @@ public class UserGoalProgress
     public virtual LearningPath LearningPath { get; set; } = null!;
 
     public GoalProgressStatus Status { get; set; } = GoalProgressStatus.NotStarted;
+    // Contribution toward this goal from this learning path, in 0-100 scale.
+    public decimal ProgressPercent { get; set; } = 0m;
 
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }

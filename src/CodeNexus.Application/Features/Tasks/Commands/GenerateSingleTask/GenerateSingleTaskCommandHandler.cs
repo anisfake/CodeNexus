@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Tasks.DTOs;
 using CodeNexus.Domain.Enums;
@@ -122,6 +123,17 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 
 			await _context.Tasks.AddAsync(task, cancellationToken);
 			await _context.SaveChangesAsync(cancellationToken);
+
+			var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+				_context,
+				_aiGeneratorService,
+				chapter.PathId,
+				chapter.LearningPath.Language,
+				cancellationToken);
+			if (hasGoalItemMappingChanges)
+			{
+				await _context.SaveChangesAsync(cancellationToken);
+			}
 
 			var dto = new TaskItemDto(
 				task.TaskId,

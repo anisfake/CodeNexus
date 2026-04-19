@@ -95,6 +95,17 @@ public class GenerateSingleQuizSkeletonCommandHandler : IRequestHandler<Generate
             await _context.Quizzes.AddAsync(quiz, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                lesson.Chapter.PathId,
+                lesson.Chapter.LearningPath.Language,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+
             var dto = new QuizSkeletonDto(
                 quiz.QuizId,
                 quiz.Title,

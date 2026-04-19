@@ -18,6 +18,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<SubjectGoal> SubjectGoals { get; }
         public DbSet<LearningPath> LearningPaths { get; }
         public DbSet<LearningPathGoal> LearningPathGoals { get; }
+        public DbSet<LearningPathGoalItemMapping> LearningPathGoalItemMappings { get; }
         public DbSet<Chapter> Chapters { get; }
         public DbSet<Lesson> Lessons { get; }
         public DbSet<LearnProgress> LearnProgresses { get; }
