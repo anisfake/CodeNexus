@@ -186,10 +186,13 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     request.LanguageSelection,
                     cancellationToken);
 
-                if (chapterData == null || string.IsNullOrEmpty(chapterData.Title))
-                {
-                    return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
-                }
+                chapterData = EnsureValidChapterData(
+                    chapterData,
+                    subject.Name,
+                    learningPath.Title,
+                    i,
+                    request.ComplexityLevel,
+                    request.LanguageSelection);
 
                 var normalizedChapterTitle = NormalizeChapterTitle(
                     chapterData.Title,
@@ -1318,6 +1321,59 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             _ => orderIndex == 0
                 ? $"This chapter introduces the core foundations of {subjectName} in the learning path {learningPathTitle}."
                 : $"This chapter helps you deepen your {subjectName} skills and move closer to the goals of {learningPathTitle}."
+        };
+    }
+
+    private ChapterGenerationData EnsureValidChapterData(
+        ChapterGenerationData? source,
+        string subjectName,
+        string learningPathTitle,
+        int orderIndex,
+        ComplexityLevel complexity,
+        LanguageSelection language)
+    {
+        var lessonsPerChapter = GetLessonsPerChapter(complexity);
+        var fallbackTitle = BuildFallbackChapterCore(subjectName, orderIndex, language);
+        var fallbackContent = BuildFallbackChapterContent(subjectName, learningPathTitle, orderIndex, language);
+
+        var title = source?.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = fallbackTitle;
+        }
+
+        var content = source?.Content?.Trim();
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            content = fallbackContent;
+        }
+
+        var lessonTitles = source?.LessonTitles?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            ?? new List<string>();
+
+        if (lessonTitles.Count < lessonsPerChapter)
+        {
+            for (var idx = lessonTitles.Count; idx < lessonsPerChapter; idx++)
+            {
+                lessonTitles.Add(language == LanguageSelection.VietNamese
+                    ? $"Bài {idx + 1}: {subjectName} chuyên đề {idx + 1}"
+                    : $"Lesson {idx + 1}: {subjectName} Topic {idx + 1}");
+            }
+        }
+        else if (lessonTitles.Count > lessonsPerChapter)
+        {
+            lessonTitles = lessonTitles.Take(lessonsPerChapter).ToList();
+        }
+
+        return new ChapterGenerationData
+        {
+            Title = title,
+            Content = content,
+            LessonTitles = lessonTitles
         };
     }
 }

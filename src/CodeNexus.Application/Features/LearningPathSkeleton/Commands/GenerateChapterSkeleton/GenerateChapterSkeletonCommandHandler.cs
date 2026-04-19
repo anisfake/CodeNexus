@@ -88,10 +88,13 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
                 lessonsPerChapter,
                 chapter.LearningPath.Language);
 
-            if (chapterData == null || !chapterData.LessonTitles.Any())
-            {
-                return Result<ChapterSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
-            }
+            chapterData = EnsureValidChapterData(
+                chapterData,
+                chapter.LearningPath.Subject.Name,
+                chapter.LearningPath.Title,
+                request.OrderIndex,
+                lessonsPerChapter,
+                chapter.LearningPath.Language);
 
             var lessonSchedules = await _timelineCalculationService.CalculateLessonSchedulesAsync(
                 chapter.StartDate!.Value,
@@ -384,5 +387,49 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             .ToList();
 
         return string.Join(" | ", ordered);
+    }
+
+    private static ChapterGenerationData EnsureValidChapterData(
+        ChapterGenerationData? source,
+        string subjectName,
+        string learningPathTitle,
+        int orderIndex,
+        int lessonsPerChapter,
+        LanguageSelection language)
+    {
+        var title = source?.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = language == LanguageSelection.VietNamese
+                ? $"Chương {orderIndex + 1}: {subjectName}"
+                : $"Chapter {orderIndex + 1}: {subjectName}";
+        }
+
+        var lessonTitles = source?.LessonTitles?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            ?? new List<string>();
+
+        if (lessonTitles.Count < lessonsPerChapter)
+        {
+            for (var idx = lessonTitles.Count; idx < lessonsPerChapter; idx++)
+            {
+                lessonTitles.Add(language == LanguageSelection.VietNamese
+                    ? $"Bài {idx + 1}: {subjectName} chuyên đề {idx + 1}"
+                    : $"Lesson {idx + 1}: {subjectName} Topic {idx + 1}");
+            }
+        }
+        else if (lessonTitles.Count > lessonsPerChapter)
+        {
+            lessonTitles = lessonTitles.Take(lessonsPerChapter).ToList();
+        }
+
+        return new ChapterGenerationData
+        {
+            Title = title,
+            LessonTitles = lessonTitles
+        };
     }
 }
