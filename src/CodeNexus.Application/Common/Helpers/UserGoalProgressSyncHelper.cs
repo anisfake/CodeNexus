@@ -91,21 +91,6 @@ public static class UserGoalProgressSyncHelper
 
         var completedQuizzes = completedQuizIds.Count;
 
-        var componentRatios = new List<decimal>(2);
-        if (totalLessons > 0)
-        {
-            componentRatios.Add((decimal)completedLessons / totalLessons);
-        }
-
-        if (totalQuizzes > 0)
-        {
-            componentRatios.Add((decimal)completedQuizzes / totalQuizzes);
-        }
-
-        var pathMasteryRatio = componentRatios.Count == 0
-            ? 0m
-            : componentRatios.Average();
-
         var goalIds = learningPathGoals.Select(x => x.GoalId).ToList();
         var mappings = await context.LearningPathGoalItemMappings
             .Where(x => x.PathId == learningPathId && goalIds.Contains(x.GoalId))
@@ -137,8 +122,7 @@ public static class UserGoalProgressSyncHelper
                 lessonIds,
                 completedLessonIds,
                 quizIds,
-                completedQuizIds,
-                pathMasteryRatio);
+                completedQuizIds);
             var progressPercent = Math.Round(goalMasteryRatio * goalTargetPercent, 2);
 
             var targetStatus = progressPercent <= 0m
@@ -195,8 +179,7 @@ public static class UserGoalProgressSyncHelper
         IReadOnlyCollection<Guid> lessonIds,
         IReadOnlyCollection<Guid> completedLessonIds,
         IReadOnlyCollection<Guid> quizIds,
-        IReadOnlyCollection<Guid> completedQuizIds,
-        decimal fallbackRatio)
+        IReadOnlyCollection<Guid> completedQuizIds)
     {
         var lessonSet = lessonIds.ToHashSet();
         var completedLessonSet = completedLessonIds.ToHashSet();
@@ -209,7 +192,7 @@ public static class UserGoalProgressSyncHelper
 
         if (goalMappings.Count == 0)
         {
-            return fallbackRatio;
+            return 0m;
         }
 
         var typeRatios = new List<decimal>(2);
@@ -218,7 +201,7 @@ public static class UserGoalProgressSyncHelper
 
         if (typeRatios.Count == 0)
         {
-            return fallbackRatio;
+            return 0m;
         }
 
         var ratio = typeRatios.Average();
