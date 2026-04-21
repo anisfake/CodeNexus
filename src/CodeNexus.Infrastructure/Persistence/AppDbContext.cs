@@ -32,6 +32,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<User> Users => Set<User>();
         public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+        public DbSet<MentorRating> MentorRatings => Set<MentorRating>();
 
         public void SetAuditUserId(Guid userId) => _manualUserId = userId;
 
@@ -248,6 +249,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<User>().HasKey(e => e.UserId);
             modelBuilder.Entity<Role>().HasKey(e => e.RoleId);
             modelBuilder.Entity<UserProfile>().HasKey(e => e.ProfileId);
+            modelBuilder.Entity<MentorRating>().HasKey(e => e.RatingId);
             modelBuilder.Entity<RefreshToken>().HasKey(e => e.TokenId);
             modelBuilder.Entity<AuditLog>().HasKey(e => e.LogId);
             modelBuilder.Entity<Notification>().HasKey(e => e.NotificationId);
@@ -311,6 +313,30 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithOne(p => p.User)
                       .HasForeignKey<UserProfile>(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<MentorRating>(entity =>
+            {
+                entity.Property(e => e.Score)
+                      .IsRequired();
+
+                entity.Property(e => e.Comment)
+                      .HasMaxLength(1000);
+
+                entity.HasIndex(e => new { e.MentorId, e.StudentId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.MentorId, e.CreatedAt });
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany(u => u.MentorRatingsReceived)
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany(u => u.MentorRatingsGiven)
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<Tasks>(entity =>
