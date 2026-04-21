@@ -74,6 +74,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
             for (int i = 0; i < validTasks.Count; i++)
             {
                 var t = validTasks[i];
+                var parsedTaskType = ParseTaskType(t.TaskType);
                 var task = new Domain.Entities.Tasks
                 {
                     TaskId = NewId.NextGuid(),
@@ -85,12 +86,10 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                     Priority = ParsePriority(t.Priority),
                     Status = TaskStatus_.Pending,
                     CreatedAt = DateTime.UtcNow,
-                    TaskType = ParseTaskType(t.TaskType),
+                    TaskType = parsedTaskType,
                     VerificationPrompt = t.VerificationPrompt,
                     MinimumScore = t.MinimumScore ?? 70,
-                    QuizQuestionsJson = ParseTaskType(t.TaskType) == TaskType.Quizz && t.QuizQuestions != null && t.QuizQuestions.Any()
-                        ? System.Text.Json.JsonSerializer.Serialize(t.QuizQuestions)
-                        : null
+                    QuizQuestionsJson = null
                 };
 
                 await _context.Tasks.AddAsync(task, cancellationToken);
@@ -169,7 +168,6 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
         return taskType?.ToLowerInvariant() switch
         {
             "theory" => TaskType.Theory,
-            "quizz" or "quiz" or "mixed" => TaskType.Quizz,
             _ => TaskType.Practice
         };
     }
@@ -292,7 +290,6 @@ Instead, focus on USING the technology after it's already installed.
 1. ONLY generate tasks about LEARNING CONTENT from the lessons:
    - Practice tasks: Write code, solve problems, build features, implement algorithms
    - Theory tasks: Understand concepts, explain principles, analyze patterns
-   - Quiz tasks: Test knowledge with specific questions about lesson content
 
 2. ABSOLUTELY FORBIDDEN - DO NOT generate tasks about:
    - Installing software (""Install .NET SDK"", ""Setup IDE"", ""Download tools"")
@@ -321,16 +318,11 @@ Instead, focus on USING the technology after it's already installed.
 5. For Theory tasks (TaskType: ""Theory""):
    - VerificationPrompt: describe what to summarize
 
-6. For Quiz tasks (TaskType: ""Quizz""):
-   - Include 3-5 questions in quizQuestions array
-   - Questions should test comprehensive understanding of lesson concepts
-   - Each question needs 4 options with correctAnswer index (0-3)
-   - Focus on practical application and deeper understanding
-
-7. Task Quality Requirements:
+6. Task Quality Requirements:
    - Title: Specific and actionable (not vague like ""Learn basics"")
    - Description: Clear instructions on what to do
    - Priority: High (core concepts), Medium (important), Low (optional practice)
+   - taskType MUST be either ""Practice"" or ""Theory"" (never quiz)
    - Generate EXACTLY {taskCount} tasks (no more, no less)
    - Distribute tasks evenly across lessons (don't focus on just one lesson)
    - Write in the same language as the chapter title
@@ -365,33 +357,9 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""verificationPrompt"": ""Check if the summary covers time complexity, space complexity, and practical use cases for each algorithm mentioned."",
       ""minimumScore"": 70,
       ""quizQuestions"": null
-    }},
-    {{
-      ""title"": ""Comprehensive algorithm knowledge test"",
-      ""description"": ""Complete quiz covering all algorithm concepts from this chapter including implementation details and performance analysis."",
-      ""priority"": ""High"",
-      ""taskType"": ""Quizz"",
-      ""verificationPrompt"": null,
-      ""minimumScore"": 80,
-      ""quizQuestions"": [
-        {{
-          ""question"": ""What is the space complexity of merge sort?"",
-          ""options"": [""O(1)"", ""O(log n)"", ""O(n)"", ""O(n²)""],
-          ""correctAnswer"": 2
-        }},
-        {{
-          ""question"": ""Which algorithm is most suitable for nearly sorted arrays?"",
-          ""options"": [""Quick sort"", ""Merge sort"", ""Insertion sort"", ""Heap sort""],
-          ""correctAnswer"": 2
-        }},
-        {{
-          ""question"": ""What is the worst-case time complexity of quick sort?"",
-          ""options"": [""O(n log n)"", ""O(n²)"", ""O(n)"", ""O(log n)""],
-          ""correctAnswer"": 1
-        }}
-      ]
     }}
   ]
 }}";
     }
 }
+

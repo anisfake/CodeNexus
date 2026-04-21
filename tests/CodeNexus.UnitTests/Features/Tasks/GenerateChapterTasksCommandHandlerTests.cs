@@ -364,7 +364,7 @@ public class GenerateChapterTasksCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ValidTasksWithQuiz_SavesQuizQuestionsAsJson()
+    public async Task Handle_ValidTasksWithoutQuiz_SavesSuccessfully()
     {
         // Arrange
         var userId = NewId.NextGuid();
@@ -374,21 +374,14 @@ public class GenerateChapterTasksCommandHandlerTests
 
         var generated = new GeneratedTasksDto(new List<GeneratedTaskItemDto>
         {
-            new("Hiểu về OOP", 
-                "Tìm hiểu 4 nguyên lý cơ bản của lập trình hướng đối tượng.", 
+            new(
+                "Understand OOP principles",
+                "Summarize the 4 core OOP principles with practical examples.",
                 "High",
                 "Theory",
-                null,
+                "Check if learner explains encapsulation, inheritance, polymorphism, and abstraction correctly.",
                 70,
-                new List<QuizQuestionDto>
-                {
-                    new("Encapsulation là gì?", 
-                        new List<string> { "Đóng gói dữ liệu", "Kế thừa", "Đa hình", "Trừu tượng" }, 
-                        0),
-                    new("Nguyên lý nào cho phép tái sử dụng code?", 
-                        new List<string> { "Encapsulation", "Inheritance", "Polymorphism", "Abstraction" }, 
-                        1)
-                })
+                null)
         });
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
@@ -466,3 +459,4 @@ public class GenerateChapterTasksCommandHandlerTests
         return chapter;
     }
 }
+

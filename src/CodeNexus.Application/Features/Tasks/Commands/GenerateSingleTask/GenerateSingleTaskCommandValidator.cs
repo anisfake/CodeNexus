@@ -12,8 +12,8 @@ public class GenerateSingleTaskCommandValidator : AbstractValidator<GenerateSing
             .WithErrorCode("CHAPTER_ID_REQUIRED");
 
         RuleFor(x => x.TaskType)
-            .IsInEnum()
-            .WithMessage("Task type is invalid")
+            .Must(taskType => taskType is Domain.Enums.TaskType.Practice or Domain.Enums.TaskType.Theory)
+            .WithMessage("Task type must be Practice or Theory")
             .WithErrorCode("TASK_TYPE_INVALID");
 
         RuleFor(x => x.Title)

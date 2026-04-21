@@ -53,6 +53,16 @@ namespace CodeNexus.Application.Features.Goals.Commands.UpdateGoal
                 return Result<GoalDto>.Failure("CANNOT_UPDATE_SYSTEM_GOAL", "Cannot edit system goal");
             }
 
+            var goalInLearningPath = await _context.LearningPathGoals
+                .AnyAsync(lpg => lpg.GoalId == request.GoalId, cancellationToken);
+
+            if (goalInLearningPath)
+            {
+                return Result<GoalDto>.Failure(
+                    "GOAL_IN_USE",
+                    "The specified goal is currently in use in a learning path and cannot be updated.");
+            }
+
             var normalizedTitle = request.Title.Trim();
             var normalizedDescription = request.Description?.Trim();
 
