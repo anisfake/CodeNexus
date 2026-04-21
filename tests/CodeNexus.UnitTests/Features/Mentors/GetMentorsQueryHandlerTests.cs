@@ -115,4 +115,69 @@ public class GetMentorsQueryHandlerTests
         var mentorB = result.Value.Items.First(x => x.MentorId == mentorBId);
         mentorB.Specializations.Should().Contain("Cloud");
     }
+
+    [Fact]
+    public async Task Handle_WithSubjectCategoryAndSubjectNameFilter_ShouldReturnMatchedMentorsOnly()
+    {
+        var currentUserId = NewId.NextGuid();
+        var mentorAId = NewId.NextGuid();
+        var mentorBId = NewId.NextGuid();
+        var subjectAId = NewId.NextGuid();
+        var subjectBId = NewId.NextGuid();
+
+        var users = new List<User>
+        {
+            new()
+            {
+                UserId = currentUserId,
+                Username = "student",
+                Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Student" }
+            },
+            new()
+            {
+                UserId = mentorAId,
+                Username = "mentor-a",
+                Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" }
+            },
+            new()
+            {
+                UserId = mentorBId,
+                Username = "mentor-b",
+                Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" }
+            }
+        };
+
+        var subjects = new List<Subject>
+        {
+            new()
+            {
+                SubjectId = subjectAId,
+                CreatedByUserId = mentorAId,
+                Name = "ASP.NET Core",
+                Category = SubjectCategory.Backend
+            },
+            new()
+            {
+                SubjectId = subjectBId,
+                CreatedByUserId = mentorBId,
+                Name = "React",
+                Category = SubjectCategory.Frontend
+            }
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(currentUserId);
+        _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.MentorRatings).Returns(new List<MentorRating>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Subjects).Returns(subjects.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(
+            new GetMentorsQuery(1, 10, null, SubjectCategory.Backend, "asp"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Items.Should().HaveCount(1);
+        result.Value.Items[0].MentorId.Should().Be(mentorAId);
+    }
 }

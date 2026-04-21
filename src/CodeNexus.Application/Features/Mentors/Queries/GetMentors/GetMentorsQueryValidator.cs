@@ -16,5 +16,10 @@ public class GetMentorsQueryValidator : AbstractValidator<GetMentorsQuery>
             .LessThanOrEqualTo(50)
             .WithErrorCode("INVALID_PAGE_SIZE")
             .WithMessage("PageSize must be between 1 and 50.");
+
+        RuleFor(x => x.SubjectName)
+            .MaximumLength(120)
+            .WithErrorCode("INVALID_SUBJECT_NAME")
+            .WithMessage("SubjectName must be at most 120 characters.");
     }
 }

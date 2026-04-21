@@ -29,7 +29,9 @@ public class MentorController : ControllerBase
         var query = new GetMentorsQuery(
             request.PageNumber,
             request.PageSize,
-            request.SearchTerm);
+            request.SearchTerm,
+            request.SubjectCategory,
+            request.SubjectName);
 
         var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);

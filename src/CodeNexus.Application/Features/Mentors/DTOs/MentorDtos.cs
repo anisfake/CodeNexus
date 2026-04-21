@@ -1,9 +1,13 @@
+using CodeNexus.Domain.Enums;
+
 namespace CodeNexus.Application.Features.Mentors.DTOs;
 
 public record GetMentorsRequest(
     int PageNumber = 1,
     int PageSize = 12,
-    string? SearchTerm = null);
+    string? SearchTerm = null,
+    SubjectCategory? SubjectCategory = null,
+    string? SubjectName = null);
 
 public record MentorListItemDto(
     Guid MentorId,
