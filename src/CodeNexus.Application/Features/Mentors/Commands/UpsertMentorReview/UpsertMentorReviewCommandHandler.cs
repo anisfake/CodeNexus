@@ -2,6 +2,7 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Mentors.DTOs;
 using CodeNexus.Domain.Entities;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -59,12 +60,28 @@ public class UpsertMentorReviewCommandHandler : IRequestHandler<UpsertMentorRevi
             return Result<UpsertMentorReviewResponseDto>.Failure("MENTOR_NOT_FOUND", "Mentor not found.");
         }
 
-        var hasInteraction = await _context.DirectConversations
+        var hasDirectMessageInteraction = await _context.DirectConversations
             .AsNoTracking()
-            .AnyAsync(c => c.MentorId == request.MentorId && c.StudentId == studentId, cancellationToken)
-            || await _context.LearningPathShares
+            .Where(c =>
+                c.MentorId == request.MentorId &&
+                c.StudentId == studentId &&
+                c.ConversationType == ChatConversationType.Direct)
+            .Join(
+                _context.DirectMessages.AsNoTracking(),
+                c => c.ConversationId,
+                m => m.ConversationId,
+                (_, m) => m.MessageId)
+            .AnyAsync(cancellationToken);
+
+        var hasAcceptedShare = await _context.LearningPathShares
                 .AsNoTracking()
-                .AnyAsync(s => s.MentorId == request.MentorId && s.StudentId == studentId, cancellationToken);
+                .AnyAsync(
+                    s => s.MentorId == request.MentorId &&
+                         s.StudentId == studentId &&
+                         s.Status == LearningPathShareStatus.Accepted,
+                    cancellationToken);
+
+        var hasInteraction = hasDirectMessageInteraction || hasAcceptedShare;
 
         if (!hasInteraction)
         {
