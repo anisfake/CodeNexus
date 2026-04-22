@@ -1,13 +1,9 @@
-﻿using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Users.DTOs;
+using CodeNexus.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
 {
@@ -26,14 +22,29 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
             _currentUserService = currentUserService;
             _achievementService = achievementService;
         }
+
         public async Task<Result<UserProfileRespone>> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
         {
             var userId = _currentUserService.GetUserId();
-            var user = await _context.Users.Include(u => u.UserProfile).FirstOrDefaultAsync(u => u.UserId == userId);
+            var user = await _context.Users
+                .Include(u => u.UserProfile)
+                .FirstOrDefaultAsync(u => u.UserId == userId, cancellationToken);
 
             if (user == null)
             {
                 return Result<UserProfileRespone>.Failure("USER_NOT_FOUND", "User not found.");
+            }
+
+            // Some legacy mentor accounts may not have UserProfile row yet.
+            if (user.UserProfile == null)
+            {
+                user.UserProfile = new UserProfile
+                {
+                    UserId = user.UserId,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                _context.UserProfiles.Add(user.UserProfile);
             }
 
             user.FirstName = request.FirstName ?? user.FirstName;
@@ -43,14 +54,15 @@ namespace CodeNexus.Application.Features.Users.Commands.UpdateProfile
             user.UserProfile.Phone = request.Phone ?? user.UserProfile.Phone;
             user.UserProfile.Address = request.Address ?? user.UserProfile.Address;
             user.UserProfile.DailyReminderTime = request.DailyReminderTime ?? user.UserProfile.DailyReminderTime;
+            user.UserProfile.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 
             var isProfileComplete = !string.IsNullOrEmpty(user.FirstName) &&
-                                   !string.IsNullOrEmpty(user.LastName) &&
-                                   !string.IsNullOrEmpty(user.UserProfile.Bio) &&
-                                   user.UserProfile.DateOfBirth.HasValue &&
-                                   !string.IsNullOrEmpty(user.UserProfile.Phone);
+                                    !string.IsNullOrEmpty(user.LastName) &&
+                                    !string.IsNullOrEmpty(user.UserProfile.Bio) &&
+                                    user.UserProfile.DateOfBirth.HasValue &&
+                                    !string.IsNullOrEmpty(user.UserProfile.Phone);
 
             if (isProfileComplete)
             {

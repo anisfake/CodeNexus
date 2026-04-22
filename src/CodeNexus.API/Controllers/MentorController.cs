@@ -3,6 +3,7 @@ using CodeNexus.Application.Features.Mentors.Commands.UpsertMentorReview;
 using CodeNexus.Application.Features.Mentors.DTOs;
 using CodeNexus.Application.Features.Mentors.Queries.GetMentorProfile;
 using CodeNexus.Application.Features.Mentors.Queries.GetMentors;
+using CodeNexus.Application.Features.Mentors.Queries.GetMyMentorReviews;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -45,6 +46,20 @@ public class MentorController : ControllerBase
     public async Task<IActionResult> GetMentorProfile(Guid mentorId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetMentorProfileQuery(mentorId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("me/reviews")]
+    [Authorize(Roles = "Mentor")]
+    [ProducesResponseType(typeof(MentorReviewListResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMyReviews(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetMyMentorReviewsQuery(pageNumber, pageSize), cancellationToken);
         return ToActionResult(result);
     }
 

@@ -107,8 +107,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 				CreatedAt = DateTime.UtcNow,
 				TaskType = request.TaskType,
 				VerificationPrompt = generatedTask.VerificationPrompt,
-				MinimumScore = generatedTask.MinimumScore ?? 70,
-				QuizQuestionsJson = null
+				MinimumScore = generatedTask.MinimumScore ?? 70
 			};
 
 			await _context.Tasks.AddAsync(task, cancellationToken);
@@ -132,8 +131,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 				task.DueDate,
 				task.TaskType,
 				task.Priority,
-				task.Status,
-				task.QuizQuestionsJson
+				task.Status
 			);
 
 			return Result<TaskItemDto>.Success(dto);
@@ -288,8 +286,7 @@ Return ONLY valid JSON:
       "priority": "High|Medium|Low",
       "taskType": "{{taskTypeLabel}}",
       "verificationPrompt": "...",
-      "minimumScore": 70,
-      "quizQuestions": null
+      "minimumScore": 70
     }
   ]
 }

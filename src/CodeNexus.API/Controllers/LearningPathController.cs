@@ -21,6 +21,7 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningP
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPathDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestionPreview;
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
@@ -289,6 +290,24 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("suggestions/{suggestedPathId:guid}/preview")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> PreviewSuggestedLearningPath(
+        Guid suggestedPathId,
+        [FromBody] AdoptSuggestedLearningPathRequest request,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathSuggestionPreviewQuery(
+            suggestedPathId,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection);
+
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpGet]
     [Authorize]
     [Authorize(Roles = "Mentor")]
@@ -433,8 +452,9 @@ public class LearningPathController : ControllerBase
         {
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "SHARE_ALREADY_PENDING" or "PATH_NOT_IN_DRAFT_STATUS" or "ALREADY_ENROLLED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "LEARNING_PATH_NOT_PUBLISHED" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "SUGGESTION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

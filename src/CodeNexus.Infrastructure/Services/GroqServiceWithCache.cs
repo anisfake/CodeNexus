@@ -47,6 +47,7 @@ public class GroqServiceWithCache : IAIGeneratorService
         IEnumerable<IAIProviderAdapter>? providerAdapters = null)
     {
         _httpClient = httpClient;
+        _httpClient.Timeout = Timeout.InfiniteTimeSpan;
         _context = context;
         _cacheService = cacheService;
         _encryptionService = encryptionService;

@@ -298,7 +298,6 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
                     TaskType = sourceTask.TaskType,
                     VerificationPrompt = sourceTask.VerificationPrompt,
                     MinimumScore = sourceTask.MinimumScore,
-                    QuizQuestionsJson = sourceTask.QuizQuestionsJson,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -310,8 +309,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
                     newTask.TaskType,
                     newTask.Priority,
                     TaskStatus_.Pending,
-                    newTask.DueDate,
-                    newTask.QuizQuestionsJson));
+                    newTask.DueDate));
                 taskIndex++;
             }
 

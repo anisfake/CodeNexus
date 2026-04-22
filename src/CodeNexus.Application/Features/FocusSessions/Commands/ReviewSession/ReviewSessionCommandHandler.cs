@@ -98,7 +98,7 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
                 verificationResult = await _verificationService.VerifyQuizSubmissionAsync(
                     session.Task.Title,
                     session.Task.Description ?? "",
-                    session.Task.QuizQuestionsJson!,
+                    session.Task.VerificationPrompt ?? session.Task.Description ?? "[]",
                     request.SubmittedQuizAnswers!);
             }
         }

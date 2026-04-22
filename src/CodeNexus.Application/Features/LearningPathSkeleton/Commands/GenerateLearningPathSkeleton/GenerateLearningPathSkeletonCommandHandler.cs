@@ -365,8 +365,36 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         }
         catch (Exception ex)
         {
+            if (IsTimeoutException(ex))
+            {
+                return Result<CreateLearningPathResponse>.Failure(
+                    "GENERATION_TIMEOUT",
+                    "Learning path generation timed out. Please retry or reduce goal scope.");
+            }
+
             return Result<CreateLearningPathResponse>.Failure("GENERATION_FAILED", "Failed to generate data.");
         }
+    }
+
+    private static bool IsTimeoutException(Exception ex)
+    {
+        if (ex is TimeoutException || ex is TaskCanceledException || ex is OperationCanceledException)
+        {
+            return true;
+        }
+
+        var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
+        if (message.Contains("timeout") || message.Contains("timed out") || message.Contains("task was canceled"))
+        {
+            return true;
+        }
+
+        if (ex.InnerException is not null)
+        {
+            return IsTimeoutException(ex.InnerException);
+        }
+
+        return false;
     }
 
     private async Task<ChapterGenerationData?> GenerateChapterFromAI(

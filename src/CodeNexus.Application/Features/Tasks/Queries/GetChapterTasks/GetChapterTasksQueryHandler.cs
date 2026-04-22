@@ -43,8 +43,7 @@ public class GetChapterTasksQueryHandler : IRequestHandler<GetChapterTasksQuery,
                 t.DueDate,
                 t.TaskType,
                 t.Priority,
-                t.Status,
-                t.QuizQuestionsJson
+                t.Status
             )).ToList()
         );
 

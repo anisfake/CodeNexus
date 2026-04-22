@@ -147,7 +147,6 @@ public class GetLearningPathByUserIdQueryHandler : IRequestHandler<GetLearningPa
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson,
                         t.Status.ToString()
                     )).ToList()
                 )).ToList(),

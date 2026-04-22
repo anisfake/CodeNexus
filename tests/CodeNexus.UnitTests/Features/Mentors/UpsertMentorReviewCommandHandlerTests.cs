@@ -77,10 +77,24 @@ public class UpsertMentorReviewCommandHandlerTests
             }
         };
 
+        var directMessages = new List<DirectMessage>
+        {
+            new()
+            {
+                MessageId = NewId.NextGuid(),
+                ConversationId = directConversations[0].ConversationId,
+                SenderId = studentId,
+                Content = "Hello mentor",
+                MessageType = DirectMessageType.Text,
+                SentAt = DateTime.UtcNow.AddDays(-2)
+            }
+        };
+
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.MentorRatings).Returns(mentorRatings.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(directConversations.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(directMessages.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -123,6 +137,55 @@ public class UpsertMentorReviewCommandHandlerTests
         _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.MentorRatings).Returns(new List<MentorRating>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.DirectConversations).Returns(new List<DirectConversation>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(new List<DirectMessage>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
+
+        var result = await _handler.Handle(
+            new UpsertMentorReviewCommand(mentorId, 5, "Great mentor"),
+            CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("MENTOR_INTERACTION_REQUIRED");
+    }
+
+    [Fact]
+    public async Task Handle_WhenOnlyConversationWithoutMessages_ShouldReturnFailure()
+    {
+        var mentorId = NewId.NextGuid();
+        var studentId = NewId.NextGuid();
+
+        var users = new List<User>
+        {
+            new()
+            {
+                UserId = studentId,
+                Username = "student-1",
+                Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Student" }
+            },
+            new()
+            {
+                UserId = mentorId,
+                Username = "mentor-1",
+                Role = new Role { RoleId = NewId.NextGuid(), RoleName = "Mentor" }
+            }
+        };
+
+        var directConversations = new List<DirectConversation>
+        {
+            new()
+            {
+                ConversationId = NewId.NextGuid(),
+                MentorId = mentorId,
+                StudentId = studentId,
+                ConversationType = ChatConversationType.Direct
+            }
+        };
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
+        _mockContext.Setup(x => x.Users).Returns(users.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.MentorRatings).Returns(new List<MentorRating>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectConversations).Returns(directConversations.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.DirectMessages).Returns(new List<DirectMessage>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathShares).Returns(new List<LearningPathShare>().BuildMockDbSet().Object);
 
         var result = await _handler.Handle(

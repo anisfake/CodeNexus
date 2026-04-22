@@ -1518,9 +1518,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("Priority")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("QuizQuestionsJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

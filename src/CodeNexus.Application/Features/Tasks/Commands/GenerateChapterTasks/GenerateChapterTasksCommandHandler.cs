@@ -88,8 +88,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                     CreatedAt = DateTime.UtcNow,
                     TaskType = parsedTaskType,
                     VerificationPrompt = t.VerificationPrompt,
-                    MinimumScore = t.MinimumScore ?? 70,
-                    QuizQuestionsJson = null
+                    MinimumScore = t.MinimumScore ?? 70
                 };
 
                 await _context.Tasks.AddAsync(task, cancellationToken);
@@ -131,8 +130,7 @@ public class GenerateChapterTasksCommandHandler : IRequestHandler<GenerateChapte
                 t.DueDate,
                 t.TaskType,
                 t.Priority,
-                t.Status,
-                t.QuizQuestionsJson
+                t.Status
             ))
             .ToList();
 
@@ -337,8 +335,7 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""priority"": ""High"",
       ""taskType"": ""Practice"",
       ""verificationPrompt"": ""Verify the code correctly implements bubble sort with proper comparisons and swaps. Check for correct time complexity understanding."",
-      ""minimumScore"": 70,
-      ""quizQuestions"": null
+      ""minimumScore"": 70
     }},
     {{
       ""title"": ""Build a simple calculator function"",
@@ -346,8 +343,7 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""priority"": ""Medium"",
       ""taskType"": ""Practice"",
       ""verificationPrompt"": ""Check if the function handles all four operations correctly, includes error handling for division by zero, and has proper input validation."",
-      ""minimumScore"": 70,
-      ""quizQuestions"": null
+      ""minimumScore"": 70
     }},
     {{
       ""title"": ""Understanding sorting algorithms complexity"",
@@ -355,8 +351,7 @@ Return ONLY valid JSON (no markdown, no extra text):
       ""priority"": ""Medium"",
       ""taskType"": ""Theory"",
       ""verificationPrompt"": ""Check if the summary covers time complexity, space complexity, and practical use cases for each algorithm mentioned."",
-      ""minimumScore"": 70,
-      ""quizQuestions"": null
+      ""minimumScore"": 70
     }}
   ]
 }}";

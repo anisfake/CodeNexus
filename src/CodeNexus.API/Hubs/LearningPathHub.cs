@@ -1,6 +1,7 @@
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestionPreview;
 using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -143,6 +144,67 @@ public class LearningPathHub : Hub
         catch (Exception ex)
         {
             await Clients.Caller.SendAsync("LearningPathSuggestionsError", new
+            {
+                ErrorCode = "UNEXPECTED_ERROR",
+                ErrorMessage = ex.Message
+            });
+        }
+    }
+
+    public async Task RequestLearningPathSuggestionPreview(
+        Guid suggestedPathId,
+        Guid subjectId,
+        List<CodeNexus.Application.Features.LearningPaths.DTOs.LearningPathGoalRequest> goals,
+        string complexityLevel,
+        string languageSelection)
+    {
+        try
+        {
+            await Clients.Caller.SendAsync("LearningPathSuggestionPreviewStarted");
+
+            if (!Enum.TryParse<Domain.Enums.ComplexityLevel>(complexityLevel, out var complexity))
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionPreviewError", new
+                {
+                    ErrorCode = "INVALID_COMPLEXITY",
+                    ErrorMessage = "Invalid complexity level"
+                });
+                return;
+            }
+
+            if (!Enum.TryParse<Domain.Enums.LanguageSelection>(languageSelection, out var language))
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionPreviewError", new
+                {
+                    ErrorCode = "INVALID_LANGUAGE",
+                    ErrorMessage = "Invalid language selection"
+                });
+                return;
+            }
+
+            var query = new GetLearningPathSuggestionPreviewQuery(
+                suggestedPathId,
+                subjectId,
+                goals,
+                complexity,
+                language);
+
+            var result = await _sender.Send(query);
+            if (!result.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("LearningPathSuggestionPreviewError", new
+                {
+                    result.ErrorCode,
+                    result.ErrorMessage
+                });
+                return;
+            }
+
+            await Clients.Caller.SendAsync("LearningPathSuggestionPreviewLoaded", result.Value);
+        }
+        catch (Exception ex)
+        {
+            await Clients.Caller.SendAsync("LearningPathSuggestionPreviewError", new
             {
                 ErrorCode = "UNEXPECTED_ERROR",
                 ErrorMessage = ex.Message

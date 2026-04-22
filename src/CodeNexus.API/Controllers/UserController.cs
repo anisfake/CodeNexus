@@ -6,6 +6,7 @@ using CodeNexus.Application.Features.Users.Commands.UpdateProfile;
 using CodeNexus.Application.Features.Users.Commands.UploadAvatar;
 using CodeNexus.Application.Features.Users.Commands.BanUser;
 using CodeNexus.Application.Features.Users.Commands.UnbanUser;
+using CodeNexus.Application.Features.Users.Commands.CreateMentorAccount;
 using CodeNexus.Application.Features.Users.DTOs;
 using CodeNexus.Application.Features.Users.Queries.GetMyProfile;
 using CodeNexus.Application.Features.Users.Queries.GetAllUsers;
@@ -113,6 +114,36 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("mentors")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(typeof(CreateMentorAccountResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateMentorAccount(
+        [FromBody] CreateMentorAccountRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var command = new CreateMentorAccountCommand(
+            request.Email,
+            request.Username,
+            request.FirstName,
+            request.LastName,
+            request.Bio,
+            request.Phone,
+            request.Address,
+            request.DateOfBirth,
+            request.SendSetupEmail);
+
+        var result = await _sender.Send(command, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return ToActionResult(result);
+        }
+
+        return CreatedAtAction(nameof(GetUserById), new { userId = result.Value!.UserId }, result.Value);
+    }
+
     [HttpPost("/api/users/me/avatar")]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -198,7 +229,10 @@ public class UserController : ControllerBase
 
         return result.ErrorCode switch
         {
-            "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
+            "EMAIL_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "USERNAME_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "ROLE_NOT_FOUND" => BadRequest(new { result.ErrorCode, result.ErrorMessage }),
+            "UNAUTHORIZED" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "USER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })

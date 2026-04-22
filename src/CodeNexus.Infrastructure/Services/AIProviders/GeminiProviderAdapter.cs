@@ -11,6 +11,7 @@ public class GeminiProviderAdapter : IAIProviderAdapter
     public GeminiProviderAdapter(HttpClient httpClient)
     {
         _httpClient = httpClient;
+        _httpClient.Timeout = Timeout.InfiniteTimeSpan;
     }
 
     public bool CanHandle(string providerName)

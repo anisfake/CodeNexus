@@ -1,3 +1,4 @@
+using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Mentors.DTOs;
@@ -12,6 +13,7 @@ public record GetMentorsRequest(
 public record MentorListItemDto(
     Guid MentorId,
     string Username,
+    string Email,
     string? FirstName,
     string? LastName,
     string? FullName,
@@ -34,6 +36,7 @@ public record MentorReviewDto(
 public record MentorProfileDto(
     Guid MentorId,
     string Username,
+    string Email,
     string? FirstName,
     string? LastName,
     string? FullName,
@@ -59,3 +62,8 @@ public record UpsertMentorReviewResponseDto(
     DateTime? UpdatedAt,
     double AverageRating,
     int TotalReviews);
+
+public record MentorReviewListResponseDto(
+    double AverageRating,
+    int TotalReviews,
+    PaginationDto<MentorReviewDto> Reviews);

@@ -9,8 +9,7 @@ public record TaskItemDto(
     DateTime? DueDate,
     TaskType TaskType,
     TaskPriority? Priority,
-    TaskStatus_ TaskStatus,
-    string? QuizQuestionsJson
+    TaskStatus_ TaskStatus
 );
 
 public record ChapterTasksDto(
