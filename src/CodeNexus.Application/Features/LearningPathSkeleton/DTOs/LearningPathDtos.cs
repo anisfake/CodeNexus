@@ -192,6 +192,12 @@ public record LearningPathSuggestionDto(
     int? ChapterCount
 );
 
+public record LearningPathSuggestionPreviewDto(
+    Guid PathId,
+    decimal Score,
+    LearningPathResponse LearningPath
+);
+
 public record LearningPathResponse(
     Guid PathId,
     Guid SubjectId,
