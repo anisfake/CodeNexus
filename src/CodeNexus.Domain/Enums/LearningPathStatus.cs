@@ -6,5 +6,6 @@ public enum LearningPathStatus
     InProgress = 1,
     Completed = 2,
     Draft = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    Published = 5
 }

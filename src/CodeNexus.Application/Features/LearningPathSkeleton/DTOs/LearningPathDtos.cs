@@ -295,3 +295,95 @@ public record GetMyLearningPathDraftsRequest(
     Guid? SubjectId = null,
     bool SortDescending = true
 );
+
+public record PublishMentorLearningPathRequest(
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType,
+    Guid SubjectId,
+    List<LearningPathGoalRequest> Goals,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection,
+    string Title,
+    string? Description,
+    DateTime StartDate,
+    DateTime EndDate,
+    List<ManualChapterRequest> Chapters
+);
+
+public record GetPublishedLearningPathsRequest(
+    int PageNumber = 1,
+    int PageSize = 10,
+    string? SearchTerm = null,
+    Guid? SubjectId = null,
+    ComplexityLevel? ComplexityLevel = null,
+    bool SortDescending = true
+);
+
+public record PublishedLearningPathSummaryDto(
+    Guid PathId,
+    string Title,
+    string? Description,
+    Guid SubjectId,
+    string SubjectName,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection Language,
+    decimal VersionNumber,
+    Guid MentorId,
+    string MentorName,
+    int ChapterCount,
+    int LessonCount,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsEnrolled
+);
+
+public record EnrollmentResponseDto(
+    Guid ShareId,
+    Guid EnrolledPathId,
+    decimal VersionNumber
+);
+
+// Preview DTOs – chapter/lesson frame only, no lesson content / task details / quiz questions
+public record LessonPreviewDto(
+    Guid LessonId,
+    string Title,
+    DateTime LessonDay,
+    int QuizCount
+);
+
+public record TaskPreviewDto(
+    Guid TaskId,
+    string Title,
+    TaskType TaskType,
+    TaskPriority? Priority,
+    DateTime? DueDate
+);
+
+public record ChapterPreviewDto(
+    Guid ChapterId,
+    string Title,
+    string? Content,
+    int OrderIndex,
+    List<LessonPreviewDto> Lessons,
+    List<TaskPreviewDto> Tasks
+);
+
+public record PublishedLearningPathPreviewDto(
+    Guid PathId,
+    string Title,
+    string? Description,
+    Guid SubjectId,
+    string SubjectName,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection Language,
+    decimal VersionNumber,
+    Guid MentorId,
+    string MentorName,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    List<LearningPathGoalDto> Goals,
+    List<ChapterPreviewDto> Chapters,
+    int TotalChapters,
+    int TotalLessons,
+    bool IsEnrolled
+);

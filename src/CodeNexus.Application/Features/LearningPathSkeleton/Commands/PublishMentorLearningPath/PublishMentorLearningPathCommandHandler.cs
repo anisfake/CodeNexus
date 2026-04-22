@@ -11,15 +11,15 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using GoalEntity = CodeNexus.Domain.Entities.Goals;
 
-namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
+namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.PublishMentorLearningPath;
 
-public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<UpdateMentorLearningPathDraftCommand, Result<CreateLearningPathResponse>>
+public class PublishMentorLearningPathCommandHandler : IRequestHandler<PublishMentorLearningPathCommand, Result<CreateLearningPathResponse>>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly IPublisher _publisher;
 
-    public UpdateMentorLearningPathDraftCommandHandler(
+    public PublishMentorLearningPathCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         IPublisher publisher)
@@ -29,7 +29,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         _publisher = publisher;
     }
 
-    public async Task<Result<CreateLearningPathResponse>> Handle(UpdateMentorLearningPathDraftCommand request, CancellationToken cancellationToken)
+    public async Task<Result<CreateLearningPathResponse>> Handle(PublishMentorLearningPathCommand request, CancellationToken cancellationToken)
     {
         Guid mentorId;
         try
@@ -75,12 +75,9 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             return Result<CreateLearningPathResponse>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
-        var isRevertingFromPublished = string.Equals(learningPath.Status, LearningPathStatus.Published.ToString(), StringComparison.OrdinalIgnoreCase);
-
-        if (!string.Equals(learningPath.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase)
-            && !isRevertingFromPublished)
+        if (!string.Equals(learningPath.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
         {
-            return Result<CreateLearningPathResponse>.Failure("INVALID_STATUS", "Invalid status for this operation.");
+            return Result<CreateLearningPathResponse>.Failure("PATH_NOT_IN_DRAFT_STATUS", "Learning path must be in Draft status to publish.");
         }
 
         var subject = await _context.Subjects
@@ -130,41 +127,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         var normalizedChapters = NormalizeManualChapters(request.Chapters);
 
-        if (!request.IncreaseVersion && !isRevertingFromPublished && IsNoDraftChange(request, normalizedChapters, learningPath, goalsWithWeights))
-        {
-            var currentChapterDtos = BuildChapterDtosFromCurrent(learningPath);
-            var currentGoalDtos = goalsWithWeights
-                .Select(g => new LearningPathGoalDto(
-                    g.Goal.GoalId,
-                    g.Goal.Title,
-                    g.Weight,
-                    g.Goal.DurationInDays,
-                    "NotStarted",
-                    null,
-                    0m,
-                    g.Weight * 100m))
-                .ToList();
-
-            return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
-                learningPath.PathId,
-                learningPath.Title,
-                learningPath.Description ?? string.Empty,
-                currentGoalDtos,
-                currentChapterDtos,
-                currentChapterDtos.Count,
-                learningPath.CreatedAt,
-                false,
-                learningPath.StartDate,
-                learningPath.EndDate,
-                learningPath.ComplexityLevel,
-                learningPath.Language,
-                learningPath.SubjectId,
-                subject.Name,
-                learningPath.VersionNumber,
-                learningPath.VersionNumber,
-                false));
-        }
-
         var previousVersion = learningPath.VersionNumber;
         var requestedVersion = CalculateRequestedVersion(previousVersion, request.IncreaseVersion, request.VersionUpdateType);
 
@@ -175,9 +137,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         learningPath.EndDate = request.EndDate;
         learningPath.ComplexityLevel = request.ComplexityLevel;
         learningPath.Language = request.LanguageSelection;
-        learningPath.Status = LearningPathStatus.Draft.ToString();
-        // When reverting a Published path back to Draft, always treat as a change (skip early-exit)
-        var wasPublished = isRevertingFromPublished;
+        learningPath.Status = LearningPathStatus.Published.ToString();
 
         _context.LearningPathGoals.RemoveRange(learningPath.LearningPathGoals);
 
@@ -200,8 +160,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        // Do not notify students when reverting a Published path to Draft (mid-edit state)
-        if (!wasPublished)
+        if (request.IncreaseVersion)
         {
             await _publisher.Publish(
                 new LearningPathDraftVersionUpdatedEvent(
@@ -242,7 +201,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             subject.Name,
             learningPath.VersionNumber,
             previousVersion,
-            true));
+            request.IncreaseVersion));
     }
 
     private static int CalculateEstimatedDays(DateTime? startDate, DateTime? endDate)
@@ -261,18 +220,8 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         var results = new List<ManualChapterRequest>();
         foreach (var chapter in chapters ?? new List<ManualChapterRequest>())
         {
-            var lessons = NormalizeManualLessons(chapter.Lessons, chapter.StartDate);
+            var lessons = NormalizeManualLessons(chapter.Lessons);
             var tasks = NormalizeManualTasks(chapter.Tasks);
-
-            var hasChapterData = !string.IsNullOrWhiteSpace(chapter.Title)
-                                 || chapter.StartDate.HasValue
-                                 || chapter.EndDate.HasValue
-                                 || chapter.EstimatedDays.HasValue;
-
-            if (!hasChapterData && lessons.Count == 0 && tasks.Count == 0)
-            {
-                continue;
-            }
 
             var title = string.IsNullOrWhiteSpace(chapter.Title)
                 ? $"Chapter {results.Count + 1}"
@@ -289,36 +238,20 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         return results;
     }
 
-    private static List<ManualLessonRequest> NormalizeManualLessons(List<ManualLessonRequest> lessons, DateTime? chapterStartDate)
+    private static List<ManualLessonRequest> NormalizeManualLessons(List<ManualLessonRequest> lessons)
     {
         var results = new List<ManualLessonRequest>();
         foreach (var lesson in lessons ?? new List<ManualLessonRequest>())
         {
             var quizzes = NormalizeManualQuizzes(lesson.Quizzes);
-            var normalizedContent = lesson.Content is null ? null : lesson.Content.Trim();
-            var hasLessonData = !string.IsNullOrWhiteSpace(lesson.Title)
-                                || lesson.LessonDay != default
-                                || !string.IsNullOrWhiteSpace(normalizedContent);
-
-            if (!hasLessonData && quizzes.Count == 0)
-            {
-                continue;
-            }
-
             var title = string.IsNullOrWhiteSpace(lesson.Title)
                 ? $"Lesson {results.Count + 1}"
                 : lesson.Title.Trim();
 
-            var lessonDay = lesson.LessonDay == default
-                ? chapterStartDate?.Date ?? DateTime.UtcNow.Date
-                : lesson.LessonDay;
-
             results.Add(lesson with
             {
                 Title = title,
-                LessonDay = lessonDay,
-                Quizzes = quizzes.Count > 0 ? quizzes : null,
-                Content = normalizedContent
+                Quizzes = quizzes.Count > 0 ? quizzes : null
             });
         }
 
@@ -330,23 +263,15 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         var results = new List<ManualQuizRequest>();
         foreach (var quiz in quizzes ?? new List<ManualQuizRequest>())
         {
-            var questions = NormalizeManualQuestions(quiz.Questions);
-            var hasQuizData = !string.IsNullOrWhiteSpace(quiz.Title)
-                              || !string.IsNullOrWhiteSpace(quiz.Description)
-                              || quiz.DueDate.HasValue;
-
-            if (!hasQuizData && questions.Count == 0)
+            if (string.IsNullOrWhiteSpace(quiz.Title))
             {
                 continue;
             }
 
-            var title = string.IsNullOrWhiteSpace(quiz.Title)
-                ? $"Quiz {results.Count + 1}"
-                : quiz.Title.Trim();
-
+            var questions = NormalizeManualQuestions(quiz.Questions);
             results.Add(quiz with
             {
-                Title = title,
+                Title = quiz.Title.Trim(),
                 Description = string.IsNullOrWhiteSpace(quiz.Description) ? null : quiz.Description.Trim(),
                 Questions = questions.Count > 0 ? questions : null
             });
@@ -360,27 +285,14 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         var results = new List<ManualQuestionRequest>();
         foreach (var question in questions ?? new List<ManualQuestionRequest>())
         {
-            var options = (question.Options ?? new List<string>())
-                .Where(o => !string.IsNullOrWhiteSpace(o))
-                .Select(o => o.Trim())
-                .ToList();
-
-            var hasQuestionData = !string.IsNullOrWhiteSpace(question.QuestionText)
-                                  || options.Count > 0
-                                  || !string.IsNullOrWhiteSpace(question.CorrectAnswer)
-                                  || question.Points != 1m;
-
-            if (!hasQuestionData)
+            if (string.IsNullOrWhiteSpace(question.QuestionText))
             {
                 continue;
             }
 
             results.Add(question with
             {
-                QuestionText = string.IsNullOrWhiteSpace(question.QuestionText)
-                    ? $"Question {results.Count + 1}"
-                    : question.QuestionText.Trim(),
-                Options = options.Count > 0 ? options : null,
+                QuestionText = question.QuestionText.Trim(),
                 CorrectAnswer = string.IsNullOrWhiteSpace(question.CorrectAnswer) ? null : question.CorrectAnswer.Trim()
             });
         }
@@ -696,181 +608,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
         }
     }
 
-    private static bool IsNoDraftChange(
-        UpdateMentorLearningPathDraftCommand request,
-        List<ManualChapterRequest> normalizedChapters,
-        LearningPath learningPath,
-        IReadOnlyCollection<(GoalEntity Goal, decimal Weight)> requestedGoalsWithWeights)
-    {
-        if (request.SubjectId != learningPath.SubjectId)
-        {
-            return false;
-        }
-
-        if (!string.Equals(NormalizeBaseTitle(request.Title), NormalizeBaseTitle(learningPath.Title), StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (!string.Equals(NormalizeOptionalText(request.Description), NormalizeOptionalText(learningPath.Description), StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (request.ComplexityLevel != learningPath.ComplexityLevel || request.LanguageSelection != learningPath.Language)
-        {
-            return false;
-        }
-
-        if (!GoalsMatchCurrent(learningPath, requestedGoalsWithWeights))
-        {
-            return false;
-        }
-
-        return ChaptersMatchCurrentBySummary(normalizedChapters, learningPath);
-    }
-
-    private static bool GoalsMatchCurrent(
-        LearningPath learningPath,
-        IReadOnlyCollection<(GoalEntity Goal, decimal Weight)> requestedGoalsWithWeights)
-    {
-        if (learningPath.LearningPathGoals.Count != requestedGoalsWithWeights.Count)
-        {
-            return false;
-        }
-
-        var currentGoalWeights = learningPath.LearningPathGoals
-            .ToDictionary(x => x.GoalId, x => x.Weight);
-
-        foreach (var requestedGoal in requestedGoalsWithWeights)
-        {
-            if (!currentGoalWeights.TryGetValue(requestedGoal.Goal.GoalId, out var currentWeight))
-            {
-                return false;
-            }
-
-            if (Math.Abs(currentWeight - requestedGoal.Weight) > 0.01m)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static bool ChaptersMatchCurrentBySummary(List<ManualChapterRequest> requestedChapters, LearningPath learningPath)
-    {
-        var currentChapters = learningPath.Chapters
-            .Where(c => !c.IsDeleted)
-            .OrderBy(c => c.OrderIndex)
-            .ToList();
-
-        if (currentChapters.Count != requestedChapters.Count)
-        {
-            return false;
-        }
-
-        for (int chapterIndex = 0; chapterIndex < requestedChapters.Count; chapterIndex++)
-        {
-            var requestedChapter = requestedChapters[chapterIndex];
-            var currentChapter = currentChapters[chapterIndex];
-
-            if (!string.Equals(NormalizeRequiredText(requestedChapter.Title), NormalizeRequiredText(currentChapter.Title), StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            var expectedEstimatedDays = requestedChapter.EstimatedDays
-                ?? CalculateEstimatedDays(requestedChapter.StartDate, requestedChapter.EndDate);
-
-            if (currentChapter.EstimatedDays != expectedEstimatedDays)
-            {
-                return false;
-            }
-
-            var currentLessons = currentChapter.Lessons
-                .Where(l => !l.IsDeleted)
-                .OrderBy(l => l.OrderIndex)
-                .ToList();
-
-            if (currentLessons.Count != requestedChapter.Lessons.Count)
-            {
-                return false;
-            }
-
-            for (int lessonIndex = 0; lessonIndex < requestedChapter.Lessons.Count; lessonIndex++)
-            {
-                var requestedLesson = requestedChapter.Lessons[lessonIndex];
-                var currentLesson = currentLessons[lessonIndex];
-
-                if (!string.Equals(NormalizeRequiredText(requestedLesson.Title), NormalizeRequiredText(currentLesson.Title), StringComparison.Ordinal))
-                {
-                    return false;
-                }
-
-                if (requestedLesson.Content is not null
-                    && !string.Equals(
-                        NormalizeOptionalText(requestedLesson.Content),
-                        NormalizeOptionalText(currentLesson.Content),
-                        StringComparison.Ordinal))
-                {
-                    return false;
-                }
-
-                var requestedQuizSignatures = (requestedLesson.Quizzes ?? new List<ManualQuizRequest>())
-                    .Select(ToQuizSignature)
-                    .OrderBy(x => x)
-                    .ToList();
-
-                var currentQuizSignatures = currentLesson.Quizzes
-                    .Where(q => !q.IsDeleted)
-                    .Select(q => $"{NormalizeRequiredText(q.Title)}|{NormalizeOptionalText(q.Description)}|{NormalizeDateTime(q.DueDate)}")
-                    .OrderBy(x => x)
-                    .ToList();
-
-                if (!requestedQuizSignatures.SequenceEqual(currentQuizSignatures, StringComparer.Ordinal))
-                {
-                    return false;
-                }
-
-            }
-
-            var requestedTaskSignatures = (requestedChapter.Tasks ?? new List<ManualTaskRequest>())
-                .Select(ToTaskSignature)
-                .OrderBy(x => x)
-                .ToList();
-
-            var currentTaskSignatures = currentChapter.Tasks
-                .Where(t => !t.IsDeleted)
-                .Select(t => $"{NormalizeRequiredText(t.Title)}|{NormalizeOptionalText(t.Description)}|{t.TaskType}|{t.Priority?.ToString() ?? string.Empty}|{NormalizeDateTime(t.DueDate)}|{NormalizeOptionalText(t.QuizQuestionsJson)}")
-                .OrderBy(x => x)
-                .ToList();
-
-            if (!requestedTaskSignatures.SequenceEqual(currentTaskSignatures, StringComparer.Ordinal))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private static string ToQuizSignature(ManualQuizRequest quiz)
-        => $"{NormalizeRequiredText(quiz.Title)}|{NormalizeOptionalText(quiz.Description)}|{NormalizeDateTime(quiz.DueDate)}|{NormalizeQuestionSignature(quiz.Questions)}";
-
-    private static string NormalizeQuestionSignature(List<ManualQuestionRequest>? questions)
-    {
-        return string.Join("#", (questions ?? new List<ManualQuestionRequest>())
-            .Select((q, i) =>
-                $"{i}|{NormalizeRequiredText(q.QuestionText)}|{q.Type}|{string.Join("||", (q.Options ?? new List<string>()).Select(NormalizeRequiredText))}|{NormalizeOptionalText(q.CorrectAnswer)}|{q.Points}"));
-    }
-
-    private static string ToTaskSignature(ManualTaskRequest task)
-        => $"{NormalizeRequiredText(task.Title)}|{NormalizeOptionalText(task.Description)}|{task.TaskType}|{task.Priority?.ToString() ?? string.Empty}|{NormalizeDateTime(task.DueDate)}|{NormalizeOptionalText(task.QuizQuestionsJson)}";
-
-    private static string NormalizeDateTime(DateTime? dateTime)
-        => dateTime?.Date.ToString("yyyy-MM-dd") ?? string.Empty;
-
     private static List<ChapterDto> BuildChapterDtosFromCurrent(LearningPath learningPath)
     {
         return learningPath.Chapters
@@ -924,24 +661,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             .ToList();
     }
 
-    private static string NormalizeOptionalText(string? text)
-        => string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
-
-    private static string NormalizeRequiredText(string? text)
-        => string.IsNullOrWhiteSpace(text) ? string.Empty : text.Trim();
-
-    private static string NormalizeBaseTitle(string? rawTitle)
-    {
-        var baseTitle = string.IsNullOrWhiteSpace(rawTitle)
-            ? "Learning Path"
-            : rawTitle.Trim();
-
-        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
-        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
-
-        return baseTitle;
-    }
-
     private static List<LearningPathGoalRequest> NormalizeGoalWeights(List<LearningPathGoalRequest> goals)
     {
         var total = goals.Sum(g => g.Weight);
@@ -983,6 +702,18 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
     private static string FormatVersionLabel(decimal versionNumber)
     {
         return versionNumber.ToString("0.0", CultureInfo.InvariantCulture);
+    }
+
+    private static string NormalizeBaseTitle(string? rawTitle)
+    {
+        var baseTitle = string.IsNullOrWhiteSpace(rawTitle)
+            ? "Learning Path"
+            : rawTitle.Trim();
+
+        baseTitle = Regex.Replace(baseTitle, @"\s*-\s*ver\s+\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+        baseTitle = Regex.Replace(baseTitle, @"\s+v\d+(\.\d+)?\s*$", string.Empty, RegexOptions.IgnoreCase).Trim();
+
+        return baseTitle;
     }
 
     private static string BuildVersionedTitle(string rawTitle, decimal versionNumber)
