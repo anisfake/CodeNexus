@@ -55,10 +55,6 @@ public class ReviewSessionCommandHandler : IRequestHandler<ReviewSessionCommand,
             return Result<ReviewSessionResponseDto>.Failure("MISSING_SUMMARY_SUBMISSION", "Summary submission is required for summary tasks");
         }
 
-        if (session.Task.TaskType == TaskType.Quizz && string.IsNullOrWhiteSpace(request.SubmittedQuizAnswers))
-        {
-            return Result<ReviewSessionResponseDto>.Failure("MISSING_QUIZ_ANSWERS", "Quiz answers submission is required for quiz tasks");
-        }
 
         var userId = _currentUserService.GetUserId();
         var limitCheck = await _planUsageLimitService.CheckFocusSessionReviewAllowedAsync(userId, cancellationToken);

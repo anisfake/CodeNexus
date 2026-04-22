@@ -150,7 +150,7 @@ public class GenerateSingleTaskCommandHandlerTests
         // Arrange
         var userId = NewId.NextGuid();
         var chapterId = NewId.NextGuid();
-        var command = new GenerateSingleTaskCommand(chapterId, null, TaskType.Quizz);
+        var command = new GenerateSingleTaskCommand(chapterId, null, (TaskType)99);
 
         var chapter = CreateChapterGraph(chapterId, userId);
 
