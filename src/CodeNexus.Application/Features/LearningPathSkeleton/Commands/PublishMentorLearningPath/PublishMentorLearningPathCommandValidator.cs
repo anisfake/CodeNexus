@@ -56,8 +56,10 @@ public class PublishMentorLearningPathCommandValidator : AbstractValidator<Publi
 
         RuleFor(x => x.Title)
             .NotEmpty()
+            .WithMessage("Title is required")
+            .WithErrorCode("INVALID_TITLE")
             .MaximumLength(200)
-            .WithMessage("Title is required and must be at most 200 characters")
+            .WithMessage("Title must be at most 200 characters")
             .WithErrorCode("INVALID_TITLE");
 
         RuleFor(x => x.StartDate)
@@ -76,8 +78,10 @@ public class PublishMentorLearningPathCommandValidator : AbstractValidator<Publi
             {
                 chapter.RuleFor(c => c.Title)
                     .NotEmpty()
+                    .WithMessage("Chapter title is required")
+                    .WithErrorCode("INVALID_CHAPTER_TITLE")
                     .MaximumLength(200)
-                    .WithMessage("Chapter title is required and must be at most 200 characters")
+                    .WithMessage("Chapter title must be at most 200 characters")
                     .WithErrorCode("INVALID_CHAPTER_TITLE");
 
                 chapter.RuleFor(c => c.Lessons)
@@ -91,8 +95,10 @@ public class PublishMentorLearningPathCommandValidator : AbstractValidator<Publi
                     {
                         lesson.RuleFor(l => l.Title)
                             .NotEmpty()
+                            .WithMessage("Lesson title is required")
+                            .WithErrorCode("INVALID_LESSON_TITLE")
                             .MaximumLength(200)
-                            .WithMessage("Lesson title is required and must be at most 200 characters")
+                            .WithMessage("Lesson title must be at most 200 characters")
                             .WithErrorCode("INVALID_LESSON_TITLE");
 
                         lesson.RuleFor(l => l.Content)
