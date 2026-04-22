@@ -779,6 +779,20 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             _ => ""
         };
 
+        var descriptionInstruction = language == LanguageSelection.VietNamese
+            ? @"- Mô tả phải gồm đúng 3 câu ngắn, mỗi câu trả lời 1 trong 3 câu hỏi sau (theo đúng thứ tự):
+  1. Học cái gì – tóm tắt nội dung chính của lộ trình
+  2. Học xong làm được gì – kết quả thực tế người học đạt được
+  3. Có hợp với mình không – gợi ý đối tượng hoặc điều kiện phù hợp
+- Mỗi câu ngắn gọn (1–2 dòng), viết liền thành 1 đoạn văn, không dùng gạch đầu dòng
+- Giọng điệu thân thiện, trực tiếp, tránh dùng từ hoa mỹ"
+            : @"- Description must contain exactly 3 short sentences answering (in order):
+  1. What you will learn – summarize the main content
+  2. What you can do after – practical outcomes the learner achieves
+  3. Is it right for you – suggest the target audience or prerequisites
+- Each sentence should be concise (1–2 lines), written as a single paragraph, no bullet points
+- Tone: friendly, direct, no marketing fluff";
+
         var prompt = $@"Generate a concise, human-friendly learning path title and description in JSON format.
 
 Subject: {subjectName}
@@ -792,7 +806,7 @@ REQUIREMENTS:
 - Respect goal priorities when deciding overall emphasis/focus
 - Do NOT include percentages or weights
 - Do NOT use format ""Learning Path: ..."" or ""Lộ trình học: ..."" literally
-- Description should be 1 sentence, clear and friendly
+{descriptionInstruction}
 
 JSON FORMAT:
 {{
@@ -800,7 +814,7 @@ JSON FORMAT:
   ""description"": ""... ""
 }}
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description value must be a single JSON string (use \\n to separate the 3 sentences if needed, or write them as one paragraph).";
 
         try
         {
@@ -831,11 +845,15 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         {
             LanguageSelection.VietNamese => (
                 $"Lộ trình học {subjectName} tập trung vào {compactGoals}.",
-                $"Tập trung phát triển kỹ năng {compactGoals} với {subjectName}."
+                $"Lộ trình này giúp bạn làm chủ {compactGoals} trong {subjectName}. " +
+                $"Hoàn thành xong, bạn có thể tự tin áp dụng kiến thức vào thực tế. " +
+                $"Phù hợp với người muốn nâng cao kỹ năng {compactGoals}."
             ),
             LanguageSelection.English => (
                 $"{subjectName}: {compactGoals}",
-                $"A {subjectName} learning path focused on {compactGoals}."
+                $"This path covers the core concepts and practical skills of {compactGoals} in {subjectName}. " +
+                $"By the end, you will be able to apply {compactGoals} confidently in real-world scenarios. " +
+                $"Best suited for learners looking to build or strengthen their {compactGoals} skills."
             ),
             _ => (
                 $"{subjectName}: {compactGoals}",
