@@ -18,6 +18,8 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearning
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDraftDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningPathDrafts;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPathDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
@@ -135,6 +137,51 @@ public class LearningPathController : ControllerBase
     [HttpPut("manual-draft/{pathId:guid}")]
     [Authorize(Roles = "Mentor")]
     public async Task<IActionResult> UpdateManualDraft(Guid pathId, [FromBody] UpdateMentorLearningPathDraftRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateMentorLearningPathDraftCommand(
+            pathId,
+            request.IncreaseVersion,
+            request.VersionUpdateType,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.Title,
+            request.Description,
+            request.StartDate,
+            request.EndDate,
+            request.Chapters);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-published")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetMyPublishedPaths([FromQuery] GetMyLearningPathDraftsRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetMyPublishedLearningPathsQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.SortDescending);
+
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-published/{pathId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetMyPublishedPathById(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMyPublishedLearningPathDetailQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("my-published/{pathId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UpdatePublishedPath(Guid pathId, [FromBody] UpdateMentorLearningPathDraftRequest request, CancellationToken cancellationToken)
     {
         var command = new UpdateMentorLearningPathDraftCommand(
             pathId,
