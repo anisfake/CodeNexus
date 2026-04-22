@@ -21,6 +21,7 @@ public class UpdateProfileCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockAchievementService = new Mock<IAchievementService>();
+        _mockContext.Setup(x => x.UserProfiles).Returns(new Mock<DbSet<UserProfile>>().Object);
         _handler = new UpdateProfileCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
@@ -139,6 +140,39 @@ public class UpdateProfileCommandHandlerTests
         result.Value.Phone.Should().Be("0987654321");
         result.Value.Address.Should().Be("New address");
         result.Value.DailyReminderTime.Should().Be(new TimeSpan(21, 0, 0));
+    }
+
+    [Fact]
+    public async Task Handle_UserWithoutProfile_ShouldCreateProfileAndUpdateSuccessfully()
+    {
+        // Arrange
+        var user = CreateTestUser();
+        user.UserProfile = null!;
+
+        _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(_userId);
+        SetupUsersDbSet(new List<User> { user });
+        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
+
+        var command = new UpdateProfileCommand(
+            "Mentor",
+            "NoProfile",
+            "Mentor bio",
+            new DateTime(1992, 2, 2),
+            "0123456789",
+            "Mentor Address",
+            new TimeSpan(20, 30, 0)
+        );
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.FirstName.Should().Be("Mentor");
+        result.Value.LastName.Should().Be("NoProfile");
+        result.Value.Bio.Should().Be("Mentor bio");
+        result.Value.Phone.Should().Be("0123456789");
     }
 
     private User CreateTestUser()
