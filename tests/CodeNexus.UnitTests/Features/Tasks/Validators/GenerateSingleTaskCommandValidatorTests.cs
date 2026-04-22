@@ -29,10 +29,10 @@ public class GenerateSingleTaskCommandValidatorTests
     }
 
     [Fact]
-    public void Validate_QuizzTaskType_ShouldHaveError()
+    public void Validate_UnsupportedTaskType_ShouldHaveError()
     {
         // Arrange
-        var command = new GenerateSingleTaskCommand(NewId.NextGuid(), "Quiz title", TaskType.Quizz);
+        var command = new GenerateSingleTaskCommand(NewId.NextGuid(), "Quiz title", (TaskType)99);
 
         // Act
         var result = _validator.TestValidate(command);

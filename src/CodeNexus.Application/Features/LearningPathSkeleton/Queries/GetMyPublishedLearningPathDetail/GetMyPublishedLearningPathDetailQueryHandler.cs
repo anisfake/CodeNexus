@@ -135,8 +135,7 @@ public class GetMyPublishedLearningPathDetailQueryHandler : IRequestHandler<GetM
                         t.TaskType,
                         t.Priority,
                         t.Status,
-                        t.DueDate,
-                        t.QuizQuestionsJson
+                        t.DueDate
                     )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),

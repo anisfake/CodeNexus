@@ -134,7 +134,6 @@ public class GetMyPublishedLearningPathsQueryHandler : IRequestHandler<GetMyPubl
                             t.Priority,
                             t.Status,
                             t.DueDate,
-                            t.QuizQuestionsJson,
                             "Pending"
                         )).ToList()
                 )).ToList(),
