@@ -200,4 +200,40 @@ public class GetAuditLogsQueryValidatorTests
         // Assert
         result.ShouldNotHaveValidationErrorFor(x => x.ToDate);
     }
+
+    [Fact]
+    public void Validate_WithDateRangeExceeding30Days_ShouldHaveError()
+    {
+        // Arrange
+        var query = new GetAuditLogsQuery
+        {
+            FromDate = DateTime.UtcNow.AddDays(-31),
+            ToDate = DateTime.UtcNow
+        };
+
+        // Act
+        var result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldHaveValidationErrorFor(x => x)
+            .WithErrorCode("DATE_RANGE_TOO_LARGE");
+    }
+
+    [Fact]
+    public void Validate_WithDateRangeExactly30Days_ShouldNotHaveError()
+    {
+        // Arrange
+        var toDate = DateTime.UtcNow;
+        var query = new GetAuditLogsQuery
+        {
+            FromDate = toDate.AddDays(-30),
+            ToDate = toDate
+        };
+
+        // Act
+        var result = _validator.TestValidate(query);
+
+        // Assert
+        result.ShouldNotHaveValidationErrorFor(x => x);
+    }
 }

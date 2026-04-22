@@ -24,5 +24,16 @@ public class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLogsQuery>
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue)
             .WithMessage("ToDate must be greater than or equal to FromDate.")
             .WithErrorCode("INVALID_DATE_RANGE");
+
+        RuleFor(x => x)
+            .Must(x =>
+            {
+                if (!x.FromDate.HasValue || !x.ToDate.HasValue)
+                    return true;
+                return (x.ToDate.Value - x.FromDate.Value).TotalDays <= 30;
+            })
+            .When(x => x.FromDate.HasValue && x.ToDate.HasValue)
+            .WithMessage("Date range must not exceed 30 days.")
+            .WithErrorCode("DATE_RANGE_TOO_LARGE");
     }
 }
