@@ -90,6 +90,7 @@ public class GetMentorsQueryHandler : IRequestHandler<GetMentorsQuery, Result<Pa
             {
                 u.UserId,
                 u.Username,
+                u.Email,
                 u.FirstName,
                 u.LastName,
                 AvatarUrl = u.UserProfile != null ? u.UserProfile.AvatarUrl : null,
@@ -161,6 +162,7 @@ public class GetMentorsQueryHandler : IRequestHandler<GetMentorsQuery, Result<Pa
                 return new MentorListItemDto(
                     row.UserId,
                     row.Username,
+                    row.Email,
                     row.FirstName,
                     row.LastName,
                     fullName,

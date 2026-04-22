@@ -12,6 +12,7 @@ public record GetMentorsRequest(
 public record MentorListItemDto(
     Guid MentorId,
     string Username,
+    string Email,
     string? FirstName,
     string? LastName,
     string? FullName,
@@ -34,6 +35,7 @@ public record MentorReviewDto(
 public record MentorProfileDto(
     Guid MentorId,
     string Username,
+    string Email,
     string? FirstName,
     string? LastName,
     string? FullName,

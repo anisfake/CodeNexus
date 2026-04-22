@@ -36,6 +36,7 @@ public class GetMentorProfileQueryHandler : IRequestHandler<GetMentorProfileQuer
             {
                 u.UserId,
                 u.Username,
+                u.Email,
                 u.FirstName,
                 u.LastName,
                 AvatarUrl = u.UserProfile != null ? u.UserProfile.AvatarUrl : null,
@@ -165,6 +166,7 @@ public class GetMentorProfileQueryHandler : IRequestHandler<GetMentorProfileQuer
         var response = new MentorProfileDto(
             mentor.UserId,
             mentor.Username,
+            mentor.Email,
             mentor.FirstName,
             mentor.LastName,
             BuildFullName(mentor.FirstName, mentor.LastName),
