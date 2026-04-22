@@ -1,3 +1,4 @@
+using CodeNexus.Application.Common.Models;
 using CodeNexus.Domain.Enums;
 
 namespace CodeNexus.Application.Features.Mentors.DTOs;
@@ -61,3 +62,8 @@ public record UpsertMentorReviewResponseDto(
     DateTime? UpdatedAt,
     double AverageRating,
     int TotalReviews);
+
+public record MentorReviewListResponseDto(
+    double AverageRating,
+    int TotalReviews,
+    PaginationDto<MentorReviewDto> Reviews);
