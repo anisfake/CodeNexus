@@ -9,7 +9,11 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearn
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.PublishMentorLearningPath;
+using CodeNexus.Application.Features.LearningPathShares.Commands.EnrollInPublishedLearningPath;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetPublishedLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetPublishedLearningPathPreview;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDraftDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
@@ -147,6 +151,60 @@ public class LearningPathController : ControllerBase
             request.Chapters);
 
         var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("manual-draft/{pathId:guid}/publish")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> PublishManualDraft(Guid pathId, [FromBody] PublishMentorLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var command = new PublishMentorLearningPathCommand(
+            pathId,
+            request.IncreaseVersion,
+            request.VersionUpdateType,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.Title,
+            request.Description,
+            request.StartDate,
+            request.EndDate,
+            request.Chapters);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("published/{pathId:guid}/preview")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetPublishedLearningPathPreview(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPublishedLearningPathPreviewQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("published")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetPublishedLearningPaths([FromQuery] GetPublishedLearningPathsRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetPublishedLearningPathsQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.ComplexityLevel,
+            request.SortDescending);
+
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("{pathId:guid}/enroll")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> EnrollInPublishedLearningPath(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new EnrollInPublishedLearningPathCommand(pathId), cancellationToken);
         return ToActionResult(result);
     }
 
@@ -328,8 +386,8 @@ public class LearningPathController : ControllerBase
         {
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "SHARE_ALREADY_PENDING" or "PATH_NOT_IN_DRAFT_STATUS" or "ALREADY_ENROLLED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "LEARNING_PATH_NOT_PUBLISHED" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

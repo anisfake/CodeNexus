@@ -113,31 +113,32 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             learningPath.CreatedByType,
             learningPath.UserId,
             learningPath.User.Username,
-            learningPath.Chapters.Select(c => new ChapterDto(
+            learningPath.Chapters.OrderBy(c => c.OrderIndex).Select(c => new ChapterDto(
                 c.ChapterId,
                 c.Title,
                 c.Content,
                 c.OrderIndex,
-                c.Lessons.Select(l => new LessonDto(
+                c.Lessons.OrderBy(l => l.LessonDay).Select(l => new LessonDto(
                     l.LessonId,
                     l.Title,
-                    l.Content,
+                    null,           // content hidden in preview
                     l.LessonDay,
                     l.Quizzes.Select(q => new QuizDto(
                         q.QuizId,
                         q.Title,
                         q.Description
+                        // questions intentionally omitted
                     )).ToList()
                 )).ToList(),
                 c.Tasks.Select(t => new TaskDto(
                     t.TaskId,
                     t.Title,
-                    t.Description ?? string.Empty,
+                    string.Empty,   // description hidden in preview
                     t.TaskType,
                     t.Priority,
                     t.Status,
                     t.DueDate,
-                    t.QuizQuestionsJson
+                    null            // quizQuestionsJson hidden in preview
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),
