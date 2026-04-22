@@ -167,7 +167,7 @@ public class CompleteSessionCommandHandlerTests
             Description = "Complete the quiz",
             TaskType = TaskType.Quizz,
             Status = TaskStatus_.InProgress,
-            QuizQuestionsJson = "[{\"question\":\"Test?\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":0}]",
+            VerificationPrompt = "[{\"question\":\"Test?\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":0}]",
             LearningPath = BuildLearningPath()
         };
         task.PathId = task.LearningPath.PathId;

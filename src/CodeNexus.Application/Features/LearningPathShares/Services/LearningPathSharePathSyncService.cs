@@ -121,8 +121,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                     CompletedAt = sourceTask.CompletedAt,
                     TaskType = sourceTask.TaskType,
                     VerificationPrompt = sourceTask.VerificationPrompt,
-                    MinimumScore = sourceTask.MinimumScore,
-                    QuizQuestionsJson = sourceTask.QuizQuestionsJson
+                    MinimumScore = sourceTask.MinimumScore
                 }, cancellationToken);
             }
         }
@@ -407,7 +406,6 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                 existing.TaskType = source.TaskType;
                 existing.VerificationPrompt = source.VerificationPrompt;
                 existing.MinimumScore = source.MinimumScore;
-                existing.QuizQuestionsJson = source.QuizQuestionsJson;
                 existing.UpdatedAt = now;
             }
             else
@@ -425,8 +423,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                     CreatedAt = now,
                     TaskType = source.TaskType,
                     VerificationPrompt = source.VerificationPrompt,
-                    MinimumScore = source.MinimumScore,
-                    QuizQuestionsJson = source.QuizQuestionsJson
+                    MinimumScore = source.MinimumScore
                 }, cancellationToken);
             }
         }

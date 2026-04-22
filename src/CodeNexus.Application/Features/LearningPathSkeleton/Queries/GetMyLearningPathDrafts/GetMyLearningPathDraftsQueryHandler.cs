@@ -135,7 +135,6 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson,
                         "Pending"
                     )).ToList()
                 )).ToList(),

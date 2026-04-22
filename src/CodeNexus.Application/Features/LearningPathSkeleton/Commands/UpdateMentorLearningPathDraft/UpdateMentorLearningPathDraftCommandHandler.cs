@@ -396,8 +396,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             var hasTaskData = !string.IsNullOrWhiteSpace(task.Title)
                               || !string.IsNullOrWhiteSpace(task.Description)
                               || task.DueDate.HasValue
-                              || task.Priority.HasValue
-                              || !string.IsNullOrWhiteSpace(task.QuizQuestionsJson);
+                              || task.Priority.HasValue;
 
             if (!hasTaskData)
             {
@@ -407,8 +406,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             results.Add(task with
             {
                 Title = string.IsNullOrWhiteSpace(task.Title) ? $"Task {results.Count + 1}" : task.Title.Trim(),
-                Description = string.IsNullOrWhiteSpace(task.Description) ? null : task.Description.Trim(),
-                QuizQuestionsJson = string.IsNullOrWhiteSpace(task.QuizQuestionsJson) ? null : task.QuizQuestionsJson.Trim()
+                Description = string.IsNullOrWhiteSpace(task.Description) ? null : task.Description.Trim()
             });
         }
 
@@ -638,7 +636,6 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
             task.DueDate = taskRequest.DueDate;
             task.Priority = taskRequest.Priority;
             task.TaskType = taskRequest.TaskType;
-            task.QuizQuestionsJson = taskRequest.QuizQuestionsJson;
             task.IsDeleted = false;
             task.DeletedAt = null;
             task.UpdatedAt = now;
@@ -842,7 +839,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
 
             var currentTaskSignatures = currentChapter.Tasks
                 .Where(t => !t.IsDeleted)
-                .Select(t => $"{NormalizeRequiredText(t.Title)}|{NormalizeOptionalText(t.Description)}|{t.TaskType}|{t.Priority?.ToString() ?? string.Empty}|{NormalizeDateTime(t.DueDate)}|{NormalizeOptionalText(t.QuizQuestionsJson)}")
+                .Select(t => $"{NormalizeRequiredText(t.Title)}|{NormalizeOptionalText(t.Description)}|{t.TaskType}|{t.Priority?.ToString() ?? string.Empty}|{NormalizeDateTime(t.DueDate)}")
                 .OrderBy(x => x)
                 .ToList();
 
@@ -866,7 +863,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
     }
 
     private static string ToTaskSignature(ManualTaskRequest task)
-        => $"{NormalizeRequiredText(task.Title)}|{NormalizeOptionalText(task.Description)}|{task.TaskType}|{task.Priority?.ToString() ?? string.Empty}|{NormalizeDateTime(task.DueDate)}|{NormalizeOptionalText(task.QuizQuestionsJson)}";
+        => $"{NormalizeRequiredText(task.Title)}|{NormalizeOptionalText(task.Description)}|{task.TaskType}|{task.Priority?.ToString() ?? string.Empty}|{NormalizeDateTime(task.DueDate)}";
 
     private static string NormalizeDateTime(DateTime? dateTime)
         => dateTime?.Date.ToString("yyyy-MM-dd") ?? string.Empty;
@@ -918,8 +915,7 @@ public class UpdateMentorLearningPathDraftCommandHandler : IRequestHandler<Updat
                         task.TaskType,
                         task.Priority,
                         task.Status,
-                        task.DueDate,
-                        task.QuizQuestionsJson))
+                        task.DueDate))
                     .ToList()))
             .ToList();
     }

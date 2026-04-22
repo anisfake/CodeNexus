@@ -137,7 +137,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                         verificationResult = await _verificationService.VerifyQuizSubmissionAsync(
                             session.Task.Title,
                             session.Task.Description ?? "",
-                            session.Task.QuizQuestionsJson!,
+                            session.Task.VerificationPrompt ?? session.Task.Description ?? "[]",
                             request.SubmittedQuizAnswers!);
                     }
 

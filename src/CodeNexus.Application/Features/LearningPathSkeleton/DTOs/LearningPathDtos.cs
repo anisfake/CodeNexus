@@ -35,7 +35,6 @@ public record TaskDto(
     TaskPriority? Priority,
     TaskStatus_ TaskStatus,
     DateTime? DueDate,
-    string? QuizQuestionsJson,
     string Status = "Pending"
 );
 public record ChapterDto(
@@ -115,8 +114,7 @@ public record ManualTaskRequest(
     string? Description = null,
     TaskType TaskType = TaskType.Practice,
     TaskPriority? Priority = null,
-    DateTime? DueDate = null,
-    string? QuizQuestionsJson = null
+    DateTime? DueDate = null
 );
 
 public record ManualChapterRequest(

@@ -137,8 +137,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                     t.TaskType,
                     t.Priority,
                     t.Status,
-                    t.DueDate,
-                    null            // quizQuestionsJson hidden in preview
+                    t.DueDate
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),

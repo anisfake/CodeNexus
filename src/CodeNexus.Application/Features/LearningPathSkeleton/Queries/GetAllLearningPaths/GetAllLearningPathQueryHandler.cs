@@ -124,7 +124,6 @@ public class GetAllLearningPathQueryHandler : IRequestHandler<GetAllLearningPath
                         t.Priority,
                         t.Status,
                         t.DueDate,
-                        t.QuizQuestionsJson,
                         "Pending"
                     )).ToList()
                 )).ToList(),

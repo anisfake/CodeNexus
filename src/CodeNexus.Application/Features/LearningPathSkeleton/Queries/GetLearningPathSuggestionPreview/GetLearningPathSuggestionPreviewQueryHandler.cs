@@ -248,8 +248,7 @@ public class GetLearningPathSuggestionPreviewQueryHandler
                             t.TaskType,
                             t.Priority,
                             t.Status,
-                            t.DueDate,
-                            t.QuizQuestionsJson
+                            t.DueDate
                         ))
                         .ToList()
                 ))
