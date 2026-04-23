@@ -293,6 +293,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
             modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
             modelBuilder.Entity<MentorPackage>().HasKey(e => e.MentorPackageId);
+            modelBuilder.Entity<MentorPackage>().Property(e => e.PriceVnd).HasPrecision(18, 2);
             modelBuilder.Entity<StudentMentorSubscription>().HasKey(e => e.SubscriptionId);
             modelBuilder.Entity<LearningPathValidationRequest>().HasKey(e => e.ValidationRequestId);
 
