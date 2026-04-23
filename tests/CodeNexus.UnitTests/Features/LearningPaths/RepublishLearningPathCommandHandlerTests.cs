@@ -154,7 +154,7 @@ public class RepublishLearningPathCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_PathNotInDraftStatus_ReturnsFailure()
+    public async Task Handle_PublishedPath_SetsStatusToPublishedAndReturnsSuccess()
     {
         var mentorId = NewId.NextGuid();
         var pathId = NewId.NextGuid();
@@ -163,7 +163,8 @@ public class RepublishLearningPathCommandHandlerTests
         {
             PathId = pathId,
             UserId = mentorId,
-            Title = "Published Path",
+            Title = "Published Path - ver 1.0",
+            VersionNumber = 1.0m,
             Status = LearningPathStatus.Published.ToString()
         };
 
@@ -171,8 +172,9 @@ public class RepublishLearningPathCommandHandlerTests
 
         var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, false, null), CancellationToken.None);
 
-        result.IsSuccess.Should().BeFalse();
-        result.ErrorCode.Should().Be("PATH_NOT_IN_DRAFT_STATUS");
+        result.IsSuccess.Should().BeTrue();
+        learningPath.Status.Should().Be(LearningPathStatus.Published.ToString());
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

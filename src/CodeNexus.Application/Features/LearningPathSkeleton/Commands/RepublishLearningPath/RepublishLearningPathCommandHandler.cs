@@ -65,11 +65,6 @@ public class RepublishLearningPathCommandHandler : IRequestHandler<RepublishLear
             return Result.Failure("ACCESS_DENIED", "Access denied.");
         }
 
-        if (!string.Equals(learningPath.Status, LearningPathStatus.Draft.ToString(), StringComparison.OrdinalIgnoreCase))
-        {
-            return Result.Failure("PATH_NOT_IN_DRAFT_STATUS", "Learning path must be in Draft status to republish.");
-        }
-
         var requestedVersion = CalculateRequestedVersion(learningPath.VersionNumber, request.IncreaseVersion, request.VersionUpdateType);
         learningPath.VersionNumber = requestedVersion;
         learningPath.Title = BuildVersionedTitle(learningPath.Title, requestedVersion);
