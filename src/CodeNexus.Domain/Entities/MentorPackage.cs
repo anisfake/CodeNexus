@@ -10,7 +10,6 @@ public class MentorPackage
     public int SharesFromMentorLimit { get; set; }
 
     public int ValidationRequestLimit { get; set; }
-
     public int TaskReviewLimit { get; set; }
 
     public bool IsActive { get; set; } = true;
