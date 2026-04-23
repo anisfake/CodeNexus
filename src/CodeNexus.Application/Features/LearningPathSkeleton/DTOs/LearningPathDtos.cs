@@ -158,6 +158,24 @@ public record UpdateMentorLearningPathDraftRequest(
     List<ManualChapterRequest> Chapters
 );
 
+public record StudentLessonRequest(
+    string Title,
+    DateTime LessonDay,
+    string? Content = null
+);
+
+public record StudentChapterRequest(
+    string Title,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    int? EstimatedDays,
+    List<StudentLessonRequest> Lessons
+);
+
+public record UpdateStudentLearningPathRequest(
+    List<StudentChapterRequest> Chapters
+);
+
 public record CreateLearningPathResponse(
     Guid PathId,
     string Title,

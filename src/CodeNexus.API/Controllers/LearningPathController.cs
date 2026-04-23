@@ -26,6 +26,8 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPat
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestionPreview;
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateStudentLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetStudentLearningPathEditDetail;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Lessons.Commands.MarkLessonContentRead;
 using CodeNexus.Application.Features.Lessons.Queries.GetLessonReadStatus;
@@ -441,6 +443,23 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> GetLearningPathProgress(Guid pathId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetLearningPathProgressQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("student/{pathId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetStudentLearningPathEditDetail(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetStudentLearningPathEditDetailQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("student/{pathId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> UpdateStudentLearningPath(Guid pathId, [FromBody] UpdateStudentLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateStudentLearningPathCommand(pathId, request.Chapters);
+        var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
 
