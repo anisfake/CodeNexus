@@ -31,6 +31,7 @@ using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RespondL
 using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RequestLearningPathMentorReview;
 using CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
 using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetLearningPathMentorReviews;
+using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathPreview;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateStudentLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetStudentLearningPathEditDetail;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
@@ -448,6 +449,14 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> GetLearningPathProgress(Guid pathId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetLearningPathProgressQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("{pathId:guid}/preview")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathPreview(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathPreviewQuery(pathId), cancellationToken);
         return ToActionResult(result);
     }
 
