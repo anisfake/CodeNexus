@@ -39,8 +39,9 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
         if (!learningPathOwnerId.HasValue)
             return Result<LearningPathCompletionProgressDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
 
-        bool isMentorReviewPath = await _context.LearningPathMentorReviews
-            .AsNoTracking()
+        var learningPathMentorReviews = _context.LearningPathMentorReviews.AsNoTracking();
+
+        bool isMentorReviewPath = await learningPathMentorReviews
             .AnyAsync(r => r.RevisedPathId == request.PathId && r.StudentId == userId, cancellationToken);
 
         if (learningPathOwnerId.Value != userId && !isMentorReviewPath)
