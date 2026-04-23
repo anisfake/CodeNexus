@@ -87,9 +87,6 @@ public class GetLearningPathMentorReviewsQueryHandler
                     r.MentorId,
                     MentorUsername = u.Username,
                     r.StudentId,
-                    r.Score,
-                    r.Feedback,
-                    r.Suggestions,
                     r.RevisedPathId,
                     r.StudentRequestNote,
                     r.ChangeSummary,
@@ -112,9 +109,6 @@ public class GetLearningPathMentorReviewsQueryHandler
                 x.MentorId,
                 x.MentorUsername,
                 x.StudentId,
-                x.Score,
-                x.Feedback,
-                x.Suggestions,
                 x.DecisionStatus,
                 x.StudentDecisionNote,
                 x.StudentDecidedAt,
@@ -129,17 +123,9 @@ public class GetLearningPathMentorReviewsQueryHandler
                 CanRequestRevision(x.RejectionCount, x.MaxRejections)))
             .ToList();
 
-        var submittedReviews = reviews.Where(r => r.Score > 0).ToList();
-        var totalReviews = submittedReviews.Count;
-        var avgScore = totalReviews == 0
-            ? 0d
-            : Math.Round(submittedReviews.Average(x => x.Score), 2);
-
         return Result<LearningPathMentorReviewListResponseDto>.Success(
             new LearningPathMentorReviewListResponseDto(
                 request.PathId,
-                avgScore,
-                totalReviews,
                 reviews));
     }
 

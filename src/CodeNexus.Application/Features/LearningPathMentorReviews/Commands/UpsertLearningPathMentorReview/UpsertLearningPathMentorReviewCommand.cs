@@ -6,9 +6,6 @@ namespace CodeNexus.Application.Features.LearningPathMentorReviews.Commands.Upse
 
 public record UpsertLearningPathMentorReviewCommand(
     Guid PathId,
-    int Score,
-    string Feedback,
-    string? Suggestions,
-    string? ChangeSummary = null,
-    string? ChangeReason = null)
+    string ChangeSummary,
+    string ChangeReason)
     : IRequest<Result<UpsertLearningPathMentorReviewResponseDto>>;

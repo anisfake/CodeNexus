@@ -17,9 +17,6 @@ public class LearningPathMentorReview
     public Guid StudentId { get; set; }
     public virtual User Student { get; set; } = null!;
 
-    public int Score { get; set; }
-    public string Feedback { get; set; } = string.Empty;
-    public string? Suggestions { get; set; }
     public string? ChangeSummary { get; set; }
     public string? ChangeReason { get; set; }
     public string? StudentRequestNote { get; set; }

@@ -80,8 +80,6 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
             PathId = pathId,
             MentorId = mentorId,
             StudentId = studentId,
-            Score = 7,
-            Feedback = "old",
             CreatedAt = now.AddHours(-3),
             UpdatedAt = null
         };
@@ -92,8 +90,6 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
             PathId = pathId,
             MentorId = mentorId,
             StudentId = studentId,
-            Score = 9,
-            Feedback = "new",
             CreatedAt = now.AddHours(-2),
             UpdatedAt = now.AddHours(-1)
         };
@@ -108,8 +104,6 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.PathId.Should().Be(pathId);
-        result.Value.TotalReviews.Should().Be(2);
-        result.Value.AverageScore.Should().Be(8.0d);
         result.Value.Reviews.Should().HaveCount(2);
         result.Value.Reviews[0].ReviewId.Should().Be(reviewNewer.ReviewId);
         result.Value.Reviews[0].MentorName.Should().Be("mentorA");

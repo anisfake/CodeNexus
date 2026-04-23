@@ -67,27 +67,22 @@ public class UpsertLearningPathMentorReviewCommandHandler
                 "You cannot review your own learning path.");
         }
 
-        var studentId = path.UserId;
+        var normalizedChangeSummary = request.ChangeSummary?.Trim() ?? string.Empty;
+        var normalizedChangeReason = request.ChangeReason?.Trim() ?? string.Empty;
 
-        var normalizedFeedback = request.Feedback?.Trim();
-        if (string.IsNullOrWhiteSpace(normalizedFeedback))
+        if (string.IsNullOrWhiteSpace(normalizedChangeSummary))
         {
             return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
-                "INVALID_FEEDBACK",
-                "Feedback is required.");
+                "INVALID_CHANGE_SUMMARY",
+                "ChangeSummary is required.");
         }
 
-        var normalizedSuggestions = string.IsNullOrWhiteSpace(request.Suggestions)
-            ? null
-            : request.Suggestions.Trim();
-
-        var normalizedChangeSummary = string.IsNullOrWhiteSpace(request.ChangeSummary)
-            ? normalizedSuggestions
-            : request.ChangeSummary.Trim();
-
-        var normalizedChangeReason = string.IsNullOrWhiteSpace(request.ChangeReason)
-            ? null
-            : request.ChangeReason.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedChangeReason))
+        {
+            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
+                "INVALID_CHANGE_REASON",
+                "ChangeReason is required.");
+        }
 
         var review = await _context.LearningPathMentorReviews
             .FirstOrDefaultAsync(r => r.PathId == request.PathId && r.MentorId == mentorId, cancellationToken);
@@ -131,15 +126,10 @@ public class UpsertLearningPathMentorReviewCommandHandler
                 $"Reject limit reached ({FormatLimitForDisplay(review.MaxRejections)}). Student cannot request more revisions.");
         }
 
-        var hasContentChange = review.Score != request.Score
-            || !string.Equals(review.Feedback, normalizedFeedback, StringComparison.Ordinal)
-            || !string.Equals(review.Suggestions, normalizedSuggestions, StringComparison.Ordinal)
-            || !string.Equals(review.ChangeSummary, normalizedChangeSummary, StringComparison.Ordinal)
+        var hasContentChange =
+            !string.Equals(review.ChangeSummary, normalizedChangeSummary, StringComparison.Ordinal)
             || !string.Equals(review.ChangeReason, normalizedChangeReason, StringComparison.Ordinal);
 
-        review.Score = request.Score;
-        review.Feedback = normalizedFeedback;
-        review.Suggestions = normalizedSuggestions;
         review.ChangeSummary = normalizedChangeSummary;
         review.ChangeReason = normalizedChangeReason;
 
@@ -154,36 +144,17 @@ public class UpsertLearningPathMentorReviewCommandHandler
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        var stats = await _context.LearningPathMentorReviews
-            .AsNoTracking()
-            .Where(r => r.PathId == request.PathId && r.Score > 0)
-            .GroupBy(_ => 1)
-            .Select(g => new
-            {
-                AverageScore = g.Average(x => (double)x.Score),
-                TotalReviews = g.Count()
-            })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        var averageScore = stats?.AverageScore ?? 0d;
-        var totalReviews = stats?.TotalReviews ?? 0;
-
         return Result<UpsertLearningPathMentorReviewResponseDto>.Success(
             new UpsertLearningPathMentorReviewResponseDto(
                 review.ReviewId,
                 review.PathId,
                 review.MentorId,
                 review.StudentId,
-                review.Score,
-                review.Feedback,
-                review.Suggestions,
                 review.DecisionStatus,
                 review.StudentDecisionNote,
                 review.StudentDecidedAt,
                 review.CreatedAt,
                 review.UpdatedAt,
-                Math.Round(averageScore, 2),
-                totalReviews,
                 review.RevisedPathId,
                 review.ChangeSummary,
                 review.ChangeReason,

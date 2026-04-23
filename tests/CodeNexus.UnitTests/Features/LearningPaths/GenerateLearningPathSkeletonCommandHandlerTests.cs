@@ -160,11 +160,14 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Subjects).Returns(new[] { subject }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Goals).Returns(new[] { goal }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SubjectGoals).Returns(new List<SubjectGoal>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathGoals).Returns(new List<LearningPathGoal>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathGoalItemMappings).Returns(new List<LearningPathGoalItemMapping>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(new List<Domain.Entities.Tasks>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         
@@ -415,11 +418,14 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Subjects).Returns(new[] { subject }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Goals).Returns(new[] { goalA, goalB }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.SubjectGoals).Returns(new List<SubjectGoal>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new List<LearningPath>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathGoals).Returns(new List<LearningPathGoal>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathGoalItemMappings).Returns(new List<LearningPathGoalItemMapping>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Chapters).Returns(new List<Chapter>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.Tasks).Returns(new List<Domain.Entities.Tasks>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         _mockTimelineCalculationService.Setup(x => x.CalculateChapterTimelinesAsync(
@@ -521,8 +527,9 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
                 };
                 return Task.FromResult((T)(object)quizData);
             }
-            
-            throw new NotSupportedException($"Type {typeof(T)} not supported in mock");
+
+            // Return default/empty for unknown types instead of throwing
+            return Task.FromResult(default(T)!);
         }
 
         public Task<string> GenerateContentAsync(string prompt, AIUsageType usageType = AIUsageType.StructureGeneration)

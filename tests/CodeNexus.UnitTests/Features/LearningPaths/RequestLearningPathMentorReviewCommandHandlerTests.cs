@@ -171,8 +171,6 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
             PathId = pathId,
             MentorId = mentorId,
             StudentId = studentId,
-            Score = 4,
-            Feedback = "x",
             RejectionCount = 3,
             MaxRejections = 3
         };

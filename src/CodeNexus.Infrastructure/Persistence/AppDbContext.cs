@@ -395,16 +395,6 @@ namespace CodeNexus.Infrastructure.Persistence
 
             modelBuilder.Entity<LearningPathMentorReview>(entity =>
             {
-                entity.Property(e => e.Score)
-                      .IsRequired();
-
-                entity.Property(e => e.Feedback)
-                      .IsRequired()
-                      .HasMaxLength(2000);
-
-                entity.Property(e => e.Suggestions)
-                      .HasMaxLength(2000);
-
                 entity.Property(e => e.ChangeSummary)
                       .HasMaxLength(2000);
 

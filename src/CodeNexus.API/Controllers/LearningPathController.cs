@@ -460,9 +460,8 @@ public class LearningPathController : ControllerBase
     {
         var command = new UpsertLearningPathMentorReviewCommand(
             pathId,
-            request.Score,
-            request.Feedback,
-            request.Suggestions);
+            request.ChangeSummary,
+            request.ChangeReason);
 
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);

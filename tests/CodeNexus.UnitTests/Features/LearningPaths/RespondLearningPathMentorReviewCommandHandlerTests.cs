@@ -49,8 +49,6 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
             PathId = pathId,
             MentorId = mentorId,
             StudentId = studentId,
-            Score = 4,
-            Feedback = "feedback",
             RejectionCount = 0,
             MaxRejections = 2
         };
@@ -126,8 +124,6 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
             RevisedPathId = revisedPathId,
             MentorId = mentorId,
             StudentId = studentId,
-            Score = 5,
-            Feedback = "done",
             RejectionCount = 1,
             MaxRejections = 3
         };

@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CodeNexus.Application.Features.Tasks.DTOs;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
@@ -321,13 +322,21 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     }
                 }
 
+                var generatedTasks = await GenerateTasksForChapterAsync(
+                    chapter,
+                    learningPath,
+                    subject.Name,
+                    lessonDtos,
+                    request.LanguageSelection,
+                    cancellationToken);
+
                 chapters.Add(new ChapterDto(
                     chapter.ChapterId,
                     chapter.Title,
                     chapter.Content,
                     chapter.OrderIndex,
                     lessonDtos,
-                    new List<TaskDto>()
+                    generatedTasks
                 ));
             }
 
@@ -1623,6 +1632,242 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
                 ? $"This chapter introduces the core foundations of {subjectName} in the learning path {learningPathTitle}."
                 : $"This chapter helps you deepen your {subjectName} skills and move closer to the goals of {learningPathTitle}."
         };
+    }
+
+    private async Task<List<TaskDto>> GenerateTasksForChapterAsync(
+        Chapter chapter,
+        LearningPath learningPath,
+        string subjectName,
+        List<LessonDto> lessonDtos,
+        LanguageSelection language,
+        CancellationToken cancellationToken)
+    {
+        if (lessonDtos.Count == 0)
+        {
+            return new List<TaskDto>();
+        }
+
+        var taskCount = CalculateTaskCount(lessonDtos.Count);
+        var prompt = BuildTaskPrompt(subjectName, learningPath, chapter, lessonDtos, language, taskCount);
+
+        List<GeneratedTaskItemDto> generatedTasks;
+        try
+        {
+            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
+            generatedTasks = generated?.Tasks?
+                .Where(t => !string.IsNullOrWhiteSpace(t.Title) && !IsInvalidTask(t.Title, t.Description))
+                .Take(taskCount)
+                .ToList()
+                ?? new List<GeneratedTaskItemDto>();
+        }
+        catch
+        {
+            generatedTasks = new List<GeneratedTaskItemDto>();
+        }
+
+        if (generatedTasks.Count == 0)
+        {
+            generatedTasks = BuildFallbackTasks(lessonDtos, language, taskCount);
+        }
+
+        while (generatedTasks.Count < taskCount)
+        {
+            generatedTasks.AddRange(BuildFallbackTasks(lessonDtos, language, taskCount - generatedTasks.Count));
+        }
+
+        generatedTasks = generatedTasks.Take(taskCount).ToList();
+        var dueDates = CalculateTaskDueDates(learningPath, chapter, generatedTasks.Count);
+
+        var result = new List<TaskDto>();
+        for (int i = 0; i < generatedTasks.Count; i++)
+        {
+            var generatedTask = generatedTasks[i];
+            var entity = new Domain.Entities.Tasks
+            {
+                TaskId = NewId.NextGuid(),
+                ChapterId = chapter.ChapterId,
+                PathId = chapter.PathId,
+                Title = generatedTask.Title,
+                Description = generatedTask.Description,
+                DueDate = dueDates[i],
+                Priority = ParsePriority(generatedTask.Priority),
+                Status = TaskStatus_.Pending,
+                CreatedAt = DateTime.UtcNow,
+                TaskType = ParseTaskType(generatedTask.TaskType),
+                VerificationPrompt = generatedTask.VerificationPrompt,
+                MinimumScore = generatedTask.MinimumScore ?? 70
+            };
+
+            await _context.Tasks.AddAsync(entity, cancellationToken);
+
+            result.Add(new TaskDto(
+                entity.TaskId,
+                entity.Title,
+                entity.Description ?? string.Empty,
+                entity.TaskType,
+                entity.Priority,
+                entity.Status,
+                entity.DueDate,
+                entity.Status.ToString()));
+        }
+
+        return result;
+    }
+
+    private static bool IsInvalidTask(string title, string description)
+    {
+        var combined = $"{title} {description}".ToLowerInvariant();
+        var invalidKeywords = new[]
+        {
+            "install", "cài đặt", "download", "tải xuống", "setup", "thiết lập",
+            "configure environment", "cấu hình môi trường", "verify installation",
+            "kiểm tra cài đặt", "check version", "kiểm tra phiên bản"
+        };
+
+        return invalidKeywords.Any(keyword => combined.Contains(keyword));
+    }
+
+    private static int CalculateTaskCount(int lessonCount)
+    {
+        return lessonCount switch
+        {
+            <= 2 => 2,
+            3 => 3,
+            4 => 3,
+            5 => 4,
+            6 => 4,
+            7 => 5,
+            _ => 6
+        };
+    }
+
+    private static TaskPriority ParsePriority(string priority)
+    {
+        return priority?.ToLowerInvariant() switch
+        {
+            "high" => TaskPriority.High,
+            "medium" => TaskPriority.Medium,
+            _ => TaskPriority.Low
+        };
+    }
+
+    private static TaskType ParseTaskType(string taskType)
+    {
+        return taskType?.ToLowerInvariant() switch
+        {
+            "theory" => TaskType.Theory,
+            _ => TaskType.Practice
+        };
+    }
+
+    private static List<DateTime?> CalculateTaskDueDates(LearningPath learningPath, Chapter chapter, int taskCount)
+    {
+        var dueDates = new List<DateTime?>();
+
+        if (learningPath.StartDate == null || learningPath.EndDate == null || taskCount <= 0)
+        {
+            for (int i = 0; i < taskCount; i++) dueDates.Add(null);
+            return dueDates;
+        }
+
+        var totalDays = (learningPath.EndDate.Value - learningPath.StartDate.Value).TotalDays;
+        if (totalDays <= 0)
+        {
+            for (int i = 0; i < taskCount; i++) dueDates.Add(null);
+            return dueDates;
+        }
+
+        var chapterStart = chapter.StartDate ?? learningPath.StartDate.Value;
+        var chapterEnd = chapter.EndDate ?? chapterStart.AddDays(Math.Max(1, totalDays / 4.0));
+        var daysPerTask = Math.Max(1, (chapterEnd - chapterStart).TotalDays / taskCount);
+
+        for (int i = 0; i < taskCount; i++)
+        {
+            dueDates.Add(chapterStart.AddDays((i + 1) * daysPerTask));
+        }
+
+        return dueDates;
+    }
+
+    private static List<GeneratedTaskItemDto> BuildFallbackTasks(List<LessonDto> lessons, LanguageSelection language, int maxCount)
+    {
+        var tasks = new List<GeneratedTaskItemDto>();
+        foreach (var lesson in lessons.Take(maxCount))
+        {
+            var isVi = language == LanguageSelection.VietNamese;
+            tasks.Add(new GeneratedTaskItemDto(
+                isVi ? $"Thực hành: {lesson.Title}" : $"Practice: {lesson.Title}",
+                isVi
+                    ? $"Viết code để áp dụng các khái niệm trong bài học '{lesson.Title}'."
+                    : $"Write code to apply concepts covered in lesson '{lesson.Title}'.",
+                "Medium",
+                "Practice",
+                isVi
+                    ? $"Đánh giá code có áp dụng đúng nội dung bài học '{lesson.Title}', rõ ràng và chạy hợp lý."
+                    : $"Verify the submitted code correctly applies concepts from lesson '{lesson.Title}' and is reasonably structured.",
+                70,
+                null));
+        }
+
+        return tasks;
+    }
+
+    private static string BuildTaskPrompt(
+        string subjectName,
+        LearningPath learningPath,
+        Chapter chapter,
+        List<LessonDto> lessons,
+        LanguageSelection language,
+        int taskCount)
+    {
+        var lessonTitles = string.Join("\n- ", lessons.Select(l => l.Title));
+
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in Vietnamese language
+- Keep technical terms in English
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in English language
+",
+            _ => string.Empty
+        };
+
+        return $@"You are a study planning assistant for a {subjectName} course.
+
+=== CONTEXT ===
+Subject: {subjectName}
+Learning path title: {learningPath.Title}
+Learning path description: {learningPath.Description ?? "N/A"}
+Chapter title: {chapter.Title}
+Chapter description: {chapter.Content ?? "N/A"}
+Lessons in this chapter:
+- {lessonTitles}
+
+{languageInstruction}
+
+=== TASK ===
+Generate EXACTLY {taskCount} meaningful study tasks based on lesson content.
+Each task must be either Practice or Theory.
+Do NOT create setup/install/environment tasks.
+
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON:
+{{
+  ""tasks"": [
+    {{
+      ""title"": ""..."",
+      ""description"": ""..."",
+      ""priority"": ""High|Medium|Low"",
+      ""taskType"": ""Practice|Theory"",
+      ""verificationPrompt"": ""..."",
+      ""minimumScore"": 70
+    }}
+  ]
+}}";
     }
 
     private ChapterGenerationData EnsureValidChapterData(

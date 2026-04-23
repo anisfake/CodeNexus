@@ -3,11 +3,8 @@ using CodeNexus.Domain.Enums;
 namespace CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
 
 public record UpsertLearningPathMentorReviewRequest(
-    int Score,
-    string Feedback,
-    string? Suggestions,
-    string? ChangeSummary = null,
-    string? ChangeReason = null);
+    string ChangeSummary,
+    string ChangeReason);
 
 public record RequestLearningPathMentorReviewRequest(
     Guid MentorId,
@@ -19,9 +16,6 @@ public record LearningPathMentorReviewDto(
     Guid MentorId,
     string MentorName,
     Guid StudentId,
-    int Score,
-    string Feedback,
-    string? Suggestions,
     LearningPathMentorReviewDecisionStatus DecisionStatus,
     string? StudentDecisionNote,
     DateTime? StudentDecidedAt,
@@ -40,16 +34,11 @@ public record UpsertLearningPathMentorReviewResponseDto(
     Guid PathId,
     Guid MentorId,
     Guid StudentId,
-    int Score,
-    string Feedback,
-    string? Suggestions,
     LearningPathMentorReviewDecisionStatus DecisionStatus,
     string? StudentDecisionNote,
     DateTime? StudentDecidedAt,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    double AverageScore,
-    int TotalReviews,
     Guid? RevisedPathId = null,
     string? ChangeSummary = null,
     string? ChangeReason = null,
@@ -87,6 +76,4 @@ public record RespondLearningPathMentorReviewResponseDto(
 
 public record LearningPathMentorReviewListResponseDto(
     Guid PathId,
-    double AverageScore,
-    int TotalReviews,
     List<LearningPathMentorReviewDto> Reviews);
