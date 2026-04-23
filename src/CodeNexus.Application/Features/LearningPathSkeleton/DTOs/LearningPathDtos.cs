@@ -326,6 +326,11 @@ public record PublishMentorLearningPathRequest(
     List<ManualChapterRequest> Chapters
 );
 
+public record RepublishLearningPathRequest(
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType
+);
+
 public record GetPublishedLearningPathsRequest(
     int PageNumber = 1,
     int PageSize = 10,

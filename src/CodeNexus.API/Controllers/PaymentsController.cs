@@ -68,6 +68,7 @@ public class PaymentsController : ControllerBase
             request.OrderInfo,
             callbackUrl,
             ipAddress,
+            request.MentorPackageId,
             ipnUrl);
 
         var result = await _sender.Send(command, cancellationToken);

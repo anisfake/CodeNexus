@@ -155,6 +155,16 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 
         var now = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
 
+        // Quota check: student must have an active subscription with remaining SharesFromMentor
+        var subscription = await _context.StudentMentorSubscriptions
+            .FirstOrDefaultAsync(s => s.UserId == request.StudentId && s.IsActive, cancellationToken);
+
+        if (subscription == null)
+            return Result<LearningPathShareDto>.Failure("MENTOR_SUBSCRIPTION_REQUIRED", "The student does not have an active mentor subscription.");
+
+        if (subscription.SharesFromMentorLimit != -1 && subscription.SharesFromMentorUsed >= subscription.SharesFromMentorLimit)
+            return Result<LearningPathShareDto>.Failure("SHARE_QUOTA_EXCEEDED", "The student has reached their share reception limit for this subscription.");
+
         var share = new LearningPathShare
         {
             ShareId = NewId.NextGuid(),
@@ -208,6 +218,28 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         _context.LearningPathShares.Add(share);
         _context.DirectMessages.Add(message);
         _context.DirectMessageReceipts.Add(receipt);
+
+        // Decrement student's share quota
+        subscription.SharesFromMentorUsed++;
+        _context.FeatureUsageLogs.Add(new Domain.Entities.FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = request.StudentId,
+            FeatureKey = Domain.Enums.SubscriptionFeatureKey.SharesFromMentor,
+            CreatedAt = DateTime.UtcNow
+        });
+
+
+        // Decrement student's share quota
+        subscription.SharesFromMentorUsed++;
+        _context.FeatureUsageLogs.Add(new Domain.Entities.FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = request.StudentId,
+            FeatureKey = Domain.Enums.SubscriptionFeatureKey.SharesFromMentor,
+            CreatedAt = DateTime.UtcNow
+        });
+
         await _context.SaveChangesAsync(cancellationToken);
 
         var directMessageDto = new DirectMessageDto(
