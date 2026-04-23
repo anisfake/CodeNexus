@@ -219,7 +219,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         _context.DirectMessages.Add(message);
         _context.DirectMessageReceipts.Add(receipt);
 
-        // Decrement student's share quota
+
         subscription.SharesFromMentorUsed++;
         _context.FeatureUsageLogs.Add(new Domain.Entities.FeatureUsageLog
         {
@@ -230,15 +230,6 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         });
 
 
-        // Decrement student's share quota
-        subscription.SharesFromMentorUsed++;
-        _context.FeatureUsageLogs.Add(new Domain.Entities.FeatureUsageLog
-        {
-            FeatureUsageLogId = NewId.NextGuid(),
-            UserId = request.StudentId,
-            FeatureKey = Domain.Enums.SubscriptionFeatureKey.SharesFromMentor,
-            CreatedAt = DateTime.UtcNow
-        });
 
         await _context.SaveChangesAsync(cancellationToken);
 
