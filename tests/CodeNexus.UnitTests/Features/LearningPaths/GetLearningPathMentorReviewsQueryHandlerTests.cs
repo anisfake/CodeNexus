@@ -1,4 +1,4 @@
-using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetLearningPathMentorReviews;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -94,10 +94,28 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
             UpdatedAt = now.AddHours(-1)
         };
 
+        var studentSub = new StudentMentorSubscription
+        {
+            SubscriptionId = Guid.NewGuid(),
+            UserId = studentId,
+            MentorPackageId = Guid.NewGuid(),
+            IsActive = true,
+            ValidationRequestsUsed = 1
+        };
+        var pkg = new MentorPackage
+        {
+            MentorPackageId = studentSub.MentorPackageId,
+            ValidationRequestLimit = 5,
+            IsActive = true
+        };
+        studentSub.MentorPackage = pkg;
+
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { path }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new[] { reviewOlder, reviewNewer }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(new[] { studentSub }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.MentorPackages).Returns(new[] { pkg }.BuildMockDbSet().Object);
 
         var result = await _handler.Handle(new GetLearningPathMentorReviewsQuery(pathId), CancellationToken.None);
 

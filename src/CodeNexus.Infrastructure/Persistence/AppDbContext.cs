@@ -383,12 +383,6 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.StudentRequestNote)
                       .HasMaxLength(1000);
 
-                entity.Property(e => e.RejectionCount)
-                      .HasDefaultValue(0);
-
-                entity.Property(e => e.MaxRejections)
-                      .HasDefaultValue(3);
-
                 entity.Property(e => e.DecisionStatus)
                       .HasConversion<string>()
                       .HasMaxLength(32)

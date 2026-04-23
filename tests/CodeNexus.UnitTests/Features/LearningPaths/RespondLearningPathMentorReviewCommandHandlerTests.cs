@@ -33,13 +33,14 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_Reject_IncrementsRejectionCount()
+    public async Task Handle_Reject_IncrementsValidationRequestsUsed()
     {
         var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
         var studentId = Guid.NewGuid();
         var mentorId = Guid.NewGuid();
         var pathId = Guid.NewGuid();
         var reviewId = Guid.NewGuid();
+        var packageId = Guid.NewGuid();
 
         var student = new User { UserId = studentId, RoleId = studentRole.RoleId, Role = studentRole };
         var path = new LearningPath { PathId = pathId, UserId = studentId, Title = "Path" };
@@ -48,15 +49,24 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
             ReviewId = reviewId,
             PathId = pathId,
             MentorId = mentorId,
-            StudentId = studentId,
-            RejectionCount = 0,
-            MaxRejections = 2
+            StudentId = studentId
+        };
+        var pkg = new MentorPackage { MentorPackageId = packageId, ValidationRequestLimit = 2 };
+        var studentSub = new StudentMentorSubscription
+        {
+            SubscriptionId = Guid.NewGuid(),
+            UserId = studentId,
+            MentorPackageId = packageId,
+            ValidationRequestsUsed = 0,
+            MentorPackage = pkg
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
         _mockContext.Setup(x => x.Users).Returns(new[] { student }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { path }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new[] { review }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(new[] { studentSub }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.MentorPackages).Returns(new[] { pkg }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var result = await _handler.Handle(
@@ -70,19 +80,12 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.DecisionStatus.Should().Be(LearningPathMentorReviewDecisionStatus.Rejected);
-        result.Value.RejectionCount.Should().Be(1);
-        result.Value.MaxRejections.Should().Be(2);
-        result.Value.CanRequestRevision.Should().BeTrue();
-        review.RejectionCount.Should().Be(1);
+        result.Value.ValidationRequestsUsed.Should().Be(1);
+        result.Value.ValidationRequestLimit.Should().Be(2);
+        result.Value.CanRequestValidation.Should().BeTrue();
+        studentSub.ValidationRequestsUsed.Should().Be(1);
 
-        _mockPathSyncService.Verify(
-            x => x.RebuildCurrentPathFromSourceAsync(
-                It.IsAny<LearningPath>(),
-                It.IsAny<LearningPath>(),
-                It.IsAny<Guid>(),
-                It.IsAny<DateTime>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
+        _mockPathSyncService.Verify(x => x.RebuildCurrentPathFromSourceAsync(It.IsAny<LearningPath>(), It.IsAny<LearningPath>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -123,9 +126,7 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
             PathId = pathId,
             RevisedPathId = revisedPathId,
             MentorId = mentorId,
-            StudentId = studentId,
-            RejectionCount = 1,
-            MaxRejections = 3
+            StudentId = studentId
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
@@ -133,6 +134,7 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
         _mockContext.Setup(x => x.Users).Returns(new[] { student }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { targetPath, sourcePath }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new[] { review }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(new List<StudentMentorSubscription>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var result = await _handler.Handle(
@@ -146,8 +148,8 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
         result.Value!.DecisionStatus.Should().Be(LearningPathMentorReviewDecisionStatus.Accepted);
-        result.Value.RejectionCount.Should().Be(1);
-        result.Value.CanRequestRevision.Should().BeTrue();
+        result.Value.ValidationRequestsUsed.Should().Be(0);
+        result.Value.CanRequestValidation.Should().BeTrue();
 
         _mockPathSyncService.Verify(
             x => x.RebuildCurrentPathFromSourceAsync(
@@ -159,3 +161,4 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
             Times.Once);
     }
 }
+

@@ -79,7 +79,6 @@ public class RequestLearningPathMentorReviewCommandHandler
         }
 
         var activeSubscription = await _context.StudentMentorSubscriptions
-            .AsNoTracking()
             .Include(s => s.MentorPackage)
             .Where(s => s.UserId == studentId && s.IsActive)
             .OrderByDescending(s => s.CreatedAt)
@@ -99,10 +98,11 @@ public class RequestLearningPathMentorReviewCommandHandler
                 "Mentor package for active subscription was not found.");
         }
 
-        var maxRejections = activeSubscription.MentorPackage.ValidationRequestLimit;
-        if (maxRejections < -1)
+        if (activeSubscription.ValidationRequestsUsed >= activeSubscription.MentorPackage.ValidationRequestLimit)
         {
-            maxRejections = 0;
+            return Result<RequestLearningPathMentorReviewResponseDto>.Failure(
+                "VALIDATION_REQUEST_LIMIT_REACHED",
+                $"Validation request limit reached ({activeSubscription.ValidationRequestsUsed}/{activeSubscription.MentorPackage.ValidationRequestLimit}).");
         }
 
         var sourcePath = await _context.LearningPaths
@@ -128,12 +128,6 @@ public class RequestLearningPathMentorReviewCommandHandler
         var existingReview = await _context.LearningPathMentorReviews
             .FirstOrDefaultAsync(r => r.PathId == request.PathId && r.MentorId == request.MentorId, cancellationToken);
 
-        if (existingReview != null && IsLimitReached(existingReview.RejectionCount, maxRejections))
-        {
-            return Result<RequestLearningPathMentorReviewResponseDto>.Failure(
-                "MENTOR_REVIEW_REJECT_LIMIT_REACHED",
-                $"You have reached the maximum reject attempts ({FormatLimitForDisplay(maxRejections)}) for this mentor review.");
-        }
 
         var now = _dateTimeProvider.UtcNow.AddHours(7);
         var revisedPathId = await EnsureMentorWorkspaceAsync(
@@ -146,6 +140,10 @@ public class RequestLearningPathMentorReviewCommandHandler
         var normalizedRequestNote = string.IsNullOrWhiteSpace(request.StudentRequestNote)
             ? null
             : request.StudentRequestNote.Trim();
+
+        // Increment subscription used count BEFORE save
+        activeSubscription.ValidationRequestsUsed++;
+        _context.StudentMentorSubscriptions.Update(activeSubscription);
 
         if (existingReview == null)
         {
@@ -162,8 +160,6 @@ public class RequestLearningPathMentorReviewCommandHandler
                 DecisionStatus = LearningPathMentorReviewDecisionStatus.Pending,
                 StudentDecisionNote = null,
                 StudentDecidedAt = null,
-                RejectionCount = 0,
-                MaxRejections = maxRejections,
                 CreatedAt = now
             };
 
@@ -176,7 +172,6 @@ public class RequestLearningPathMentorReviewCommandHandler
             existingReview.DecisionStatus = LearningPathMentorReviewDecisionStatus.Pending;
             existingReview.StudentDecisionNote = null;
             existingReview.StudentDecidedAt = null;
-            existingReview.MaxRejections = maxRejections;
             existingReview.UpdatedAt = now;
         }
 
@@ -191,21 +186,12 @@ public class RequestLearningPathMentorReviewCommandHandler
                 existingReview.RevisedPathId,
                 existingReview.StudentRequestNote,
                 existingReview.DecisionStatus,
-                existingReview.RejectionCount,
-                existingReview.MaxRejections,
-                CanRequestRevision(existingReview.RejectionCount, existingReview.MaxRejections),
+                activeSubscription.ValidationRequestsUsed,
+                activeSubscription.MentorPackage.ValidationRequestLimit,
+                activeSubscription.ValidationRequestsUsed <= activeSubscription.MentorPackage.ValidationRequestLimit,
                 existingReview.CreatedAt,
                 existingReview.UpdatedAt));
     }
-
-    private static bool IsLimitReached(int used, int limit)
-        => limit != -1 && used >= limit;
-
-    private static bool CanRequestRevision(int used, int limit)
-        => limit == -1 || used < limit;
-
-    private static string FormatLimitForDisplay(int limit)
-        => limit == -1 ? "unlimited" : limit.ToString();
 
     private async Task<Guid> EnsureMentorWorkspaceAsync(
         LearningPath sourcePath,

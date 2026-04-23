@@ -25,9 +25,9 @@ public record LearningPathMentorReviewDto(
     string? StudentRequestNote = null,
     string? ChangeSummary = null,
     string? ChangeReason = null,
-    int RejectionCount = 0,
-    int MaxRejections = 3,
-    bool CanRequestRevision = true);
+    int ValidationRequestsUsed = 0,
+    int ValidationRequestLimit = 0,
+    bool CanRequestValidation = true);
 
 public record UpsertLearningPathMentorReviewResponseDto(
     Guid ReviewId,
@@ -42,9 +42,9 @@ public record UpsertLearningPathMentorReviewResponseDto(
     Guid? RevisedPathId = null,
     string? ChangeSummary = null,
     string? ChangeReason = null,
-    int RejectionCount = 0,
-    int MaxRejections = 3,
-    bool CanRequestRevision = true);
+    int ValidationRequestsUsed = 0,
+    int ValidationRequestLimit = 0,
+    bool CanRequestValidation = true);
 
 public record RequestLearningPathMentorReviewResponseDto(
     Guid ReviewId,
@@ -54,9 +54,9 @@ public record RequestLearningPathMentorReviewResponseDto(
     Guid? RevisedPathId,
     string? StudentRequestNote,
     LearningPathMentorReviewDecisionStatus DecisionStatus,
-    int RejectionCount,
-    int MaxRejections,
-    bool CanRequestRevision,
+    int ValidationRequestsUsed,
+    int ValidationRequestLimit,
+    bool CanRequestValidation,
     DateTime CreatedAt,
     DateTime? UpdatedAt);
 
@@ -70,10 +70,11 @@ public record RespondLearningPathMentorReviewResponseDto(
     LearningPathMentorReviewDecisionStatus DecisionStatus,
     string? StudentDecisionNote,
     DateTime? StudentDecidedAt,
-    int RejectionCount = 0,
-    int MaxRejections = 3,
-    bool CanRequestRevision = true);
+    int ValidationRequestsUsed = 0,
+    int ValidationRequestLimit = 0,
+    bool CanRequestValidation = true);
 
 public record LearningPathMentorReviewListResponseDto(
     Guid PathId,
     List<LearningPathMentorReviewDto> Reviews);
+

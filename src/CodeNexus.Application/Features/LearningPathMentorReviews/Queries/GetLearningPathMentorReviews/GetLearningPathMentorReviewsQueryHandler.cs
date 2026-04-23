@@ -73,37 +73,34 @@ public class GetLearningPathMentorReviewsQueryHandler
             return Result<LearningPathMentorReviewListResponseDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
-        var reviewRows = await _context.LearningPathMentorReviews
-            .AsNoTracking()
-            .Where(r => r.PathId == request.PathId)
-            .Join(
-                _context.Users.AsNoTracking(),
-                r => r.MentorId,
-                u => u.UserId,
-                (r, u) => new
-                {
-                    r.ReviewId,
-                    r.PathId,
-                    r.MentorId,
-                    MentorUsername = u.Username,
-                    r.StudentId,
-                    r.RevisedPathId,
-                    r.StudentRequestNote,
-                    r.ChangeSummary,
-                    r.ChangeReason,
-                    r.RejectionCount,
-                    r.MaxRejections,
-                    r.DecisionStatus,
-                    r.StudentDecisionNote,
-                    r.StudentDecidedAt,
-                    r.CreatedAt,
-                    r.UpdatedAt
-                })
-            .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
-            .ToListAsync(cancellationToken);
+        var reviewRows = await (from review in _context.LearningPathMentorReviews.AsNoTracking()
+                               join mentorUser in _context.Users.AsNoTracking() on review.MentorId equals mentorUser.UserId
+                               join studentSub in _context.StudentMentorSubscriptions.AsNoTracking() on review.StudentId equals studentSub.UserId
+                               join pkg in _context.MentorPackages.AsNoTracking() on studentSub.MentorPackageId equals pkg.MentorPackageId
+                               where review.PathId == request.PathId && studentSub.IsActive && pkg.IsActive
+                               select new
+                               {
+                                   review.ReviewId,
+                                   review.PathId,
+                                   review.MentorId,
+                                   MentorUsername = mentorUser.Username,
+                                   review.StudentId,
+                                   review.RevisedPathId,
+                                   review.StudentRequestNote,
+                                   review.ChangeSummary,
+                                   review.ChangeReason,
+                                   studentSub.ValidationRequestsUsed,
+                                   pkg.ValidationRequestLimit,
+                                   review.DecisionStatus,
+                                   review.StudentDecisionNote,
+                                   review.StudentDecidedAt,
+                                   review.CreatedAt,
+                                   review.UpdatedAt
+                               })
+                               .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
+                               .ToListAsync(cancellationToken);
 
-        var reviews = reviewRows
-            .Select(x => new LearningPathMentorReviewDto(
+        var reviews = reviewRows.Select(x => new LearningPathMentorReviewDto(
                 x.ReviewId,
                 x.PathId,
                 x.MentorId,
@@ -118,9 +115,9 @@ public class GetLearningPathMentorReviewsQueryHandler
                 x.StudentRequestNote,
                 x.ChangeSummary,
                 x.ChangeReason,
-                x.RejectionCount,
-                x.MaxRejections,
-                CanRequestRevision(x.RejectionCount, x.MaxRejections)))
+                x.ValidationRequestsUsed,
+                x.ValidationRequestLimit,
+                x.ValidationRequestsUsed < x.ValidationRequestLimit))
             .ToList();
 
         return Result<LearningPathMentorReviewListResponseDto>.Success(
@@ -128,7 +125,4 @@ public class GetLearningPathMentorReviewsQueryHandler
                 request.PathId,
                 reviews));
     }
-
-    private static bool CanRequestRevision(int used, int limit)
-        => limit == -1 || used < limit;
 }

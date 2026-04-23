@@ -59,6 +59,7 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
             MentorPackageId = packageId,
             MentorPackage = package,
             IsActive = true,
+            ValidationRequestsUsed = 0,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -74,22 +75,14 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
             Chapters = new List<Chapter>()
         };
 
-        var revisedPath = new LearningPath
-        {
-            PathId = revisedPathId,
-            UserId = mentorId,
-            SubjectId = sourcePath.SubjectId,
-            Title = sourcePath.Title,
-            Status = LearningPathStatus.Active.ToString()
-        };
-
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
         _mockDateTimeProvider.Setup(x => x.UtcNow).Returns(new DateTime(2026, 4, 23, 8, 0, 0, DateTimeKind.Utc));
 
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPaths).Returns(new[] { sourcePath, revisedPath }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPaths).Returns(new[] { sourcePath }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(new[] { subscription }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new List<LearningPathMentorReview>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.MentorPackages).Returns(new[] { package }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         _mockPathSyncService
@@ -113,9 +106,10 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
         result.Value.MentorId.Should().Be(mentorId);
         result.Value.RevisedPathId.Should().Be(revisedPathId);
         result.Value.DecisionStatus.Should().Be(LearningPathMentorReviewDecisionStatus.Pending);
-        result.Value.RejectionCount.Should().Be(0);
-        result.Value.MaxRejections.Should().Be(package.ValidationRequestLimit);
-        revisedPath.Status.Should().Be(LearningPathStatus.Draft.ToString());
+        result.Value.ValidationRequestsUsed.Should().Be(1);
+        result.Value.ValidationRequestLimit.Should().Be(package.ValidationRequestLimit);
+        result.Value.CanRequestValidation.Should().BeTrue();
+        subscription.ValidationRequestsUsed.Should().Be(1);
 
         _mockPathSyncService.Verify(
             x => x.ClonePathForStudentAsync(
@@ -127,7 +121,7 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_RejectLimitReached_ReturnsFailure()
+    public async Task Handle_LimitReached_ReturnsFailure()
     {
         var studentRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Student" };
         var mentorRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Mentor" };
@@ -152,6 +146,7 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
             MentorPackageId = packageId,
             MentorPackage = package,
             IsActive = true,
+            ValidationRequestsUsed = 3,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -165,30 +160,20 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
             Chapters = new List<Chapter>()
         };
 
-        var existingReview = new LearningPathMentorReview
-        {
-            ReviewId = Guid.NewGuid(),
-            PathId = pathId,
-            MentorId = mentorId,
-            StudentId = studentId,
-            RejectionCount = 3,
-            MaxRejections = 3
-        };
-
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
         _mockDateTimeProvider.Setup(x => x.UtcNow).Returns(DateTime.UtcNow);
 
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { sourcePath }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(new[] { subscription }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new[] { existingReview }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.MentorPackages).Returns(new[] { package }.BuildMockDbSet().Object);
 
         var result = await _handler.Handle(
             new RequestLearningPathMentorReviewCommand(pathId, mentorId, "retry"),
             CancellationToken.None);
 
         result.IsFailure.Should().BeTrue();
-        result.ErrorCode.Should().Be("MENTOR_REVIEW_REJECT_LIMIT_REACHED");
+        result.ErrorCode.Should().Be("VALIDATION_REQUEST_LIMIT_REACHED");
 
         _mockPathSyncService.Verify(
             x => x.ClonePathForStudentAsync(
@@ -237,3 +222,4 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
         result.ErrorCode.Should().Be("MENTOR_SUBSCRIPTION_REQUIRED");
     }
 }
+

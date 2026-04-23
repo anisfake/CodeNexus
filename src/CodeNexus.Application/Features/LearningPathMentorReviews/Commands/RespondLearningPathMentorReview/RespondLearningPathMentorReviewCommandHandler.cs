@@ -79,13 +79,9 @@ public class RespondLearningPathMentorReviewCommandHandler
             return Result<RespondLearningPathMentorReviewResponseDto>.Failure("REVIEW_NOT_FOUND", "Mentor review not found.");
         }
 
-        if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Rejected
-            && IsLimitReached(review.RejectionCount, review.MaxRejections))
-        {
-            return Result<RespondLearningPathMentorReviewResponseDto>.Failure(
-                "MENTOR_REVIEW_REJECT_LIMIT_REACHED",
-                $"You have reached the maximum reject attempts ({FormatLimitForDisplay(review.MaxRejections)}) for this mentor review.");
-        }
+        // Load subscription for increment on reject
+        var studentSub = await _context.StudentMentorSubscriptions
+            .FirstOrDefaultAsync(s => s.UserId == studentId && s.IsActive, cancellationToken);
 
         if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Accepted)
         {
@@ -143,9 +139,10 @@ public class RespondLearningPathMentorReviewCommandHandler
             ? null
             : request.StudentDecisionNote.Trim();
         review.StudentDecidedAt = DateTime.UtcNow;
-        if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Rejected)
+        if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Rejected && studentSub != null)
         {
-            review.RejectionCount++;
+            studentSub.ValidationRequestsUsed++;
+            _context.StudentMentorSubscriptions.Update(studentSub);
         }
         review.UpdatedAt = DateTime.UtcNow;
 
@@ -158,17 +155,8 @@ public class RespondLearningPathMentorReviewCommandHandler
                 review.DecisionStatus,
                 review.StudentDecisionNote,
                 review.StudentDecidedAt,
-                review.RejectionCount,
-                review.MaxRejections,
-                CanRequestRevision(review.RejectionCount, review.MaxRejections)));
+                studentSub?.ValidationRequestsUsed ?? 0,
+                studentSub?.MentorPackage.ValidationRequestLimit ?? 0,
+                studentSub == null || studentSub.ValidationRequestsUsed < studentSub.MentorPackage.ValidationRequestLimit));
     }
-
-    private static bool IsLimitReached(int used, int limit)
-        => limit != -1 && used >= limit;
-
-    private static bool CanRequestRevision(int used, int limit)
-        => limit == -1 || used < limit;
-
-    private static string FormatLimitForDisplay(int limit)
-        => limit == -1 ? "unlimited" : limit.ToString();
 }

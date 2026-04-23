@@ -20,9 +20,8 @@ public class LearningPathMentorReview
     public string? ChangeSummary { get; set; }
     public string? ChangeReason { get; set; }
     public string? StudentRequestNote { get; set; }
-    public int RejectionCount { get; set; }
-    public int MaxRejections { get; set; } = 3;
     public LearningPathMentorReviewDecisionStatus DecisionStatus { get; set; } = LearningPathMentorReviewDecisionStatus.Pending;
+
     public string? StudentDecisionNote { get; set; }
     public DateTime? StudentDecidedAt { get; set; }
 
