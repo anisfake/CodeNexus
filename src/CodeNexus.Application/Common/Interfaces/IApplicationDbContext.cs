@@ -50,7 +50,6 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<PaymentTransaction> PaymentTransactions { get; }
         public DbSet<MentorPackage> MentorPackages { get; }
         public DbSet<StudentMentorSubscription> StudentMentorSubscriptions { get; }
-        public DbSet<LearningPathValidationRequest> LearningPathValidationRequests { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies { get; }
         void SetAuditUserId(Guid userId);
