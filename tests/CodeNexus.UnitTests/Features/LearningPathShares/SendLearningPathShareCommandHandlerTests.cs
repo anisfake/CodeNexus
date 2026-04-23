@@ -100,6 +100,26 @@ public class SendLearningPathShareCommandHandlerTests
         var tasksDbSet = new List<CodeNexus.Domain.Entities.Tasks> { chapterTask }.BuildMockDbSet();
         var quizzesDbSet = new List<Quiz> { quiz }.BuildMockDbSet();
 
+        var subscription = new StudentMentorSubscription
+        {
+            SubscriptionId = NewId.NextGuid(),
+            UserId = studentId,
+            MentorPackageId = NewId.NextGuid(),
+            IsActive = true,
+            SharesFromMentorLimit = -1, // unlimited
+            SharesFromMentorUsed = 0,
+            ValidationRequestLimit = -1,
+            ValidationRequestsUsed = 0,
+            TaskReviewLimit = -1,
+            TaskReviewsUsed = 0
+        };
+        var subscriptionsDbSet = new List<StudentMentorSubscription> { subscription }.BuildMockDbSet();
+
+        var featureUsageLogs = new List<FeatureUsageLog>();
+        var featureUsageLogsDbSet = featureUsageLogs.BuildMockDbSet();
+        featureUsageLogsDbSet.Setup(x => x.Add(It.IsAny<FeatureUsageLog>()))
+            .Callback<FeatureUsageLog>(featureUsageLogs.Add);
+
         var shares = new List<LearningPathShare>();
         var sharesDbSet = shares.BuildMockDbSet();
         sharesDbSet.Setup(x => x.Add(It.IsAny<LearningPathShare>()))
@@ -131,6 +151,8 @@ public class SendLearningPathShareCommandHandlerTests
         _mockContext.Setup(x => x.DirectConversations).Returns(conversationsDbSet.Object);
         _mockContext.Setup(x => x.DirectMessages).Returns(messagesDbSet.Object);
         _mockContext.Setup(x => x.DirectMessageReceipts).Returns(receiptsDbSet.Object);
+        _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(subscriptionsDbSet.Object);
+        _mockContext.Setup(x => x.FeatureUsageLogs).Returns(featureUsageLogsDbSet.Object);
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var result = await _handler.Handle(new SendLearningPathShareCommand(pathId, studentId), CancellationToken.None);
