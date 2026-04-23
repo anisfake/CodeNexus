@@ -242,9 +242,9 @@ public class LearningPathController : ControllerBase
 
     [HttpPut("{pathId:guid}/republish")]
     [Authorize(Roles = "Mentor")]
-    public async Task<IActionResult> RepublishLearningPath(Guid pathId, CancellationToken cancellationToken)
+    public async Task<IActionResult> RepublishLearningPath(Guid pathId, [FromBody] RepublishLearningPathRequest request, CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(new RepublishLearningPathCommand(pathId), cancellationToken);
+        var result = await _sender.Send(new RepublishLearningPathCommand(pathId, request.IncreaseVersion, request.VersionUpdateType), cancellationToken);
         return ToActionResult(result);
     }
 

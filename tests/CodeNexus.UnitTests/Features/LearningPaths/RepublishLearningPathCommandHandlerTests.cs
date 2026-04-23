@@ -1,10 +1,12 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.RepublishLearningPath;
+using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
 using FluentAssertions;
 using MassTransit;
+using MediatR;
 using Moq;
 
 namespace CodeNexus.UnitTests.Features.LearningPaths;
@@ -13,15 +15,18 @@ public class RepublishLearningPathCommandHandlerTests
 {
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
+    private readonly Mock<IPublisher> _mockPublisher;
     private readonly RepublishLearningPathCommandHandler _handler;
 
     public RepublishLearningPathCommandHandlerTests()
     {
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
+        _mockPublisher = new Mock<IPublisher>();
         _handler = new RepublishLearningPathCommandHandler(
             _mockContext.Object,
-            _mockCurrentUserService.Object);
+            _mockCurrentUserService.Object,
+            _mockPublisher.Object);
     }
 
     private void SetupMocks(Guid mentorId, LearningPath learningPath)
@@ -52,7 +57,7 @@ public class RepublishLearningPathCommandHandlerTests
 
         SetupMocks(mentorId, learningPath);
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         learningPath.Status.Should().Be(LearningPathStatus.Published.ToString());
@@ -64,7 +69,7 @@ public class RepublishLearningPathCommandHandlerTests
     {
         _mockCurrentUserService.Setup(x => x.GetUserId()).Throws<Exception>();
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid()), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid(), false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("UNAUTHORIZED");
@@ -79,7 +84,7 @@ public class RepublishLearningPathCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(mentorId);
         _mockContext.Setup(x => x.Users).Returns(usersDb.Object);
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid()), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid(), false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("USER_NOT_FOUND");
@@ -95,7 +100,7 @@ public class RepublishLearningPathCommandHandlerTests
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
         _mockContext.Setup(x => x.Users).Returns(usersDb.Object);
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid()), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid(), false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ACCESS_DENIED");
@@ -113,7 +118,7 @@ public class RepublishLearningPathCommandHandlerTests
         _mockContext.Setup(x => x.Users).Returns(usersDb.Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(pathsDb.Object);
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid()), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(NewId.NextGuid(), false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("LEARNING_PATH_NOT_FOUND");
@@ -142,7 +147,7 @@ public class RepublishLearningPathCommandHandlerTests
         _mockContext.Setup(x => x.Users).Returns(usersDb.Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(pathsDb.Object);
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("ACCESS_DENIED");
@@ -164,9 +169,80 @@ public class RepublishLearningPathCommandHandlerTests
 
         SetupMocks(mentorId, learningPath);
 
-        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId), CancellationToken.None);
+        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, false, null), CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.ErrorCode.Should().Be("PATH_NOT_IN_DRAFT_STATUS");
+    }
+
+    [Fact]
+    public async Task Handle_WithIncreaseVersionMinor_IncrementsVersionByPoint1()
+    {
+        var mentorId = NewId.NextGuid();
+        var pathId = NewId.NextGuid();
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = mentorId,
+            Title = "Test Path - ver 1.0",
+            VersionNumber = 1.0m,
+            Status = LearningPathStatus.Draft.ToString()
+        };
+
+        SetupMocks(mentorId, learningPath);
+
+        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, true, DraftVersionUpdateType.Minor), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        learningPath.VersionNumber.Should().Be(1.1m);
+        learningPath.Status.Should().Be(LearningPathStatus.Published.ToString());
+    }
+
+    [Fact]
+    public async Task Handle_WithIncreaseVersionMajor_IncrementsVersionToNextWhole()
+    {
+        var mentorId = NewId.NextGuid();
+        var pathId = NewId.NextGuid();
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = mentorId,
+            Title = "Test Path - ver 1.2",
+            VersionNumber = 1.2m,
+            Status = LearningPathStatus.Draft.ToString()
+        };
+
+        SetupMocks(mentorId, learningPath);
+
+        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, true, DraftVersionUpdateType.Major), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        learningPath.VersionNumber.Should().Be(2.0m);
+        learningPath.Status.Should().Be(LearningPathStatus.Published.ToString());
+    }
+
+    [Fact]
+    public async Task Handle_WithoutIncreaseVersion_KeepsVersionUnchanged()
+    {
+        var mentorId = NewId.NextGuid();
+        var pathId = NewId.NextGuid();
+
+        var learningPath = new LearningPath
+        {
+            PathId = pathId,
+            UserId = mentorId,
+            Title = "Test Path - ver 2.0",
+            VersionNumber = 2.0m,
+            Status = LearningPathStatus.Draft.ToString()
+        };
+
+        SetupMocks(mentorId, learningPath);
+
+        var result = await _handler.Handle(new RepublishLearningPathCommand(pathId, false, null), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        learningPath.VersionNumber.Should().Be(2.0m);
     }
 }
