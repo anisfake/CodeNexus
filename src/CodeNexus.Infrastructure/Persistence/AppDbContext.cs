@@ -77,7 +77,6 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
         public DbSet<MentorPackage> MentorPackages => Set<MentorPackage>();
         public DbSet<StudentMentorSubscription> StudentMentorSubscriptions => Set<StudentMentorSubscription>();
-        public DbSet<LearningPathValidationRequest> LearningPathValidationRequests => Set<LearningPathValidationRequest>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -295,7 +294,6 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<MentorPackage>().HasKey(e => e.MentorPackageId);
             modelBuilder.Entity<MentorPackage>().Property(e => e.PriceVnd).HasPrecision(18, 2);
             modelBuilder.Entity<StudentMentorSubscription>().HasKey(e => e.SubscriptionId);
-            modelBuilder.Entity<LearningPathValidationRequest>().HasKey(e => e.ValidationRequestId);
 
             // MentorPackage FK on PaymentTransaction (optional, no cascade)
             modelBuilder.Entity<PaymentTransaction>()
@@ -322,25 +320,6 @@ namespace CodeNexus.Infrastructure.Persistence
                 .WithMany()
                 .HasForeignKey(s => s.PaymentTransactionId)
                 .OnDelete(DeleteBehavior.SetNull);
-
-            // LearningPathValidationRequest FKs
-            modelBuilder.Entity<LearningPathValidationRequest>()
-                .HasOne(r => r.LearningPath)
-                .WithMany()
-                .HasForeignKey(r => r.PathId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            modelBuilder.Entity<LearningPathValidationRequest>()
-                .HasOne(r => r.Student)
-                .WithMany()
-                .HasForeignKey(r => r.StudentId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            modelBuilder.Entity<LearningPathValidationRequest>()
-                .HasOne(r => r.Mentor)
-                .WithMany()
-                .HasForeignKey(r => r.MentorId)
-                .OnDelete(DeleteBehavior.Restrict);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
