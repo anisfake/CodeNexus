@@ -26,6 +26,10 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPat
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestionPreview;
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.UpsertLearningPathMentorReview;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RespondLearningPathMentorReview;
+using CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetLearningPathMentorReviews;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateStudentLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetStudentLearningPathEditDetail;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
@@ -446,6 +450,22 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPut("{pathId:guid}/mentor-review")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UpsertMentorReviewForLearningPath(
+        Guid pathId,
+        [FromBody] UpsertLearningPathMentorReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpsertLearningPathMentorReviewCommand(
+            pathId,
+            request.Score,
+            request.Feedback,
+            request.Suggestions);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
     [HttpGet("student/{pathId:guid}")]
     [Authorize(Roles = "Student")]
     public async Task<IActionResult> GetStudentLearningPathEditDetail(Guid pathId, CancellationToken cancellationToken)
@@ -459,6 +479,33 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> UpdateStudentLearningPath(Guid pathId, [FromBody] UpdateStudentLearningPathRequest request, CancellationToken cancellationToken)
     {
         var command = new UpdateStudentLearningPathCommand(pathId, request.Chapters);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+
+    [HttpGet("{pathId:guid}/mentor-reviews")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathMentorReviews(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathMentorReviewsQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/mentor-reviews/{reviewId:guid}/decision")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> RespondToMentorReview(
+        Guid pathId,
+        Guid reviewId,
+        [FromBody] RespondLearningPathMentorReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new RespondLearningPathMentorReviewCommand(
+            pathId,
+            reviewId,
+            request.DecisionStatus,
+            request.StudentDecisionNote);
+
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
@@ -491,7 +538,7 @@ public class LearningPathController : ControllerBase
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "SUGGESTION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "REVIEW_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

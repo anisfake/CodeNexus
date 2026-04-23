@@ -33,6 +33,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<User> Users => Set<User>();
         public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
         public DbSet<MentorRating> MentorRatings => Set<MentorRating>();
+        public DbSet<LearningPathMentorReview> LearningPathMentorReviews => Set<LearningPathMentorReview>();
 
         public void SetAuditUserId(Guid userId) => _manualUserId = userId;
 
@@ -250,6 +251,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<Role>().HasKey(e => e.RoleId);
             modelBuilder.Entity<UserProfile>().HasKey(e => e.ProfileId);
             modelBuilder.Entity<MentorRating>().HasKey(e => e.RatingId);
+            modelBuilder.Entity<LearningPathMentorReview>().HasKey(e => e.ReviewId);
             modelBuilder.Entity<RefreshToken>().HasKey(e => e.TokenId);
             modelBuilder.Entity<AuditLog>().HasKey(e => e.LogId);
             modelBuilder.Entity<Notification>().HasKey(e => e.NotificationId);
@@ -335,6 +337,48 @@ namespace CodeNexus.Infrastructure.Persistence
 
                 entity.HasOne(e => e.Student)
                       .WithMany(u => u.MentorRatingsGiven)
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<LearningPathMentorReview>(entity =>
+            {
+                entity.Property(e => e.Score)
+                      .IsRequired();
+
+                entity.Property(e => e.Feedback)
+                      .IsRequired()
+                      .HasMaxLength(2000);
+
+                entity.Property(e => e.Suggestions)
+                      .HasMaxLength(2000);
+
+                entity.Property(e => e.DecisionStatus)
+                      .HasConversion<string>()
+                      .HasMaxLength(32)
+                      .HasDefaultValue(LearningPathMentorReviewDecisionStatus.Pending);
+
+                entity.Property(e => e.StudentDecisionNote)
+                      .HasMaxLength(1000);
+
+                entity.HasIndex(e => new { e.PathId, e.MentorId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.StudentId, e.CreatedAt });
+                entity.HasIndex(e => new { e.MentorId, e.CreatedAt });
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
                       .HasForeignKey(e => e.StudentId)
                       .OnDelete(DeleteBehavior.NoAction);
             });
