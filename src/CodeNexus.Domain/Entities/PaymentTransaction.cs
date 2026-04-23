@@ -10,6 +10,9 @@ public class PaymentTransaction
     public Guid? TokenPackageId { get; set; }
     public virtual TokenPackage? TokenPackage { get; set; }
 
+    public Guid? MentorPackageId { get; set; }
+    public virtual MentorPackage? MentorPackage { get; set; }
+
     public decimal Amount { get; set; }
     public decimal CreditedTokens { get; set; }
 

@@ -75,6 +75,9 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
         public DbSet<TokenPackage> TokenPackages => Set<TokenPackage>();
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+        public DbSet<MentorPackage> MentorPackages => Set<MentorPackage>();
+        public DbSet<StudentMentorSubscription> StudentMentorSubscriptions => Set<StudentMentorSubscription>();
+        public DbSet<LearningPathValidationRequest> LearningPathValidationRequests => Set<LearningPathValidationRequest>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -289,6 +292,54 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<TokenPackage>().HasKey(e => e.TokenPackageId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
             modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
+            modelBuilder.Entity<MentorPackage>().HasKey(e => e.MentorPackageId);
+            modelBuilder.Entity<StudentMentorSubscription>().HasKey(e => e.SubscriptionId);
+            modelBuilder.Entity<LearningPathValidationRequest>().HasKey(e => e.ValidationRequestId);
+
+            // MentorPackage FK on PaymentTransaction (optional, no cascade)
+            modelBuilder.Entity<PaymentTransaction>()
+                .HasOne(p => p.MentorPackage)
+                .WithMany()
+                .HasForeignKey(p => p.MentorPackageId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // StudentMentorSubscription FKs
+            modelBuilder.Entity<StudentMentorSubscription>()
+                .HasOne(s => s.User)
+                .WithMany(u => u.MentorSubscriptions)
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StudentMentorSubscription>()
+                .HasOne(s => s.MentorPackage)
+                .WithMany(p => p.Subscriptions)
+                .HasForeignKey(s => s.MentorPackageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StudentMentorSubscription>()
+                .HasOne(s => s.PaymentTransaction)
+                .WithMany()
+                .HasForeignKey(s => s.PaymentTransactionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // LearningPathValidationRequest FKs
+            modelBuilder.Entity<LearningPathValidationRequest>()
+                .HasOne(r => r.LearningPath)
+                .WithMany()
+                .HasForeignKey(r => r.PathId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LearningPathValidationRequest>()
+                .HasOne(r => r.Student)
+                .WithMany()
+                .HasForeignKey(r => r.StudentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<LearningPathValidationRequest>()
+                .HasOne(r => r.Mentor)
+                .WithMany()
+                .HasForeignKey(r => r.MentorId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {

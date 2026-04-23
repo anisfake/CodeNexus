@@ -10,4 +10,5 @@ public record CreateVnPayPaymentCommand(
     string? OrderInfo,
     string ReturnUrl,
     string IpAddress,
+    Guid? MentorPackageId = null,
     string? IpnUrl = null) : IRequest<Result<VnPayCreatePaymentResponseDto>>;

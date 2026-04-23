@@ -1,7 +1,9 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Payments.DTOs;
+using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -84,20 +86,94 @@ public class ProcessVnPayCallbackCommandHandler
         {
             payment.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
+
+            Guid? existingSubId = null;
+            if (payment.MentorPackageId.HasValue)
+            {
+                var existingSub = await _context.StudentMentorSubscriptions
+                    .AsNoTracking()
+                    .Where(s => s.UserId == payment.UserId && s.IsActive)
+                    .OrderByDescending(s => s.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+                existingSubId = existingSub?.SubscriptionId;
+            }
+
             return Result<VnPayCallbackResponseDto>.Success(new VnPayCallbackResponseDto(
                 payment.PaymentTransactionId,
                 payment.Status,
                 payment.ResponseCode ?? string.Empty,
                 payment.Amount,
                 payment.User.TokenBalance,
-                payment.CreditedTokens));
+                payment.CreditedTokens,
+                existingSubId));
         }
+
+        Guid? newSubscriptionId = null;
 
         if (responseCode == "00")
         {
             payment.Status = PaymentStatus.Success;
-            var creditedAmount = payment.CreditedTokens > 0m ? payment.CreditedTokens : payment.Amount;
-            payment.User.TokenBalance += creditedAmount;
+
+            if (payment.MentorPackageId.HasValue)
+            {
+                // Mentor package purchase — create/update subscription, do NOT credit tokens
+                var mentorPackage = await _context.MentorPackages
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.MentorPackageId == payment.MentorPackageId.Value, cancellationToken);
+
+                if (mentorPackage != null)
+                {
+                    // Find existing active subscription to carry over remaining quota
+                    var oldSub = await _context.StudentMentorSubscriptions
+                        .FirstOrDefaultAsync(s => s.UserId == payment.UserId && s.IsActive, cancellationToken);
+
+                    int sharesRemaining = 0;
+                    int validationRemaining = 0;
+                    int taskReviewRemaining = 0;
+
+                    if (oldSub != null)
+                    {
+                        sharesRemaining = oldSub.SharesFromMentorLimit == -1 ? 0
+                            : Math.Max(0, oldSub.SharesFromMentorLimit - oldSub.SharesFromMentorUsed);
+                        validationRemaining = oldSub.ValidationRequestLimit == -1 ? 0
+                            : Math.Max(0, oldSub.ValidationRequestLimit - oldSub.ValidationRequestsUsed);
+                        taskReviewRemaining = oldSub.TaskReviewLimit == -1 ? 0
+                            : Math.Max(0, oldSub.TaskReviewLimit - oldSub.TaskReviewsUsed);
+
+                        oldSub.IsActive = false;
+                    }
+
+                    var newSub = new StudentMentorSubscription
+                    {
+                        SubscriptionId = NewId.NextGuid(),
+                        UserId = payment.UserId,
+                        MentorPackageId = mentorPackage.MentorPackageId,
+                        PaymentTransactionId = payment.PaymentTransactionId,
+                        SharesFromMentorLimit = mentorPackage.SharesFromMentorLimit == -1
+                            ? -1
+                            : mentorPackage.SharesFromMentorLimit + sharesRemaining,
+                        SharesFromMentorUsed = 0,
+                        ValidationRequestLimit = mentorPackage.ValidationRequestLimit == -1
+                            ? -1
+                            : mentorPackage.ValidationRequestLimit + validationRemaining,
+                        ValidationRequestsUsed = 0,
+                        TaskReviewLimit = mentorPackage.TaskReviewLimit == -1
+                            ? -1
+                            : mentorPackage.TaskReviewLimit + taskReviewRemaining,
+                        TaskReviewsUsed = 0,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _context.StudentMentorSubscriptions.AddAsync(newSub, cancellationToken);
+                    newSubscriptionId = newSub.SubscriptionId;
+                }
+            }
+            else
+            {
+                var creditedAmount = payment.CreditedTokens > 0m ? payment.CreditedTokens : payment.Amount;
+                payment.User.TokenBalance += creditedAmount;
+            }
         }
         else if (responseCode == "24")
         {
@@ -118,7 +194,8 @@ public class ProcessVnPayCallbackCommandHandler
             payment.ResponseCode ?? string.Empty,
             payment.Amount,
             payment.User.TokenBalance,
-            payment.CreditedTokens));
+            payment.CreditedTokens,
+            newSubscriptionId));
     }
 
     private static bool TryParsePayDate(IDictionary<string, string> parameters, out DateTime? paidAt)

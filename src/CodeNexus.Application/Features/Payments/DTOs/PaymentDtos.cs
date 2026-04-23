@@ -14,6 +14,7 @@ public record VnPayCallbackResponseDto(
     string ResponseCode,
     decimal Amount,
     decimal TokenBalance,
-    decimal CreditedTokens
+    decimal CreditedTokens,
+    Guid? SubscriptionId = null
 );
 

@@ -107,6 +107,7 @@ public class LearningPathShareController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "USER_NOT_FOUND" or "LEARNING_PATH_NOT_FOUND" or "SOURCE_LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" or "SHARE_ALREADY_ACCEPTED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "MENTOR_SUBSCRIPTION_REQUIRED" or "SHARE_QUOTA_EXCEEDED" => StatusCode(StatusCodes.Status402PaymentRequired, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }
@@ -122,6 +123,7 @@ public class LearningPathShareController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "USER_NOT_FOUND" or "LEARNING_PATH_NOT_FOUND" or "SOURCE_LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" or "SHARE_ALREADY_ACCEPTED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "MENTOR_SUBSCRIPTION_REQUIRED" or "SHARE_QUOTA_EXCEEDED" => StatusCode(StatusCodes.Status402PaymentRequired, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }

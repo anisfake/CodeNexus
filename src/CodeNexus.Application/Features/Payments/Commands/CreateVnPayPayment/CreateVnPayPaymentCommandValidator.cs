@@ -7,8 +7,16 @@ public class CreateVnPayPaymentCommandValidator : AbstractValidator<CreateVnPayP
     public CreateVnPayPaymentCommandValidator()
     {
         RuleFor(x => x)
-            .Must(x => x.TokenPackageId.HasValue || x.TopUpAmountVnd.HasValue)
-            .WithMessage("TokenPackageId or TopUpAmountVnd is required.");
+            .Must(x => x.TokenPackageId.HasValue || x.TopUpAmountVnd.HasValue || x.MentorPackageId.HasValue)
+            .WithMessage("One of TokenPackageId, MentorPackageId, or TopUpAmountVnd is required.")
+            .Must(x =>
+            {
+                var count = (x.TokenPackageId.HasValue ? 1 : 0)
+                          + (x.TopUpAmountVnd.HasValue ? 1 : 0)
+                          + (x.MentorPackageId.HasValue ? 1 : 0);
+                return count <= 1;
+            })
+            .WithMessage("Only one of TokenPackageId, MentorPackageId, or TopUpAmountVnd may be provided.");
 
         RuleFor(x => x.TopUpAmountVnd)
             .GreaterThan(0)

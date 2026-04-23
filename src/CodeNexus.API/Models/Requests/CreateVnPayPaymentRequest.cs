@@ -4,5 +4,6 @@ public record CreateVnPayPaymentRequest(
     Guid? TokenPackageId,
     decimal? TopUpAmountVnd,
     string? OrderInfo,
-    string ReturnUrl
+    string ReturnUrl,
+    Guid? MentorPackageId = null
 );
