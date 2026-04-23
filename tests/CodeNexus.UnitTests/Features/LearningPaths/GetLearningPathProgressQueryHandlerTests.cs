@@ -124,7 +124,8 @@ public class GetLearningPathProgressQueryHandlerTests
         {
             new() { PathId = pathId, UserId = userId, SubjectId = NewId.NextGuid(), Title = "Path" }
         }.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Lessons).Returns(new List<Lesson> { lesson }.BuildMockDbSet().Object);
+_mockContext.Setup(x => x.Lessons).Returns(new List<Lesson> { lesson }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new List<LearningPathMentorReview>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearnProgresses).Returns(new List<LearnProgress>
         {
             new()
@@ -138,7 +139,8 @@ public class GetLearningPathProgressQueryHandlerTests
         }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz> { quiz1, quiz2 }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(attempts.BuildMockDbSet().Object);
-        _mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity> { task1, task2 }.BuildMockDbSet().Object);
+_mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity> { task1, task2 }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new List<LearningPathMentorReview>().BuildMockDbSet().Object);
 
         var result = await _handler.Handle(new GetLearningPathProgressQuery(pathId), CancellationToken.None);
 
@@ -169,6 +171,7 @@ public class GetLearningPathProgressQueryHandlerTests
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new List<LearningPathMentorReview>().BuildMockDbSet().Object);
 
         var result = await _handler.Handle(new GetLearningPathProgressQuery(pathId), CancellationToken.None);
 
@@ -193,6 +196,7 @@ public class GetLearningPathProgressQueryHandlerTests
         _mockContext.Setup(x => x.Quizzes).Returns(new List<Quiz>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.QuizAttempts).Returns(new List<QuizAttempt>().BuildMockDbSet().Object);
         _mockContext.Setup(x => x.Tasks).Returns(new List<TaskEntity>().BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new List<LearningPathMentorReview>().BuildMockDbSet().Object);
 
         var result = await _handler.Handle(new GetLearningPathProgressQuery(pathId), CancellationToken.None);
 

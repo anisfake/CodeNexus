@@ -48,6 +48,7 @@ public class GetStudentLearningPathEditDetailQueryHandler : IRequestHandler<GetS
         if (learningPath == null)
         {
             var review = await _context.LearningPathMentorReviews
+                .IgnoreQueryFilters()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.RevisedPathId == request.PathId && r.StudentId == studentId, cancellationToken);
 
