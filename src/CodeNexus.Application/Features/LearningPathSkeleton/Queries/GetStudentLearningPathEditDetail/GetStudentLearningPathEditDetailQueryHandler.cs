@@ -44,12 +44,39 @@ public class GetStudentLearningPathEditDetailQueryHandler : IRequestHandler<GetS
                 .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
             .FirstOrDefaultAsync(lp => lp.PathId == request.PathId && lp.UserId == studentId, cancellationToken);
 
+        bool isMentorReviewPreview = false;
+        if (learningPath == null)
+        {
+            var review = await _context.LearningPathMentorReviews
+                .AsNoTracking()
+                .FirstOrDefaultAsync(r => r.RevisedPathId == request.PathId && r.StudentId == studentId, cancellationToken);
+
+            if (review != null)
+            {
+                learningPath = await _context.LearningPaths
+                    .AsNoTracking()
+                    .Include(lp => lp.Subject)
+                    .Include(lp => lp.LearningPathGoals)
+                        .ThenInclude(lpg => lpg.Goal)
+                    .Include(lp => lp.User)
+                    .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
+                        .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
+                        .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
+                        .ThenInclude(q => q.Questions.Where(qq => !qq.IsDeleted))
+                    .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
+                        .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
+                    .FirstOrDefaultAsync(lp => lp.PathId == request.PathId, cancellationToken);
+
+                isMentorReviewPreview = learningPath != null;
+            }
+        }
+
         if (learningPath == null)
         {
             return Result<LearningPathResponse>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
-        if (!string.Equals(learningPath.Status, LearningPathStatus.Active.ToString(), StringComparison.OrdinalIgnoreCase))
+        if (!isMentorReviewPreview && !string.Equals(learningPath.Status, LearningPathStatus.Active.ToString(), StringComparison.OrdinalIgnoreCase))
         {
             return Result<LearningPathResponse>.Failure("INVALID_STATUS", "Only active learning paths can be edited.");
         }
