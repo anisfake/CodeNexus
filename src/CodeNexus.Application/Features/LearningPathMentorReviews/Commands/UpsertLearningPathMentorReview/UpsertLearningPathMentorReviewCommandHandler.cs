@@ -60,13 +60,6 @@ public class UpsertLearningPathMentorReviewCommandHandler
             return Result<UpsertLearningPathMentorReviewResponseDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
-        if (!path.CreatedByType)
-        {
-            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
-                "LEARNING_PATH_NOT_AI_GENERATED",
-                "Mentor review is only available for AI-generated learning paths.");
-        }
-
         if (path.UserId == mentorId)
         {
             return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
@@ -88,58 +81,92 @@ public class UpsertLearningPathMentorReviewCommandHandler
             ? null
             : request.Suggestions.Trim();
 
+        var normalizedChangeSummary = string.IsNullOrWhiteSpace(request.ChangeSummary)
+            ? normalizedSuggestions
+            : request.ChangeSummary.Trim();
+
+        var normalizedChangeReason = string.IsNullOrWhiteSpace(request.ChangeReason)
+            ? null
+            : request.ChangeReason.Trim();
+
         var review = await _context.LearningPathMentorReviews
             .FirstOrDefaultAsync(r => r.PathId == request.PathId && r.MentorId == mentorId, cancellationToken);
 
         if (review == null)
         {
-            review = new LearningPathMentorReview
-            {
-                ReviewId = Guid.NewGuid(),
-                PathId = request.PathId,
-                MentorId = mentorId,
-                StudentId = studentId,
-                Score = request.Score,
-                Feedback = normalizedFeedback,
-                Suggestions = normalizedSuggestions,
-                DecisionStatus = LearningPathMentorReviewDecisionStatus.Pending,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _context.LearningPathMentorReviews.AddAsync(review, cancellationToken);
+            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
+                "REVIEW_REQUEST_NOT_FOUND",
+                "Student has not requested mentor review for this learning path yet.");
         }
-        else
+
+        if (!review.RevisedPathId.HasValue)
         {
-            var hasContentChange = review.Score != request.Score
-                || !string.Equals(review.Feedback, normalizedFeedback, StringComparison.Ordinal)
-                || !string.Equals(review.Suggestions, normalizedSuggestions, StringComparison.Ordinal);
-
-            review.Score = request.Score;
-            review.Feedback = normalizedFeedback;
-            review.Suggestions = normalizedSuggestions;
-
-            if (hasContentChange)
-            {
-                review.DecisionStatus = LearningPathMentorReviewDecisionStatus.Pending;
-                review.StudentDecisionNote = null;
-                review.StudentDecidedAt = null;
-            }
-
-            review.UpdatedAt = DateTime.UtcNow;
+            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
+                "REVISED_PATH_NOT_FOUND",
+                "Mentor review workspace path is missing.");
         }
+
+        var revisedPath = await _context.LearningPaths
+            .AsNoTracking()
+            .FirstOrDefaultAsync(lp => lp.PathId == review.RevisedPathId.Value, cancellationToken);
+
+        if (revisedPath == null || revisedPath.UserId != mentorId)
+        {
+            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
+                "REVISED_PATH_NOT_FOUND",
+                "Mentor review workspace path is missing.");
+        }
+
+        if (review.DecisionStatus == LearningPathMentorReviewDecisionStatus.Accepted)
+        {
+            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
+                "REVIEW_ALREADY_ACCEPTED",
+                "This review has already been accepted by student.");
+        }
+
+        if (IsLimitReached(review.RejectionCount, review.MaxRejections))
+        {
+            return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
+                "MENTOR_REVIEW_REJECT_LIMIT_REACHED",
+                $"Reject limit reached ({FormatLimitForDisplay(review.MaxRejections)}). Student cannot request more revisions.");
+        }
+
+        var hasContentChange = review.Score != request.Score
+            || !string.Equals(review.Feedback, normalizedFeedback, StringComparison.Ordinal)
+            || !string.Equals(review.Suggestions, normalizedSuggestions, StringComparison.Ordinal)
+            || !string.Equals(review.ChangeSummary, normalizedChangeSummary, StringComparison.Ordinal)
+            || !string.Equals(review.ChangeReason, normalizedChangeReason, StringComparison.Ordinal);
+
+        review.Score = request.Score;
+        review.Feedback = normalizedFeedback;
+        review.Suggestions = normalizedSuggestions;
+        review.ChangeSummary = normalizedChangeSummary;
+        review.ChangeReason = normalizedChangeReason;
+
+        if (hasContentChange)
+        {
+            review.DecisionStatus = LearningPathMentorReviewDecisionStatus.Pending;
+            review.StudentDecisionNote = null;
+            review.StudentDecidedAt = null;
+        }
+
+        review.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
 
         var stats = await _context.LearningPathMentorReviews
             .AsNoTracking()
-            .Where(r => r.PathId == request.PathId)
+            .Where(r => r.PathId == request.PathId && r.Score > 0)
             .GroupBy(_ => 1)
             .Select(g => new
             {
                 AverageScore = g.Average(x => (double)x.Score),
                 TotalReviews = g.Count()
             })
-            .FirstAsync(cancellationToken);
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var averageScore = stats?.AverageScore ?? 0d;
+        var totalReviews = stats?.TotalReviews ?? 0;
 
         return Result<UpsertLearningPathMentorReviewResponseDto>.Success(
             new UpsertLearningPathMentorReviewResponseDto(
@@ -155,7 +182,22 @@ public class UpsertLearningPathMentorReviewCommandHandler
                 review.StudentDecidedAt,
                 review.CreatedAt,
                 review.UpdatedAt,
-                Math.Round(stats.AverageScore, 2),
-                stats.TotalReviews));
+                Math.Round(averageScore, 2),
+                totalReviews,
+                review.RevisedPathId,
+                review.ChangeSummary,
+                review.ChangeReason,
+                review.RejectionCount,
+                review.MaxRejections,
+                CanRequestRevision(review.RejectionCount, review.MaxRejections)));
     }
+
+    private static bool IsLimitReached(int used, int limit)
+        => limit != -1 && used >= limit;
+
+    private static bool CanRequestRevision(int used, int limit)
+        => limit == -1 || used < limit;
+
+    private static string FormatLimitForDisplay(int limit)
+        => limit == -1 ? "unlimited" : limit.ToString();
 }

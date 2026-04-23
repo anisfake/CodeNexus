@@ -1,4 +1,5 @@
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
+using CodeNexus.Application.Features.Lessons.Queries.EstimateBulkLearningPathGenerationBudget;
 using CodeNexus.Application.Features.Lessons.Queries.GetLearningPathGenerationWorkItems;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateSingleQuizSkeleton;
 using CodeNexus.Application.Features.Quizzes.Commands.GenerateQuizSkeleton;
@@ -232,11 +233,46 @@ public class LessonHub : Hub
             var pendingLessonSet = pendingLessonIds.ToHashSet();
             var pendingQuizCount = pendingQuizzesByLesson.Sum(x => x.Value.Count);
 
+            var budgetEstimateResult = await _sender.Send(
+                new EstimateBulkLearningPathGenerationBudgetQuery(pendingLessonIds.Count, pendingQuizCount),
+                ct);
+            if (!budgetEstimateResult.IsSuccess)
+            {
+                await Clients.Caller.SendAsync("BulkLearningPathGenerationError", new
+                {
+                    PathId = pathId,
+                    budgetEstimateResult.ErrorCode,
+                    budgetEstimateResult.ErrorMessage
+                }, ct);
+                return;
+            }
+
+            var budgetEstimate = budgetEstimateResult.Value;
+            if (budgetEstimate.IsValidationApplied && !budgetEstimate.IsEnoughTokenBalance)
+            {
+                await Clients.Caller.SendAsync("BulkLearningPathGenerationError", new
+                {
+                    PathId = pathId,
+                    ErrorCode = "INSUFFICIENT_TOKEN_BALANCE",
+                    ErrorMessage =
+                        $"Insufficient token balance to generate full learning path content. Required about {budgetEstimate.EstimatedRequiredTokens:0} tokens, current balance {budgetEstimate.CurrentTokenBalance:0}.",
+                    budgetEstimate.EstimatedRequiredTokens,
+                    budgetEstimate.CurrentTokenBalance,
+                    budgetEstimate.PendingLessonCount,
+                    budgetEstimate.PendingQuizCount,
+                    budgetEstimate.EstimatedAiCalls
+                }, ct);
+                await SendWalletTokenBalanceUpdatedAsync();
+                return;
+            }
+
             await Clients.Caller.SendAsync("BulkLearningPathGenerationStarted", new
             {
                 PathId = pathId,
                 TotalLessons = pendingLessonIds.Count,
                 TotalQuizzes = pendingQuizCount,
+                EstimatedRequiredTokens = budgetEstimate.EstimatedRequiredTokens,
+                CurrentTokenBalance = budgetEstimate.CurrentTokenBalance,
                 LessonConcurrency = lessonConcurrency,
                 QuizConcurrency = quizConcurrency
             }, ct);

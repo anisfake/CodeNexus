@@ -8,6 +8,7 @@ public record UpsertLearningPathMentorReviewCommand(
     Guid PathId,
     int Score,
     string Feedback,
-    string? Suggestions)
+    string? Suggestions,
+    string? ChangeSummary = null,
+    string? ChangeReason = null)
     : IRequest<Result<UpsertLearningPathMentorReviewResponseDto>>;
-

@@ -405,6 +405,21 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.Suggestions)
                       .HasMaxLength(2000);
 
+                entity.Property(e => e.ChangeSummary)
+                      .HasMaxLength(2000);
+
+                entity.Property(e => e.ChangeReason)
+                      .HasMaxLength(2000);
+
+                entity.Property(e => e.StudentRequestNote)
+                      .HasMaxLength(1000);
+
+                entity.Property(e => e.RejectionCount)
+                      .HasDefaultValue(0);
+
+                entity.Property(e => e.MaxRejections)
+                      .HasDefaultValue(3);
+
                 entity.Property(e => e.DecisionStatus)
                       .HasConversion<string>()
                       .HasMaxLength(32)
@@ -418,11 +433,17 @@ namespace CodeNexus.Infrastructure.Persistence
 
                 entity.HasIndex(e => new { e.StudentId, e.CreatedAt });
                 entity.HasIndex(e => new { e.MentorId, e.CreatedAt });
+                entity.HasIndex(e => e.RevisedPathId);
 
                 entity.HasOne(e => e.LearningPath)
                       .WithMany()
                       .HasForeignKey(e => e.PathId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.RevisedLearningPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.RevisedPathId)
+                      .OnDelete(DeleteBehavior.NoAction);
 
                 entity.HasOne(e => e.Mentor)
                       .WithMany()
