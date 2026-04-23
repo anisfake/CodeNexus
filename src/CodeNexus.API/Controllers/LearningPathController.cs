@@ -10,6 +10,8 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggeste
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.PublishMentorLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UnpublishLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.RepublishLearningPath;
 using CodeNexus.Application.Features.LearningPathShares.Commands.EnrollInPublishedLearningPath;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetPublishedLearningPaths;
@@ -28,6 +30,8 @@ using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.UpsertLe
 using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RespondLearningPathMentorReview;
 using CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
 using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetLearningPathMentorReviews;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateStudentLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetStudentLearningPathEditDetail;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Lessons.Commands.MarkLessonContentRead;
 using CodeNexus.Application.Features.Lessons.Queries.GetLessonReadStatus;
@@ -225,6 +229,22 @@ public class LearningPathController : ControllerBase
             request.Chapters);
 
         var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/unpublish")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UnpublishLearningPath(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new UnpublishLearningPathCommand(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/republish")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> RepublishLearningPath(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new RepublishLearningPathCommand(pathId), cancellationToken);
         return ToActionResult(result);
     }
 
@@ -446,6 +466,23 @@ public class LearningPathController : ControllerBase
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);
     }
+    [HttpGet("student/{pathId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetStudentLearningPathEditDetail(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetStudentLearningPathEditDetailQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("student/{pathId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> UpdateStudentLearningPath(Guid pathId, [FromBody] UpdateStudentLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateStudentLearningPathCommand(pathId, request.Chapters);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
 
     [HttpGet("{pathId:guid}/mentor-reviews")]
     [Authorize(Roles = "Mentor, Student")]
