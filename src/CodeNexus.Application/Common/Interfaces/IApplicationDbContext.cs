@@ -9,6 +9,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<User> Users { get; }
         public DbSet<UserProfile> UserProfiles { get; }
         public DbSet<MentorRating> MentorRatings { get; }
+        public DbSet<LearningPathMentorReview> LearningPathMentorReviews { get; }
         public DbSet<AuditLog> AuditLogs { get; }
         public DbSet<Notification> Notifications { get; }
         public DbSet<RefreshToken> RefreshTokens { get; }
