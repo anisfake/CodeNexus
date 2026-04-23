@@ -58,39 +58,82 @@ public class GetLearningPathMentorReviewsQueryHandler
                              && path.UserId == currentUserId;
 
         var isMentor = string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase);
-        if (!isStudentOwner && !isMentor)
+        var isMentorReviewer = false;
+        if (isMentor)
+        {
+            isMentorReviewer = await _context.LearningPathMentorReviews
+                .AsNoTracking()
+                .AnyAsync(
+                    r => r.PathId == request.PathId && r.MentorId == currentUserId,
+                    cancellationToken);
+        }
+
+        if (!isStudentOwner && !isMentorReviewer)
         {
             return Result<LearningPathMentorReviewListResponseDto>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
-        var reviews = await _context.LearningPathMentorReviews
+        var reviewRows = await _context.LearningPathMentorReviews
             .AsNoTracking()
             .Where(r => r.PathId == request.PathId)
             .Join(
                 _context.Users.AsNoTracking(),
                 r => r.MentorId,
                 u => u.UserId,
-                (r, u) => new LearningPathMentorReviewDto(
+                (r, u) => new
+                {
                     r.ReviewId,
                     r.PathId,
                     r.MentorId,
-                    u.Username,
+                    MentorUsername = u.Username,
                     r.StudentId,
                     r.Score,
                     r.Feedback,
                     r.Suggestions,
+                    r.RevisedPathId,
+                    r.StudentRequestNote,
+                    r.ChangeSummary,
+                    r.ChangeReason,
+                    r.RejectionCount,
+                    r.MaxRejections,
                     r.DecisionStatus,
                     r.StudentDecisionNote,
                     r.StudentDecidedAt,
                     r.CreatedAt,
-                    r.UpdatedAt))
+                    r.UpdatedAt
+                })
             .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var totalReviews = reviews.Count;
+        var reviews = reviewRows
+            .Select(x => new LearningPathMentorReviewDto(
+                x.ReviewId,
+                x.PathId,
+                x.MentorId,
+                x.MentorUsername,
+                x.StudentId,
+                x.Score,
+                x.Feedback,
+                x.Suggestions,
+                x.DecisionStatus,
+                x.StudentDecisionNote,
+                x.StudentDecidedAt,
+                x.CreatedAt,
+                x.UpdatedAt,
+                x.RevisedPathId,
+                x.StudentRequestNote,
+                x.ChangeSummary,
+                x.ChangeReason,
+                x.RejectionCount,
+                x.MaxRejections,
+                x.RejectionCount < x.MaxRejections))
+            .ToList();
+
+        var submittedReviews = reviews.Where(r => r.Score > 0).ToList();
+        var totalReviews = submittedReviews.Count;
         var avgScore = totalReviews == 0
             ? 0d
-            : Math.Round(reviews.Average(x => x.Score), 2);
+            : Math.Round(submittedReviews.Average(x => x.Score), 2);
 
         return Result<LearningPathMentorReviewListResponseDto>.Success(
             new LearningPathMentorReviewListResponseDto(

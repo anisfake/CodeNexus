@@ -24,6 +24,15 @@ public class UpsertLearningPathMentorReviewCommandValidator : AbstractValidator<
             .MaximumLength(2000)
             .When(x => !string.IsNullOrWhiteSpace(x.Suggestions))
             .WithMessage("Suggestions must not exceed 2000 characters.");
+
+        RuleFor(x => x.ChangeSummary)
+            .MaximumLength(2000)
+            .When(x => !string.IsNullOrWhiteSpace(x.ChangeSummary))
+            .WithMessage("ChangeSummary must not exceed 2000 characters.");
+
+        RuleFor(x => x.ChangeReason)
+            .MaximumLength(2000)
+            .When(x => !string.IsNullOrWhiteSpace(x.ChangeReason))
+            .WithMessage("ChangeReason must not exceed 2000 characters.");
     }
 }
-
