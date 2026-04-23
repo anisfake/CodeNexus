@@ -7,6 +7,5 @@ namespace CodeNexus.Application.Features.LearningPathMentorReviews.Commands.Requ
 public record RequestLearningPathMentorReviewCommand(
     Guid PathId,
     Guid MentorId,
-    string? StudentRequestNote,
-    int? MaxRejectCount = null)
+    string? StudentRequestNote)
     : IRequest<Result<RequestLearningPathMentorReviewResponseDto>>;

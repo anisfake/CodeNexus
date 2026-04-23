@@ -7,13 +7,10 @@ public class MentorPackage
     public string? Description { get; set; }
     public decimal PriceVnd { get; set; }
 
-    /// <summary>-1 = unlimited</summary>
     public int SharesFromMentorLimit { get; set; }
 
-    /// <summary>-1 = unlimited</summary>
     public int ValidationRequestLimit { get; set; }
 
-    /// <summary>-1 = unlimited (reserved for future use)</summary>
     public int TaskReviewLimit { get; set; }
 
     public bool IsActive { get; set; } = true;

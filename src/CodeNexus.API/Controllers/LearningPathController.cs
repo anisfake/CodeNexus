@@ -495,8 +495,7 @@ public class LearningPathController : ControllerBase
         var command = new RequestLearningPathMentorReviewCommand(
             pathId,
             request.MentorId,
-            request.StudentRequestNote,
-            request.MaxRejectCount);
+            request.StudentRequestNote);
 
         var result = await _sender.Send(command, cancellationToken);
         return ToActionResult(result);

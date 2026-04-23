@@ -18,10 +18,5 @@ public class RequestLearningPathMentorReviewCommandValidator : AbstractValidator
             .MaximumLength(1000)
             .When(x => !string.IsNullOrWhiteSpace(x.StudentRequestNote))
             .WithMessage("StudentRequestNote must not exceed 1000 characters.");
-
-        RuleFor(x => x.MaxRejectCount)
-            .InclusiveBetween(1, 20)
-            .When(x => x.MaxRejectCount.HasValue)
-            .WithMessage("MaxRejectCount must be between 1 and 20.");
     }
 }

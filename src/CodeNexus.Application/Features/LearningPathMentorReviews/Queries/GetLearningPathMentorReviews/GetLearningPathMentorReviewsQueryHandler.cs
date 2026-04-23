@@ -126,7 +126,7 @@ public class GetLearningPathMentorReviewsQueryHandler
                 x.ChangeReason,
                 x.RejectionCount,
                 x.MaxRejections,
-                x.RejectionCount < x.MaxRejections))
+                CanRequestRevision(x.RejectionCount, x.MaxRejections)))
             .ToList();
 
         var submittedReviews = reviews.Where(r => r.Score > 0).ToList();
@@ -142,4 +142,7 @@ public class GetLearningPathMentorReviewsQueryHandler
                 totalReviews,
                 reviews));
     }
+
+    private static bool CanRequestRevision(int used, int limit)
+        => limit == -1 || used < limit;
 }

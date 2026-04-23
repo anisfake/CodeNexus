@@ -12,8 +12,6 @@ namespace CodeNexus.Application.Features.LearningPathMentorReviews.Commands.Requ
 public class RequestLearningPathMentorReviewCommandHandler
     : IRequestHandler<RequestLearningPathMentorReviewCommand, Result<RequestLearningPathMentorReviewResponseDto>>
 {
-    private const int DefaultMaxRejections = 3;
-
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILearningPathSharePathSyncService _pathSyncService;
@@ -80,6 +78,33 @@ public class RequestLearningPathMentorReviewCommandHandler
             return Result<RequestLearningPathMentorReviewResponseDto>.Failure("INVALID_RECIPIENT", "Student cannot request review from self.");
         }
 
+        var activeSubscription = await _context.StudentMentorSubscriptions
+            .AsNoTracking()
+            .Include(s => s.MentorPackage)
+            .Where(s => s.UserId == studentId && s.IsActive)
+            .OrderByDescending(s => s.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (activeSubscription == null)
+        {
+            return Result<RequestLearningPathMentorReviewResponseDto>.Failure(
+                "MENTOR_SUBSCRIPTION_REQUIRED",
+                "An active mentor subscription is required.");
+        }
+
+        if (activeSubscription.MentorPackage == null)
+        {
+            return Result<RequestLearningPathMentorReviewResponseDto>.Failure(
+                "MENTOR_PACKAGE_NOT_FOUND",
+                "Mentor package for active subscription was not found.");
+        }
+
+        var maxRejections = activeSubscription.MentorPackage.ValidationRequestLimit;
+        if (maxRejections < -1)
+        {
+            maxRejections = 0;
+        }
+
         var sourcePath = await _context.LearningPaths
             .AsNoTracking()
             .Include(lp => lp.LearningPathGoals)
@@ -103,14 +128,11 @@ public class RequestLearningPathMentorReviewCommandHandler
         var existingReview = await _context.LearningPathMentorReviews
             .FirstOrDefaultAsync(r => r.PathId == request.PathId && r.MentorId == request.MentorId, cancellationToken);
 
-        var maxRejections = request.MaxRejectCount ?? existingReview?.MaxRejections ?? DefaultMaxRejections;
-        maxRejections = Math.Clamp(maxRejections, 1, 20);
-
-        if (existingReview != null && existingReview.RejectionCount >= maxRejections)
+        if (existingReview != null && IsLimitReached(existingReview.RejectionCount, maxRejections))
         {
             return Result<RequestLearningPathMentorReviewResponseDto>.Failure(
                 "MENTOR_REVIEW_REJECT_LIMIT_REACHED",
-                $"You have reached the maximum reject attempts ({maxRejections}) for this mentor review.");
+                $"You have reached the maximum reject attempts ({FormatLimitForDisplay(maxRejections)}) for this mentor review.");
         }
 
         var now = _dateTimeProvider.UtcNow.AddHours(7);
@@ -174,10 +196,19 @@ public class RequestLearningPathMentorReviewCommandHandler
                 existingReview.DecisionStatus,
                 existingReview.RejectionCount,
                 existingReview.MaxRejections,
-                existingReview.RejectionCount < existingReview.MaxRejections,
+                CanRequestRevision(existingReview.RejectionCount, existingReview.MaxRejections),
                 existingReview.CreatedAt,
                 existingReview.UpdatedAt));
     }
+
+    private static bool IsLimitReached(int used, int limit)
+        => limit != -1 && used >= limit;
+
+    private static bool CanRequestRevision(int used, int limit)
+        => limit == -1 || used < limit;
+
+    private static string FormatLimitForDisplay(int limit)
+        => limit == -1 ? "unlimited" : limit.ToString();
 
     private async Task<Guid> EnsureMentorWorkspaceAsync(
         LearningPath sourcePath,

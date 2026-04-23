@@ -124,11 +124,11 @@ public class UpsertLearningPathMentorReviewCommandHandler
                 "This review has already been accepted by student.");
         }
 
-        if (review.RejectionCount >= review.MaxRejections)
+        if (IsLimitReached(review.RejectionCount, review.MaxRejections))
         {
             return Result<UpsertLearningPathMentorReviewResponseDto>.Failure(
                 "MENTOR_REVIEW_REJECT_LIMIT_REACHED",
-                $"Reject limit reached ({review.MaxRejections}). Student cannot request more revisions.");
+                $"Reject limit reached ({FormatLimitForDisplay(review.MaxRejections)}). Student cannot request more revisions.");
         }
 
         var hasContentChange = review.Score != request.Score
@@ -189,6 +189,15 @@ public class UpsertLearningPathMentorReviewCommandHandler
                 review.ChangeReason,
                 review.RejectionCount,
                 review.MaxRejections,
-                review.RejectionCount < review.MaxRejections));
+                CanRequestRevision(review.RejectionCount, review.MaxRejections)));
     }
+
+    private static bool IsLimitReached(int used, int limit)
+        => limit != -1 && used >= limit;
+
+    private static bool CanRequestRevision(int used, int limit)
+        => limit == -1 || used < limit;
+
+    private static string FormatLimitForDisplay(int limit)
+        => limit == -1 ? "unlimited" : limit.ToString();
 }

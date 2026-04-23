@@ -80,11 +80,11 @@ public class RespondLearningPathMentorReviewCommandHandler
         }
 
         if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Rejected
-            && review.RejectionCount >= review.MaxRejections)
+            && IsLimitReached(review.RejectionCount, review.MaxRejections))
         {
             return Result<RespondLearningPathMentorReviewResponseDto>.Failure(
                 "MENTOR_REVIEW_REJECT_LIMIT_REACHED",
-                $"You have reached the maximum reject attempts ({review.MaxRejections}) for this mentor review.");
+                $"You have reached the maximum reject attempts ({FormatLimitForDisplay(review.MaxRejections)}) for this mentor review.");
         }
 
         if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Accepted)
@@ -160,6 +160,15 @@ public class RespondLearningPathMentorReviewCommandHandler
                 review.StudentDecidedAt,
                 review.RejectionCount,
                 review.MaxRejections,
-                review.RejectionCount < review.MaxRejections));
+                CanRequestRevision(review.RejectionCount, review.MaxRejections)));
     }
+
+    private static bool IsLimitReached(int used, int limit)
+        => limit != -1 && used >= limit;
+
+    private static bool CanRequestRevision(int used, int limit)
+        => limit == -1 || used < limit;
+
+    private static string FormatLimitForDisplay(int limit)
+        => limit == -1 ? "unlimited" : limit.ToString();
 }

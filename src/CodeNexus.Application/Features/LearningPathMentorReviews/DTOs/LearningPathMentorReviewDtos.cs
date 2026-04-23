@@ -11,8 +11,7 @@ public record UpsertLearningPathMentorReviewRequest(
 
 public record RequestLearningPathMentorReviewRequest(
     Guid MentorId,
-    string? StudentRequestNote,
-    int? MaxRejectCount = null);
+    string? StudentRequestNote);
 
 public record LearningPathMentorReviewDto(
     Guid ReviewId,
