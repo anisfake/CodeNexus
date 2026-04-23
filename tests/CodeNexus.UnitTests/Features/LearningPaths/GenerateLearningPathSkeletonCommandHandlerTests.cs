@@ -187,7 +187,8 @@ public class GenerateLearningPathSkeletonCommandHandlerTests
         Assert.NotNull(result.Value);
         Assert.Equal(4, result.Value.ChapterCount); // 4 chapters for 30 days
         Assert.Equal(4, result.Value.ChapterDtos.Count);
-        Assert.Equal("JavaScript: Become Full Stack Developer", result.Value.Title);
+        Assert.Contains("JavaScript", result.Value.Title, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Full Stack Developer", result.Value.Title, StringComparison.OrdinalIgnoreCase);
         
         // Verify each chapter has the expected number of lessons (5 for intermediate)
         foreach (var chapter in result.Value.ChapterDtos)

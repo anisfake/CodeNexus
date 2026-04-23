@@ -134,10 +134,22 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 return upfrontBudgetValidation;
             }
 
+            var existingTitles = await _context.LearningPaths
+                .AsNoTracking()
+                .Where(lp =>
+                    lp.UserId == userId &&
+                    lp.SubjectId == request.SubjectId &&
+                    lp.Language == request.LanguageSelection)
+                .OrderByDescending(lp => lp.CreatedAt)
+                .Select(lp => lp.Title)
+                .Take(20)
+                .ToListAsync(cancellationToken);
+
             var (pathTitle, pathDescription) = await GenerateLearningPathMetaAsync(
                 subject.Name,
                 goalsWithWeights,
-                request.LanguageSelection);
+                request.LanguageSelection,
+                existingTitles);
 
             var learningPath = new LearningPath
             {
@@ -760,11 +772,71 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     private async Task<(string Title, string Description)> GenerateLearningPathMetaAsync(
         string subjectName,
         List<GoalWeightInfo> goals,
-        LanguageSelection language)
+        LanguageSelection language,
+        IReadOnlyCollection<string>? existingTitles = null)
     {
         var goalTitles = FormatGoalTitles(goals);
         var weightedGoalSummary = FormatGoalTitlesWithWeights(goals, language);
+        var existingTitleKeys = BuildExistingLearningPathTitleKeys(existingTitles);
+        const int maxAttempts = 3;
 
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            var titleStyleHint = BuildTitleStyleHint(language, attempt);
+            var prompt = BuildLearningPathMetaPrompt(
+                subjectName,
+                goalTitles,
+                weightedGoalSummary,
+                language,
+                existingTitles,
+                titleStyleHint);
+
+            try
+            {
+                var meta = await _aiGeneratorService.GenerateStructureAsync<LearningPathMeta>(prompt, AIUsageType.StructureGeneration);
+                if (string.IsNullOrWhiteSpace(meta?.Title) || string.IsNullOrWhiteSpace(meta.Description))
+                {
+                    continue;
+                }
+
+                var normalizedTitle = NormalizeLearningPathTitle(meta.Title, subjectName, goals, language);
+                normalizedTitle = EnsureTitleCoversSubjectAndGoals(normalizedTitle, subjectName, goals, language);
+
+                if (IsLearningPathTitleTaken(normalizedTitle, existingTitleKeys))
+                {
+                    if (attempt < maxAttempts - 1)
+                    {
+                        continue;
+                    }
+
+                    normalizedTitle = EnsureDistinctLearningPathTitle(
+                        normalizedTitle,
+                        subjectName,
+                        goals,
+                        language,
+                        existingTitleKeys);
+                }
+
+                var normalizedDescription = NormalizeLearningPathDescription(meta.Description, subjectName, goals, language);
+                return (normalizedTitle, normalizedDescription);
+            }
+            catch
+            {
+                // swallow and retry/fallback
+            }
+        }
+
+        return BuildLearningPathMetaFallback(subjectName, goals, language, existingTitleKeys);
+    }
+
+    private static string BuildLearningPathMetaPrompt(
+        string subjectName,
+        string goalTitles,
+        string weightedGoalSummary,
+        LanguageSelection language,
+        IReadOnlyCollection<string>? existingTitles,
+        string titleStyleHint)
+    {
         var languageInstruction = language switch
         {
             LanguageSelection.VietNamese => @"
@@ -793,73 +865,254 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
 - Each sentence should be concise (1–2 lines), written as a single paragraph, no bullet points
 - Tone: friendly, direct, no marketing fluff";
 
-        var prompt = $@"Generate a concise, human-friendly learning path title and description in JSON format.
+        var recentTitleBlock = existingTitles != null && existingTitles.Count > 0
+            ? string.Join(Environment.NewLine, existingTitles
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Take(8)
+                .Select(t => $"- {t.Trim()}"))
+            : (language == LanguageSelection.VietNamese ? "- (Chưa có lộ trình trước đó)" : "- (No previous title)");
+
+        return $@"Generate a concise, human-friendly learning path title and description in JSON format.
 
 Subject: {subjectName}
 Goals: {goalTitles}
 Goal Priorities: {weightedGoalSummary}
+Title Style Hint: {titleStyleHint}
+
+Recent titles to avoid exact duplication:
+{recentTitleBlock}
 
 {languageInstruction}
 
 REQUIREMENTS:
-- Title should be short, natural, and professional
+- Title should be natural, professional, and NOT rigid template-like
+- Title MUST mention the subject and cover the selected goals (both if there are 2 goals)
 - Respect goal priorities when deciding overall emphasis/focus
 - Do NOT include percentages or weights
+- Do NOT copy any title from the recent-title list
 - Do NOT use format ""Learning Path: ..."" or ""Lộ trình học: ..."" literally
 {descriptionInstruction}
 
 JSON FORMAT:
 {{
-  ""title"": ""... "",
-  ""description"": ""... ""
+  ""title"": ""..."",
+  ""description"": ""...""
 }}
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description value must be a single JSON string (use \\n to separate the 3 sentences if needed, or write them as one paragraph).";
+    }
 
-        try
+    private static string BuildTitleStyleHint(LanguageSelection language, int attempt)
+    {
+        var hints = language switch
         {
-            var meta = await _aiGeneratorService.GenerateStructureAsync<LearningPathMeta>(prompt, AIUsageType.StructureGeneration);
-            if (!string.IsNullOrWhiteSpace(meta?.Title) && !string.IsNullOrWhiteSpace(meta.Description))
+            LanguageSelection.VietNamese => new[]
             {
-                var normalizedTitle = NormalizeLearningPathTitle(meta.Title, subjectName, goals, language);
-                var normalizedDescription = NormalizeLearningPathDescription(meta.Description, subjectName, goals, language);
-                return (normalizedTitle, normalizedDescription);
+                "Nhấn mạnh kết quả đầu ra rõ ràng, giọng điệu thực tế.",
+                "Nhấn mạnh tư duy triển khai end-to-end, ngắn gọn và sắc nét.",
+                "Nhấn mạnh hành trình từ nền tảng đến ứng dụng thực chiến.",
+                "Nhấn mạnh góc nhìn kiến trúc và best practices.",
+                "Nhấn mạnh phong cách project-driven, mang tính ứng dụng."
+            },
+            _ => new[]
+            {
+                "Emphasize practical outcomes in a clear, no-fluff tone.",
+                "Emphasize end-to-end implementation mindset, concise and sharp.",
+                "Emphasize progression from foundation to real-world application.",
+                "Emphasize architecture and best-practice orientation.",
+                "Emphasize project-driven learning and execution."
+            }
+        };
+
+        var start = Random.Shared.Next(0, hints.Length);
+        var index = (start + Math.Max(0, attempt)) % hints.Length;
+        return hints[index];
+    }
+
+    private static HashSet<string> BuildExistingLearningPathTitleKeys(IReadOnlyCollection<string>? titles)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (titles == null || titles.Count == 0)
+        {
+            return keys;
+        }
+
+        foreach (var title in titles)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                continue;
+            }
+
+            var key = BuildTitleKey(title);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                keys.Add(key);
             }
         }
-        catch
-        {
 
+        return keys;
+    }
+
+    private static bool IsLearningPathTitleTaken(string title, ISet<string>? existingTitleKeys)
+    {
+        if (existingTitleKeys == null || existingTitleKeys.Count == 0 || string.IsNullOrWhiteSpace(title))
+        {
+            return false;
         }
 
-        return BuildLearningPathMetaFallback(subjectName, goals, language);
+        return existingTitleKeys.Contains(BuildTitleKey(title));
+    }
+
+    private static string EnsureDistinctLearningPathTitle(
+        string baseTitle,
+        string subjectName,
+        List<GoalWeightInfo> goals,
+        LanguageSelection language,
+        ISet<string> existingTitleKeys)
+    {
+        var normalizedBaseTitle = EnsureTitleCoversSubjectAndGoals(baseTitle, subjectName, goals, language);
+
+        if (!IsLearningPathTitleTaken(normalizedBaseTitle, existingTitleKeys))
+        {
+            return normalizedBaseTitle;
+        }
+
+        var suffixes = language switch
+        {
+            LanguageSelection.VietNamese => new[]
+            {
+                "phiên bản thực chiến",
+                "định hướng project",
+                "nâng cao ứng dụng",
+                "trọng tâm triển khai",
+                "lộ trình cá nhân hóa"
+            },
+            _ => new[]
+            {
+                "practical edition",
+                "project-focused",
+                "applied track",
+                "implementation focus",
+                "personalized path"
+            }
+        };
+
+        var start = Random.Shared.Next(0, suffixes.Length);
+        for (var i = 0; i < suffixes.Length; i++)
+        {
+            var suffix = suffixes[(start + i) % suffixes.Length];
+            var candidate = $"{normalizedBaseTitle} - {suffix}";
+            candidate = EnsureTitleCoversSubjectAndGoals(candidate, subjectName, goals, language);
+            if (!IsLearningPathTitleTaken(candidate, existingTitleKeys))
+            {
+                return candidate;
+            }
+        }
+
+        var fallback = BuildLearningPathMetaFallback(subjectName, goals, language, existingTitleKeys).Title;
+        if (!IsLearningPathTitleTaken(fallback, existingTitleKeys))
+        {
+            return fallback;
+        }
+
+        return $"{fallback} {DateTime.UtcNow:HHmmss}";
+    }
+
+    private static string EnsureTitleCoversSubjectAndGoals(
+        string title,
+        string subjectName,
+        List<GoalWeightInfo> goals,
+        LanguageSelection language)
+    {
+        var normalized = Regex.Replace((title ?? string.Empty).Trim(), @"\s+", " ").Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            normalized = language == LanguageSelection.VietNamese
+                ? $"Lộ trình {subjectName}"
+                : $"{subjectName} Learning Path";
+        }
+
+        if (!normalized.Contains(subjectName, StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = language == LanguageSelection.VietNamese
+                ? $"{subjectName}: {normalized}"
+                : $"{subjectName}: {normalized}";
+        }
+
+        var goalTags = goals
+            .OrderByDescending(g => g.Weight)
+            .Select(g => CompactGoalTitle(g.Goal.Title, language))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToList();
+
+        var missingTags = goalTags
+            .Where(tag => !normalized.Contains(tag, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (missingTags.Count > 0)
+        {
+            normalized = $"{normalized} - {string.Join(" & ", missingTags)}";
+        }
+
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        return normalized;
     }
 
     private static (string Title, string Description) BuildLearningPathMetaFallback(
         string subjectName,
         List<GoalWeightInfo> goals,
-        LanguageSelection language)
+        LanguageSelection language,
+        ISet<string>? existingTitleKeys = null)
     {
         var compactGoals = BuildCompactGoalTags(goals, language);
-
-        return language switch
+        var titleTemplates = language switch
         {
-            LanguageSelection.VietNamese => (
-                $"Lộ trình học {subjectName} tập trung vào {compactGoals}.",
-                $"Lộ trình này giúp bạn làm chủ {compactGoals} trong {subjectName}. " +
-                $"Hoàn thành xong, bạn có thể tự tin áp dụng kiến thức vào thực tế. " +
-                $"Phù hợp với người muốn nâng cao kỹ năng {compactGoals}."
-            ),
-            LanguageSelection.English => (
-                $"{subjectName}: {compactGoals}",
-                $"This path covers the core concepts and practical skills of {compactGoals} in {subjectName}. " +
-                $"By the end, you will be able to apply {compactGoals} confidently in real-world scenarios. " +
-                $"Best suited for learners looking to build or strengthen their {compactGoals} skills."
-            ),
-            _ => (
-                $"{subjectName}: {compactGoals}",
-                $"Focused on {compactGoals}."
-            )
+            LanguageSelection.VietNamese => new[]
+            {
+                $"{subjectName} thực chiến: {compactGoals}",
+                $"Làm chủ {compactGoals} với {subjectName}",
+                $"{subjectName} từ nền tảng đến ứng dụng {compactGoals}",
+                $"{subjectName} chuyên sâu theo mục tiêu {compactGoals}",
+                $"Hành trình {subjectName}: chinh phục {compactGoals}"
+            },
+            _ => new[]
+            {
+                $"{subjectName} in practice: {compactGoals}",
+                $"Master {compactGoals} with {subjectName}",
+                $"{subjectName} from fundamentals to applied {compactGoals}",
+                $"{subjectName} advanced track for {compactGoals}",
+                $"{subjectName} journey: delivering {compactGoals}"
+            }
         };
+
+        var description = language switch
+        {
+            LanguageSelection.VietNamese =>
+                $"Lộ trình này tập trung vào {compactGoals} trong bối cảnh {subjectName}. " +
+                $"Bạn sẽ đi từ kiến thức cốt lõi đến cách triển khai thực tế theo mục tiêu đã chọn. " +
+                $"Phù hợp cho người học muốn tiến bộ rõ ràng theo lộ trình có định hướng.",
+            _ =>
+                $"This path focuses on {compactGoals} in the context of {subjectName}. " +
+                $"You will progress from core concepts to practical implementation aligned with your selected goals. " +
+                $"Best for learners who want a focused and measurable progression."
+        };
+
+        var start = Random.Shared.Next(0, titleTemplates.Length);
+        for (var i = 0; i < titleTemplates.Length; i++)
+        {
+            var candidate = titleTemplates[(start + i) % titleTemplates.Length];
+            candidate = EnsureTitleCoversSubjectAndGoals(candidate, subjectName, goals, language);
+            if (!IsLearningPathTitleTaken(candidate, existingTitleKeys))
+            {
+                return (candidate, description);
+            }
+        }
+
+        var emergencyTitle = EnsureTitleCoversSubjectAndGoals(titleTemplates[start], subjectName, goals, language);
+        return ($"{emergencyTitle} {DateTime.UtcNow:HHmmss}", description);
     }
 
     private string BuildChapterPrompt(
@@ -1075,28 +1328,30 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         LanguageSelection language)
     {
         var trimmed = (title ?? string.Empty).Trim();
-        var compactGoals = BuildCompactGoalTags(goals, language);
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return BuildLearningPathMetaFallback(subjectName, goals, language).Title;
+        }
+
+        trimmed = Regex.Replace(
+            trimmed,
+            @"^\s*(learning\s*path|lộ\s*trình\s*học)\s*[:\-]\s*",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        trimmed = Regex.Replace(trimmed, @"\b\d+(\.\d+)?\s*%\b", string.Empty, RegexOptions.CultureInvariant);
+        trimmed = Regex.Replace(trimmed, @"\(\s*\)", string.Empty, RegexOptions.CultureInvariant);
+        trimmed = Regex.Replace(trimmed, @"\s+", " ").Trim().Trim('-', ':', '.', ',');
 
         if (string.IsNullOrWhiteSpace(trimmed))
         {
             return BuildLearningPathMetaFallback(subjectName, goals, language).Title;
         }
 
-        var maxLength = language == LanguageSelection.VietNamese ? 70 : 80;
-        var lower = trimmed.ToLowerInvariant();
-        var hasAnd = lower.Contains(" và ") || lower.Contains(" and ");
-        var hasSubject = lower.Contains(subjectName.ToLowerInvariant());
-
-        if (trimmed.Length > maxLength || (hasAnd && trimmed.Length > 55))
+        var maxLength = language == LanguageSelection.VietNamese ? 110 : 120;
+        if (trimmed.Length > maxLength)
         {
-            return language == LanguageSelection.VietNamese
-                ? $"Lộ trình học {subjectName} tập trung vào {compactGoals}."
-                : $"{subjectName}: {compactGoals}";
-        }
-
-        if (!hasSubject)
-        {
-            return $"{subjectName}: {trimmed}";
+            trimmed = trimmed[..maxLength].Trim().Trim('-', ':', '.', ',');
         }
 
         return trimmed;
