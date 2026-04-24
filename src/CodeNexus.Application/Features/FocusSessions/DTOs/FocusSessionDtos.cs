@@ -1,4 +1,5 @@
 using CodeNexus.Domain.Enums;
+using CodeNexus.Application.Features.TaskReviews.DTOs;
 
 namespace CodeNexus.Application.Features.FocusSessions.DTOs;
 
@@ -40,7 +41,8 @@ public record FocusSessionHistoryItemDto(
     string? SubmittedCode,
     string? SubmittedSummary,
     string? AIFeedback,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    TaskReviewInfoDto? TaskReview = null
 );
 
 public record StartSessionRequest(

@@ -4,6 +4,7 @@ using CodeNexus.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260424151138_AddTaskReview")]
+    partial class AddTaskReview
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -23,7 +26,6 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("CodeNexus.Domain.Entities.AIProviderConfig", b =>
-
                 {
                     b.Property<Guid>("ConfigId")
                         .ValueGeneratedOnAdd()
@@ -849,6 +851,11 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(32)")
                         .HasDefaultValue("Pending");
 
+                    b.Property<string>("Feedback")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<int>("MaxRejections")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -868,6 +875,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("RevisedPathId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Score")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("StudentDecidedAt")
                         .HasColumnType("datetime2");
 
@@ -881,6 +891,10 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                     b.Property<string>("StudentRequestNote")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Suggestions")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");

@@ -328,50 +328,26 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
         DateTime now,
         Func<DateTime?, DateTime?> shiftNullable)
     {
-        var existingQuizzes = studentLesson.Quizzes
-            .Where(q => !q.IsDeleted)
-            .OrderBy(q => q.CreatedAt)
-            .ToList();
-
-        var sourceQuizzes = sourceLesson.Quizzes
-            .Where(q => !q.IsDeleted)
-            .OrderBy(q => q.CreatedAt)
-            .ToList();
-
-        for (int i = 0; i < sourceQuizzes.Count; i++)
+       
+        foreach (var existing in studentLesson.Quizzes.Where(q => !q.IsDeleted))
         {
-            var source = sourceQuizzes[i];
-            if (i < existingQuizzes.Count)
-            {
-                var existing = existingQuizzes[i];
-                existing.Title = source.Title;
-                existing.Description = source.Description;
-                existing.TimeLimit = source.TimeLimit;
-                existing.PassingScore = source.PassingScore;
-                existing.DueDate = shiftNullable(source.DueDate);
-                existing.IsDeleted = false;
-                existing.DeletedAt = null;
-            }
-            else
-            {
-                studentLesson.Quizzes.Add(new Quiz
-                {
-                    QuizId = NewId.NextGuid(),
-                    LessonId = studentLesson.LessonId,
-                    Title = source.Title,
-                    Description = source.Description,
-                    TimeLimit = source.TimeLimit,
-                    PassingScore = source.PassingScore,
-                    DueDate = shiftNullable(source.DueDate),
-                    CreatedAt = now
-                });
-            }
+            existing.IsDeleted = true;
+            existing.DeletedAt = now;
         }
 
-        foreach (var quiz in existingQuizzes.Skip(sourceQuizzes.Count))
+        foreach (var source in sourceLesson.Quizzes.Where(q => !q.IsDeleted).OrderBy(q => q.CreatedAt))
         {
-            quiz.IsDeleted = true;
-            quiz.DeletedAt = now;
+            studentLesson.Quizzes.Add(new Quiz
+            {
+                QuizId = NewId.NextGuid(),
+                LessonId = studentLesson.LessonId,
+                Title = source.Title,
+                Description = source.Description,
+                TimeLimit = source.TimeLimit,
+                PassingScore = source.PassingScore,
+                DueDate = shiftNullable(source.DueDate),
+                CreatedAt = now
+            });
         }
     }
 
