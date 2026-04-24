@@ -57,21 +57,17 @@ public class RespondLearningPathMentorReviewCommandHandler
             return Result<RespondLearningPathMentorReviewResponseDto>.Failure("ACCESS_DENIED", "Only students can respond to mentor reviews.");
         }
 
-        var path = await _context.LearningPaths
+        var originalPath = await _context.LearningPaths
             .AsNoTracking()
             .FirstOrDefaultAsync(lp => lp.PathId == request.PathId, cancellationToken);
 
-        if (path == null)
+        if (originalPath == null)
         {
             return Result<RespondLearningPathMentorReviewResponseDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
         }
 
-        if (path.UserId != studentId)
-        {
-            return Result<RespondLearningPathMentorReviewResponseDto>.Failure("ACCESS_DENIED", "You can only respond to reviews on your own learning path.");
-        }
-
         var review = await _context.LearningPathMentorReviews
+            .Include(r => r.LearningPath)
             .FirstOrDefaultAsync(r => r.ReviewId == request.ReviewId && r.PathId == request.PathId, cancellationToken);
 
         if (review == null)
@@ -79,7 +75,15 @@ public class RespondLearningPathMentorReviewCommandHandler
             return Result<RespondLearningPathMentorReviewResponseDto>.Failure("REVIEW_NOT_FOUND", "Mentor review not found.");
         }
 
-        // Load subscription for increment on reject
+        var isOriginalPathOwner = originalPath.UserId == studentId;
+        var isRevisedPathForStudentReview = review.StudentId == studentId && review.RevisedPathId == request.PathId;
+
+        if (!isOriginalPathOwner && !isRevisedPathForStudentReview)
+        {
+            return Result<RespondLearningPathMentorReviewResponseDto>.Failure("ACCESS_DENIED", "You can only respond to reviews on your own learning path or its revised version.");
+        }
+
+
         var studentSub = await _context.StudentMentorSubscriptions
             .FirstOrDefaultAsync(s => s.UserId == studentId && s.IsActive, cancellationToken);
 
@@ -100,7 +104,7 @@ public class RespondLearningPathMentorReviewCommandHandler
                         .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
                 .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                     .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
-                .FirstOrDefaultAsync(lp => lp.PathId == review.RevisedPathId.Value, cancellationToken);
+            .FirstOrDefaultAsync(lp => lp.PathId == review.RevisedPathId.Value, cancellationToken);
 
             if (sourcePath == null || sourcePath.UserId != review.MentorId)
             {
@@ -116,7 +120,8 @@ public class RespondLearningPathMentorReviewCommandHandler
                         .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
                 .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                     .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
-                .FirstOrDefaultAsync(lp => lp.PathId == path.PathId && lp.UserId == studentId, cancellationToken);
+                .FirstOrDefaultAsync(lp => lp.PathId == review.PathId && lp.UserId == studentId, cancellationToken);
+
 
             if (targetPath == null)
             {
