@@ -102,8 +102,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                 table: "DirectMessages",
                 column: "TaskReviewId",
                 principalTable: "TaskReviews",
-                principalColumn: "ReviewId",
-                onDelete: ReferentialAction.SetNull);
+                principalColumn: "ReviewId");
         }
 
         /// <inheritdoc />

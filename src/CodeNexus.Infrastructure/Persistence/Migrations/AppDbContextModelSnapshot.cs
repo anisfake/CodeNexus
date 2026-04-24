@@ -2176,8 +2176,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasOne("CodeNexus.Domain.Entities.TaskReview", "TaskReview")
                         .WithMany()
-                        .HasForeignKey("TaskReviewId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("TaskReviewId");
 
                     b.Navigation("Conversation");
 
