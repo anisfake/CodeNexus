@@ -79,6 +79,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<StudentMentorSubscription> StudentMentorSubscriptions => Set<StudentMentorSubscription>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
+        public DbSet<TaskReview> TaskReviews => Set<TaskReview>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -815,6 +816,42 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasIndex(e => e.UpdatedAt);
             });
 
+            modelBuilder.Entity<TaskReview>(entity =>
+            {
+                entity.HasKey(e => e.ReviewId);
+
+                entity.Property(e => e.Status)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => e.SessionId).IsUnique();
+                entity.HasIndex(e => new { e.MentorId, e.Status });
+
+                entity.HasOne(e => e.Session)
+                      .WithMany(s => s.TaskReviews)
+                      .HasForeignKey(e => e.SessionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Task)
+                      .WithMany(t => t.TaskReviews)
+                      .HasForeignKey(e => e.TaskId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Subscription)
+                      .WithMany()
+                      .HasForeignKey(e => e.SubscriptionId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
             modelBuilder.Entity<Conversation>(entity =>
             {
                 entity.HasKey(e => e.ConversationId);
@@ -927,6 +964,11 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(e => e.LearningPathShare)
                       .WithMany()
                       .HasForeignKey(e => e.LearningPathShareId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.TaskReview)
+                      .WithMany()
+                      .HasForeignKey(e => e.TaskReviewId)
                       .OnDelete(DeleteBehavior.SetNull);
             });
 

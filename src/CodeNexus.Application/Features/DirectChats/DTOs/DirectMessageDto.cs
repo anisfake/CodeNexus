@@ -12,6 +12,7 @@ public record DirectMessageDto(
     DateTime? DeliveredAt,
     DateTime? SeenAt,
     Guid? LearningPathShareId,
+    Guid? TaskReviewId,
     Guid? ReplyToMessageId,
     string? ReplyToContent,
     Guid? ReplyToSenderId

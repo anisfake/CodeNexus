@@ -52,6 +52,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<StudentMentorSubscription> StudentMentorSubscriptions { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies { get; }
+        public DbSet<TaskReview> TaskReviews { get; }
         void SetAuditUserId(Guid userId);
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

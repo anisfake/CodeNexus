@@ -101,6 +101,7 @@ public class GetConversationMessagesQueryHandler : IRequestHandler<GetConversati
                 receipt?.DeliveredAt,
                 receipt?.SeenAt,
                 m.LearningPathShareId,
+                m.TaskReviewId,
                 m.ReplyToMessageId,
                 replyInfo?.Content,
                 replyInfo?.SenderId

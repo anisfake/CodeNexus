@@ -243,6 +243,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             null,
             null,
             message.LearningPathShareId,
+            message.TaskReviewId,
             message.ReplyToMessageId,
             null,
             null);

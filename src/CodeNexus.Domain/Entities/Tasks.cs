@@ -25,5 +25,6 @@ namespace CodeNexus.Domain.Entities
         public int MinimumScore { get; set; } = 70;
 
         public virtual ICollection<FocusSession> FocusSessions { get; set; } = new List<FocusSession>();
+        public virtual ICollection<TaskReview> TaskReviews { get; set; } = new List<TaskReview>();
     }
 }

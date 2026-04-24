@@ -15,6 +15,8 @@ namespace CodeNexus.Domain.Enums
         ChapterOverdue = 4,
         LessonOverdue = 5,
         LearningPathOverdue = 6,
-        ShareVersionUpdated = 7
+        ShareVersionUpdated = 7,
+        TaskReviewRequested = 8,
+        TaskReviewCompleted = 9
     }
 }

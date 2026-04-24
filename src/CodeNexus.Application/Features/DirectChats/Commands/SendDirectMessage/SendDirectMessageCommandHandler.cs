@@ -100,6 +100,7 @@ public class SendDirectMessageCommandHandler : IRequestHandler<SendDirectMessage
             null,
             null,
             message.LearningPathShareId,
+            message.TaskReviewId,
             message.ReplyToMessageId,
             repliedMessage?.Content,
             repliedMessage?.SenderId
