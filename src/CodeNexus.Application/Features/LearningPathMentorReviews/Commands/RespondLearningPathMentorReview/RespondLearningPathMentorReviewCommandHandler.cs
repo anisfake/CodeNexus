@@ -84,8 +84,10 @@ public class RespondLearningPathMentorReviewCommandHandler
         }
 
 
-        var studentSub = await _context.StudentMentorSubscriptions
-            .FirstOrDefaultAsync(s => s.UserId == studentId && s.IsActive, cancellationToken);
+            var studentSub = await _context.StudentMentorSubscriptions
+                .Include(s => s.MentorPackage)
+                .FirstOrDefaultAsync(s => s.UserId == studentId && s.IsActive, cancellationToken);
+
 
         if (request.DecisionStatus == LearningPathMentorReviewDecisionStatus.Accepted)
         {
