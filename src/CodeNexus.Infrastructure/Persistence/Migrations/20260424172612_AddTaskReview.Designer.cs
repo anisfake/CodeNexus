@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CodeNexus.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260424151138_AddTaskReview")]
+    [Migration("20260424172612_AddTaskReview")]
     partial class AddTaskReview
     {
         /// <inheritdoc />
@@ -2190,8 +2190,7 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
 
                     b.HasOne("CodeNexus.Domain.Entities.TaskReview", "TaskReview")
                         .WithMany()
-                        .HasForeignKey("TaskReviewId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("TaskReviewId");
 
                     b.Navigation("Conversation");
 

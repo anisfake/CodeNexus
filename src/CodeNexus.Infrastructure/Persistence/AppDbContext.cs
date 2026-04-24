@@ -969,7 +969,7 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasOne(e => e.TaskReview)
                       .WithMany()
                       .HasForeignKey(e => e.TaskReviewId)
-                      .OnDelete(DeleteBehavior.SetNull);
+                      .OnDelete(DeleteBehavior.ClientSetNull);
             });
 
             modelBuilder.Entity<DirectMessageReceipt>(entity =>
