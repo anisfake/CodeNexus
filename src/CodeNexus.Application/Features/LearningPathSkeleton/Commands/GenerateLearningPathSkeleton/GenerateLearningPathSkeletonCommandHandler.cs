@@ -436,7 +436,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             orderIndex,
             totalChapters,
             lessonsPerChapter,
-            language);
+            language,
+            complexity);
 
         try
         {
@@ -476,7 +477,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             orderIndex,
             totalChapters,
             lessonsPerChapter,
-            language);
+            language,
+            complexity);
 
         try
         {
@@ -1124,6 +1126,41 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description v
         return ($"{emergencyTitle} {DateTime.UtcNow:HHmmss}", description);
     }
 
+    private string GetComplexityInstruction(ComplexityLevel complexity)
+    {
+        return complexity switch
+        {
+            ComplexityLevel.Beginner => "Start from absolute basics. Include syntax fundamentals, simple examples. Build gradually with detailed explanations.",
+            ComplexityLevel.Intermediate => "Assume basic syntax proficiency. Focus on design patterns, best practices, medium-complexity implementations and projects.",
+            ComplexityLevel.Advanced => "Assume complete mastery of language fundamentals and intermediate concepts. Dive directly into advanced system architecture, design patterns, optimization, scalability, production-grade systems. NO basic syntax or introductory tutorials.",
+            _ => "Provide balanced content suitable for intermediate learners."
+        };
+    }
+
+    private string GetPositionDescription(int orderIndex, int totalChapters, ComplexityLevel complexity)
+    {
+        var basePos = orderIndex switch
+        {
+            0 => "first",
+            _ when orderIndex < totalChapters * 0.3 => "early", 
+            _ when orderIndex < totalChapters * 0.7 => "middle",
+            _ => "final"
+        };
+
+        return $"{basePos} chapter ({GetPositionDepth(basePos, complexity)})";
+    }
+
+    private string GetPositionDepth(string position, ComplexityLevel complexity)
+    {
+        return complexity switch
+        {
+            ComplexityLevel.Beginner => position switch { "first" => "basics", "early" => "foundational concepts", "middle" => "core skills", "final" => "simple applications", _ => "basics" },
+            ComplexityLevel.Intermediate => position switch { "first" => "core concepts", "early" => "intermediate patterns", "middle" => "project implementation", "final" => "advanced applications", _ => "core concepts" },
+            ComplexityLevel.Advanced => position switch { "first" => "advanced architecture", "early" => "design patterns", "middle" => "optimization & scalability", "final" => "production systems", _ => "advanced architecture" },
+            _ => "intermediate concepts"
+        };
+    }
+
     private string BuildChapterPrompt(
         string subjectName,
         string goalPrioritySummary,
@@ -1131,7 +1168,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description v
         int orderIndex,
         int totalChapters,
         int lessonsPerChapter,
-        LanguageSelection language)
+        LanguageSelection language,
+        ComplexityLevel complexity)
     {
         var languageInstruction = language switch
         {
@@ -1147,16 +1185,15 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description v
             _ => ""
         };
 
-        var chapterPosition = orderIndex switch
-        {
-            0 => "first (introduction/basics)",
-            _ when orderIndex < 3 => "early (foundational concepts)",
-            _ => "advanced (complex topics)"
-        };
+        var chapterPosition = GetPositionDescription(orderIndex, totalChapters, complexity);
+        var complexityInstruction = GetComplexityInstruction(complexity);
 
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
+Complexity Level: {complexity}
+{complexityInstruction}
+
 Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
 Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
@@ -1164,14 +1201,15 @@ Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPositio
 {languageInstruction}
 
 REQUIREMENTS:
-- Generate {lessonsPerChapter} lesson titles for this chapter
-- Chapter title should be short and descriptive
+- Generate EXACTLY {lessonsPerChapter} lesson titles for this chapter
+- Chapter title should be short, descriptive and reflect the complexity level
 - Do NOT include chapter number prefixes like ""Chapter 1"" or ""Chương 1""
 - Chapter titles across the whole learning path MUST be distinct (no repeated titles)
-- Chapter should be appropriate for position {orderIndex + 1}/{Math.Max(1, totalChapters)}
-- Respect goal priority percentages when choosing chapter focus and lesson emphasis
+- Content must strictly follow complexity instructions above
+- Chapter should align with position {orderIndex + 1}/{Math.Max(1, totalChapters)} AND complexity level
+- Respect goal priority percentages when choosing chapter focus and lesson emphasis  
 - If there are 2 goals, primary-goal coverage should be broader across the path, but secondary-goal coverage must still be present
-- Lessons should progress logically
+- Lessons should progress logically within the chapter's complexity scope
 
 JSON FORMAT:
 {{
@@ -1184,7 +1222,7 @@ JSON FORMAT:
   ]
 }}
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow complexity instructions.";
     }
 
     private string BuildChapterPromptWithFixedTitle(
@@ -1195,7 +1233,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         int orderIndex,
         int totalChapters,
         int lessonsPerChapter,
-        LanguageSelection language)
+        LanguageSelection language,
+        ComplexityLevel complexity)
     {
         var languageInstruction = language switch
         {
@@ -1211,21 +1250,28 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             _ => ""
         };
 
+        var chapterPosition = GetPositionDescription(orderIndex, totalChapters, complexity);
+        var complexityInstruction = GetComplexityInstruction(complexity);
+
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
+Complexity Level: {complexity}
+{complexityInstruction}
+
 Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
-Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)}
+Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
 Fixed Chapter Title: {fixedTitle}
 
 {languageInstruction}
 
 REQUIREMENTS:
 - Chapter title MUST be exactly ""{fixedTitle}"" (do not change it)
-- Generate {lessonsPerChapter} lesson titles that fit this fixed title
+- Generate EXACTLY {lessonsPerChapter} lesson titles that fit this fixed title AND complexity level
 - Respect goal priority percentages when choosing lesson emphasis for this chapter
-- Lessons should progress logically
+- Content must strictly follow complexity instructions above
+- Lessons should progress logically within the complexity scope
 
 JSON FORMAT:
 {{
@@ -1238,7 +1284,7 @@ JSON FORMAT:
   ]
 }}
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow complexity instructions.";
     }
 
     private class ChapterGenerationData
