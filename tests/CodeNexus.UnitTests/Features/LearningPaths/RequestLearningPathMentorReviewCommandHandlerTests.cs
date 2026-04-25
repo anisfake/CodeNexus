@@ -15,7 +15,6 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
     private readonly Mock<IApplicationDbContext> _mockContext;
     private readonly Mock<ICurrentUserService> _mockCurrentUserService;
     private readonly Mock<ILearningPathSharePathSyncService> _mockPathSyncService;
-    private readonly Mock<IDateTimeProvider> _mockDateTimeProvider;
     private readonly RequestLearningPathMentorReviewCommandHandler _handler;
 
     public RequestLearningPathMentorReviewCommandHandlerTests()
@@ -23,13 +22,11 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
         _mockContext = new Mock<IApplicationDbContext>();
         _mockCurrentUserService = new Mock<ICurrentUserService>();
         _mockPathSyncService = new Mock<ILearningPathSharePathSyncService>();
-        _mockDateTimeProvider = new Mock<IDateTimeProvider>();
 
         _handler = new RequestLearningPathMentorReviewCommandHandler(
             _mockContext.Object,
             _mockCurrentUserService.Object,
-            _mockPathSyncService.Object,
-            _mockDateTimeProvider.Object);
+            _mockPathSyncService.Object);
     }
 
     [Fact]
@@ -76,7 +73,6 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
-        _mockDateTimeProvider.Setup(x => x.UtcNow).Returns(new DateTime(2026, 4, 23, 8, 0, 0, DateTimeKind.Utc));
 
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { sourcePath }.BuildMockDbSet().Object);
@@ -161,7 +157,6 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
-        _mockDateTimeProvider.Setup(x => x.UtcNow).Returns(DateTime.UtcNow);
 
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { sourcePath }.BuildMockDbSet().Object);
@@ -208,7 +203,6 @@ public class RequestLearningPathMentorReviewCommandHandlerTests
         };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
-        _mockDateTimeProvider.Setup(x => x.UtcNow).Returns(DateTime.UtcNow);
 
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { sourcePath }.BuildMockDbSet().Object);

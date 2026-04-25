@@ -24,7 +24,7 @@ public class RequestLearningPathMentorReviewCommandHandler
     {
         _context = context;
         _currentUserService = currentUserService;
-        _pathSyncService = pathSyncService; ;
+        _pathSyncService = pathSyncService;
     }
 
     public async Task<Result<RequestLearningPathMentorReviewResponseDto>> Handle(
