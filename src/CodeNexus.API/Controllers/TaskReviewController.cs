@@ -3,6 +3,7 @@ using CodeNexus.Application.Features.TaskReviews.Commands.RequestTaskReview;
 using CodeNexus.Application.Features.TaskReviews.Commands.SubmitTaskReview;
 using CodeNexus.Application.Features.TaskReviews.DTOs;
 using CodeNexus.Application.Features.TaskReviews.Queries.GetTaskReview;
+using CodeNexus.Application.Features.TaskReviews.Queries.GetTaskReviews;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -46,6 +47,17 @@ public class TaskReviewController : ControllerBase
     public async Task<IActionResult> GetTaskReview(Guid reviewId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetTaskReviewQuery(reviewId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("api/task-reviews")]
+    public async Task<IActionResult> GetTaskReviews(
+        [FromQuery] string? status = "Pending",
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetTaskReviewsQuery(status, pageNumber, pageSize), cancellationToken);
         return ToActionResult(result);
     }
 
