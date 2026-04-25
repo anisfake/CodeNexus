@@ -17,9 +17,6 @@ public class AdminMentorReviewController : ControllerBase
         _sender = sender;
     }
 
-    /// <summary>
-    /// Gửi mail nhắc nhở student phản hồi review của mentor (dùng cho demo).
-    /// </summary>
     [HttpPost("{reviewId}/send-reminder")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

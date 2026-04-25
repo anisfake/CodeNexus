@@ -4,6 +4,7 @@ using CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
 using CodeNexus.Application.Features.LearningPathShares.Services;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,18 +16,15 @@ public class RequestLearningPathMentorReviewCommandHandler
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ILearningPathSharePathSyncService _pathSyncService;
-    private readonly IDateTimeProvider _dateTimeProvider;
 
     public RequestLearningPathMentorReviewCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
-        ILearningPathSharePathSyncService pathSyncService,
-        IDateTimeProvider dateTimeProvider)
+        ILearningPathSharePathSyncService pathSyncService)
     {
         _context = context;
         _currentUserService = currentUserService;
-        _pathSyncService = pathSyncService;
-        _dateTimeProvider = dateTimeProvider;
+        _pathSyncService = pathSyncService; ;
     }
 
     public async Task<Result<RequestLearningPathMentorReviewResponseDto>> Handle(
@@ -129,7 +127,7 @@ public class RequestLearningPathMentorReviewCommandHandler
             .FirstOrDefaultAsync(r => r.PathId == request.PathId && r.MentorId == request.MentorId, cancellationToken);
 
 
-        var now = _dateTimeProvider.UtcNow.AddHours(7);
+        var now = DateTime.UtcNow;
         var revisedPathId = await EnsureMentorWorkspaceAsync(
             sourcePath,
             request.MentorId,
@@ -149,7 +147,7 @@ public class RequestLearningPathMentorReviewCommandHandler
         {
             existingReview = new LearningPathMentorReview
             {
-                ReviewId = Guid.NewGuid(),
+                ReviewId = NewId.NextGuid(),
                 PathId = request.PathId,
                 RevisedPathId = revisedPathId,
                 MentorId = request.MentorId,
