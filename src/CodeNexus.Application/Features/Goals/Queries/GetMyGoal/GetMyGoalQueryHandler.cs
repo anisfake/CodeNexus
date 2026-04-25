@@ -26,6 +26,8 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
             var userId = _currentUserService.GetUserId();
 
             var query = _context.Goals
+                .Include(x => x.SubjectGoals)
+                .ThenInclude(x => x.Subject)
                 .Where(g => g.CreatedByUserId == userId && !g.IsDeleted)
                 .AsQueryable();
 
@@ -51,8 +53,13 @@ namespace CodeNexus.Application.Features.Goals.Queries.GetMyGoal
                 g.IsSystemDefined,
                 g.Duration,
                 g.DurationInDays,
-                g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId) != null 
-                    ? g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId)!.ProgressPercent 
+                g.SubjectGoals.Select(sg => new SubjectGoalDto
+                (
+                    sg.SubjectId,
+                    sg.Subject.Name
+                )).ToList(),
+                g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId) != null
+                    ? g.UserGoalProgresses.FirstOrDefault(ugp => ugp.GoalId == g.GoalId)!.ProgressPercent
                     : 0m,
                 g.CreatedAt
             )).ToListAsync(cancellationToken);

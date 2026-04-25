@@ -20,6 +20,7 @@ public record GetMyGoalGoalResponse(
     bool IsSystemDefined,
     GoalDuration Duration,
     int DurationInDays,
+    List<SubjectGoalDto> Subjects,
     decimal? ProgressPercentage,
     DateTime CreatedAt
 );
@@ -85,6 +86,10 @@ public record GoalDashboardPathGoalDto(
     DateTime? LastUpdatedAt
 );
 
+public record SubjectGoalDto(
+    Guid SubjectId,
+    string SubjectName
+);
 public record GoalDashboardResponseDto(
     List<GoalDashboardPersonalGoalDto> PersonalGoals,
     PaginationDto<GoalDashboardPathGoalDto> PathGoals
