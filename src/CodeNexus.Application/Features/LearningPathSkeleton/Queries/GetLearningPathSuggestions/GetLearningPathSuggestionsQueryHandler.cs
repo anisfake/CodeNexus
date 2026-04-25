@@ -122,7 +122,9 @@ public class GetLearningPathSuggestionsQueryHandler : IRequestHandler<GetLearnin
                 lp.SubjectId == request.SubjectId
                 && lp.UserId != userId
                 && lp.Language == request.LanguageSelection
-                && lp.ComplexityLevel == request.ComplexityLevel)
+                && lp.ComplexityLevel == request.ComplexityLevel
+                && lp.User.Role != null && lp.User.Role.RoleName == "Mentor"
+                && (lp.Status == "Published" || lp.Status == "Active"))
             .Select(lp => new CandidatePath(lp.PathId, lp.Title, lp.Description, lp.CreatedAt))
             .ToListAsync(cancellationToken);
 
