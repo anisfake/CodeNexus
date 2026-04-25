@@ -331,6 +331,20 @@ public record RepublishLearningPathRequest(
     DraftVersionUpdateType? VersionUpdateType
 );
 
+public record LearningPathSummaryDto(
+    Guid PathId,
+    string Title,
+    string? Description,
+    string Status,
+    int ChapterCount,
+    decimal ProgressPercent,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    DateTime CreatedAt,
+    ComplexityLevel? ComplexityLevel,
+    LanguageSelection? LanguageSelection
+);
+
 public record GetPublishedLearningPathsRequest(
     int PageNumber = 1,
     int PageSize = 10,

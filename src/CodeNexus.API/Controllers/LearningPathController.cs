@@ -19,6 +19,8 @@ using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetPublishedLe
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDraftDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSummaryByUserId;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDetailByUserId;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningPathDrafts;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPathDetail;
@@ -367,6 +369,31 @@ public class LearningPathController : ControllerBase
         );
         var result = await _sender.Send(query, cancellationToken);
 
+        return ToActionResult(result);
+    }
+
+    [HttpGet("user/{userId:guid}/summary")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathSummaryByUserId(Guid userId, [FromQuery] GetLearningPathByUserIdRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathSummaryByUserIdQuery(
+            userId,
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.Status,
+            request.SortDescending
+        );
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("user/{userId:guid}/{pathId:guid}")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathDetailByUserId(Guid userId, Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathDetailByUserIdQuery(userId, pathId), cancellationToken);
         return ToActionResult(result);
     }
 
