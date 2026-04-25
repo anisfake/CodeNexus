@@ -328,14 +328,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
         DateTime now,
         Func<DateTime?, DateTime?> shiftNullable)
     {
-        // Always soft-delete existing quizzes and recreate from source with new IDs.
-        // Updating in-place (preserving the same QuizId) would allow old QuizAttempt records
-        // (from a previous quiz at the same position) to bleed into the new quiz's status,
-        // making a never-attempted quiz appear as "Passed". Recreating ensures clean state.
-        //
-        // Use _context.Quizzes.Add() (direct change tracker) rather than
-        // studentLesson.Quizzes.Add() (navigation collection) because the collection
-        // was loaded via a filtered include — EF Core can mishandle adds on such collections.
+
         foreach (var existing in studentLesson.Quizzes.Where(q => !q.IsDeleted).ToList())
         {
             existing.IsDeleted = true;
