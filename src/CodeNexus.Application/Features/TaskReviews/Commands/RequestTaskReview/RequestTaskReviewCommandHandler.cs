@@ -154,6 +154,9 @@ public class RequestTaskReviewCommandHandler
         };
         _context.TaskReviews.Add(review);
 
+        // Mark the task as pending review
+        session.Task.Status = TaskStatus_.PendingReview;
+
         // Create DirectMessage of type TaskReview
         var messageContent = string.IsNullOrWhiteSpace(request.StudentRequestNote)
             ? "Task review request"

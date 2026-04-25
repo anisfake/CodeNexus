@@ -9,6 +9,7 @@ namespace CodeNexus.Domain.Enums
     {
         Pending = 0,
         InProgress = 1,
-        Completed = 2
+        Completed = 2,
+        PendingReview = 3
     }
 }
