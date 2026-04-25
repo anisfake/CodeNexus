@@ -1,4 +1,6 @@
 using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.SendMentorReviewReminder;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetAllMentorReviews;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,6 +17,18 @@ public class AdminMentorReviewController : ControllerBase
     public AdminMentorReviewController(ISender sender)
     {
         _sender = sender;
+    }
+
+    [HttpGet]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] LearningPathMentorReviewDecisionStatus? status,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetAllMentorReviewsQuery(status, page, pageSize), cancellationToken);
+        return Ok(result.Value);
     }
 
     [HttpPost("{reviewId}/send-reminder")]

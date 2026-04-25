@@ -78,3 +78,23 @@ public record LearningPathMentorReviewListResponseDto(
     Guid PathId,
     List<LearningPathMentorReviewDto> Reviews);
 
+public record AdminMentorReviewDto(
+    Guid ReviewId,
+    Guid PathId,
+    string PathTitle,
+    Guid StudentId,
+    string StudentName,
+    string StudentEmail,
+    Guid MentorId,
+    string MentorName,
+    string MentorEmail,
+    LearningPathMentorReviewDecisionStatus DecisionStatus,
+    string? StudentRequestNote,
+    string? ChangeSummary,
+    string? ChangeReason,
+    string? StudentDecisionNote,
+    DateTime? StudentDecidedAt,
+    DateTime? MentorRespondedAt,
+    DateTime CreatedAt,
+    DateTime? UpdatedAt);
+
