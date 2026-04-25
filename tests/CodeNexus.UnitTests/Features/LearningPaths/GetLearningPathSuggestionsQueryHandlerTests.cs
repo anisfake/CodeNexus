@@ -33,9 +33,12 @@ public class GetLearningPathSuggestionsQueryHandlerTests
     public async Task Handle_WhenWeightMismatch_ShouldNotSuggest()
     {
         var userId = Guid.NewGuid();
+        var mentorId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var systemGoalId = Guid.NewGuid();
         var pathId = Guid.NewGuid();
+        var mentorRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Mentor" };
+        var mentorUser = new User { UserId = mentorId, Username = "mentor1", Role = mentorRole };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
 
@@ -65,9 +68,12 @@ public class GetLearningPathSuggestionsQueryHandlerTests
             new LearningPath
             {
                 PathId = pathId,
+                UserId = mentorId,
+                User = mentorUser,
                 SubjectId = subjectId,
                 Title = "LP A",
                 Description = "Desc",
+                Status = "Active",
                 Language = LanguageSelection.English,
                 ComplexityLevel = ComplexityLevel.Beginner
             }
@@ -99,9 +105,12 @@ public class GetLearningPathSuggestionsQueryHandlerTests
     public async Task Handle_WhenExactMatchAndWeightsAligned_ShouldSuggest()
     {
         var userId = Guid.NewGuid();
+        var mentorId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
         var systemGoalId = Guid.NewGuid();
         var pathId = Guid.NewGuid();
+        var mentorRole = new Role { RoleId = Guid.NewGuid(), RoleName = "Mentor" };
+        var mentorUser = new User { UserId = mentorId, Username = "mentor1", Role = mentorRole };
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(userId);
 
@@ -131,9 +140,12 @@ public class GetLearningPathSuggestionsQueryHandlerTests
             new LearningPath
             {
                 PathId = pathId,
+                UserId = mentorId,
+                User = mentorUser,
                 SubjectId = subjectId,
                 Title = "LP A",
                 Description = "Desc",
+                Status = "Active",
                 Language = LanguageSelection.English,
                 ComplexityLevel = ComplexityLevel.Beginner
             }
