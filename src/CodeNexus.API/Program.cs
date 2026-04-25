@@ -27,6 +27,7 @@ builder.Services.AddScoped<CodeNexus.Application.Common.Interfaces.ILearningPath
 builder.Services.AddHostedService<CodeNexus.API.Services.OverdueNotificationBackgroundService>();
 builder.Services.AddHostedService<CodeNexus.API.Services.PendingPaymentTimeoutBackgroundService>();
 builder.Services.AddHostedService<CodeNexus.API.Services.FocusSessionTimeoutBackgroundService>();
+builder.Services.AddHostedService<CodeNexus.API.Services.MentorReviewReminderBackgroundService>();
 
 var allowedOrigins = builder.Configuration.GetSection("CorsSettings:AllowedOrigins").Get<string[]>() ?? [];
 

@@ -139,7 +139,8 @@ public class UpsertLearningPathMentorReviewCommandHandler
 
         if (hasContentChange)
         {
-            review.DecisionStatus = LearningPathMentorReviewDecisionStatus.Pending;
+            review.DecisionStatus = LearningPathMentorReviewDecisionStatus.WaitingStudentResponse;
+            review.MentorRespondedAt = DateTime.UtcNow;
             review.StudentDecisionNote = null;
             review.StudentDecidedAt = null;
         }

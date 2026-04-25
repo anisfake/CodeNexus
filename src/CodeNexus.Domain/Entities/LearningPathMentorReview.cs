@@ -24,6 +24,7 @@ public class LearningPathMentorReview
 
     public string? StudentDecisionNote { get; set; }
     public DateTime? StudentDecidedAt { get; set; }
+    public DateTime? MentorRespondedAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
