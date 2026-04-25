@@ -358,6 +358,26 @@ public record PublishedLearningPathSummaryDto(
     bool IsEnrolled
 );
 
+// Lightweight DTO for list views (my-drafts, my-published) – no chapter/lesson/quiz/task data
+public record LearningPathListItemDto(
+    Guid PathId,
+    Guid SubjectId,
+    string SubjectName,
+    List<LearningPathGoalDto> Goals,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    string Title,
+    string? Description,
+    string Status,
+    bool CreatedByType,
+    Guid UserId,
+    string UserName,
+    int ChapterCount,
+    DateTime CreatedAt,
+    ComplexityLevel? ComplexityLevel,
+    LanguageSelection? LanguageSelection
+);
+
 public record EnrollmentResponseDto(
     Guid ShareId,
     Guid EnrolledPathId,
