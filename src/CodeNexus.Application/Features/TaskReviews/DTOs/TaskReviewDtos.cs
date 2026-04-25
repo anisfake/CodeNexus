@@ -44,3 +44,21 @@ public record TaskReviewInfoDto(
     DateTime RequestedAt,
     DateTime? ReviewedAt
 );
+
+public record TaskReviewListItemDto(
+    Guid ReviewId,
+    Guid SessionId,
+    Guid TaskId,
+    string TaskTitle,
+    Guid StudentId,
+    string StudentUserName,
+    string? StudentAvatarUrl,
+    Guid MentorId,
+    string MentorUserName,
+    string? MentorAvatarUrl,
+    int? Score,
+    string? StudentRequestNote,
+    string Status,
+    DateTime RequestedAt,
+    DateTime? ReviewedAt
+);
