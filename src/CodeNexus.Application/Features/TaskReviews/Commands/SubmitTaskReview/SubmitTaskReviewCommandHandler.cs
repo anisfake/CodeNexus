@@ -67,6 +67,12 @@ public class SubmitTaskReviewCommandHandler : IRequestHandler<SubmitTaskReviewCo
         review.Status = TaskReviewStatus.Reviewed;
         review.ReviewedAt = now;
 
+        // Set task status based on whether score meets the minimum
+        var minimumScore = review.Session.Task.MinimumScore;
+        review.Session.Task.Status = request.Score >= minimumScore
+            ? TaskStatus_.Completed
+            : TaskStatus_.InProgress;
+
         // Create in-app notification for student
         var notification = new Notification
         {
