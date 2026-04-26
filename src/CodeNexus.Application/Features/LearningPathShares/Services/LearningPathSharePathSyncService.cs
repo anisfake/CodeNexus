@@ -91,9 +91,10 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
 
                 foreach (var sourceQuiz in sourceLesson.Quizzes)
                 {
+                    var newQuizId = NewId.NextGuid();
                     await _context.Quizzes.AddAsync(new Quiz
                     {
-                        QuizId = NewId.NextGuid(),
+                        QuizId = newQuizId,
                         LessonId = newLessonId,
                         Title = sourceQuiz.Title,
                         Description = sourceQuiz.Description,
@@ -102,6 +103,21 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                         DueDate = ShiftNullable(sourceQuiz.DueDate),
                         CreatedAt = acceptedAt
                     }, cancellationToken);
+
+                    foreach (var sourceQuestion in sourceQuiz.Questions.Where(q => !q.IsDeleted))
+                    {
+                        await _context.Questions.AddAsync(new Questions
+                        {
+                            QuestionId = NewId.NextGuid(),
+                            QuizId = newQuizId,
+                            QuestionText = sourceQuestion.QuestionText,
+                            Type = sourceQuestion.Type,
+                            Options = sourceQuestion.Options,
+                            CorrectAnswer = sourceQuestion.CorrectAnswer,
+                            Points = sourceQuestion.Points,
+                            OrderIndex = sourceQuestion.OrderIndex
+                        }, cancellationToken);
+                    }
                 }
             }
 
@@ -299,9 +315,10 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
 
                 foreach (var sourceQuiz in sourceLesson.Quizzes.Where(q => !q.IsDeleted))
                 {
+                    var newQuizId = NewId.NextGuid();
                     await _context.Quizzes.AddAsync(new Quiz
                     {
-                        QuizId = NewId.NextGuid(),
+                        QuizId = newQuizId,
                         LessonId = newLessonId,
                         Title = sourceQuiz.Title,
                         Description = sourceQuiz.Description,
@@ -310,6 +327,21 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                         DueDate = shiftNullable(sourceQuiz.DueDate),
                         CreatedAt = now
                     }, cancellationToken);
+
+                    foreach (var sourceQuestion in sourceQuiz.Questions.Where(q => !q.IsDeleted))
+                    {
+                        await _context.Questions.AddAsync(new Questions
+                        {
+                            QuestionId = NewId.NextGuid(),
+                            QuizId = newQuizId,
+                            QuestionText = sourceQuestion.QuestionText,
+                            Type = sourceQuestion.Type,
+                            Options = sourceQuestion.Options,
+                            CorrectAnswer = sourceQuestion.CorrectAnswer,
+                            Points = sourceQuestion.Points,
+                            OrderIndex = sourceQuestion.OrderIndex
+                        }, cancellationToken);
+                    }
                 }
             }
         }
@@ -337,9 +369,10 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
 
         foreach (var source in sourceLesson.Quizzes.Where(q => !q.IsDeleted).OrderBy(q => q.CreatedAt))
         {
+            var newQuizId = NewId.NextGuid();
             _context.Quizzes.Add(new Quiz
             {
-                QuizId = NewId.NextGuid(),
+                QuizId = newQuizId,
                 LessonId = studentLesson.LessonId,
                 Title = source.Title,
                 Description = source.Description,
@@ -348,6 +381,21 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                 DueDate = shiftNullable(source.DueDate),
                 CreatedAt = now
             });
+
+            foreach (var sourceQuestion in source.Questions.Where(q => !q.IsDeleted))
+            {
+                _context.Questions.Add(new Questions
+                {
+                    QuestionId = NewId.NextGuid(),
+                    QuizId = newQuizId,
+                    QuestionText = sourceQuestion.QuestionText,
+                    Type = sourceQuestion.Type,
+                    Options = sourceQuestion.Options,
+                    CorrectAnswer = sourceQuestion.CorrectAnswer,
+                    Points = sourceQuestion.Points,
+                    OrderIndex = sourceQuestion.OrderIndex
+                });
+            }
         }
     }
 
