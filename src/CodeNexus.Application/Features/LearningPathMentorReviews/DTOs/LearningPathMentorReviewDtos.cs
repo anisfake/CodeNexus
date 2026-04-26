@@ -14,6 +14,8 @@ public record LearningPathMentorReviewDto(
     Guid ReviewId,
     Guid PathId,
     Guid MentorId,
+    string? MentorAvatarUrl,
+    string MentorEmail,
     string MentorName,
     Guid StudentId,
     LearningPathMentorReviewDecisionStatus DecisionStatus,

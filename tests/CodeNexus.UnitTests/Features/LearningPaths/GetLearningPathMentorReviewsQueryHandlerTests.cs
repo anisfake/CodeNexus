@@ -62,8 +62,17 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
         {
             UserId = mentorId,
             Username = "mentorA",
+            FirstName = "Mentor",
+            LastName = "A",
             RoleId = mentorRole.RoleId,
             Role = mentorRole
+        };
+
+        var mentorProfile = new UserProfile
+        {
+            ProfileId = Guid.NewGuid(),
+            UserId = mentorId,
+            AvatarUrl = null
         };
 
         var path = new LearningPath
@@ -112,6 +121,7 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
 
         _mockCurrentUserService.Setup(x => x.GetUserId()).Returns(studentId);
         _mockContext.Setup(x => x.Users).Returns(new[] { student, mentor }.BuildMockDbSet().Object);
+        _mockContext.Setup(x => x.UserProfiles).Returns(new[] { mentorProfile }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPaths).Returns(new[] { path }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.LearningPathMentorReviews).Returns(new[] { reviewOlder, reviewNewer }.BuildMockDbSet().Object);
         _mockContext.Setup(x => x.StudentMentorSubscriptions).Returns(new[] { studentSub }.BuildMockDbSet().Object);
@@ -124,7 +134,7 @@ public class GetLearningPathMentorReviewsQueryHandlerTests
         result.Value!.PathId.Should().Be(pathId);
         result.Value.Reviews.Should().HaveCount(2);
         result.Value.Reviews[0].ReviewId.Should().Be(reviewNewer.ReviewId);
-        result.Value.Reviews[0].MentorName.Should().Be("mentorA");
+        result.Value.Reviews[0].MentorName.Should().Be("Mentor A");
     }
 
     [Fact]

@@ -74,29 +74,32 @@ public class GetLearningPathMentorReviewsQueryHandler
         }
 
         var reviewRows = await (from review in _context.LearningPathMentorReviews.AsNoTracking()
-                               join mentorUser in _context.Users.AsNoTracking() on review.MentorId equals mentorUser.UserId
-                               join studentSub in _context.StudentMentorSubscriptions.AsNoTracking() on review.StudentId equals studentSub.UserId
-                               join pkg in _context.MentorPackages.AsNoTracking() on studentSub.MentorPackageId equals pkg.MentorPackageId
-                               where review.PathId == request.PathId && studentSub.IsActive && pkg.IsActive
-                               select new
-                               {
-                                   review.ReviewId,
-                                   review.PathId,
-                                   review.MentorId,
-                                   MentorUsername = mentorUser.Username,
-                                   review.StudentId,
-                                   review.RevisedPathId,
-                                   review.StudentRequestNote,
-                                   review.ChangeSummary,
-                                   review.ChangeReason,
-                                   studentSub.ValidationRequestsUsed,
-                                   pkg.ValidationRequestLimit,
-                                   review.DecisionStatus,
-                                   review.StudentDecisionNote,
-                                   review.StudentDecidedAt,
-                                   review.CreatedAt,
-                                   review.UpdatedAt
-                               })
+                                join mentorUser in _context.Users.AsNoTracking() on review.MentorId equals mentorUser.UserId
+                                join mentorUserProfile in _context.UserProfiles.AsNoTracking() on mentorUser.UserId equals mentorUserProfile.UserId
+                                join studentSub in _context.StudentMentorSubscriptions.AsNoTracking() on review.StudentId equals studentSub.UserId
+                                join pkg in _context.MentorPackages.AsNoTracking() on studentSub.MentorPackageId equals pkg.MentorPackageId
+                                where review.PathId == request.PathId && studentSub.IsActive && pkg.IsActive
+                                select new
+                                {
+                                    review.ReviewId,
+                                    review.PathId,
+                                    review.MentorId,
+                                    MentorAvatarUrl = mentorUserProfile.AvatarUrl,
+                                    MentorEmail = mentorUser.Email,
+                                    MentorName = mentorUser.FirstName + " " + mentorUser.LastName,
+                                    review.StudentId,
+                                    review.RevisedPathId,
+                                    review.StudentRequestNote,
+                                    review.ChangeSummary,
+                                    review.ChangeReason,
+                                    studentSub.ValidationRequestsUsed,
+                                    pkg.ValidationRequestLimit,
+                                    review.DecisionStatus,
+                                    review.StudentDecisionNote,
+                                    review.StudentDecidedAt,
+                                    review.CreatedAt,
+                                    review.UpdatedAt
+                                })
                                .OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
                                .ToListAsync(cancellationToken);
 
@@ -104,7 +107,9 @@ public class GetLearningPathMentorReviewsQueryHandler
                 x.ReviewId,
                 x.PathId,
                 x.MentorId,
-                x.MentorUsername,
+                x.MentorAvatarUrl,
+                x.MentorEmail,
+                x.MentorName,
                 x.StudentId,
                 x.DecisionStatus,
                 x.StudentDecisionNote,
