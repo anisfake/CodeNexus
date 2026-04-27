@@ -28,7 +28,7 @@ public class UpdateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
-        var command = new UpdateSubjectCommand(subjectId, "Updated Math", "New Description", "#AABBCC", "new-icon", SubjectCategory.Other);
+        var command = new UpdateSubjectCommand(subjectId, "Updated Math", "New Description", "#AABBCC", "new-icon", SubjectCategory.Other, null);
 
         var user = new User
         {
@@ -70,7 +70,7 @@ public class UpdateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
-        var command = new UpdateSubjectCommand(subjectId, "Physics", null, null, null, SubjectCategory.Other);
+        var command = new UpdateSubjectCommand(subjectId, "Physics", null, null, null, SubjectCategory.Other, null);
 
         var user = new User
         {
@@ -101,7 +101,7 @@ public class UpdateSubjectCommandHandlerTests
         var userId = Guid.NewGuid();
         var otherUserId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
-        var command = new UpdateSubjectCommand(subjectId, "Chemistry", null, null, null, SubjectCategory.Other);
+        var command = new UpdateSubjectCommand(subjectId, "Chemistry", null, null, null, SubjectCategory.Other, null);
 
         var user = new User
         {
@@ -140,7 +140,7 @@ public class UpdateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var subjectId = Guid.NewGuid();
-        var command = new UpdateSubjectCommand(subjectId, "Biology", null, null, null, SubjectCategory.Other);
+        var command = new UpdateSubjectCommand(subjectId, "Biology", null, null, null, SubjectCategory.Other, null);
 
         var user = new User
         {
