@@ -33,6 +33,8 @@ using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RespondL
 using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RequestLearningPathMentorReview;
 using CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
 using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetLearningPathMentorReviews;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetMyStudentLearningPathReviews;
+using CodeNexus.Domain.Enums;
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathPreview;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateStudentLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetStudentLearningPathEditDetail;
@@ -541,6 +543,19 @@ public class LearningPathController : ControllerBase
     public async Task<IActionResult> GetLearningPathMentorReviews(Guid pathId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetLearningPathMentorReviewsQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("me/mentor-reviews")]
+    [Authorize(Roles = "Student")]
+    [ProducesResponseType(typeof(List<AdminMentorReviewDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyMentorReviews(
+        [FromQuery] LearningPathMentorReviewDecisionStatus? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetMyStudentLearningPathReviewsQuery(status, page, pageSize), cancellationToken);
         return ToActionResult(result);
     }
 
