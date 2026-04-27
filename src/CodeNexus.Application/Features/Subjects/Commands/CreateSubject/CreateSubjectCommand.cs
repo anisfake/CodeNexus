@@ -10,5 +10,6 @@ public record CreateSubjectCommand(
     string? Description,
     string? Color,
     string? Icon,
-    SubjectCategory Category
+    SubjectCategory Category,
+    List<CreateSubjectGoalRequest>? Goals
 ) : IRequest<Result<SubjectDto>>;

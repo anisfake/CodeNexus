@@ -25,14 +25,15 @@ public class SubjectController : ControllerBase
 
     [HttpPost]
     [Authorize(Roles = "Mentor")]
-    public async Task<IActionResult> CreateSubject(CreateSubjectCommand request, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateSubject(CreateSubjectRequest request, CancellationToken cancellationToken)
     {
         var command = new CreateSubjectCommand(
             request.Name,
             request.Description,
             request.Color,
             request.Icon,
-            request.Category
+            request.Category,
+            request.Goals
         );
 
         var result = await _sender.Send(command, cancellationToken);
@@ -58,7 +59,8 @@ public class SubjectController : ControllerBase
             request.Description,
             request.Color,
             request.Icon,
-            request.Category
+            request.Category,
+            request.Goals
         );
 
         var result = await _sender.Send(command, cancellationToken);

@@ -52,6 +52,34 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
             CreatedAt = DateTime.UtcNow
         };
 
+        var goalDtos = new List<SubjectGoalDto>();
+        if (request.Goals != null && request.Goals.Count > 0)
+        {
+            foreach (var goalRequest in request.Goals)
+            {
+                var goal = new CodeNexus.Domain.Entities.Goals
+                {
+                    GoalId = NewId.NextGuid(),
+                    Title = goalRequest.Title,
+                    Description = goalRequest.Description,
+                    Duration = goalRequest.Duration,
+                    IsSystemDefined = true,
+                    CreatedByUserId = null,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _context.Goals.AddAsync(goal, cancellationToken);
+
+                subject.SubjectGoals.Add(new SubjectGoal
+                {
+                    SubjectId = subject.SubjectId,
+                    GoalId = goal.GoalId
+                });
+
+                goalDtos.Add(new SubjectGoalDto(goal.GoalId, goal.Title, goal.Description, goal.IsSystemDefined, goal.DurationInDays));
+            }
+        }
+
         try
         {
             await _context.Subjects.AddAsync(subject, cancellationToken);
@@ -69,7 +97,7 @@ public class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand,
             subject.Color,
             subject.Icon,
             subject.Category,
-            new List<SubjectGoalDto>(),
+            goalDtos,
             user.FirstName + " " + user.LastName,
             subject.CreatedByUserId,
             subject.CreatedAt
