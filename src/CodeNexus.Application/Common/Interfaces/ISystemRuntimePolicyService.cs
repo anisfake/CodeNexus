@@ -8,7 +8,9 @@ public sealed record RuntimeOperationalPolicy(
     int FocusSessionMonitorIntervalSeconds,
     int PendingPaymentTimeoutMinutes,
     int PendingPaymentMonitorIntervalSeconds,
-    int OverdueNotificationIntervalMinutes
+    int OverdueNotificationIntervalMinutes,
+    int MentorReviewReminderAfterDays,
+    int StudentResponseReminderAfterDays
 );
 
 public interface ISystemRuntimePolicyService
