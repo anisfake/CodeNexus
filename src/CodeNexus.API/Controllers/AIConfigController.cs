@@ -118,6 +118,7 @@ namespace CodeNexus.API.Controllers
             return result.ErrorCode switch
             {
                 "CONFIG_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+                "CANNOT_DELETE_LAST_CONFIG" or "CANNOT_DELETE_ACTIVE_CONFIG" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
                 _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
             };
         }
