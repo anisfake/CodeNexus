@@ -45,18 +45,14 @@ public class CreateMentorAccountCommandHandler
         CancellationToken cancellationToken)
     {
         var email = request.Email.Trim();
-        var providedUsername = string.IsNullOrWhiteSpace(request.Username)
-            ? null
-            : request.Username.Trim();
+        var providedUsername = string.IsNullOrWhiteSpace(request.Username) ? null : request.Username.Trim();
 
         var emailExists = await _context.Users
             .AsNoTracking()
             .AnyAsync(u => u.Email == email, cancellationToken);
 
         if (emailExists)
-        {
             return Result<CreateMentorAccountResponse>.Failure("EMAIL_EXISTS", "Email already registered.");
-        }
 
         if (!string.IsNullOrWhiteSpace(providedUsername))
         {
@@ -65,21 +61,17 @@ public class CreateMentorAccountCommandHandler
                 .AnyAsync(u => u.Username == providedUsername, cancellationToken);
 
             if (usernameExists)
-            {
                 return Result<CreateMentorAccountResponse>.Failure("USERNAME_EXISTS", "Username already taken.");
-            }
         }
 
-        var mentorRole = await _context.Roles
+        var role = await _context.Roles
             .AsNoTracking()
-            .FirstOrDefaultAsync(r => r.RoleName == "Mentor", cancellationToken);
+            .FirstOrDefaultAsync(r => r.RoleName == request.Role, cancellationToken);
 
-        if (mentorRole == null)
-        {
-            return Result<CreateMentorAccountResponse>.Failure("ROLE_NOT_FOUND", "Mentor role not found.");
-        }
+        if (role == null)
+            return Result<CreateMentorAccountResponse>.Failure("ROLE_NOT_FOUND", $"{request.Role} role not found.");
 
-        var username = providedUsername ?? await EnsureUniqueUsernameAsync(BuildUsernameBase(email), cancellationToken);
+        var username = providedUsername ?? await EnsureUniqueUsernameAsync(BuildUsernameBase(email, request.Role), cancellationToken);
         var temporaryPassword = GenerateTemporaryPassword();
 
         var user = new User
@@ -92,7 +84,7 @@ public class CreateMentorAccountCommandHandler
             LastName = Normalize(request.LastName),
             CreatedAt = DateTime.UtcNow,
             Status = "Active",
-            RoleId = mentorRole.RoleId
+            RoleId = role.RoleId
         };
 
         var profile = new UserProfile
@@ -122,15 +114,15 @@ public class CreateMentorAccountCommandHandler
             {
                 await _emailService.SendNotificationEmailAsync(
                     email,
-                    "Mentor account created",
-                    BuildSetupMessage(user, temporaryPassword),
+                    $"{request.Role} account created",
+                    BuildSetupMessage(user, temporaryPassword, request.Role),
                     cancellationToken);
 
                 setupEmailSent = true;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to send mentor setup email to {Email}", email);
+                _logger.LogWarning(ex, "Failed to send setup email to {Email}", email);
                 setupEmailError = "Failed to send setup email. Please share the temporary password manually.";
             }
         }
@@ -141,6 +133,7 @@ public class CreateMentorAccountCommandHandler
             user.Username,
             user.FirstName,
             user.LastName,
+            request.Role,
             temporaryPassword,
             setupEmailSent,
             setupEmailError,
@@ -157,42 +150,30 @@ public class CreateMentorAccountCommandHandler
             suffix++;
             var suffixText = suffix.ToString(CultureInfo.InvariantCulture);
             var maxBaseLength = Math.Max(1, MaxUsernameLength - suffixText.Length);
-            var truncatedBase = baseUsername.Length > maxBaseLength
-                ? baseUsername[..maxBaseLength]
-                : baseUsername;
-
+            var truncatedBase = baseUsername.Length > maxBaseLength ? baseUsername[..maxBaseLength] : baseUsername;
             candidate = $"{truncatedBase}{suffixText}";
         }
 
         return candidate;
     }
 
-    private static string BuildUsernameBase(string email)
+    private static string BuildUsernameBase(string email, string role)
     {
         var localPart = email.Split('@')[0].Trim();
         var sanitized = Regex.Replace(localPart, @"[^a-zA-Z0-9._]", string.Empty);
 
         if (string.IsNullOrWhiteSpace(sanitized))
-        {
-            sanitized = "mentor";
-        }
+            sanitized = role.ToLowerInvariant();
 
         if (sanitized.Length < 3)
-        {
             sanitized = sanitized.PadRight(3, '0');
-        }
 
-        return sanitized.Length > MaxUsernameLength
-            ? sanitized[..MaxUsernameLength]
-            : sanitized;
+        return sanitized.Length > MaxUsernameLength ? sanitized[..MaxUsernameLength] : sanitized;
     }
 
     private static string GenerateTemporaryPassword(int length = 14)
     {
-        if (length < 12)
-        {
-            length = 12;
-        }
+        if (length < 12) length = 12;
 
         const string upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
         const string lower = "abcdefghijkmnopqrstuvwxyz";
@@ -210,9 +191,7 @@ public class CreateMentorAccountCommandHandler
         chars[3] = symbols[randomBytes[3] % symbols.Length];
 
         for (var i = 4; i < length; i++)
-        {
             chars[i] = all[randomBytes[i] % all.Length];
-        }
 
         Shuffle(chars);
         return new string(chars);
@@ -221,7 +200,6 @@ public class CreateMentorAccountCommandHandler
     private static void Shuffle(Span<char> chars)
     {
         var random = new byte[sizeof(uint)];
-
         for (var i = chars.Length - 1; i > 0; i--)
         {
             RandomNumberGenerator.Fill(random);
@@ -231,22 +209,15 @@ public class CreateMentorAccountCommandHandler
         }
     }
 
-    private static string? Normalize(string? value)
-    {
-        return string.IsNullOrWhiteSpace(value)
-            ? null
-            : value.Trim();
-    }
+    private static string? Normalize(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private static string BuildSetupMessage(User mentor, string temporaryPassword)
-    {
-        return
-            $"Your mentor account has been created by the administrator.\n\n" +
-            $"Email: {mentor.Email}\n" +
-            $"Username: {mentor.Username}\n" +
-            $"Temporary Password: {temporaryPassword}\n\n" +
-            "Please sign in and change your password immediately.";
-    }
+    private static string BuildSetupMessage(User user, string temporaryPassword, string role) =>
+        $"Your {role.ToLowerInvariant()} account has been created by the administrator.\n\n" +
+        $"Email: {user.Email}\n" +
+        $"Username: {user.Username}\n" +
+        $"Temporary Password: {temporaryPassword}\n\n" +
+        "Please sign in and change your password immediately.";
 
     private void TrySetAuditUser()
     {
@@ -257,7 +228,7 @@ public class CreateMentorAccountCommandHandler
         }
         catch
         {
-            // Best-effort only. Account creation should continue even when audit user context is unavailable.
+            // Best-effort only.
         }
     }
 }

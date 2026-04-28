@@ -13,5 +13,6 @@ public record CreateMentorAccountCommand(
     string? Phone,
     string? Address,
     DateTime? DateOfBirth,
+    string Role,
     bool SendSetupEmail = true
 ) : IRequest<Result<CreateMentorAccountResponse>>;

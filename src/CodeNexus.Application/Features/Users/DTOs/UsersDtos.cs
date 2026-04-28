@@ -35,7 +35,7 @@ public record UpdateProfileRequest(
     TimeSpan? DailyReminderTime
 );
 
-public record CreateMentorAccountRequest(
+public record CreateUserAccountRequest(
     string Email,
     string? Username,
     string? FirstName,
@@ -44,6 +44,7 @@ public record CreateMentorAccountRequest(
     string? Phone,
     string? Address,
     DateTime? DateOfBirth,
+    string Role,
     bool SendSetupEmail = true
 );
 
@@ -53,6 +54,7 @@ public record CreateMentorAccountResponse(
     string Username,
     string? FirstName,
     string? LastName,
+    string Role,
     string TemporaryPassword,
     bool SetupEmailSent,
     string? SetupEmailError,

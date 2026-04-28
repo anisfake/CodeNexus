@@ -114,14 +114,14 @@ public class UserController : ControllerBase
         return ToActionResult(result);
     }
 
-    [HttpPost("mentors")]
+    [HttpPost("accounts")]
     [Authorize(Roles = "Admin")]
     [ProducesResponseType(typeof(CreateMentorAccountResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> CreateMentorAccount(
-        [FromBody] CreateMentorAccountRequest request,
+    public async Task<IActionResult> CreateUserAccount(
+        [FromBody] CreateUserAccountRequest request,
         CancellationToken cancellationToken = default)
     {
         var command = new CreateMentorAccountCommand(
@@ -133,13 +133,12 @@ public class UserController : ControllerBase
             request.Phone,
             request.Address,
             request.DateOfBirth,
+            request.Role,
             request.SendSetupEmail);
 
         var result = await _sender.Send(command, cancellationToken);
         if (!result.IsSuccess)
-        {
             return ToActionResult(result);
-        }
 
         return CreatedAtAction(nameof(GetUserById), new { userId = result.Value!.UserId }, result.Value);
     }
