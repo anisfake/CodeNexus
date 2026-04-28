@@ -35,11 +35,13 @@ public class CreateMentorAccountCommandHandlerTests
             _mockLogger.Object);
     }
 
-    [Fact]
-    public async Task Handle_WithValidRequest_ShouldCreateMentorAndSendEmail()
+    [Theory]
+    [InlineData("Mentor")]
+    [InlineData("Student")]
+    public async Task Handle_WithValidRequest_ShouldCreateUserAndSendEmail(string role)
     {
         var users = new List<User>();
-        var roles = new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = "Mentor" } };
+        var roles = new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = role } };
         var profiles = new List<UserProfile>();
 
         SetupUsersDbSet(users);
@@ -51,30 +53,32 @@ public class CreateMentorAccountCommandHandlerTests
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new CreateMentorAccountCommand(
-            "mentor@test.com",
-            "mentor001",
-            "Mentor",
-            "User",
-            "Backend mentor",
+            "user@test.com",
+            "user001",
+            "First",
+            "Last",
+            "Some bio",
             "0123456789",
             "HCM",
             new DateTime(1995, 1, 1),
+            role,
             true);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().NotBeNull();
-        result.Value!.Email.Should().Be("mentor@test.com");
-        result.Value.Username.Should().Be("mentor001");
+        result.Value!.Email.Should().Be("user@test.com");
+        result.Value.Username.Should().Be("user001");
+        result.Value.Role.Should().Be(role);
         result.Value.SetupEmailSent.Should().BeTrue();
         result.Value.TemporaryPassword.Should().NotBeNullOrWhiteSpace();
 
-        users.Should().ContainSingle(u => u.Email == "mentor@test.com" && u.Username == "mentor001");
-        profiles.Should().ContainSingle(p => p.Bio == "Backend mentor");
+        users.Should().ContainSingle(u => u.Email == "user@test.com" && u.Username == "user001");
+        profiles.Should().ContainSingle(p => p.Bio == "Some bio");
 
         _mockEmailService.Verify(x => x.SendNotificationEmailAsync(
-                "mentor@test.com",
+                "user@test.com",
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<CancellationToken>()),
@@ -87,22 +91,13 @@ public class CreateMentorAccountCommandHandlerTests
     {
         var users = new List<User>
         {
-            new() { UserId = Guid.NewGuid(), Email = "mentor@test.com", Username = "mentor-old" }
+            new() { UserId = Guid.NewGuid(), Email = "user@test.com", Username = "user-old" }
         };
         SetupUsersDbSet(users);
         SetupRolesDbSet(new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = "Mentor" } });
         SetupProfilesDbSet(new List<UserProfile>());
 
-        var command = new CreateMentorAccountCommand(
-            "mentor@test.com",
-            "mentor-new",
-            "Mentor",
-            "User",
-            null,
-            null,
-            null,
-            null,
-            true);
+        var command = BuildValidCommand("user@test.com", "user-new", "Mentor");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
@@ -111,22 +106,34 @@ public class CreateMentorAccountCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenRoleMissing_ShouldReturnFailure()
+    public async Task Handle_WhenUsernameExists_ShouldReturnFailure()
+    {
+        var users = new List<User>
+        {
+            new() { UserId = Guid.NewGuid(), Email = "other@test.com", Username = "takenuser" }
+        };
+        SetupUsersDbSet(users);
+        SetupRolesDbSet(new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = "Student" } });
+        SetupProfilesDbSet(new List<UserProfile>());
+
+        var command = BuildValidCommand("new@test.com", "takenuser", "Student");
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.ErrorCode.Should().Be("USERNAME_EXISTS");
+    }
+
+    [Theory]
+    [InlineData("Mentor")]
+    [InlineData("Student")]
+    public async Task Handle_WhenRoleMissing_ShouldReturnFailure(string role)
     {
         SetupUsersDbSet(new List<User>());
         SetupRolesDbSet(new List<Role>());
         SetupProfilesDbSet(new List<UserProfile>());
 
-        var command = new CreateMentorAccountCommand(
-            "mentor@test.com",
-            "mentor001",
-            "Mentor",
-            "User",
-            null,
-            null,
-            null,
-            null,
-            true);
+        var command = BuildValidCommand("user@test.com", "user001", role);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
@@ -134,14 +141,16 @@ public class CreateMentorAccountCommandHandlerTests
         result.ErrorCode.Should().Be("ROLE_NOT_FOUND");
     }
 
-    [Fact]
-    public async Task Handle_WhenUsernameNotProvided_ShouldAutoGenerateUniqueUsername()
+    [Theory]
+    [InlineData("Mentor")]
+    [InlineData("Student")]
+    public async Task Handle_WhenUsernameNotProvided_ShouldAutoGenerateUniqueUsername(string role)
     {
         var users = new List<User>
         {
-            new() { UserId = Guid.NewGuid(), Email = "old@test.com", Username = "mentor" }
+            new() { UserId = Guid.NewGuid(), Email = "old@test.com", Username = "newuser" }
         };
-        var roles = new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = "Mentor" } };
+        var roles = new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = role } };
         var profiles = new List<UserProfile>();
 
         SetupUsersDbSet(users);
@@ -152,26 +161,26 @@ public class CreateMentorAccountCommandHandlerTests
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
         var command = new CreateMentorAccountCommand(
-            "mentor@company.com",
+            "newuser@company.com",
             null,
-            "Mentor",
-            "New",
-            null,
-            null,
+            "First",
+            "Last",
             null,
             null,
+            null,
+            null,
+            role,
             false);
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().NotBeNull();
-        result.Value!.Username.Should().Be("mentor1");
+        result.Value!.Username.Should().Be("newuser1");
         result.Value.SetupEmailSent.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Handle_WhenEmailSendingFails_ShouldStillCreateMentor()
+    public async Task Handle_WhenEmailSendingFails_ShouldStillCreateUser()
     {
         var users = new List<User>();
         var roles = new List<Role> { new() { RoleId = Guid.NewGuid(), RoleName = "Mentor" } };
@@ -184,30 +193,20 @@ public class CreateMentorAccountCommandHandlerTests
         _mockPasswordService.Setup(x => x.HashPassword(It.IsAny<string>())).Returns("hashed");
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
         _mockEmailService.Setup(x => x.SendNotificationEmailAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("SMTP down"));
 
-        var command = new CreateMentorAccountCommand(
-            "mentor@test.com",
-            "mentor001",
-            "Mentor",
-            "User",
-            null,
-            null,
-            null,
-            null,
-            true);
+        var command = BuildValidCommand("user@test.com", "user001", "Mentor");
 
         var result = await _handler.Handle(command, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.Should().NotBeNull();
         result.Value!.SetupEmailSent.Should().BeFalse();
         result.Value.SetupEmailError.Should().NotBeNullOrWhiteSpace();
     }
+
+    private static CreateMentorAccountCommand BuildValidCommand(string email, string username, string role) =>
+        new(email, username, "First", "Last", null, null, null, null, role, true);
 
     private void SetupUsersDbSet(List<User> users)
     {
