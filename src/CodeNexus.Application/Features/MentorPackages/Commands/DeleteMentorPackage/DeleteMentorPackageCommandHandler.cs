@@ -22,6 +22,12 @@ public class DeleteMentorPackageCommandHandler : IRequestHandler<DeleteMentorPac
         if (entity == null)
             return Result<string>.Failure("MENTOR_PACKAGE_NOT_FOUND", "Mentor package not found.");
 
+        var hasActiveSubscription = await _context.StudentMentorSubscriptions
+            .AnyAsync(x => x.MentorPackageId == request.MentorPackageId && x.IsActive, cancellationToken);
+
+        if (hasActiveSubscription)
+            return Result<string>.Failure("MENTOR_PACKAGE_IN_USE", "Cannot delete this package because there are students currently using it.");
+
         _context.MentorPackages.Remove(entity);
         await _context.SaveChangesAsync(cancellationToken);
         return Result<string>.Success("Deleted");

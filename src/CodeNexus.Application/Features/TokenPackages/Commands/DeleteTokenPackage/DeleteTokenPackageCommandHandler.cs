@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +23,12 @@ public class DeleteTokenPackageCommandHandler : IRequestHandler<DeleteTokenPacka
         {
             return Result<string>.Failure("TOKEN_PACKAGE_NOT_FOUND", "Token package not found.");
         }
+
+        var hasActiveUsage = await _context.PaymentTransactions
+            .AnyAsync(x => x.TokenPackageId == request.TokenPackageId && x.Status == PaymentStatus.Success, cancellationToken);
+
+        if (hasActiveUsage)
+            return Result<string>.Failure("TOKEN_PACKAGE_IN_USE", "Cannot delete this package because there are students who have purchased it.");
 
         _context.TokenPackages.Remove(entity);
         await _context.SaveChangesAsync(cancellationToken);
