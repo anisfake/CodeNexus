@@ -108,7 +108,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 }
             }
 
-            var normalizedGoals = NormalizeGoalWeights(request.Goals);
+            var normalizedGoals = request.UseAbsoluteGoalWeights
+                ? NormalizeAbsoluteGoalWeights(request.Goals)
+                : NormalizeGoalWeights(request.Goals);
             var goalsWithWeights = normalizedGoals
                 .Join(goals, ng => ng.GoalId, g => g.GoalId, (ng, g) => new GoalWeightInfo(g, ng.Weight))
                 .OrderByDescending(g => g.Weight)
@@ -150,7 +152,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 subject.Name,
                 goalsWithWeights,
                 request.LanguageSelection,
-                existingTitles);
+                existingTitles,
+                request.GenerationContextInstruction);
 
             var learningPath = new LearningPath
             {
@@ -197,6 +200,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     chapterTimelines.Count,
                     request.ComplexityLevel,
                     request.LanguageSelection,
+                    request.GenerationContextInstruction,
                     cancellationToken);
 
                 chapterData = EnsureValidChapterData(
@@ -234,6 +238,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                         chapterTimelines.Count,
                         request.ComplexityLevel,
                         request.LanguageSelection,
+                        request.GenerationContextInstruction,
                         cancellationToken);
 
                     if (regenerated != null && regenerated.LessonTitles.Count > 0)
@@ -426,6 +431,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         int totalChapters,
         ComplexityLevel complexity,
         LanguageSelection language,
+        string? generationContextInstruction,
         CancellationToken cancellationToken)
     {
         var lessonsPerChapter = GetLessonsPerChapter(complexity);
@@ -437,7 +443,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             totalChapters,
             lessonsPerChapter,
             language,
-            complexity);
+            complexity,
+            generationContextInstruction);
 
         try
         {
@@ -466,6 +473,7 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         int totalChapters,
         ComplexityLevel complexity,
         LanguageSelection language,
+        string? generationContextInstruction,
         CancellationToken cancellationToken)
     {
         var lessonsPerChapter = GetLessonsPerChapter(complexity);
@@ -478,7 +486,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             totalChapters,
             lessonsPerChapter,
             language,
-            complexity);
+            complexity,
+            generationContextInstruction);
 
         try
         {
@@ -784,7 +793,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         string subjectName,
         List<GoalWeightInfo> goals,
         LanguageSelection language,
-        IReadOnlyCollection<string>? existingTitles = null)
+        IReadOnlyCollection<string>? existingTitles = null,
+        string? generationContextInstruction = null)
     {
         var goalTitles = FormatGoalTitles(goals);
         var weightedGoalSummary = FormatGoalTitlesWithWeights(goals, language);
@@ -800,7 +810,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
                 weightedGoalSummary,
                 language,
                 existingTitles,
-                titleStyleHint);
+                titleStyleHint,
+                generationContextInstruction);
 
             try
             {
@@ -846,7 +857,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         string weightedGoalSummary,
         LanguageSelection language,
         IReadOnlyCollection<string>? existingTitles,
-        string titleStyleHint)
+        string titleStyleHint,
+        string? generationContextInstruction)
     {
         var languageInstruction = language switch
         {
@@ -882,6 +894,12 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
                 .Take(8)
                 .Select(t => $"- {t.Trim()}"))
             : (language == LanguageSelection.VietNamese ? "- (Chưa có lộ trình trước đó)" : "- (No previous title)");
+        var contextBlock = string.IsNullOrWhiteSpace(generationContextInstruction)
+            ? string.Empty
+            : $@"
+Additional context:
+{generationContextInstruction.Trim()}
+";
 
         return $@"Generate a concise, human-friendly learning path title and description in JSON format.
 
@@ -889,6 +907,7 @@ Subject: {subjectName}
 Goals: {goalTitles}
 Goal Priorities: {weightedGoalSummary}
 Title Style Hint: {titleStyleHint}
+{contextBlock}
 
 Recent titles to avoid exact duplication:
 {recentTitleBlock}
@@ -1169,7 +1188,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description v
         int totalChapters,
         int lessonsPerChapter,
         LanguageSelection language,
-        ComplexityLevel complexity)
+        ComplexityLevel complexity,
+        string? generationContextInstruction)
     {
         var languageInstruction = language switch
         {
@@ -1187,6 +1207,12 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description v
 
         var chapterPosition = GetPositionDescription(orderIndex, totalChapters, complexity);
         var complexityInstruction = GetComplexityInstruction(complexity);
+        var contextBlock = string.IsNullOrWhiteSpace(generationContextInstruction)
+            ? string.Empty
+            : $@"
+Additional context:
+{generationContextInstruction.Trim()}
+";
 
         return $@"Generate lesson titles for a chapter in JSON format.
 
@@ -1197,6 +1223,7 @@ Complexity Level: {complexity}
 Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
 Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
+{contextBlock}
 
 {languageInstruction}
 
@@ -1234,7 +1261,8 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow c
         int totalChapters,
         int lessonsPerChapter,
         LanguageSelection language,
-        ComplexityLevel complexity)
+        ComplexityLevel complexity,
+        string? generationContextInstruction)
     {
         var languageInstruction = language switch
         {
@@ -1252,6 +1280,12 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow c
 
         var chapterPosition = GetPositionDescription(orderIndex, totalChapters, complexity);
         var complexityInstruction = GetComplexityInstruction(complexity);
+        var contextBlock = string.IsNullOrWhiteSpace(generationContextInstruction)
+            ? string.Empty
+            : $@"
+Additional context:
+{generationContextInstruction.Trim()}
+";
 
         return $@"Generate lesson titles for a chapter in JSON format.
 
@@ -1263,6 +1297,7 @@ Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
 Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
 Fixed Chapter Title: {fixedTitle}
+{contextBlock}
 
 {languageInstruction}
 
@@ -1329,6 +1364,33 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow c
         }
 
         return scaled.Select(g => new NormalizedGoal(g.GoalId, g.Weight / sum)).ToList();
+    }
+
+    private static List<NormalizedGoal> NormalizeAbsoluteGoalWeights(List<LearningPathGoalRequest> goals)
+    {
+        var usePercent = goals.Any(g => g.Weight > 1m);
+        var scaled = goals.Select(g => new NormalizedGoal(
+            g.GoalId,
+            usePercent ? g.Weight / 100m : g.Weight
+        )).ToList();
+
+        if (scaled.Any(g => g.Weight <= 0m))
+        {
+            throw new InvalidOperationException("Goal weights must be greater than 0");
+        }
+
+        if (scaled.Any(g => g.Weight > 1m))
+        {
+            throw new InvalidOperationException("Absolute goal weights must be between 0 and 1");
+        }
+
+        var sum = scaled.Sum(g => g.Weight);
+        if (sum > 1m)
+        {
+            throw new InvalidOperationException("Absolute goal weights cannot exceed 100%");
+        }
+
+        return scaled;
     }
 
     private static int CalculateWeightedDurationDays(List<GoalWeightInfo> goals)

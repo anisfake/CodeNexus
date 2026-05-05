@@ -16,6 +16,7 @@ public static class UserGoalProgressSyncHelper
     {
         if (context.LearningPathGoals is null ||
             context.LearningPathGoalItemMappings is null ||
+            context.LearningPaths is null ||
             context.Lessons is null ||
             context.LearnProgresses is null ||
             context.Quizzes is null ||
@@ -167,6 +168,28 @@ public static class UserGoalProgressSyncHelper
             {
                 row.StartedAt ??= now;
                 row.CompletedAt ??= now;
+            }
+        }
+
+        // Sync LearningPath status based on overall completion
+        var learningPath = await context.LearningPaths
+            .FirstOrDefaultAsync(lp => lp.PathId == learningPathId, cancellationToken);
+
+        if (learningPath != null)
+        {
+            var totalItems = totalLessons + totalQuizzes;
+            var completedItems = completedLessons + completedQuizzes;
+            var isPathCompleted = totalItems > 0 && completedItems >= totalItems;
+
+            var targetStatus = isPathCompleted
+                ? LearningPathStatus.Completed.ToString()
+                : LearningPathStatus.InProgress.ToString();
+
+            if (learningPath.Status != targetStatus &&
+                learningPath.Status != LearningPathStatus.Cancelled.ToString() &&
+                learningPath.Status != LearningPathStatus.Draft.ToString())
+            {
+                learningPath.Status = targetStatus;
             }
         }
 

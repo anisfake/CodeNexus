@@ -5,6 +5,7 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.Chapters.Queries.GetChapterCompletionStatus;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateGoalSupplementLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
@@ -481,6 +482,25 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("{pathId:guid}/goals/{goalId:guid}/supplement")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GenerateGoalSupplementLearningPath(
+        Guid pathId,
+        Guid goalId,
+        [FromBody] GenerateGoalSupplementLearningPathRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new GenerateGoalSupplementLearningPathCommand(
+            pathId,
+            goalId,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.SaveAsDraft);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpGet("{pathId:guid}/preview")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GetLearningPathPreview(Guid pathId, CancellationToken cancellationToken)
@@ -604,8 +624,8 @@ public class LearningPathController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
             "SUGGESTION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
-            "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "REVIEW_NOT_FOUND" or "REVIEW_REQUEST_NOT_FOUND" or "MENTOR_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "SHARE_ALREADY_PENDING" or "GOAL_ALREADY_COMPLETED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "REVIEW_NOT_FOUND" or "REVIEW_REQUEST_NOT_FOUND" or "MENTOR_NOT_FOUND" or "GOAL_NOT_FOUND_IN_PATH" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" or "MENTOR_REVIEW_REJECT_LIMIT_REACHED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };

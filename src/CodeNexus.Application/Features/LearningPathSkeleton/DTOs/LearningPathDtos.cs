@@ -75,6 +75,20 @@ public record GenerateLearningPathSkeletonRequest(
     bool SaveAsDraft = false
 );
 
+public record GenerateGoalSupplementLearningPathRequest(
+    ComplexityLevel? ComplexityLevel = null,
+    LanguageSelection? LanguageSelection = null,
+    bool SaveAsDraft = false
+);
+
+public record GoalSupplementLearningPathResponse(
+    Guid SourcePathId,
+    Guid GoalId,
+    decimal CurrentProgressPercent,
+    decimal RemainingPercent,
+    CreateLearningPathResponse LearningPath
+);
+
 public record AdoptSuggestedLearningPathRequest(
     Guid SubjectId,
     List<LearningPathGoalRequest> Goals,

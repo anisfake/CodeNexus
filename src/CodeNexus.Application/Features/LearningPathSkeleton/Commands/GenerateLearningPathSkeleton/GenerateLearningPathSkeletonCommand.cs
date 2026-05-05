@@ -10,4 +10,6 @@ public record GenerateLearningPathSkeletonCommand(
     List<LearningPathGoalRequest> Goals,
     ComplexityLevel ComplexityLevel,
     LanguageSelection LanguageSelection,
-    bool SaveAsDraft = false) : IRequest<Result<CreateLearningPathResponse>>;
+    bool SaveAsDraft = false,
+    bool UseAbsoluteGoalWeights = false,
+    string? GenerationContextInstruction = null) : IRequest<Result<CreateLearningPathResponse>>;

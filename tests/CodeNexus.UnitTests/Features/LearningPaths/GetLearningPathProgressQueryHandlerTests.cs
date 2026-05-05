@@ -93,6 +93,7 @@ public class GetLearningPathProgressQueryHandlerTests
             {
                 AttemptId = NewId.NextGuid(),
                 QuizId = quiz1.QuizId,
+                Quiz = quiz1,
                 UserId = userId,
                 Status = QuizAttemptStatus.Passed
             },
@@ -100,6 +101,7 @@ public class GetLearningPathProgressQueryHandlerTests
             {
                 AttemptId = NewId.NextGuid(),
                 QuizId = quiz1.QuizId,
+                Quiz = quiz1,
                 UserId = userId,
                 Status = QuizAttemptStatus.NotPassed
             },
@@ -107,6 +109,7 @@ public class GetLearningPathProgressQueryHandlerTests
             {
                 AttemptId = NewId.NextGuid(),
                 QuizId = quiz1.QuizId,
+                Quiz = quiz1,
                 UserId = userId,
                 Status = QuizAttemptStatus.Passed
             },
@@ -114,6 +117,7 @@ public class GetLearningPathProgressQueryHandlerTests
             {
                 AttemptId = NewId.NextGuid(),
                 QuizId = quiz2.QuizId,
+                Quiz = quiz2,
                 UserId = userId,
                 Status = QuizAttemptStatus.NotPassed
             }
