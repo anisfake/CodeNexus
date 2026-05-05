@@ -238,8 +238,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
                     Priority = taskRequest.Priority,
                     Status = TaskStatus_.Pending,
                     CreatedAt = DateTime.UtcNow,
-                    TaskType = taskRequest.TaskType,
-                    QuizQuestionsJson = taskRequest.QuizQuestionsJson
+                    TaskType = taskRequest.TaskType
                 };
 
                 await _context.Tasks.AddAsync(task, cancellationToken);
@@ -251,8 +250,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
                     task.TaskType,
                     task.Priority,
                     task.Status,
-                    task.DueDate,
-                    task.QuizQuestionsJson));
+                    task.DueDate));
             }
 
             chapterDtos.Add(new ChapterDto(
@@ -273,7 +271,9 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
                 g.Weight,
                 g.Goal.DurationInDays,
                 "NotStarted",
-                null))
+                null,
+                0m,
+                g.Weight * 100m))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(
@@ -447,8 +447,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             var hasTaskData = !string.IsNullOrWhiteSpace(task.Title)
                               || !string.IsNullOrWhiteSpace(task.Description)
                               || task.DueDate.HasValue
-                              || task.Priority.HasValue
-                              || !string.IsNullOrWhiteSpace(task.QuizQuestionsJson);
+                              || task.Priority.HasValue;
 
             if (!hasTaskData)
             {
@@ -458,8 +457,7 @@ public class CreateMentorLearningPathDraftCommandHandler : IRequestHandler<Creat
             results.Add(task with
             {
                 Title = string.IsNullOrWhiteSpace(task.Title) ? $"Task {results.Count + 1}" : task.Title.Trim(),
-                Description = string.IsNullOrWhiteSpace(task.Description) ? null : task.Description.Trim(),
-                QuizQuestionsJson = string.IsNullOrWhiteSpace(task.QuizQuestionsJson) ? null : task.QuizQuestionsJson.Trim()
+                Description = string.IsNullOrWhiteSpace(task.Description) ? null : task.Description.Trim()
             });
         }
 

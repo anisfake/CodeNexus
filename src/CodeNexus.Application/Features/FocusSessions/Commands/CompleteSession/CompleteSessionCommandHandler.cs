@@ -134,11 +134,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                     }
                     else
                     {
-                        verificationResult = await _verificationService.VerifyQuizSubmissionAsync(
-                            session.Task.Title,
-                            session.Task.Description ?? "",
-                            session.Task.QuizQuestionsJson!,
-                            request.SubmittedQuizAnswers!);
+                        throw new InvalidOperationException($"Unsupported task type for verification: {taskType}");
                     }
 
                     session.AIFeedback = verificationResult.Feedback;
@@ -321,17 +317,7 @@ public class CompleteSessionCommandHandler : IRequestHandler<CompleteSessionComm
                 }
                 break;
 
-            case TaskType.Quizz:
-                if (string.IsNullOrEmpty(request.SubmittedQuizAnswers))
-                {
-                    return new ValidationResult
-                    {
-                        IsValid = false,
-                        ErrorCode = "MISSING_QUIZ_ANSWERS",
-                        ErrorMessage = "Quiz answers submission is required for quiz tasks"
-                    };
-                }
-                break;
+
         }
 
         return new ValidationResult { IsValid = true };

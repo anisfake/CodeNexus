@@ -1,5 +1,6 @@
-﻿﻿using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
 using MassTransit;
@@ -12,16 +13,21 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using CodeNexus.Application.Features.Tasks.DTOs;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 
 public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<GenerateLearningPathSkeletonCommand, Result<CreateLearningPathResponse>>
 {
+    private const decimal UpfrontEstimateSafetyMultiplier = 1.05m;
+    private const decimal ChapterRegenerationRatio = 0.20m;
+    private const string InsufficientTokenBalanceErrorCode = "INSUFFICIENT_TOKEN_BALANCE";
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
     private readonly ITimelineCalculationService _timelineCalculationService;
     private readonly IAIGeneratorService _aiGeneratorService;
-    private readonly ISubscriptionAccessService _subscriptionAccessService;
     private readonly IPlanUsageLimitService _planUsageLimitService;
 
     public GenerateLearningPathSkeletonCommandHandler(
@@ -29,14 +35,12 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         ICurrentUserService currentUserService,
         ITimelineCalculationService timelineCalculationService,
         IAIGeneratorService aiGeneratorService,
-        ISubscriptionAccessService subscriptionAccessService,
         IPlanUsageLimitService planUsageLimitService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _timelineCalculationService = timelineCalculationService;
         _aiGeneratorService = aiGeneratorService;
-        _subscriptionAccessService = subscriptionAccessService;
         _planUsageLimitService = planUsageLimitService;
     }
 
@@ -104,17 +108,52 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 }
             }
 
-            var normalizedGoals = NormalizeGoalWeights(request.Goals);
+            var normalizedGoals = request.UseAbsoluteGoalWeights
+                ? NormalizeAbsoluteGoalWeights(request.Goals)
+                : NormalizeGoalWeights(request.Goals);
             var goalsWithWeights = normalizedGoals
                 .Join(goals, ng => ng.GoalId, g => g.GoalId, (ng, g) => new GoalWeightInfo(g, ng.Weight))
                 .OrderByDescending(g => g.Weight)
                 .ToList();
 
             var durationDays = CalculateWeightedDurationDays(goalsWithWeights);
+            var plannedStartDate = DateTime.UtcNow;
+            var plannedEndDate = plannedStartDate.AddDays(durationDays);
+
+            var chapterTimelines = await _timelineCalculationService.CalculateChapterTimelinesAsync(
+                plannedStartDate,
+                plannedEndDate,
+                0,
+                request.ComplexityLevel,
+                cancellationToken);
+
+            var upfrontBudgetValidation = await ValidateUpfrontBudgetAsync(
+                userId,
+                request.ComplexityLevel,
+                chapterTimelines.Count,
+                cancellationToken);
+            if (upfrontBudgetValidation != null)
+            {
+                return upfrontBudgetValidation;
+            }
+
+            var existingTitles = await _context.LearningPaths
+                .AsNoTracking()
+                .Where(lp =>
+                    lp.UserId == userId &&
+                    lp.SubjectId == request.SubjectId &&
+                    lp.Language == request.LanguageSelection)
+                .OrderByDescending(lp => lp.CreatedAt)
+                .Select(lp => lp.Title)
+                .Take(20)
+                .ToListAsync(cancellationToken);
+
             var (pathTitle, pathDescription) = await GenerateLearningPathMetaAsync(
                 subject.Name,
                 goalsWithWeights,
-                request.LanguageSelection);
+                request.LanguageSelection,
+                existingTitles,
+                request.GenerationContextInstruction);
 
             var learningPath = new LearningPath
             {
@@ -126,8 +165,8 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 Status = request.SaveAsDraft
                     ? LearningPathStatus.Draft.ToString()
                     : LearningPathStatus.Active.ToString(),
-                StartDate = DateTime.UtcNow,
-                EndDate = DateTime.UtcNow.AddDays(durationDays),
+                StartDate = plannedStartDate,
+                EndDate = plannedEndDate,
                 CreatedAt = DateTime.UtcNow,
                 CreatedByType = true,
                 Language = request.LanguageSelection,
@@ -146,13 +185,6 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 }, cancellationToken);
             }
 
-            var chapterTimelines = await _timelineCalculationService.CalculateChapterTimelinesAsync(
-                learningPath.StartDate!.Value,
-                learningPath.EndDate!.Value,
-                0,
-                request.ComplexityLevel,
-                cancellationToken);
-
             var chapters = new List<ChapterDto>();
             var usedChapterKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var usedChapterCores = new List<string>();
@@ -162,17 +194,22 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
                 var chapterData = await GenerateChapterFromAI(
                     subject.Name,
-                    FormatGoalTitles(goalsWithWeights),
+                    FormatGoalTitlesWithWeights(goalsWithWeights, request.LanguageSelection),
+                    learningPath.Title,
+                    i,
+                    chapterTimelines.Count,
+                    request.ComplexityLevel,
+                    request.LanguageSelection,
+                    request.GenerationContextInstruction,
+                    cancellationToken);
+
+                chapterData = EnsureValidChapterData(
+                    chapterData,
+                    subject.Name,
                     learningPath.Title,
                     i,
                     request.ComplexityLevel,
-                    request.LanguageSelection,
-                    cancellationToken);
-
-                if (chapterData == null || string.IsNullOrEmpty(chapterData.Title))
-                {
-                    return Result<CreateLearningPathResponse>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
-                }
+                    request.LanguageSelection);
 
                 var normalizedChapterTitle = NormalizeChapterTitle(
                     chapterData.Title,
@@ -194,12 +231,14 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 {
                     var regenerated = await GenerateChapterFromAIWithFixedTitle(
                         subject.Name,
-                        FormatGoalTitles(goalsWithWeights),
+                        FormatGoalTitlesWithWeights(goalsWithWeights, request.LanguageSelection),
                         learningPath.Title,
                         distinctTitleResult.CoreTitle,
                         i,
+                        chapterTimelines.Count,
                         request.ComplexityLevel,
                         request.LanguageSelection,
+                        request.GenerationContextInstruction,
                         cancellationToken);
 
                     if (regenerated != null && regenerated.LessonTitles.Count > 0)
@@ -265,14 +304,21 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     ));
 
                     var quizzesPerLesson = _timelineCalculationService.GetQuizzesPerLesson(request.ComplexityLevel);
+                    var quizTitles = await GenerateQuizTitlesForLessonAsync(
+                        subject.Name,
+                        chapter.Title,
+                        lessonTitle,
+                        quizzesPerLesson,
+                        request.LanguageSelection);
+
                     for (int k = 0; k < quizzesPerLesson; k++)
                     {
                         var quiz = new Quiz
                         {
                             QuizId = NewId.NextGuid(),
                             LessonId = lesson.LessonId,
-                            Title = $"Quiz {k + 1}: {lessonTitle}",
-                            Description = $"Assessment quiz for {lessonTitle}",
+                            Title = quizTitles[k],
+                            Description = QuizNamingHelper.BuildFallbackDescription(lessonTitle, k, request.LanguageSelection),
                             DueDate = lessonSchedule.LessonDay.AddDays(2),
                             CreatedAt = DateTime.UtcNow
                         };
@@ -281,18 +327,37 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                     }
                 }
 
+                var generatedTasks = await GenerateTasksForChapterAsync(
+                    chapter,
+                    learningPath,
+                    subject.Name,
+                    lessonDtos,
+                    request.LanguageSelection,
+                    cancellationToken);
+
                 chapters.Add(new ChapterDto(
                     chapter.ChapterId,
                     chapter.Title,
                     chapter.Content,
                     chapter.OrderIndex,
                     lessonDtos,
-                    new List<TaskDto>()
+                    generatedTasks
                 ));
             }
 
             await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                learningPath.PathId,
+                request.LanguageSelection,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             var goalDtos = goalsWithWeights.Select(g => new LearningPathGoalDto(
                 g.Goal.GoalId,
@@ -300,7 +365,9 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
                 g.Weight,
                 g.Goal.DurationInDays,
                 "NotStarted",
-                null
+                null,
+                0m,
+                g.Weight * 100m
             )).ToList();
 
             return Result<CreateLearningPathResponse>.Success(
@@ -324,21 +391,60 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         }
         catch (Exception ex)
         {
+            if (IsTimeoutException(ex))
+            {
+                return Result<CreateLearningPathResponse>.Failure(
+                    "GENERATION_TIMEOUT",
+                    "Learning path generation timed out. Please retry or reduce goal scope.");
+            }
+
             return Result<CreateLearningPathResponse>.Failure("GENERATION_FAILED", "Failed to generate data.");
         }
     }
 
+    private static bool IsTimeoutException(Exception ex)
+    {
+        if (ex is TimeoutException || ex is TaskCanceledException || ex is OperationCanceledException)
+        {
+            return true;
+        }
+
+        var message = ex.Message?.ToLowerInvariant() ?? string.Empty;
+        if (message.Contains("timeout") || message.Contains("timed out") || message.Contains("task was canceled"))
+        {
+            return true;
+        }
+
+        if (ex.InnerException is not null)
+        {
+            return IsTimeoutException(ex.InnerException);
+        }
+
+        return false;
+    }
+
     private async Task<ChapterGenerationData?> GenerateChapterFromAI(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         int orderIndex,
+        int totalChapters,
         ComplexityLevel complexity,
         LanguageSelection language,
+        string? generationContextInstruction,
         CancellationToken cancellationToken)
     {
         var lessonsPerChapter = GetLessonsPerChapter(complexity);
-        var prompt = BuildChapterPrompt(subjectName, goalSummary, learningPathTitle, orderIndex, lessonsPerChapter, language);
+        var prompt = BuildChapterPrompt(
+            subjectName,
+            goalPrioritySummary,
+            learningPathTitle,
+            orderIndex,
+            totalChapters,
+            lessonsPerChapter,
+            language,
+            complexity,
+            generationContextInstruction);
 
         try
         {
@@ -360,23 +466,28 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
 
     private async Task<ChapterGenerationData?> GenerateChapterFromAIWithFixedTitle(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         string fixedTitle,
         int orderIndex,
+        int totalChapters,
         ComplexityLevel complexity,
         LanguageSelection language,
+        string? generationContextInstruction,
         CancellationToken cancellationToken)
     {
         var lessonsPerChapter = GetLessonsPerChapter(complexity);
         var prompt = BuildChapterPromptWithFixedTitle(
             subjectName,
-            goalSummary,
+            goalPrioritySummary,
             learningPathTitle,
             fixedTitle,
             orderIndex,
+            totalChapters,
             lessonsPerChapter,
-            language);
+            language,
+            complexity,
+            generationContextInstruction);
 
         try
         {
@@ -396,6 +507,278 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
         }
     }
 
+    private async Task<IReadOnlyList<string>> GenerateQuizTitlesForLessonAsync(
+        string subjectName,
+        string chapterTitle,
+        string lessonTitle,
+        int quizCount,
+        LanguageSelection language)
+    {
+        if (quizCount <= 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        List<string>? aiTitles = null;
+        try
+        {
+            var prompt = BuildQuizTitlePrompt(subjectName, chapterTitle, lessonTitle, quizCount, language);
+            var generated = await _aiGeneratorService.GenerateStructureAsync<QuizTitleGenerationData>(prompt, AIUsageType.StructureGeneration);
+            aiTitles = generated?.Titles;
+        }
+        catch
+        {
+            // Fallback handled below.
+        }
+
+        return QuizNamingHelper.BuildFinalTitles(aiTitles, lessonTitle, quizCount, language);
+    }
+
+    private static string BuildQuizTitlePrompt(
+        string subjectName,
+        string chapterTitle,
+        string lessonTitle,
+        int quizCount,
+        LanguageSelection language)
+    {
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL titles in Vietnamese
+- Keep technical terms in English where needed (API, JSON, Docker, etc.)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL titles in English
+",
+            _ => string.Empty
+        };
+
+        return $@"Generate {quizCount} quiz titles for a lesson in JSON format.
+
+=== CONTEXT ===
+Subject: {subjectName}
+Chapter: {chapterTitle}
+Lesson: {lessonTitle}
+
+{languageInstruction}
+
+=== REQUIREMENTS ===
+- Return exactly {quizCount} titles
+- Each title MUST be clearly related to the lesson
+- Titles MUST NOT be identical to the lesson title
+- Titles should be concise, specific, and different from each other
+
+=== JSON FORMAT ===
+{{
+  ""titles"": [
+    ""Quiz title 1"",
+    ""Quiz title 2""
+  ]
+}}
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+    }
+
+    private async Task<Result<CreateLearningPathResponse>?> ValidateUpfrontBudgetAsync(
+        Guid userId,
+        ComplexityLevel complexity,
+        int chapterCount,
+        CancellationToken cancellationToken)
+    {
+        if (chapterCount <= 0)
+        {
+            return null;
+        }
+
+        var userAccess = await _context.Users
+            .AsNoTracking()
+            .Where(u => u.UserId == userId)
+            .Select(u => new
+            {
+                u.TokenBalance,
+                RoleName = u.Role != null ? u.Role.RoleName : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (userAccess == null)
+        {
+            return null;
+        }
+
+        if (IsPrivilegedRole(userAccess.RoleName) || IsMentorRole(userAccess.RoleName))
+        {
+            return null;
+        }
+
+        if (userAccess.TokenBalance <= 0m)
+        {
+            return null;
+        }
+
+        var paidConfig = await ResolvePaidStructureConfigAsync(cancellationToken);
+        if (paidConfig == null)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                "PAID_AI_CONFIG_NOT_FOUND",
+                "Paid AI configuration for structure generation is missing.");
+        }
+
+        var runtimeConfig = ParseRuntimeConfig(paidConfig.ConfigJson);
+        var estimatedRequiredTokens = EstimateTotalRequiredTokens(runtimeConfig, complexity, chapterCount);
+
+        if (estimatedRequiredTokens <= 0m)
+        {
+            return null;
+        }
+
+        if (userAccess.TokenBalance < estimatedRequiredTokens)
+        {
+            return Result<CreateLearningPathResponse>.Failure(
+                InsufficientTokenBalanceErrorCode,
+                $"Insufficient token balance to generate full learning path. Required about {estimatedRequiredTokens:0} tokens, current balance {userAccess.TokenBalance:0}.");
+        }
+
+        return null;
+    }
+
+    private async Task<AIProviderConfig?> ResolvePaidStructureConfigAsync(CancellationToken cancellationToken)
+    {
+        var byUsage = await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.IsActive && c.AccessTier == AIAccessTier.Paid && c.UsageType == AIUsageType.StructureGeneration)
+            .OrderByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (byUsage != null)
+        {
+            return byUsage;
+        }
+
+        return await _context.AIProviderConfigs
+            .AsNoTracking()
+            .Where(c => c.IsActive && c.AccessTier == AIAccessTier.Paid)
+            .OrderBy(c => c.UsageType == AIUsageType.StructureGeneration ? 0 : 1)
+            .ThenByDescending(c => c.LastUpdated)
+            .ThenBy(c => c.ConfigId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private decimal EstimateTotalRequiredTokens(PaidRuntimeConfig runtimeConfig, ComplexityLevel complexity, int chapterCount)
+    {
+        if (runtimeConfig.InputCostPer1M <= 0m && runtimeConfig.OutputCostPer1M <= 0m)
+        {
+            return 0m;
+        }
+
+        var lessonsPerChapter = GetLessonsPerChapter(complexity);
+        var quizzesPerLesson = _timelineCalculationService.GetQuizzesPerLesson(complexity);
+        var totalLessons = chapterCount * lessonsPerChapter;
+        if (totalLessons <= 0)
+        {
+            return 0m;
+        }
+
+        var inputTokens = Math.Max(runtimeConfig.MaxTokens, 512);
+
+        var metaCalls = 1;
+        var chapterCalls = chapterCount;
+        var chapterRegenerationCalls = Math.Max(1, (int)Math.Ceiling(chapterCount * ChapterRegenerationRatio));
+        var quizTitleCalls = totalLessons;
+
+        var metaOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1024);
+        var chapterOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1400 + (lessonsPerChapter * 260));
+        var chapterRegenerationOutputTokens = Math.Min(runtimeConfig.MaxTokens, 1100 + (lessonsPerChapter * 220));
+        var quizTitleOutputTokens = Math.Min(runtimeConfig.MaxTokens, 280 + (Math.Max(quizzesPerLesson, 1) * 160));
+
+        var metaEstimate = EstimateExpectedChargeTokenAmount(
+            inputTokens,
+            metaOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * metaCalls;
+
+        var chapterEstimate = EstimateExpectedChargeTokenAmount(
+            inputTokens,
+            chapterOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * chapterCalls;
+
+        var chapterRegenerationEstimate = EstimateExpectedChargeTokenAmount(
+            inputTokens,
+            chapterRegenerationOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * chapterRegenerationCalls;
+
+        var quizTitleEstimate = EstimateExpectedChargeTokenAmount(
+            inputTokens,
+            quizTitleOutputTokens,
+            runtimeConfig.InputCostPer1M,
+            runtimeConfig.OutputCostPer1M) * quizTitleCalls;
+
+        var baseEstimate = metaEstimate + chapterEstimate + chapterRegenerationEstimate + quizTitleEstimate;
+        return Math.Ceiling(baseEstimate * UpfrontEstimateSafetyMultiplier);
+    }
+
+    private static decimal EstimateExpectedChargeTokenAmount(
+        int inputTokens,
+        int outputTokens,
+        decimal inputCostPer1M,
+        decimal outputCostPer1M)
+    {
+        const decimal oneMillion = 1_000_000m;
+        var rawCharge = ((decimal)inputTokens / oneMillion) * inputCostPer1M
+                        + ((decimal)outputTokens / oneMillion) * outputCostPer1M;
+
+        var chargedTokens = Math.Ceiling(rawCharge);
+        if (chargedTokens <= 0m && (inputTokens > 0 || outputTokens > 0))
+        {
+            chargedTokens = 1m;
+        }
+
+        return chargedTokens;
+    }
+
+    private static PaidRuntimeConfig ParseRuntimeConfig(string? configJson)
+    {
+        if (string.IsNullOrWhiteSpace(configJson))
+        {
+            return PaidRuntimeConfig.Default;
+        }
+
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                NumberHandling = JsonNumberHandling.AllowReadingFromString
+            };
+            var parsed = JsonSerializer.Deserialize<PaidRuntimeConfig>(configJson, options);
+            if (parsed == null)
+            {
+                return PaidRuntimeConfig.Default;
+            }
+
+            if (parsed.MaxTokens <= 0)
+            {
+                parsed.MaxTokens = PaidRuntimeConfig.Default.MaxTokens;
+            }
+
+            return parsed;
+        }
+        catch
+        {
+            return PaidRuntimeConfig.Default;
+        }
+    }
+
+    private static bool IsPrivilegedRole(string? roleName)
+        => string.Equals(roleName, "Admin", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMentorRole(string? roleName)
+        => string.Equals(roleName, "Mentor", StringComparison.OrdinalIgnoreCase);
+
     private int GetLessonsPerChapter(ComplexityLevel complexity)
     {
         return complexity switch
@@ -409,10 +792,74 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
     private async Task<(string Title, string Description)> GenerateLearningPathMetaAsync(
         string subjectName,
         List<GoalWeightInfo> goals,
-        LanguageSelection language)
+        LanguageSelection language,
+        IReadOnlyCollection<string>? existingTitles = null,
+        string? generationContextInstruction = null)
     {
         var goalTitles = FormatGoalTitles(goals);
+        var weightedGoalSummary = FormatGoalTitlesWithWeights(goals, language);
+        var existingTitleKeys = BuildExistingLearningPathTitleKeys(existingTitles);
+        const int maxAttempts = 3;
 
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            var titleStyleHint = BuildTitleStyleHint(language, attempt);
+            var prompt = BuildLearningPathMetaPrompt(
+                subjectName,
+                goalTitles,
+                weightedGoalSummary,
+                language,
+                existingTitles,
+                titleStyleHint,
+                generationContextInstruction);
+
+            try
+            {
+                var meta = await _aiGeneratorService.GenerateStructureAsync<LearningPathMeta>(prompt, AIUsageType.StructureGeneration);
+                if (string.IsNullOrWhiteSpace(meta?.Title) || string.IsNullOrWhiteSpace(meta.Description))
+                {
+                    continue;
+                }
+
+                var normalizedTitle = NormalizeLearningPathTitle(meta.Title, subjectName, goals, language);
+                normalizedTitle = EnsureTitleCoversSubjectAndGoals(normalizedTitle, subjectName, goals, language);
+
+                if (IsLearningPathTitleTaken(normalizedTitle, existingTitleKeys))
+                {
+                    if (attempt < maxAttempts - 1)
+                    {
+                        continue;
+                    }
+
+                    normalizedTitle = EnsureDistinctLearningPathTitle(
+                        normalizedTitle,
+                        subjectName,
+                        goals,
+                        language,
+                        existingTitleKeys);
+                }
+
+                var normalizedDescription = NormalizeLearningPathDescription(meta.Description, subjectName, goals, language);
+                return (normalizedTitle, normalizedDescription);
+            }
+            catch
+            {
+                // swallow and retry/fallback
+            }
+        }
+
+        return BuildLearningPathMetaFallback(subjectName, goals, language, existingTitleKeys);
+    }
+
+    private static string BuildLearningPathMetaPrompt(
+        string subjectName,
+        string goalTitles,
+        string weightedGoalSummary,
+        LanguageSelection language,
+        IReadOnlyCollection<string>? existingTitles,
+        string titleStyleHint,
+        string? generationContextInstruction)
+    {
         var languageInstruction = language switch
         {
             LanguageSelection.VietNamese => @"
@@ -427,76 +874,322 @@ public class GenerateLearningPathSkeletonCommandHandler : IRequestHandler<Genera
             _ => ""
         };
 
-        var prompt = $@"Generate a concise, human-friendly learning path title and description in JSON format.
+        var descriptionInstruction = language == LanguageSelection.VietNamese
+            ? @"- Mô tả phải gồm đúng 3 câu ngắn, mỗi câu trả lời 1 trong 3 câu hỏi sau (theo đúng thứ tự):
+  1. Học cái gì – tóm tắt nội dung chính của lộ trình
+  2. Học xong làm được gì – kết quả thực tế người học đạt được
+  3. Có hợp với mình không – gợi ý đối tượng hoặc điều kiện phù hợp
+- Mỗi câu ngắn gọn (1–2 dòng), viết liền thành 1 đoạn văn, không dùng gạch đầu dòng
+- Giọng điệu thân thiện, trực tiếp, tránh dùng từ hoa mỹ"
+            : @"- Description must contain exactly 3 short sentences answering (in order):
+  1. What you will learn – summarize the main content
+  2. What you can do after – practical outcomes the learner achieves
+  3. Is it right for you – suggest the target audience or prerequisites
+- Each sentence should be concise (1–2 lines), written as a single paragraph, no bullet points
+- Tone: friendly, direct, no marketing fluff";
+
+        var recentTitleBlock = existingTitles != null && existingTitles.Count > 0
+            ? string.Join(Environment.NewLine, existingTitles
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .Take(8)
+                .Select(t => $"- {t.Trim()}"))
+            : (language == LanguageSelection.VietNamese ? "- (Chưa có lộ trình trước đó)" : "- (No previous title)");
+        var contextBlock = string.IsNullOrWhiteSpace(generationContextInstruction)
+            ? string.Empty
+            : $@"
+Additional context:
+{generationContextInstruction.Trim()}
+";
+
+        return $@"Generate a concise, human-friendly learning path title and description in JSON format.
 
 Subject: {subjectName}
 Goals: {goalTitles}
+Goal Priorities: {weightedGoalSummary}
+Title Style Hint: {titleStyleHint}
+{contextBlock}
+
+Recent titles to avoid exact duplication:
+{recentTitleBlock}
 
 {languageInstruction}
 
 REQUIREMENTS:
-- Title should be short, natural, and professional
+- Title should be natural, professional, and NOT rigid template-like
+- Title MUST mention the subject and cover the selected goals (both if there are 2 goals)
+- Respect goal priorities when deciding overall emphasis/focus
 - Do NOT include percentages or weights
+- Do NOT copy any title from the recent-title list
 - Do NOT use format ""Learning Path: ..."" or ""Lộ trình học: ..."" literally
-- Description should be 1 sentence, clear and friendly
+{descriptionInstruction}
 
 JSON FORMAT:
 {{
-  ""title"": ""... "",
-  ""description"": ""... ""
+  ""title"": ""..."",
+  ""description"": ""...""
 }}
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. The description value must be a single JSON string (use \\n to separate the 3 sentences if needed, or write them as one paragraph).";
+    }
 
-        try
+    private static string BuildTitleStyleHint(LanguageSelection language, int attempt)
+    {
+        var hints = language switch
         {
-            var meta = await _aiGeneratorService.GenerateStructureAsync<LearningPathMeta>(prompt, AIUsageType.StructureGeneration);
-            if (!string.IsNullOrWhiteSpace(meta?.Title) && !string.IsNullOrWhiteSpace(meta.Description))
+            LanguageSelection.VietNamese => new[]
             {
-                var normalizedTitle = NormalizeLearningPathTitle(meta.Title, subjectName, goals, language);
-                var normalizedDescription = NormalizeLearningPathDescription(meta.Description, subjectName, goals, language);
-                return (normalizedTitle, normalizedDescription);
+                "Nhấn mạnh kết quả đầu ra rõ ràng, giọng điệu thực tế.",
+                "Nhấn mạnh tư duy triển khai end-to-end, ngắn gọn và sắc nét.",
+                "Nhấn mạnh hành trình từ nền tảng đến ứng dụng thực chiến.",
+                "Nhấn mạnh góc nhìn kiến trúc và best practices.",
+                "Nhấn mạnh phong cách project-driven, mang tính ứng dụng."
+            },
+            _ => new[]
+            {
+                "Emphasize practical outcomes in a clear, no-fluff tone.",
+                "Emphasize end-to-end implementation mindset, concise and sharp.",
+                "Emphasize progression from foundation to real-world application.",
+                "Emphasize architecture and best-practice orientation.",
+                "Emphasize project-driven learning and execution."
+            }
+        };
+
+        var start = Random.Shared.Next(0, hints.Length);
+        var index = (start + Math.Max(0, attempt)) % hints.Length;
+        return hints[index];
+    }
+
+    private static HashSet<string> BuildExistingLearningPathTitleKeys(IReadOnlyCollection<string>? titles)
+    {
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (titles == null || titles.Count == 0)
+        {
+            return keys;
+        }
+
+        foreach (var title in titles)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+            {
+                continue;
+            }
+
+            var key = BuildTitleKey(title);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                keys.Add(key);
             }
         }
-        catch
-        {
 
+        return keys;
+    }
+
+    private static bool IsLearningPathTitleTaken(string title, ISet<string>? existingTitleKeys)
+    {
+        if (existingTitleKeys == null || existingTitleKeys.Count == 0 || string.IsNullOrWhiteSpace(title))
+        {
+            return false;
         }
 
-        return BuildLearningPathMetaFallback(subjectName, goals, language);
+        return existingTitleKeys.Contains(BuildTitleKey(title));
+    }
+
+    private static string EnsureDistinctLearningPathTitle(
+        string baseTitle,
+        string subjectName,
+        List<GoalWeightInfo> goals,
+        LanguageSelection language,
+        ISet<string> existingTitleKeys)
+    {
+        var normalizedBaseTitle = EnsureTitleCoversSubjectAndGoals(baseTitle, subjectName, goals, language);
+
+        if (!IsLearningPathTitleTaken(normalizedBaseTitle, existingTitleKeys))
+        {
+            return normalizedBaseTitle;
+        }
+
+        var suffixes = language switch
+        {
+            LanguageSelection.VietNamese => new[]
+            {
+                "phiên bản thực chiến",
+                "định hướng project",
+                "nâng cao ứng dụng",
+                "trọng tâm triển khai",
+                "lộ trình cá nhân hóa"
+            },
+            _ => new[]
+            {
+                "practical edition",
+                "project-focused",
+                "applied track",
+                "implementation focus",
+                "personalized path"
+            }
+        };
+
+        var start = Random.Shared.Next(0, suffixes.Length);
+        for (var i = 0; i < suffixes.Length; i++)
+        {
+            var suffix = suffixes[(start + i) % suffixes.Length];
+            var candidate = $"{normalizedBaseTitle} - {suffix}";
+            candidate = EnsureTitleCoversSubjectAndGoals(candidate, subjectName, goals, language);
+            if (!IsLearningPathTitleTaken(candidate, existingTitleKeys))
+            {
+                return candidate;
+            }
+        }
+
+        var fallback = BuildLearningPathMetaFallback(subjectName, goals, language, existingTitleKeys).Title;
+        if (!IsLearningPathTitleTaken(fallback, existingTitleKeys))
+        {
+            return fallback;
+        }
+
+        return $"{fallback} {DateTime.UtcNow:HHmmss}";
+    }
+
+    private static string EnsureTitleCoversSubjectAndGoals(
+        string title,
+        string subjectName,
+        List<GoalWeightInfo> goals,
+        LanguageSelection language)
+    {
+        var normalized = Regex.Replace((title ?? string.Empty).Trim(), @"\s+", " ").Trim();
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            normalized = language == LanguageSelection.VietNamese
+                ? $"Lộ trình {subjectName}"
+                : $"{subjectName} Learning Path";
+        }
+
+        if (!normalized.Contains(subjectName, StringComparison.OrdinalIgnoreCase))
+        {
+            normalized = language == LanguageSelection.VietNamese
+                ? $"{subjectName}: {normalized}"
+                : $"{subjectName}: {normalized}";
+        }
+
+        var goalTags = goals
+            .OrderByDescending(g => g.Weight)
+            .Select(g => CompactGoalTitle(g.Goal.Title, language))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToList();
+
+        var missingTags = goalTags
+            .Where(tag => !normalized.Contains(tag, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (missingTags.Count > 0)
+        {
+            normalized = $"{normalized} - {string.Join(" & ", missingTags)}";
+        }
+
+        normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
+        return normalized;
     }
 
     private static (string Title, string Description) BuildLearningPathMetaFallback(
         string subjectName,
         List<GoalWeightInfo> goals,
-        LanguageSelection language)
+        LanguageSelection language,
+        ISet<string>? existingTitleKeys = null)
     {
         var compactGoals = BuildCompactGoalTags(goals, language);
-
-        return language switch
+        var titleTemplates = language switch
         {
-            LanguageSelection.VietNamese => (
-                $"Lộ trình học {subjectName} tập trung vào {compactGoals}.",
-                $"Tập trung phát triển kỹ năng {compactGoals} với {subjectName}."
-            ),
-            LanguageSelection.English => (
-                $"{subjectName}: {compactGoals}",
-                $"A {subjectName} learning path focused on {compactGoals}."
-            ),
-            _ => (
-                $"{subjectName}: {compactGoals}",
-                $"Focused on {compactGoals}."
-            )
+            LanguageSelection.VietNamese => new[]
+            {
+                $"{subjectName} thực chiến: {compactGoals}",
+                $"Làm chủ {compactGoals} với {subjectName}",
+                $"{subjectName} từ nền tảng đến ứng dụng {compactGoals}",
+                $"{subjectName} chuyên sâu theo mục tiêu {compactGoals}",
+                $"Hành trình {subjectName}: chinh phục {compactGoals}"
+            },
+            _ => new[]
+            {
+                $"{subjectName} in practice: {compactGoals}",
+                $"Master {compactGoals} with {subjectName}",
+                $"{subjectName} from fundamentals to applied {compactGoals}",
+                $"{subjectName} advanced track for {compactGoals}",
+                $"{subjectName} journey: delivering {compactGoals}"
+            }
+        };
+
+        var description = language switch
+        {
+            LanguageSelection.VietNamese =>
+                $"Lộ trình này tập trung vào {compactGoals} trong bối cảnh {subjectName}. " +
+                $"Bạn sẽ đi từ kiến thức cốt lõi đến cách triển khai thực tế theo mục tiêu đã chọn. " +
+                $"Phù hợp cho người học muốn tiến bộ rõ ràng theo lộ trình có định hướng.",
+            _ =>
+                $"This path focuses on {compactGoals} in the context of {subjectName}. " +
+                $"You will progress from core concepts to practical implementation aligned with your selected goals. " +
+                $"Best for learners who want a focused and measurable progression."
+        };
+
+        var start = Random.Shared.Next(0, titleTemplates.Length);
+        for (var i = 0; i < titleTemplates.Length; i++)
+        {
+            var candidate = titleTemplates[(start + i) % titleTemplates.Length];
+            candidate = EnsureTitleCoversSubjectAndGoals(candidate, subjectName, goals, language);
+            if (!IsLearningPathTitleTaken(candidate, existingTitleKeys))
+            {
+                return (candidate, description);
+            }
+        }
+
+        var emergencyTitle = EnsureTitleCoversSubjectAndGoals(titleTemplates[start], subjectName, goals, language);
+        return ($"{emergencyTitle} {DateTime.UtcNow:HHmmss}", description);
+    }
+
+    private string GetComplexityInstruction(ComplexityLevel complexity)
+    {
+        return complexity switch
+        {
+            ComplexityLevel.Beginner => "Start from absolute basics. Include syntax fundamentals, simple examples. Build gradually with detailed explanations.",
+            ComplexityLevel.Intermediate => "Assume basic syntax proficiency. Focus on design patterns, best practices, medium-complexity implementations and projects.",
+            ComplexityLevel.Advanced => "Assume complete mastery of language fundamentals and intermediate concepts. Dive directly into advanced system architecture, design patterns, optimization, scalability, production-grade systems. NO basic syntax or introductory tutorials.",
+            _ => "Provide balanced content suitable for intermediate learners."
+        };
+    }
+
+    private string GetPositionDescription(int orderIndex, int totalChapters, ComplexityLevel complexity)
+    {
+        var basePos = orderIndex switch
+        {
+            0 => "first",
+            _ when orderIndex < totalChapters * 0.3 => "early", 
+            _ when orderIndex < totalChapters * 0.7 => "middle",
+            _ => "final"
+        };
+
+        return $"{basePos} chapter ({GetPositionDepth(basePos, complexity)})";
+    }
+
+    private string GetPositionDepth(string position, ComplexityLevel complexity)
+    {
+        return complexity switch
+        {
+            ComplexityLevel.Beginner => position switch { "first" => "basics", "early" => "foundational concepts", "middle" => "core skills", "final" => "simple applications", _ => "basics" },
+            ComplexityLevel.Intermediate => position switch { "first" => "core concepts", "early" => "intermediate patterns", "middle" => "project implementation", "final" => "advanced applications", _ => "core concepts" },
+            ComplexityLevel.Advanced => position switch { "first" => "advanced architecture", "early" => "design patterns", "middle" => "optimization & scalability", "final" => "production systems", _ => "advanced architecture" },
+            _ => "intermediate concepts"
         };
     }
 
     private string BuildChapterPrompt(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         int orderIndex,
+        int totalChapters,
         int lessonsPerChapter,
-        LanguageSelection language)
+        LanguageSelection language,
+        ComplexityLevel complexity,
+        string? generationContextInstruction)
     {
         var languageInstruction = language switch
         {
@@ -512,29 +1205,38 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             _ => ""
         };
 
-        var chapterPosition = orderIndex switch
-        {
-            0 => "first (introduction/basics)",
-            _ when orderIndex < 3 => "early (foundational concepts)",
-            _ => "advanced (complex topics)"
-        };
+        var chapterPosition = GetPositionDescription(orderIndex, totalChapters, complexity);
+        var complexityInstruction = GetComplexityInstruction(complexity);
+        var contextBlock = string.IsNullOrWhiteSpace(generationContextInstruction)
+            ? string.Empty
+            : $@"
+Additional context:
+{generationContextInstruction.Trim()}
+";
 
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalSummary}
+Complexity Level: {complexity}
+{complexityInstruction}
+
+Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
-Chapter Position: {orderIndex + 1} ({chapterPosition})
+Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
+{contextBlock}
 
 {languageInstruction}
 
 REQUIREMENTS:
-- Generate {lessonsPerChapter} lesson titles for this chapter
-- Chapter title should be short and descriptive
+- Generate EXACTLY {lessonsPerChapter} lesson titles for this chapter
+- Chapter title should be short, descriptive and reflect the complexity level
 - Do NOT include chapter number prefixes like ""Chapter 1"" or ""Chương 1""
 - Chapter titles across the whole learning path MUST be distinct (no repeated titles)
-- Chapter should be appropriate for position {orderIndex + 1}
-- Lessons should progress logically
+- Content must strictly follow complexity instructions above
+- Chapter should align with position {orderIndex + 1}/{Math.Max(1, totalChapters)} AND complexity level
+- Respect goal priority percentages when choosing chapter focus and lesson emphasis  
+- If there are 2 goals, primary-goal coverage should be broader across the path, but secondary-goal coverage must still be present
+- Lessons should progress logically within the chapter's complexity scope
 
 JSON FORMAT:
 {{
@@ -547,17 +1249,20 @@ JSON FORMAT:
   ]
 }}
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow complexity instructions.";
     }
 
     private string BuildChapterPromptWithFixedTitle(
         string subjectName,
-        string goalSummary,
+        string goalPrioritySummary,
         string learningPathTitle,
         string fixedTitle,
         int orderIndex,
+        int totalChapters,
         int lessonsPerChapter,
-        LanguageSelection language)
+        LanguageSelection language,
+        ComplexityLevel complexity,
+        string? generationContextInstruction)
     {
         var languageInstruction = language switch
         {
@@ -573,20 +1278,35 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
             _ => ""
         };
 
+        var chapterPosition = GetPositionDescription(orderIndex, totalChapters, complexity);
+        var complexityInstruction = GetComplexityInstruction(complexity);
+        var contextBlock = string.IsNullOrWhiteSpace(generationContextInstruction)
+            ? string.Empty
+            : $@"
+Additional context:
+{generationContextInstruction.Trim()}
+";
+
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalSummary}
+Complexity Level: {complexity}
+{complexityInstruction}
+
+Goal Priorities: {goalPrioritySummary}
 Learning Path: {learningPathTitle}
-Chapter Position: {orderIndex + 1}
+Chapter Position: {orderIndex + 1}/{Math.Max(1, totalChapters)} ({chapterPosition})
 Fixed Chapter Title: {fixedTitle}
+{contextBlock}
 
 {languageInstruction}
 
 REQUIREMENTS:
 - Chapter title MUST be exactly ""{fixedTitle}"" (do not change it)
-- Generate {lessonsPerChapter} lesson titles that fit this fixed title
-- Lessons should progress logically
+- Generate EXACTLY {lessonsPerChapter} lesson titles that fit this fixed title AND complexity level
+- Respect goal priority percentages when choosing lesson emphasis for this chapter
+- Content must strictly follow complexity instructions above
+- Lessons should progress logically within the complexity scope
 
 JSON FORMAT:
 {{
@@ -599,7 +1319,7 @@ JSON FORMAT:
   ]
 }}
 
-IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text. STRICTLY follow complexity instructions.";
     }
 
     private class ChapterGenerationData
@@ -607,6 +1327,21 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public List<string> LessonTitles { get; set; } = new();
+    }
+
+    private class QuizTitleGenerationData
+    {
+        public List<string> Titles { get; set; } = new();
+    }
+
+    private sealed class PaidRuntimeConfig
+    {
+        public string Model { get; set; } = string.Empty;
+        public int MaxTokens { get; set; } = 8192;
+        public decimal InputCostPer1M { get; set; } = 0m;
+        public decimal OutputCostPer1M { get; set; } = 0m;
+
+        public static PaidRuntimeConfig Default => new();
     }
 
 
@@ -631,6 +1366,33 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         return scaled.Select(g => new NormalizedGoal(g.GoalId, g.Weight / sum)).ToList();
     }
 
+    private static List<NormalizedGoal> NormalizeAbsoluteGoalWeights(List<LearningPathGoalRequest> goals)
+    {
+        var usePercent = goals.Any(g => g.Weight > 1m);
+        var scaled = goals.Select(g => new NormalizedGoal(
+            g.GoalId,
+            usePercent ? g.Weight / 100m : g.Weight
+        )).ToList();
+
+        if (scaled.Any(g => g.Weight <= 0m))
+        {
+            throw new InvalidOperationException("Goal weights must be greater than 0");
+        }
+
+        if (scaled.Any(g => g.Weight > 1m))
+        {
+            throw new InvalidOperationException("Absolute goal weights must be between 0 and 1");
+        }
+
+        var sum = scaled.Sum(g => g.Weight);
+        if (sum > 1m)
+        {
+            throw new InvalidOperationException("Absolute goal weights cannot exceed 100%");
+        }
+
+        return scaled;
+    }
+
     private static int CalculateWeightedDurationDays(List<GoalWeightInfo> goals)
     {
         var total = goals.Sum(g => g.Goal.DurationInDays * g.Weight);
@@ -653,6 +1415,23 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         return $"{ordered[0]} and {ordered[1]}";
     }
 
+    private static string FormatGoalTitlesWithWeights(List<GoalWeightInfo> goals, LanguageSelection language)
+    {
+        if (goals.Count == 0)
+        {
+            return language == LanguageSelection.VietNamese
+                ? "Mục tiêu tổng quát (100%)"
+                : "General learning goal (100%)";
+        }
+
+        var ordered = goals
+            .OrderByDescending(g => g.Weight)
+            .Select(g => $"{g.Goal.Title} ({(g.Weight * 100m):0.##}%)")
+            .ToList();
+
+        return string.Join(" | ", ordered);
+    }
+
     private sealed class LearningPathMeta
     {
         public string Title { get; set; } = "";
@@ -666,28 +1445,30 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         LanguageSelection language)
     {
         var trimmed = (title ?? string.Empty).Trim();
-        var compactGoals = BuildCompactGoalTags(goals, language);
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            return BuildLearningPathMetaFallback(subjectName, goals, language).Title;
+        }
+
+        trimmed = Regex.Replace(
+            trimmed,
+            @"^\s*(learning\s*path|lộ\s*trình\s*học)\s*[:\-]\s*",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        trimmed = Regex.Replace(trimmed, @"\b\d+(\.\d+)?\s*%\b", string.Empty, RegexOptions.CultureInvariant);
+        trimmed = Regex.Replace(trimmed, @"\(\s*\)", string.Empty, RegexOptions.CultureInvariant);
+        trimmed = Regex.Replace(trimmed, @"\s+", " ").Trim().Trim('-', ':', '.', ',');
 
         if (string.IsNullOrWhiteSpace(trimmed))
         {
             return BuildLearningPathMetaFallback(subjectName, goals, language).Title;
         }
 
-        var maxLength = language == LanguageSelection.VietNamese ? 70 : 80;
-        var lower = trimmed.ToLowerInvariant();
-        var hasAnd = lower.Contains(" và ") || lower.Contains(" and ");
-        var hasSubject = lower.Contains(subjectName.ToLowerInvariant());
-
-        if (trimmed.Length > maxLength || (hasAnd && trimmed.Length > 55))
+        var maxLength = language == LanguageSelection.VietNamese ? 110 : 120;
+        if (trimmed.Length > maxLength)
         {
-            return language == LanguageSelection.VietNamese
-                ? $"Lộ trình học {subjectName} tập trung vào {compactGoals}."
-                : $"{subjectName}: {compactGoals}";
-        }
-
-        if (!hasSubject)
-        {
-            return $"{subjectName}: {trimmed}";
+            trimmed = trimmed[..maxLength].Trim().Trim('-', ':', '.', ',');
         }
 
         return trimmed;
@@ -960,11 +1741,294 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
                 : $"This chapter helps you deepen your {subjectName} skills and move closer to the goals of {learningPathTitle}."
         };
     }
+
+    private async Task<List<TaskDto>> GenerateTasksForChapterAsync(
+        Chapter chapter,
+        LearningPath learningPath,
+        string subjectName,
+        List<LessonDto> lessonDtos,
+        LanguageSelection language,
+        CancellationToken cancellationToken)
+    {
+        if (lessonDtos.Count == 0)
+        {
+            return new List<TaskDto>();
+        }
+
+        var taskCount = CalculateTaskCount(lessonDtos.Count);
+        var prompt = BuildTaskPrompt(subjectName, learningPath, chapter, lessonDtos, language, taskCount);
+
+        List<GeneratedTaskItemDto> generatedTasks;
+        try
+        {
+            var generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(prompt, AIUsageType.ContentGeneration);
+            generatedTasks = generated?.Tasks?
+                .Where(t => !string.IsNullOrWhiteSpace(t.Title) && !IsInvalidTask(t.Title, t.Description))
+                .Take(taskCount)
+                .ToList()
+                ?? new List<GeneratedTaskItemDto>();
+        }
+        catch
+        {
+            generatedTasks = new List<GeneratedTaskItemDto>();
+        }
+
+        if (generatedTasks.Count == 0)
+        {
+            generatedTasks = BuildFallbackTasks(lessonDtos, language, taskCount);
+        }
+
+        while (generatedTasks.Count < taskCount)
+        {
+            generatedTasks.AddRange(BuildFallbackTasks(lessonDtos, language, taskCount - generatedTasks.Count));
+        }
+
+        generatedTasks = generatedTasks.Take(taskCount).ToList();
+        var dueDates = CalculateTaskDueDates(learningPath, chapter, generatedTasks.Count);
+
+        var result = new List<TaskDto>();
+        for (int i = 0; i < generatedTasks.Count; i++)
+        {
+            var generatedTask = generatedTasks[i];
+            var entity = new Domain.Entities.Tasks
+            {
+                TaskId = NewId.NextGuid(),
+                ChapterId = chapter.ChapterId,
+                PathId = chapter.PathId,
+                Title = generatedTask.Title,
+                Description = generatedTask.Description,
+                DueDate = dueDates[i],
+                Priority = ParsePriority(generatedTask.Priority),
+                Status = TaskStatus_.Pending,
+                CreatedAt = DateTime.UtcNow,
+                TaskType = ParseTaskType(generatedTask.TaskType),
+                VerificationPrompt = generatedTask.VerificationPrompt,
+                MinimumScore = generatedTask.MinimumScore ?? 70
+            };
+
+            await _context.Tasks.AddAsync(entity, cancellationToken);
+
+            result.Add(new TaskDto(
+                entity.TaskId,
+                entity.Title,
+                entity.Description ?? string.Empty,
+                entity.TaskType,
+                entity.Priority,
+                entity.Status,
+                entity.DueDate,
+                entity.Status.ToString()));
+        }
+
+        return result;
+    }
+
+    private static bool IsInvalidTask(string title, string description)
+    {
+        var combined = $"{title} {description}".ToLowerInvariant();
+        var invalidKeywords = new[]
+        {
+            "install", "cài đặt", "download", "tải xuống", "setup", "thiết lập",
+            "configure environment", "cấu hình môi trường", "verify installation",
+            "kiểm tra cài đặt", "check version", "kiểm tra phiên bản"
+        };
+
+        return invalidKeywords.Any(keyword => combined.Contains(keyword));
+    }
+
+    private static int CalculateTaskCount(int lessonCount)
+    {
+        return lessonCount switch
+        {
+            <= 2 => 2,
+            3 => 3,
+            4 => 3,
+            5 => 4,
+            6 => 4,
+            7 => 5,
+            _ => 6
+        };
+    }
+
+    private static TaskPriority ParsePriority(string priority)
+    {
+        return priority?.ToLowerInvariant() switch
+        {
+            "high" => TaskPriority.High,
+            "medium" => TaskPriority.Medium,
+            _ => TaskPriority.Low
+        };
+    }
+
+    private static TaskType ParseTaskType(string taskType)
+    {
+        return taskType?.ToLowerInvariant() switch
+        {
+            "theory" => TaskType.Theory,
+            _ => TaskType.Practice
+        };
+    }
+
+    private static List<DateTime?> CalculateTaskDueDates(LearningPath learningPath, Chapter chapter, int taskCount)
+    {
+        var dueDates = new List<DateTime?>();
+
+        if (learningPath.StartDate == null || learningPath.EndDate == null || taskCount <= 0)
+        {
+            for (int i = 0; i < taskCount; i++) dueDates.Add(null);
+            return dueDates;
+        }
+
+        var totalDays = (learningPath.EndDate.Value - learningPath.StartDate.Value).TotalDays;
+        if (totalDays <= 0)
+        {
+            for (int i = 0; i < taskCount; i++) dueDates.Add(null);
+            return dueDates;
+        }
+
+        var chapterStart = chapter.StartDate ?? learningPath.StartDate.Value;
+        var chapterEnd = chapter.EndDate ?? chapterStart.AddDays(Math.Max(1, totalDays / 4.0));
+        var daysPerTask = Math.Max(1, (chapterEnd - chapterStart).TotalDays / taskCount);
+
+        for (int i = 0; i < taskCount; i++)
+        {
+            dueDates.Add(chapterStart.AddDays((i + 1) * daysPerTask));
+        }
+
+        return dueDates;
+    }
+
+    private static List<GeneratedTaskItemDto> BuildFallbackTasks(List<LessonDto> lessons, LanguageSelection language, int maxCount)
+    {
+        var tasks = new List<GeneratedTaskItemDto>();
+        foreach (var lesson in lessons.Take(maxCount))
+        {
+            var isVi = language == LanguageSelection.VietNamese;
+            tasks.Add(new GeneratedTaskItemDto(
+                isVi ? $"Thực hành: {lesson.Title}" : $"Practice: {lesson.Title}",
+                isVi
+                    ? $"Viết code để áp dụng các khái niệm trong bài học '{lesson.Title}'."
+                    : $"Write code to apply concepts covered in lesson '{lesson.Title}'.",
+                "Medium",
+                "Practice",
+                isVi
+                    ? $"Đánh giá code có áp dụng đúng nội dung bài học '{lesson.Title}', rõ ràng và chạy hợp lý."
+                    : $"Verify the submitted code correctly applies concepts from lesson '{lesson.Title}' and is reasonably structured.",
+                70,
+                null));
+        }
+
+        return tasks;
+    }
+
+    private static string BuildTaskPrompt(
+        string subjectName,
+        LearningPath learningPath,
+        Chapter chapter,
+        List<LessonDto> lessons,
+        LanguageSelection language,
+        int taskCount)
+    {
+        var lessonTitles = string.Join("\n- ", lessons.Select(l => l.Title));
+
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in Vietnamese language
+- Keep technical terms in English
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL content in English language
+",
+            _ => string.Empty
+        };
+
+        return $@"You are a study planning assistant for a {subjectName} course.
+
+=== CONTEXT ===
+Subject: {subjectName}
+Learning path title: {learningPath.Title}
+Learning path description: {learningPath.Description ?? "N/A"}
+Chapter title: {chapter.Title}
+Chapter description: {chapter.Content ?? "N/A"}
+Lessons in this chapter:
+- {lessonTitles}
+
+{languageInstruction}
+
+=== TASK ===
+Generate EXACTLY {taskCount} meaningful study tasks based on lesson content.
+Each task must be either Practice or Theory.
+Do NOT create setup/install/environment tasks.
+
+=== OUTPUT FORMAT ===
+Return ONLY valid JSON:
+{{
+  ""tasks"": [
+    {{
+      ""title"": ""..."",
+      ""description"": ""..."",
+      ""priority"": ""High|Medium|Low"",
+      ""taskType"": ""Practice|Theory"",
+      ""verificationPrompt"": ""..."",
+      ""minimumScore"": 70
+    }}
+  ]
+}}";
+    }
+
+    private ChapterGenerationData EnsureValidChapterData(
+        ChapterGenerationData? source,
+        string subjectName,
+        string learningPathTitle,
+        int orderIndex,
+        ComplexityLevel complexity,
+        LanguageSelection language)
+    {
+        var lessonsPerChapter = GetLessonsPerChapter(complexity);
+        var fallbackTitle = BuildFallbackChapterCore(subjectName, orderIndex, language);
+        var fallbackContent = BuildFallbackChapterContent(subjectName, learningPathTitle, orderIndex, language);
+
+        var title = source?.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = fallbackTitle;
+        }
+
+        var content = source?.Content?.Trim();
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            content = fallbackContent;
+        }
+
+        var lessonTitles = source?.LessonTitles?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            ?? new List<string>();
+
+        if (lessonTitles.Count < lessonsPerChapter)
+        {
+            for (var idx = lessonTitles.Count; idx < lessonsPerChapter; idx++)
+            {
+                lessonTitles.Add(language == LanguageSelection.VietNamese
+                    ? $"Bài {idx + 1}: {subjectName} chuyên đề {idx + 1}"
+                    : $"Lesson {idx + 1}: {subjectName} Topic {idx + 1}");
+            }
+        }
+        else if (lessonTitles.Count > lessonsPerChapter)
+        {
+            lessonTitles = lessonTitles.Take(lessonsPerChapter).ToList();
+        }
+
+        return new ChapterGenerationData
+        {
+            Title = title,
+            Content = content,
+            LessonTitles = lessonTitles
+        };
+    }
 }
-
-
-
-
-
-
 

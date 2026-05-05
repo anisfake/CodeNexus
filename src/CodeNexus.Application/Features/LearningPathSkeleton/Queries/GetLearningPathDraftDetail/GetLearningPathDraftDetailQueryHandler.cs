@@ -86,7 +86,9 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                     g.Weight,
                     g.Goal.DurationInDays,
                     "NotStarted",
-                    null
+                    null,
+                    0m,
+                    g.Weight * 100m
                 )).ToList(),
             learningPath.StartDate,
             learningPath.EndDate,
@@ -133,8 +135,7 @@ public class GetLearningPathDraftDetailQueryHandler : IRequestHandler<GetLearnin
                     t.TaskType,
                     t.Priority,
                     t.Status,
-                    t.DueDate,
-                    t.QuizQuestionsJson
+                    t.DueDate
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),

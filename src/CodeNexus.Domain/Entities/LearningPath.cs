@@ -32,6 +32,7 @@ namespace CodeNexus.Domain.Entities
         public virtual ICollection<Chapter> Chapters { get; set; } = new List<Chapter>();
         public virtual ICollection<Tasks> Tasks { get; set; } = new List<Tasks>();
         public virtual ICollection<LearningPathGoal> LearningPathGoals { get; set; } = new List<LearningPathGoal>();
+        public virtual ICollection<LearningPathGoalItemMapping> GoalItemMappings { get; set; } = new List<LearningPathGoalItemMapping>();
         public virtual ICollection<UserGoalProgress> UserGoalProgresses { get; set; } = new List<UserGoalProgress>();
     }
 }

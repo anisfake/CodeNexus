@@ -134,6 +134,43 @@ public class DeleteGoalCommandHandlerTests
         Assert.Equal("GOAL_NOT_FOUND", result.ErrorCode);
     }
 
+    [Fact]
+    public async Task Handle_WhenGoalInLearningPath_ReturnsFailure()
+    {
+        // Arrange
+        var goalId = Guid.NewGuid();
+        var existingGoal = new GoalEntity
+        {
+            GoalId = goalId,
+            CreatedByUserId = _testUserId,
+            Title = "Goal in use",
+            IsSystemDefined = false,
+            CreatedAt = DateTime.UtcNow,
+            IsDeleted = false
+        };
+
+        SetupGoalsDbSet(new List<GoalEntity> { existingGoal });
+        SetupLearningPathGoalsDbSet(new List<CodeNexus.Domain.Entities.LearningPathGoal>
+        {
+            new()
+            {
+                PathId = Guid.NewGuid(),
+                GoalId = goalId,
+                Weight = 1.0m
+            }
+        });
+
+        var command = new DeleteGoalCommand(goalId);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.Equal("GOAL_IN_USE", result.ErrorCode);
+        _mockContext.Verify(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
     private void SetupLearningPathGoalsDbSet(List<CodeNexus.Domain.Entities.LearningPathGoal> learningPathGoals)
     {
         var queryable = new TestAsyncEnumerable<CodeNexus.Domain.Entities.LearningPathGoal>(learningPathGoals);

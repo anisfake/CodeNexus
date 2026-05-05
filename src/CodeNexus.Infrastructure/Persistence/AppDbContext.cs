@@ -32,6 +32,8 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<Role> Roles => Set<Role>();
         public DbSet<User> Users => Set<User>();
         public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+        public DbSet<MentorRating> MentorRatings => Set<MentorRating>();
+        public DbSet<LearningPathMentorReview> LearningPathMentorReviews => Set<LearningPathMentorReview>();
 
         public void SetAuditUserId(Guid userId) => _manualUserId = userId;
 
@@ -45,6 +47,7 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<SubjectGoal> SubjectGoals => Set<SubjectGoal>();
         public DbSet<LearningPath> LearningPaths => Set<LearningPath>();
         public DbSet<LearningPathGoal> LearningPathGoals => Set<LearningPathGoal>();
+        public DbSet<LearningPathGoalItemMapping> LearningPathGoalItemMappings => Set<LearningPathGoalItemMapping>();
         public DbSet<Chapter> Chapters => Set<Chapter>();
         public DbSet<Lesson> Lessons => Set<Lesson>();
         public DbSet<LearnProgress> LearnProgresses => Set<LearnProgress>();
@@ -72,8 +75,11 @@ namespace CodeNexus.Infrastructure.Persistence
         public DbSet<UserAchievement> UserAchievements => Set<UserAchievement>();
         public DbSet<TokenPackage> TokenPackages => Set<TokenPackage>();
         public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
+        public DbSet<MentorPackage> MentorPackages => Set<MentorPackage>();
+        public DbSet<StudentMentorSubscription> StudentMentorSubscriptions => Set<StudentMentorSubscription>();
         public DbSet<FeatureUsageLog> FeatureUsageLogs => Set<FeatureUsageLog>();
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies => Set<SystemRuntimePolicy>();
+        public DbSet<TaskReview> TaskReviews => Set<TaskReview>();
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var (completedEntries, pendingEntries) = OnBeforeSaveChanges();
@@ -247,6 +253,8 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<User>().HasKey(e => e.UserId);
             modelBuilder.Entity<Role>().HasKey(e => e.RoleId);
             modelBuilder.Entity<UserProfile>().HasKey(e => e.ProfileId);
+            modelBuilder.Entity<MentorRating>().HasKey(e => e.RatingId);
+            modelBuilder.Entity<LearningPathMentorReview>().HasKey(e => e.ReviewId);
             modelBuilder.Entity<RefreshToken>().HasKey(e => e.TokenId);
             modelBuilder.Entity<AuditLog>().HasKey(e => e.LogId);
             modelBuilder.Entity<Notification>().HasKey(e => e.NotificationId);
@@ -270,6 +278,7 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<GoalMapping>().HasKey(e => e.MappingId);
             modelBuilder.Entity<SubjectGoal>().HasKey(e => new { e.SubjectId, e.GoalId });
             modelBuilder.Entity<LearningPathGoal>().HasKey(e => new { e.PathId, e.GoalId });
+            modelBuilder.Entity<LearningPathGoalItemMapping>().HasKey(e => e.MappingId);
             modelBuilder.Entity<TokenBlacklist>().HasKey(e => e.Id);
             modelBuilder.Entity<AIProviderConfig>().HasKey(e => e.ConfigId);
             modelBuilder.Entity<Conversation>().HasKey(e => e.ConversationId);
@@ -283,6 +292,35 @@ namespace CodeNexus.Infrastructure.Persistence
             modelBuilder.Entity<TokenPackage>().HasKey(e => e.TokenPackageId);
             modelBuilder.Entity<FeatureUsageLog>().HasKey(e => e.FeatureUsageLogId);
             modelBuilder.Entity<SystemRuntimePolicy>().HasKey(e => e.SystemRuntimePolicyId);
+            modelBuilder.Entity<MentorPackage>().HasKey(e => e.MentorPackageId);
+            modelBuilder.Entity<MentorPackage>().Property(e => e.PriceVnd).HasPrecision(18, 2);
+            modelBuilder.Entity<StudentMentorSubscription>().HasKey(e => e.SubscriptionId);
+
+            // MentorPackage FK on PaymentTransaction (optional, no cascade)
+            modelBuilder.Entity<PaymentTransaction>()
+                .HasOne(p => p.MentorPackage)
+                .WithMany()
+                .HasForeignKey(p => p.MentorPackageId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // StudentMentorSubscription FKs
+            modelBuilder.Entity<StudentMentorSubscription>()
+                .HasOne(s => s.User)
+                .WithMany(u => u.MentorSubscriptions)
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<StudentMentorSubscription>()
+                .HasOne(s => s.MentorPackage)
+                .WithMany(p => p.Subscriptions)
+                .HasForeignKey(s => s.MentorPackageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<StudentMentorSubscription>()
+                .HasOne(s => s.PaymentTransaction)
+                .WithMany()
+                .HasForeignKey(s => s.PaymentTransactionId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
             {
@@ -309,6 +347,77 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithOne(p => p.User)
                       .HasForeignKey<UserProfile>(p => p.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<MentorRating>(entity =>
+            {
+                entity.Property(e => e.Score)
+                      .IsRequired();
+
+                entity.Property(e => e.Comment)
+                      .HasMaxLength(1000);
+
+                entity.HasIndex(e => new { e.MentorId, e.StudentId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.MentorId, e.CreatedAt });
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany(u => u.MentorRatingsReceived)
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany(u => u.MentorRatingsGiven)
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
+            modelBuilder.Entity<LearningPathMentorReview>(entity =>
+            {
+                entity.Property(e => e.ChangeSummary)
+                      .HasMaxLength(2000);
+
+                entity.Property(e => e.ChangeReason)
+                      .HasMaxLength(2000);
+
+                entity.Property(e => e.StudentRequestNote)
+                      .HasMaxLength(1000);
+
+                entity.Property(e => e.DecisionStatus)
+                      .HasConversion<string>()
+                      .HasMaxLength(32)
+                      .HasDefaultValue(LearningPathMentorReviewDecisionStatus.Pending);
+
+                entity.Property(e => e.StudentDecisionNote)
+                      .HasMaxLength(1000);
+
+                entity.HasIndex(e => new { e.PathId, e.MentorId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.StudentId, e.CreatedAt });
+                entity.HasIndex(e => new { e.MentorId, e.CreatedAt });
+                entity.HasIndex(e => e.RevisedPathId);
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.RevisedLearningPath)
+                      .WithMany()
+                      .HasForeignKey(e => e.RevisedPathId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
             });
 
             modelBuilder.Entity<Tasks>(entity =>
@@ -391,6 +500,30 @@ namespace CodeNexus.Infrastructure.Persistence
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            modelBuilder.Entity<LearningPathGoalItemMapping>(entity =>
+            {
+                entity.Property(e => e.ItemType)
+                      .HasConversion<string>();
+
+                entity.Property(e => e.RelevanceScore)
+                      .HasPrecision(5, 4);
+
+                entity.HasIndex(e => new { e.PathId, e.GoalId, e.ItemType, e.ItemId })
+                      .IsUnique();
+
+                entity.HasIndex(e => new { e.PathId, e.ItemType, e.ItemId });
+
+                entity.HasOne(e => e.LearningPath)
+                      .WithMany(lp => lp.GoalItemMappings)
+                      .HasForeignKey(e => e.PathId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Goal)
+                      .WithMany(g => g.LearningPathGoalItemMappings)
+                      .HasForeignKey(e => e.GoalId)
+                      .OnDelete(DeleteBehavior.Cascade);
+            });
+
             modelBuilder.Entity<Subject>()
                 .HasOne(s => s.CreatedByUser)
                 .WithMany(u => u.Subjects)
@@ -414,6 +547,9 @@ namespace CodeNexus.Infrastructure.Persistence
             {
                 entity.Property(e => e.Status)
                       .HasConversion<string>();
+
+                entity.Property(e => e.ProgressPercent)
+                      .HasPrecision(5, 2);
 
                 entity.HasIndex(e => new { e.UserId, e.GoalId, e.LearningPathId })
                       .IsUnique();
@@ -664,6 +800,42 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.HasIndex(e => e.UpdatedAt);
             });
 
+            modelBuilder.Entity<TaskReview>(entity =>
+            {
+                entity.HasKey(e => e.ReviewId);
+
+                entity.Property(e => e.Status)
+                      .HasConversion<string>();
+
+                entity.HasIndex(e => e.SessionId).IsUnique();
+                entity.HasIndex(e => new { e.MentorId, e.Status });
+
+                entity.HasOne(e => e.Session)
+                      .WithMany(s => s.TaskReviews)
+                      .HasForeignKey(e => e.SessionId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Task)
+                      .WithMany(t => t.TaskReviews)
+                      .HasForeignKey(e => e.TaskId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Student)
+                      .WithMany()
+                      .HasForeignKey(e => e.StudentId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Mentor)
+                      .WithMany()
+                      .HasForeignKey(e => e.MentorId)
+                      .OnDelete(DeleteBehavior.NoAction);
+
+                entity.HasOne(e => e.Subscription)
+                      .WithMany()
+                      .HasForeignKey(e => e.SubscriptionId)
+                      .OnDelete(DeleteBehavior.NoAction);
+            });
+
             modelBuilder.Entity<Conversation>(entity =>
             {
                 entity.HasKey(e => e.ConversationId);
@@ -777,6 +949,11 @@ namespace CodeNexus.Infrastructure.Persistence
                       .WithMany()
                       .HasForeignKey(e => e.LearningPathShareId)
                       .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.TaskReview)
+                      .WithMany()
+                      .HasForeignKey(e => e.TaskReviewId)
+                      .OnDelete(DeleteBehavior.ClientSetNull);
             });
 
             modelBuilder.Entity<DirectMessageReceipt>(entity =>

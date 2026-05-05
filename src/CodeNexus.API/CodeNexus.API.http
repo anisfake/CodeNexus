@@ -98,7 +98,7 @@ Authorization: Bearer YOUR_JWT_TOKEN_HERE
 
 # QUIZ FORMAT EXPLANATION:
 # 
-# Quiz Questions (stored in task.QuizQuestionsJson) format:
+# Quiz Questions (stored in task.VerificationPrompt when taskType = Quizz) format:
 # [
 #   {
 #     "question": "What is a variable in JavaScript?",

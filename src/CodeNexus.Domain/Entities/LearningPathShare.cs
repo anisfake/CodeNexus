@@ -8,6 +8,7 @@ namespace CodeNexus.Domain.Entities
         public Guid PathId { get; set; }
         public Guid MentorId { get; set; }
         public Guid StudentId { get; set; }
+        public string SnapshotTitle { get; set; } = string.Empty;
         public Guid? AcceptedPathId { get; set; }
         public decimal? SourceVersionAtAccept { get; set; }
         public decimal? IgnoredSourceVersion { get; set; }

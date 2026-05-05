@@ -28,7 +28,14 @@ public class DeleteAIConfigCommandHandler : IRequestHandler<DeleteAIConfigComman
                 .FirstOrDefaultAsync(x => x.ConfigId == request.ConfigId, cancellationToken);
 
             if (config == null)
-                return Result<string>.Failure("CONFIG_NOT_FOUND", $"Config with ID '{request.ConfigId}' not found");
+                return Result<string>.Failure("CONFIG_NOT_FOUND", $"Config with ID '{request.ConfigId}' not found.");
+
+            var totalCount = await _context.AIProviderConfigs.CountAsync(cancellationToken);
+            if (totalCount <= 1)
+                return Result<string>.Failure("CANNOT_DELETE_LAST_CONFIG", "Cannot delete the only remaining AI config.");
+
+            if (config.IsActive)
+                return Result<string>.Failure("CANNOT_DELETE_ACTIVE_CONFIG", "Cannot delete the active config. Please set another config as active first.");
 
             _context.AIProviderConfigs.Remove(config);
             await _context.SaveChangesAsync(cancellationToken);

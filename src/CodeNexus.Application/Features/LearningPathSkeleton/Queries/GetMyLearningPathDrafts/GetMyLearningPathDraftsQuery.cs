@@ -10,4 +10,4 @@ public record GetMyLearningPathDraftsQuery(
     string? SearchTerm = null,
     Guid? SubjectId = null,
     bool SortDescending = true
-) : IRequest<Result<PaginationDto<LearningPathResponse>>>;
+) : IRequest<Result<PaginationDto<LearningPathListItemDto>>>;

@@ -33,5 +33,6 @@ namespace CodeNexus.Domain.Entities
         public bool IsVerified { get; set; } = false;
 
         public virtual ICollection<Note> Notes { get; set; } = new List<Note>();
+        public virtual ICollection<TaskReview> TaskReviews { get; set; } = new List<TaskReview>();
     }
 }

@@ -35,6 +35,32 @@ public record UpdateProfileRequest(
     TimeSpan? DailyReminderTime
 );
 
+public record CreateUserAccountRequest(
+    string Email,
+    string? Username,
+    string? FirstName,
+    string? LastName,
+    string? Bio,
+    string? Phone,
+    string? Address,
+    DateTime? DateOfBirth,
+    string Role,
+    bool SendSetupEmail = true
+);
+
+public record CreateMentorAccountResponse(
+    Guid UserId,
+    string Email,
+    string Username,
+    string? FirstName,
+    string? LastName,
+    string Role,
+    string TemporaryPassword,
+    bool SetupEmailSent,
+    string? SetupEmailError,
+    DateTime CreatedAt
+);
+
 public record UserRespone(
     Guid UserId,
     string Username,

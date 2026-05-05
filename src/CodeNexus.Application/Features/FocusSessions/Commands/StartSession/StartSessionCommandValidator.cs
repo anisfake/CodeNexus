@@ -11,10 +11,8 @@ public class StartSessionCommandValidator : AbstractValidator<StartSessionComman
             .WithMessage("TaskId is required");
 
         RuleFor(x => x.PlannedDurationMinutes)
-            .GreaterThanOrEqualTo(5)
-            .WithMessage("Planned duration must be at least 5 minutes")
-            .LessThanOrEqualTo(120)
-            .WithMessage("Planned duration cannot exceed 120 minutes");
+            .GreaterThanOrEqualTo(1)
+            .WithMessage("Planned duration must be at least 1 minute");
 
         RuleFor(x => x.Title)
             .MaximumLength(200)

@@ -14,6 +14,8 @@ public record AIUsageLogResponse(
     int OutputTokens,
     int TotalTokens,
     decimal ChargedTokens,
+    decimal RawChargedTokens,
+    decimal CostUsd,
     DateTime CreatedAt
 );
 
@@ -26,7 +28,14 @@ public record AIUsageSummaryResponse(
     long TotalInputTokens,
     long TotalOutputTokens,
     long TotalTokens,
-    decimal TotalChargedTokens
+    decimal TotalChargedTokens,
+    decimal TotalRawChargedTokens,
+    decimal TotalCostUsd,
+    decimal TotalRevenueUsd,
+    decimal TotalRawRevenueUsd,
+    decimal TotalProfitUsd,
+    decimal TotalRawProfitUsd,
+    decimal? ProfitMarginPercent
 );
 
 public record MentorAiQuotaStatusResponse(

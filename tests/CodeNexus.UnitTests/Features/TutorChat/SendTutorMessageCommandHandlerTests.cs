@@ -3,6 +3,7 @@ using CodeNexus.Application.Features.TutorChat.Commands.SendTutorMessage;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using CodeNexus.UnitTests.Helpers;
+using FluentAssertions;
 using Moq;
 using Xunit;
 using Microsoft.EntityFrameworkCore;
@@ -88,11 +89,29 @@ public class SendTutorMessageCommandHandlerTests
         _mockContext.Setup(x => x.Conversations).Returns(conversations.BuildMockDbSet().Object);
 
         var messages = new List<Message>();
+        var addedMessages = new List<Message>();
         var messagesDbSet = messages.BuildMockDbSet();
         messagesDbSet.Setup(x => x.AddAsync(It.IsAny<Message>(), It.IsAny<CancellationToken>()))
+            .Callback<Message, CancellationToken>((m, _) => addedMessages.Add(m))
             .Returns(new ValueTask<Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>>(
                 (Microsoft.EntityFrameworkCore.ChangeTracking.EntityEntry<Message>)null!));
         _mockContext.Setup(x => x.Messages).Returns(messagesDbSet.Object);
+
+        _mockContext.Setup(x => x.AIUsageLogs).Returns(new[]
+        {
+            new AIUsageLog
+            {
+                UsageLogId = Guid.NewGuid(),
+                UserId = userId,
+                ConfigId = configId,
+                UsageType = AIUsageType.Assistant,
+                Model = "meta-llama/llama-4-scout-17b-16e-instruct",
+                InputTokens = 1500,
+                OutputTokens = 400,
+                TotalTokens = 1900,
+                CreatedAt = DateTime.UtcNow
+            }
+        }.BuildMockDbSet().Object);
 
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -111,6 +130,8 @@ public class SendTutorMessageCommandHandlerTests
         Assert.True(result.IsSuccess);
         Assert.Equal(conversations[0].ConversationId, result.Value!.ConversationId);
         Assert.Equal("This is a tutor response.", result.Value.AssistantMessage);
+        addedMessages.Should().ContainSingle(x => x.Content.StartsWith("ASSISTANT:") && x.InputTokens == 1500 && x.OutputTokens == 400);
+        addedMessages.Should().ContainSingle(x => x.Content.StartsWith("USER:") && x.InputTokens == 1500);
     }
 
     [Fact]

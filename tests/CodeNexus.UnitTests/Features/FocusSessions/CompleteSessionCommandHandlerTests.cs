@@ -153,55 +153,6 @@ public class CompleteSessionCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithQuizTask_ShouldCompleteWithoutVerification()
-    {
-        // Arrange
-        var sessionId = Guid.NewGuid();
-        var taskId = Guid.NewGuid();
-        var command = new CompleteSessionCommand(sessionId, null, null, "{\"answers\": [0, 1, 2, 1]}", false, CodeNexus.Domain.Enums.SubmissionType.Final);
-
-        var task = new TaskEntity
-        {
-            TaskId = taskId,
-            Title = "Quiz Task",
-            Description = "Complete the quiz",
-            TaskType = TaskType.Quizz,
-            Status = TaskStatus_.InProgress,
-            QuizQuestionsJson = "[{\"question\":\"Test?\",\"options\":[\"A\",\"B\",\"C\",\"D\"],\"correctAnswer\":0}]",
-            LearningPath = BuildLearningPath()
-        };
-        task.PathId = task.LearningPath.PathId;
-
-        var session = new FocusSession
-        {
-            SessionId = sessionId,
-            TaskId = taskId,
-            Task = task,
-            SessionStatus = SessionStatus.Running,
-            StartTime = DateTime.UtcNow.AddMinutes(-25),
-            PlannedDurationMinutes = 25
-        };
-
-        SetupFocusSessionsDbSet(new List<FocusSession> { session });
-        _mockVerificationService.Setup(v => v.VerifyQuizSubmissionAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(new VerificationResult { Score = 85, Feedback = "Good job!", IsPass = true });
-        _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(1);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Value);
-        Assert.Equal(SessionStatus.CompletedOnTime.ToString(), result.Value.SessionStatus);
-        Assert.True(result.Value.TaskCompleted); // Quiz task should complete with verification
-        Assert.Equal("Good job!", result.Value.AIFeedback);
-        Assert.Equal(85, result.Value.VerificationScore);
-    }
-
-    [Fact]
     public async Task Handle_WithEarlyCompletion_ShouldSetCorrectStatus()
     {
         // Arrange

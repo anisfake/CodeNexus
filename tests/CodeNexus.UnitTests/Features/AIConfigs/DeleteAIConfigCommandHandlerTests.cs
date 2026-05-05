@@ -23,30 +23,21 @@ public class DeleteAIConfigCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WithValidConfigId_ShouldDeleteConfigSuccessfully()
+    public async Task Handle_WithValidInactiveConfig_ShouldDeleteSuccessfully()
     {
-        // Arrange
         var configId = Guid.NewGuid();
-        var command = new DeleteAIConfigCommand(configId);
-
-        var config = new AIProviderConfig
+        var configs = new List<AIProviderConfig>
         {
-            ConfigId = configId,
-            ProviderName = "OpenAI",
-            EncryptedApiKey = "encrypted-key",
-            ConfigJson = "{}",
-            IsActive = true,
-            LastUpdated = DateTime.Now
+            new() { ConfigId = configId, ProviderName = "OpenAI", IsActive = false },
+            new() { ConfigId = Guid.NewGuid(), ProviderName = "Groq", IsActive = true }
         };
 
-        SetupAIProviderConfigsDbSet(new List<AIProviderConfig> { config });
+        SetupDbSet(configs);
         _mockContext.Setup(x => x.AIProviderConfigs.Remove(It.IsAny<AIProviderConfig>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(new DeleteAIConfigCommand(configId), CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
         Assert.Contains("deleted successfully", result.Value);
         Assert.Contains("OpenAI", result.Value);
@@ -57,67 +48,85 @@ public class DeleteAIConfigCommandHandlerTests
     [Fact]
     public async Task Handle_WithNonExistentConfig_ShouldReturnNotFound()
     {
-        // Arrange
-        var command = new DeleteAIConfigCommand(Guid.NewGuid());
-        SetupAIProviderConfigsDbSet(new List<AIProviderConfig>());
+        SetupDbSet(new List<AIProviderConfig>());
 
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(new DeleteAIConfigCommand(Guid.NewGuid()), CancellationToken.None);
 
-        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("CONFIG_NOT_FOUND", result.ErrorCode);
-        Assert.Contains("not found", result.ErrorMessage);
+        _mockContext.Verify(x => x.AIProviderConfigs.Remove(It.IsAny<AIProviderConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenOnlyOneConfigExists_ShouldReturnFailure()
+    {
+        var configId = Guid.NewGuid();
+        var configs = new List<AIProviderConfig>
+        {
+            new() { ConfigId = configId, ProviderName = "OpenAI", IsActive = false }
+        };
+
+        SetupDbSet(configs);
+
+        var result = await _handler.Handle(new DeleteAIConfigCommand(configId), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("CANNOT_DELETE_LAST_CONFIG", result.ErrorCode);
+        _mockContext.Verify(x => x.AIProviderConfigs.Remove(It.IsAny<AIProviderConfig>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenConfigIsActive_ShouldReturnFailure()
+    {
+        var configId = Guid.NewGuid();
+        var configs = new List<AIProviderConfig>
+        {
+            new() { ConfigId = configId, ProviderName = "OpenAI", IsActive = true },
+            new() { ConfigId = Guid.NewGuid(), ProviderName = "Groq", IsActive = false }
+        };
+
+        SetupDbSet(configs);
+
+        var result = await _handler.Handle(new DeleteAIConfigCommand(configId), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("CANNOT_DELETE_ACTIVE_CONFIG", result.ErrorCode);
         _mockContext.Verify(x => x.AIProviderConfigs.Remove(It.IsAny<AIProviderConfig>()), Times.Never);
     }
 
     [Fact]
     public async Task Handle_WhenSaveChangesFails_ShouldReturnError()
     {
-        // Arrange
         var configId = Guid.NewGuid();
-        var command = new DeleteAIConfigCommand(configId);
-
-        var config = new AIProviderConfig
+        var configs = new List<AIProviderConfig>
         {
-            ConfigId = configId,
-            ProviderName = "Anthropic",
-            EncryptedApiKey = "encrypted-key",
-            ConfigJson = "{}",
-            IsActive = true
+            new() { ConfigId = configId, ProviderName = "Anthropic", IsActive = false },
+            new() { ConfigId = Guid.NewGuid(), ProviderName = "Groq", IsActive = true }
         };
 
-        SetupAIProviderConfigsDbSet(new List<AIProviderConfig> { config });
+        SetupDbSet(configs);
         _mockContext.Setup(x => x.AIProviderConfigs.Remove(It.IsAny<AIProviderConfig>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Database error"));
 
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(new DeleteAIConfigCommand(configId), CancellationToken.None);
 
-        // Assert
         Assert.False(result.IsSuccess);
         Assert.Equal("ERROR", result.ErrorCode);
         Assert.Contains("Database error", result.ErrorMessage);
     }
 
     [Fact]
-    public async Task Handle_ShouldClearCache()
+    public async Task Handle_ShouldClearCacheAfterDelete()
     {
-        // Arrange
         var configId = Guid.NewGuid();
-        var command = new DeleteAIConfigCommand(configId);
-
-        var config = new AIProviderConfig
+        var configs = new List<AIProviderConfig>
         {
-            ConfigId = configId,
-            ProviderName = "Google",
-            EncryptedApiKey = "encrypted-key",
-            ConfigJson = "{}",
-            IsActive = true
+            new() { ConfigId = configId, ProviderName = "Google", IsActive = false },
+            new() { ConfigId = Guid.NewGuid(), ProviderName = "Groq", IsActive = true }
         };
 
-        SetupAIProviderConfigsDbSet(new List<AIProviderConfig> { config });
+        SetupDbSet(configs);
         _mockContext.Setup(x => x.AIProviderConfigs.Remove(It.IsAny<AIProviderConfig>()));
         _mockContext.Setup(x => x.SaveChangesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(1);
 
@@ -125,15 +134,13 @@ public class DeleteAIConfigCommandHandlerTests
         _mockCache.Setup(x => x.TryGetValue(It.IsAny<object>(), out cacheEntry)).Returns(true);
         _mockCache.Setup(x => x.Remove(It.IsAny<object>()));
 
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var result = await _handler.Handle(new DeleteAIConfigCommand(configId), CancellationToken.None);
 
-        // Assert
         Assert.True(result.IsSuccess);
         _mockCache.Verify(x => x.Remove(It.IsAny<object>()), Times.Once);
     }
 
-    private void SetupAIProviderConfigsDbSet(List<AIProviderConfig> configs)
+    private void SetupDbSet(List<AIProviderConfig> configs)
     {
         var queryable = new TestAsyncEnumerable<AIProviderConfig>(configs);
         var dbSetMock = new Mock<DbSet<AIProviderConfig>>();

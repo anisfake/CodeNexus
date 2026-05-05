@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.FocusSessions.DTOs;
+using CodeNexus.Application.Features.TaskReviews.DTOs;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -91,7 +92,20 @@ public class GetSessionHistoryQueryHandler : IRequestHandler<GetSessionHistoryQu
                     fs.SubmittedCode,
                     fs.SubmittedSummary,
                     fs.AIFeedback,
-                    fs.CreatedAt
+                    fs.CreatedAt,
+                    fs.TaskReviews
+                        .OrderByDescending(r => r.RequestedAt)
+                        .Select(r => new TaskReviewInfoDto(
+                            r.ReviewId,
+                            r.MentorId,
+                            r.Mentor.Username,
+                            r.Score,
+                            r.Feedback,
+                            r.Suggestions,
+                            r.Status.ToString(),
+                            r.RequestedAt,
+                            r.ReviewedAt))
+                        .FirstOrDefault()
                 ))
                 .ToListAsync(cancellationToken);
 

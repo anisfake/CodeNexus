@@ -35,7 +35,6 @@ public record TaskDto(
     TaskPriority? Priority,
     TaskStatus_ TaskStatus,
     DateTime? DueDate,
-    string? QuizQuestionsJson,
     string Status = "Pending"
 );
 public record ChapterDto(
@@ -63,7 +62,9 @@ public record LearningPathGoalDto(
     decimal Weight,
     int DurationInDays,
     string Status,
-    DateTime? CompletedAt
+    DateTime? CompletedAt,
+    decimal ProgressPercent = 0m,
+    decimal TargetPercent = 100m
 );
 
 public record GenerateLearningPathSkeletonRequest(
@@ -72,6 +73,20 @@ public record GenerateLearningPathSkeletonRequest(
     ComplexityLevel ComplexityLevel,
     LanguageSelection LanguageSelection,
     bool SaveAsDraft = false
+);
+
+public record GenerateGoalSupplementLearningPathRequest(
+    ComplexityLevel? ComplexityLevel = null,
+    LanguageSelection? LanguageSelection = null,
+    bool SaveAsDraft = false
+);
+
+public record GoalSupplementLearningPathResponse(
+    Guid SourcePathId,
+    Guid GoalId,
+    decimal CurrentProgressPercent,
+    decimal RemainingPercent,
+    CreateLearningPathResponse LearningPath
 );
 
 public record AdoptSuggestedLearningPathRequest(
@@ -113,8 +128,7 @@ public record ManualTaskRequest(
     string? Description = null,
     TaskType TaskType = TaskType.Practice,
     TaskPriority? Priority = null,
-    DateTime? DueDate = null,
-    string? QuizQuestionsJson = null
+    DateTime? DueDate = null
 );
 
 public record ManualChapterRequest(
@@ -158,6 +172,24 @@ public record UpdateMentorLearningPathDraftRequest(
     List<ManualChapterRequest> Chapters
 );
 
+public record StudentLessonRequest(
+    string Title,
+    DateTime LessonDay,
+    string? Content = null
+);
+
+public record StudentChapterRequest(
+    string Title,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    int? EstimatedDays,
+    List<StudentLessonRequest> Lessons
+);
+
+public record UpdateStudentLearningPathRequest(
+    List<StudentChapterRequest> Chapters
+);
+
 public record CreateLearningPathResponse(
     Guid PathId,
     string Title,
@@ -188,6 +220,12 @@ public record LearningPathSuggestionDto(
     decimal Score,
     List<LearningPathGoalDto> Goals,
     int? ChapterCount
+);
+
+public record LearningPathSuggestionPreviewDto(
+    Guid PathId,
+    decimal Score,
+    LearningPathResponse LearningPath
 );
 
 public record LearningPathResponse(
@@ -286,4 +324,135 @@ public record GetMyLearningPathDraftsRequest(
     string? SearchTerm = null,
     Guid? SubjectId = null,
     bool SortDescending = true
+);
+
+public record PublishMentorLearningPathRequest(
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType,
+    Guid SubjectId,
+    List<LearningPathGoalRequest> Goals,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection LanguageSelection,
+    string Title,
+    string? Description,
+    DateTime StartDate,
+    DateTime EndDate,
+    List<ManualChapterRequest> Chapters
+);
+
+public record RepublishLearningPathRequest(
+    bool IncreaseVersion,
+    DraftVersionUpdateType? VersionUpdateType
+);
+
+public record LearningPathSummaryDto(
+    Guid PathId,
+    string Title,
+    string? Description,
+    string Status,
+    int ChapterCount,
+    decimal ProgressPercent,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    DateTime CreatedAt,
+    ComplexityLevel? ComplexityLevel,
+    LanguageSelection? LanguageSelection
+);
+
+public record GetPublishedLearningPathsRequest(
+    int PageNumber = 1,
+    int PageSize = 10,
+    string? SearchTerm = null,
+    Guid? SubjectId = null,
+    ComplexityLevel? ComplexityLevel = null,
+    bool SortDescending = true
+);
+
+public record PublishedLearningPathSummaryDto(
+    Guid PathId,
+    string Title,
+    string? Description,
+    Guid SubjectId,
+    string SubjectName,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection Language,
+    decimal VersionNumber,
+    Guid MentorId,
+    string MentorName,
+    int ChapterCount,
+    int LessonCount,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    bool IsEnrolled
+);
+
+// Lightweight DTO for list views (my-drafts, my-published) – no chapter/lesson/quiz/task data
+public record LearningPathListItemDto(
+    Guid PathId,
+    Guid SubjectId,
+    string SubjectName,
+    List<LearningPathGoalDto> Goals,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    string Title,
+    string? Description,
+    string Status,
+    bool CreatedByType,
+    Guid UserId,
+    string UserName,
+    int ChapterCount,
+    DateTime CreatedAt,
+    ComplexityLevel? ComplexityLevel,
+    LanguageSelection? LanguageSelection
+);
+
+public record EnrollmentResponseDto(
+    Guid ShareId,
+    Guid EnrolledPathId,
+    decimal VersionNumber
+);
+
+// Preview DTOs – chapter/lesson frame only, no lesson content / task details / quiz questions
+public record LessonPreviewDto(
+    Guid LessonId,
+    string Title,
+    DateTime LessonDay,
+    int QuizCount
+);
+
+public record TaskPreviewDto(
+    Guid TaskId,
+    string Title,
+    TaskType TaskType,
+    TaskPriority? Priority,
+    DateTime? DueDate
+);
+
+public record ChapterPreviewDto(
+    Guid ChapterId,
+    string Title,
+    string? Content,
+    int OrderIndex,
+    List<LessonPreviewDto> Lessons,
+    List<TaskPreviewDto> Tasks
+);
+
+public record PublishedLearningPathPreviewDto(
+    Guid PathId,
+    string Title,
+    string? Description,
+    Guid SubjectId,
+    string SubjectName,
+    ComplexityLevel ComplexityLevel,
+    LanguageSelection Language,
+    decimal VersionNumber,
+    Guid MentorId,
+    string MentorName,
+    DateTime? StartDate,
+    DateTime? EndDate,
+    List<LearningPathGoalDto> Goals,
+    List<ChapterPreviewDto> Chapters,
+    int TotalChapters,
+    int TotalLessons,
+    bool IsEnrolled
 );

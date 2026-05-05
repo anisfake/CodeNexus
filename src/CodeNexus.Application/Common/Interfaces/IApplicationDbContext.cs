@@ -8,6 +8,8 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<Role> Roles { get; }
         public DbSet<User> Users { get; }
         public DbSet<UserProfile> UserProfiles { get; }
+        public DbSet<MentorRating> MentorRatings { get; }
+        public DbSet<LearningPathMentorReview> LearningPathMentorReviews { get; }
         public DbSet<AuditLog> AuditLogs { get; }
         public DbSet<Notification> Notifications { get; }
         public DbSet<RefreshToken> RefreshTokens { get; }
@@ -18,6 +20,7 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<SubjectGoal> SubjectGoals { get; }
         public DbSet<LearningPath> LearningPaths { get; }
         public DbSet<LearningPathGoal> LearningPathGoals { get; }
+        public DbSet<LearningPathGoalItemMapping> LearningPathGoalItemMappings { get; }
         public DbSet<Chapter> Chapters { get; }
         public DbSet<Lesson> Lessons { get; }
         public DbSet<LearnProgress> LearnProgresses { get; }
@@ -45,8 +48,11 @@ namespace CodeNexus.Application.Common.Interfaces
         public DbSet<UserAchievement> UserAchievements { get; }
         public DbSet<TokenPackage> TokenPackages { get; }
         public DbSet<PaymentTransaction> PaymentTransactions { get; }
+        public DbSet<MentorPackage> MentorPackages { get; }
+        public DbSet<StudentMentorSubscription> StudentMentorSubscriptions { get; }
         public DbSet<FeatureUsageLog> FeatureUsageLogs { get; }
         public DbSet<SystemRuntimePolicy> SystemRuntimePolicies { get; }
+        public DbSet<TaskReview> TaskReviews { get; }
         void SetAuditUserId(Guid userId);
         Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     }

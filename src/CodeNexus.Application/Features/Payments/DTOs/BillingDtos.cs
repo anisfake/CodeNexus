@@ -14,6 +14,7 @@ public record BillingTransactionResponse(
     string? ResponseCode,
     string? TransactionNo,
     string? BankCode,
+    string? OrderInfo,
     DateTime? PaidAt,
     DateTime CreatedAt,
     DateTime? UpdatedAt

@@ -1,4 +1,5 @@
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Entities;
@@ -16,19 +17,22 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
     private readonly ITimelineCalculationService _timelineCalculationService;
     private readonly ISubscriptionAccessService _subscriptionAccessService;
     private readonly IPlanUsageLimitService _planUsageLimitService;
+    private readonly IAIGeneratorService _aiGeneratorService;
 
     public AdoptSuggestedLearningPathCommandHandler(
         IApplicationDbContext context,
         ICurrentUserService currentUserService,
         ITimelineCalculationService timelineCalculationService,
         ISubscriptionAccessService subscriptionAccessService,
-        IPlanUsageLimitService planUsageLimitService)
+        IPlanUsageLimitService planUsageLimitService,
+        IAIGeneratorService aiGeneratorService)
     {
         _context = context;
         _currentUserService = currentUserService;
         _timelineCalculationService = timelineCalculationService;
         _subscriptionAccessService = subscriptionAccessService;
         _planUsageLimitService = planUsageLimitService;
+        _aiGeneratorService = aiGeneratorService;
     }
 
     public async Task<Result<CreateLearningPathResponse>> Handle(AdoptSuggestedLearningPathCommand request, CancellationToken cancellationToken)
@@ -294,7 +298,6 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
                     TaskType = sourceTask.TaskType,
                     VerificationPrompt = sourceTask.VerificationPrompt,
                     MinimumScore = sourceTask.MinimumScore,
-                    QuizQuestionsJson = sourceTask.QuizQuestionsJson,
                     CreatedAt = DateTime.UtcNow
                 };
 
@@ -306,8 +309,7 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
                     newTask.TaskType,
                     newTask.Priority,
                     TaskStatus_.Pending,
-                    newTask.DueDate,
-                    newTask.QuizQuestionsJson));
+                    newTask.DueDate));
                 taskIndex++;
             }
 
@@ -398,8 +400,19 @@ public class AdoptSuggestedLearningPathCommandHandler : IRequestHandler<AdoptSug
         await _planUsageLimitService.RecordLearningPathCreationUsageAsync(userId, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
+        var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+            _context,
+            _aiGeneratorService,
+            newPath.PathId,
+            request.LanguageSelection,
+            cancellationToken);
+        if (hasGoalItemMappingChanges)
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
         var goalDtos = goalsWithWeights
-            .Select(g => new LearningPathGoalDto(g.Goal.GoalId, g.Goal.Title, g.Weight, g.Goal.DurationInDays, "NotStarted", null))
+            .Select(g => new LearningPathGoalDto(g.Goal.GoalId, g.Goal.Title, g.Weight, g.Goal.DurationInDays, "NotStarted", null, 0m, g.Weight * 100m))
             .ToList();
 
         return Result<CreateLearningPathResponse>.Success(new CreateLearningPathResponse(

@@ -100,6 +100,19 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             return Result<LearningPathShareDto>.Failure("SHARE_ALREADY_PENDING", "A pending share already exists for this student.");
         }
 
+        var existingAcceptedShare = await _context.LearningPathShares
+            .AsNoTracking()
+            .AnyAsync(s => s.PathId == request.PathId
+                        && s.MentorId == mentorId
+                        && s.StudentId == request.StudentId
+                        && s.Status == LearningPathShareStatus.Accepted,
+                cancellationToken);
+
+        if (existingAcceptedShare)
+        {
+            return Result<LearningPathShareDto>.Failure("SHARE_ALREADY_ACCEPTED", "This learning path has already been accepted by the student.");
+        }
+
         var chapterIds = await _context.Chapters
             .AsNoTracking()
             .Where(c => c.PathId == request.PathId && !c.IsDeleted)
@@ -142,12 +155,23 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
 
         var now = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
 
+        // Quota check: student must have an active subscription with remaining SharesFromMentor
+        var subscription = await _context.StudentMentorSubscriptions
+            .FirstOrDefaultAsync(s => s.UserId == request.StudentId && s.IsActive, cancellationToken);
+
+        if (subscription == null)
+            return Result<LearningPathShareDto>.Failure("MENTOR_SUBSCRIPTION_REQUIRED", "The student does not have an active mentor subscription.");
+
+        if (subscription.SharesFromMentorLimit != -1 && subscription.SharesFromMentorUsed >= subscription.SharesFromMentorLimit)
+            return Result<LearningPathShareDto>.Failure("SHARE_QUOTA_EXCEEDED", "The student has reached their share reception limit for this subscription.");
+
         var share = new LearningPathShare
         {
             ShareId = NewId.NextGuid(),
             PathId = request.PathId,
             MentorId = mentorId,
             StudentId = request.StudentId,
+            SnapshotTitle = path.Title,
             Status = LearningPathShareStatus.Pending,
             SentAt = now
         };
@@ -194,6 +218,19 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
         _context.LearningPathShares.Add(share);
         _context.DirectMessages.Add(message);
         _context.DirectMessageReceipts.Add(receipt);
+
+
+        subscription.SharesFromMentorUsed++;
+        _context.FeatureUsageLogs.Add(new Domain.Entities.FeatureUsageLog
+        {
+            FeatureUsageLogId = NewId.NextGuid(),
+            UserId = request.StudentId,
+            FeatureKey = Domain.Enums.SubscriptionFeatureKey.SharesFromMentor,
+            CreatedAt = DateTime.UtcNow
+        });
+
+
+
         await _context.SaveChangesAsync(cancellationToken);
 
         var directMessageDto = new DirectMessageDto(
@@ -206,6 +243,7 @@ public class SendLearningPathShareCommandHandler : IRequestHandler<SendLearningP
             null,
             null,
             message.LearningPathShareId,
+            message.TaskReviewId,
             message.ReplyToMessageId,
             null,
             null);

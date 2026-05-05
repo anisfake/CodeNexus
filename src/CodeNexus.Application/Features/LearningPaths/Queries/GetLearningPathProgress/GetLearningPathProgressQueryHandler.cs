@@ -40,7 +40,17 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
             return Result<LearningPathCompletionProgressDto>.Failure("LEARNING_PATH_NOT_FOUND", "Learning path not found.");
 
         if (learningPathOwnerId.Value != userId)
-            return Result<LearningPathCompletionProgressDto>.Failure("ACCESS_DENIED", "Access denied.");
+        {
+            var reviewQuery = _context.LearningPathMentorReviews.AsQueryable();
+            var hasReviewAccess = false;
+            try
+            {
+                hasReviewAccess = await reviewQuery.AnyAsync(r => r.RevisedPathId == request.PathId && r.StudentId == userId, cancellationToken);
+            }
+            catch { }
+            if (!hasReviewAccess)
+                return Result<LearningPathCompletionProgressDto>.Failure("ACCESS_DENIED", "Access denied.");
+        }
 
         var totalLessonContents = await _context.Lessons
             .AsNoTracking()
@@ -70,16 +80,17 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
                 q.Lesson.Chapter.PathId == request.PathId,
                 cancellationToken);
 
-        var completedQuizzes = await (from attempt in _context.QuizAttempts.AsNoTracking()
-                                      join quiz in _context.Quizzes.AsNoTracking() on attempt.QuizId equals quiz.QuizId
-                                      where attempt.UserId == userId
-                                            && attempt.Status == QuizAttemptStatus.Passed
-                                            && !quiz.IsDeleted
-                                            && quiz.LessonId.HasValue
-                                            && !quiz.Lesson!.IsDeleted
-                                            && !quiz.Lesson.Chapter.IsDeleted
-                                            && quiz.Lesson.Chapter.PathId == request.PathId
-                                      select attempt.QuizId)
+        var completedQuizzes = await _context.QuizAttempts
+            .AsNoTracking()
+            .Where(attempt =>
+                attempt.UserId == userId &&
+                attempt.Status == QuizAttemptStatus.Passed &&
+                !attempt.Quiz.IsDeleted &&
+                attempt.Quiz.LessonId.HasValue &&
+                !attempt.Quiz.Lesson!.IsDeleted &&
+                !attempt.Quiz.Lesson.Chapter.IsDeleted &&
+                attempt.Quiz.Lesson.Chapter.PathId == request.PathId)
+            .Select(attempt => attempt.QuizId)
             .Distinct()
             .CountAsync(cancellationToken);
 
@@ -87,6 +98,7 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
             .AsNoTracking()
             .CountAsync(t =>
                 t.PathId == request.PathId &&
+                !t.IsDeleted &&
                 !t.Chapter.IsDeleted,
                 cancellationToken);
 
@@ -94,6 +106,7 @@ public class GetLearningPathProgressQueryHandler : IRequestHandler<GetLearningPa
             .AsNoTracking()
             .CountAsync(t =>
                 t.PathId == request.PathId &&
+                !t.IsDeleted &&
                 !t.Chapter.IsDeleted &&
                 t.Status == TaskStatus_.Completed,
                 cancellationToken);

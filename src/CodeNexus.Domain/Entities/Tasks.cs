@@ -23,8 +23,8 @@ namespace CodeNexus.Domain.Entities
         public TaskType TaskType { get; set; } = TaskType.Practice;
         public string? VerificationPrompt { get; set; }
         public int MinimumScore { get; set; } = 70;
-        public string? QuizQuestionsJson { get; set; }
 
         public virtual ICollection<FocusSession> FocusSessions { get; set; } = new List<FocusSession>();
+        public virtual ICollection<TaskReview> TaskReviews { get; set; } = new List<TaskReview>();
     }
 }

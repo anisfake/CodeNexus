@@ -42,9 +42,24 @@ public class CreateVnPayPaymentCommandHandler
         decimal amount;
         decimal creditedTokens;
         Guid? tokenPackageId = null;
+        Guid? mentorPackageId = null;
         string defaultOrderInfo;
 
-        if (request.TokenPackageId.HasValue)
+        if (request.MentorPackageId.HasValue)
+        {
+            var mentorPackage = await _context.MentorPackages
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.MentorPackageId == request.MentorPackageId.Value && x.IsActive, cancellationToken);
+
+            if (mentorPackage == null)
+                return Result<VnPayCreatePaymentResponseDto>.Failure("MENTOR_PACKAGE_NOT_FOUND", "Mentor package not found.");
+
+            amount = mentorPackage.PriceVnd;
+            creditedTokens = 0;
+            mentorPackageId = mentorPackage.MentorPackageId;
+            defaultOrderInfo = $"Buy mentor package: {mentorPackage.Name}";
+        }
+        else if (request.TokenPackageId.HasValue)
         {
             var tokenPackage = await _context.TokenPackages
                 .AsNoTracking()
@@ -106,6 +121,7 @@ public class CreateVnPayPaymentCommandHandler
             PaymentTransactionId = NewId.NextGuid(),
             UserId = userId,
             TokenPackageId = tokenPackageId,
+            MentorPackageId = mentorPackageId,
             Amount = amount,
             CreditedTokens = creditedTokens,
             Provider = "VNPAY",

@@ -11,5 +11,6 @@ public record UpdateSubjectCommand(
     string? Description,
     string? Color,
     string? Icon,
-    SubjectCategory Category
+    SubjectCategory Category,
+    List<UpdateSubjectGoalRequest>? Goals
 ) : IRequest<Result<SubjectDto>>;

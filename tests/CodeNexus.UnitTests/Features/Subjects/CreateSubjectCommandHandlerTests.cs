@@ -28,7 +28,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Mathematics", "Advanced Math", "#FF5733", "math-icon", SubjectCategory.Other);
+        var command = new CreateSubjectCommand("Mathematics", "Advanced Math", "#FF5733", "math-icon", SubjectCategory.Other, null);
 
         var mentorRole = new Role { RoleId = roleId, RoleName = "Mentor" };
         var user = new User { UserId = userId, RoleId = roleId, Role = mentorRole };
@@ -60,7 +60,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Physics", "Basic Physics", null, null, SubjectCategory.Other);
+        var command = new CreateSubjectCommand("Physics", "Basic Physics", null, null, SubjectCategory.Other, null);
 
         var studentRole = new Role { RoleId = roleId, RoleName = "Student" };
         var user = new User { UserId = userId, RoleId = roleId, Role = studentRole };
@@ -83,7 +83,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Chemistry", "Organic Chemistry", null, null, SubjectCategory.Other);
+        var command = new CreateSubjectCommand("Chemistry", "Organic Chemistry", null, null, SubjectCategory.Other, null);
 
         var mentorRole = new Role { RoleId = roleId, RoleName = "Mentor" };
         var user = new User { UserId = userId, RoleId = roleId, Role = mentorRole };
@@ -108,7 +108,7 @@ public class CreateSubjectCommandHandlerTests
         // Arrange
         var userId = Guid.NewGuid();
         var roleId = Guid.NewGuid();
-        var command = new CreateSubjectCommand("Biology", "Cell Biology", null, null, SubjectCategory.Other);
+        var command = new CreateSubjectCommand("Biology", "Cell Biology", null, null, SubjectCategory.Other, null);
 
         var mentorRole = new Role { RoleId = roleId, RoleName = "Mentor" };
         var user = new User { UserId = userId, RoleId = roleId, Role = mentorRole };

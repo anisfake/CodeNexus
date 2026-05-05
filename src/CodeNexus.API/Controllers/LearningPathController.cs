@@ -5,18 +5,40 @@ using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Chapters.Commands.GenerateChapterContent;
 using CodeNexus.Application.Features.Chapters.Queries.GetChapterCompletionStatus;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.CreateMentorLearningPathDraft;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateGoalSupplementLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateLearningPathSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.AdoptSuggestedLearningPath;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.GenerateChapterSkeleton;
 using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateMentorLearningPathDraft;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.PublishMentorLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UnpublishLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.RepublishLearningPath;
+using CodeNexus.Application.Features.LearningPathShares.Commands.EnrollInPublishedLearningPath;
 using CodeNexus.Application.Features.LearningPathShares.Commands.SendLearningPathShare;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetPublishedLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetPublishedLearningPathPreview;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetAllLearningPaths;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDraftDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathByUserId;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSummaryByUserId;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathDetailByUserId;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningPathDrafts;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPaths;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyPublishedLearningPathDetail;
 using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestions;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetLearningPathSuggestionPreview;
 using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathProgress;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.UpsertLearningPathMentorReview;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RespondLearningPathMentorReview;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Commands.RequestLearningPathMentorReview;
+using CodeNexus.Application.Features.LearningPathMentorReviews.DTOs;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetLearningPathMentorReviews;
+using CodeNexus.Application.Features.LearningPathMentorReviews.Queries.GetMyStudentLearningPathReviews;
+using CodeNexus.Domain.Enums;
+using CodeNexus.Application.Features.LearningPaths.Queries.GetLearningPathPreview;
+using CodeNexus.Application.Features.LearningPathSkeleton.Commands.UpdateStudentLearningPath;
+using CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetStudentLearningPathEditDetail;
 using CodeNexus.Application.Features.Lessons.Commands.GenerateLessonContent;
 using CodeNexus.Application.Features.Lessons.Commands.MarkLessonContentRead;
 using CodeNexus.Application.Features.Lessons.Queries.GetLessonReadStatus;
@@ -150,6 +172,121 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("my-published")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetMyPublishedPaths([FromQuery] GetMyLearningPathDraftsRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetMyPublishedLearningPathsQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.SortDescending);
+
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("my-published/{pathId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> GetMyPublishedPathById(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMyPublishedLearningPathDetailQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("my-published/{pathId:guid}")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UpdatePublishedPath(Guid pathId, [FromBody] UpdateMentorLearningPathDraftRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateMentorLearningPathDraftCommand(
+            pathId,
+            request.IncreaseVersion,
+            request.VersionUpdateType,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.Title,
+            request.Description,
+            request.StartDate,
+            request.EndDate,
+            request.Chapters);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("manual-draft/{pathId:guid}/publish")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> PublishManualDraft(Guid pathId, [FromBody] PublishMentorLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var command = new PublishMentorLearningPathCommand(
+            pathId,
+            request.IncreaseVersion,
+            request.VersionUpdateType,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.Title,
+            request.Description,
+            request.StartDate,
+            request.EndDate,
+            request.Chapters);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/unpublish")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UnpublishLearningPath(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new UnpublishLearningPathCommand(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/republish")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> RepublishLearningPath(Guid pathId, [FromBody] RepublishLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new RepublishLearningPathCommand(pathId, request.IncreaseVersion, request.VersionUpdateType), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("published/{pathId:guid}/preview")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetPublishedLearningPathPreview(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetPublishedLearningPathPreviewQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("published")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetPublishedLearningPaths([FromQuery] GetPublishedLearningPathsRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetPublishedLearningPathsQuery(
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.ComplexityLevel,
+            request.SortDescending);
+
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("{pathId:guid}/enroll")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> EnrollInPublishedLearningPath(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new EnrollInPublishedLearningPathCommand(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
     [HttpPost("suggestions")]
     [Authorize(Roles = "Mentor, Student")]
     public async Task<IActionResult> GetSuggestions([FromBody] GenerateLearningPathSkeletonRequest request, CancellationToken cancellationToken)
@@ -181,6 +318,24 @@ public class LearningPathController : ControllerBase
         );
 
         var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPost("suggestions/{suggestedPathId:guid}/preview")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> PreviewSuggestedLearningPath(
+        Guid suggestedPathId,
+        [FromBody] AdoptSuggestedLearningPathRequest request,
+        CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathSuggestionPreviewQuery(
+            suggestedPathId,
+            request.SubjectId,
+            request.Goals,
+            request.ComplexityLevel,
+            request.LanguageSelection);
+
+        var result = await _sender.Send(query, cancellationToken);
         return ToActionResult(result);
     }
 
@@ -217,6 +372,31 @@ public class LearningPathController : ControllerBase
         );
         var result = await _sender.Send(query, cancellationToken);
 
+        return ToActionResult(result);
+    }
+
+    [HttpGet("user/{userId:guid}/summary")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathSummaryByUserId(Guid userId, [FromQuery] GetLearningPathByUserIdRequest request, CancellationToken cancellationToken)
+    {
+        var query = new GetLearningPathSummaryByUserIdQuery(
+            userId,
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SubjectId,
+            request.Status,
+            request.SortDescending
+        );
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("user/{userId:guid}/{pathId:guid}")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathDetailByUserId(Guid userId, Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathDetailByUserIdQuery(userId, pathId), cancellationToken);
         return ToActionResult(result);
     }
 
@@ -302,6 +482,121 @@ public class LearningPathController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpPost("{pathId:guid}/goals/{goalId:guid}/supplement")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GenerateGoalSupplementLearningPath(
+        Guid pathId,
+        Guid goalId,
+        [FromBody] GenerateGoalSupplementLearningPathRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new GenerateGoalSupplementLearningPathCommand(
+            pathId,
+            goalId,
+            request.ComplexityLevel,
+            request.LanguageSelection,
+            request.SaveAsDraft);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("{pathId:guid}/preview")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathPreview(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathPreviewQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/mentor-review")]
+    [Authorize(Roles = "Mentor")]
+    public async Task<IActionResult> UpsertMentorReviewForLearningPath(
+        Guid pathId,
+        [FromBody] UpsertLearningPathMentorReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new UpsertLearningPathMentorReviewCommand(
+            pathId,
+            request.ChangeSummary,
+            request.ChangeReason);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+    [HttpGet("student/{pathId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetStudentLearningPathEditDetail(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetStudentLearningPathEditDetailQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("student/{pathId:guid}")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> UpdateStudentLearningPath(Guid pathId, [FromBody] UpdateStudentLearningPathRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdateStudentLearningPathCommand(pathId, request.Chapters);
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+
+    [HttpPost("{pathId:guid}/mentor-reviews/request")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> RequestMentorReviewForLearningPath(
+        Guid pathId,
+        [FromBody] RequestLearningPathMentorReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new RequestLearningPathMentorReviewCommand(
+            pathId,
+            request.MentorId,
+            request.StudentRequestNote);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("{pathId:guid}/mentor-reviews")]
+    [Authorize(Roles = "Mentor, Student")]
+    public async Task<IActionResult> GetLearningPathMentorReviews(Guid pathId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetLearningPathMentorReviewsQuery(pathId), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("me/mentor-reviews")]
+    [Authorize(Roles = "Student")]
+    [ProducesResponseType(typeof(List<AdminMentorReviewDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyMentorReviews(
+        [FromQuery] LearningPathMentorReviewDecisionStatus? status = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetMyStudentLearningPathReviewsQuery(status, page, pageSize), cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpPut("{pathId:guid}/mentor-reviews/{reviewId:guid}/decision")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> RespondToMentorReview(
+        Guid pathId,
+        Guid reviewId,
+        [FromBody] RespondLearningPathMentorReviewRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new RespondLearningPathMentorReviewCommand(
+            pathId,
+            reviewId,
+            request.DecisionStatus,
+            request.StudentDecisionNote);
+
+        var result = await _sender.Send(command, cancellationToken);
+        return ToActionResult(result);
+    }
+
 
     private IActionResult ToActionResult(Result result)
     {
@@ -313,7 +608,7 @@ public class LearningPathController : ControllerBase
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "EMAIL_EXISTS" or "USERNAME_EXISTS" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
             "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "CHAPTER_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "CHAPTER_NOT_FOUND" or "MENTOR_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
             "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
@@ -328,9 +623,10 @@ public class LearningPathController : ControllerBase
         {
             "ACCESS_DENIED" => StatusCode(StatusCodes.Status403Forbidden, new { result.ErrorCode, result.ErrorMessage }),
             "UNAUTHORIZED" or "USERNAME_EXISTS" => Unauthorized(new { result.ErrorCode, result.ErrorMessage }),
-            "SHARE_ALREADY_PENDING" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
-            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
-            "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
+            "SUGGESTION_NOT_FOUND" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "SHARE_ALREADY_PENDING" or "GOAL_ALREADY_COMPLETED" => Conflict(new { result.ErrorCode, result.ErrorMessage }),
+            "LEARNING_PATH_NOT_FOUND" or "STUDENT_NOT_FOUND" or "SHARE_NOT_FOUND" or "LESSON_NOT_FOUND" or "REVIEW_NOT_FOUND" or "REVIEW_REQUEST_NOT_FOUND" or "MENTOR_NOT_FOUND" or "GOAL_NOT_FOUND_IN_PATH" => NotFound(new { result.ErrorCode, result.ErrorMessage }),
+            "OTP_RATE_LIMITED" or "RESEND_RATE_LIMITED" or "LEARNING_PATH_LIMIT_EXCEEDED" or "MENTOR_REVIEW_REJECT_LIMIT_REACHED" => StatusCode(StatusCodes.Status429TooManyRequests, new { result.ErrorCode, result.ErrorMessage }),
             _ => BadRequest(new { result.ErrorCode, result.ErrorMessage })
         };
     }

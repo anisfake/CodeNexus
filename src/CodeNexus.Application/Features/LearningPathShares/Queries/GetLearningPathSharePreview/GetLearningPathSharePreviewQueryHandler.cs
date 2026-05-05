@@ -60,9 +60,16 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             return Result<LearningPathSharePreviewDto>.Failure("SHARE_NOT_FOUND", "Learning path share not found.");
         }
 
-        var pathIdToLoad = share.AcceptedPathId.HasValue && share.AcceptedPathId.Value == request.ShareId
-            ? share.AcceptedPathId.Value
-            : share.PathId;
+        if (share.Status == LearningPathShareStatus.Rejected
+            && share.InvalidatedReason == "SUPERSEDED_BY_NEW_VERSION")
+        {
+            return Result<LearningPathSharePreviewDto>.Failure("SHARE_VERSION_OUTDATED", "This shared version no longer exists or has been updated to a newer version.");
+        }
+
+        if (share.Status != LearningPathShareStatus.Pending)
+        {
+            return Result<LearningPathSharePreviewDto>.Failure("SHARE_ALREADY_DECIDED", "Preview is not available after the share has been accepted or rejected.");
+        }
 
         var learningPath = await _context.LearningPaths
             .AsNoTracking()
@@ -75,7 +82,7 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                 .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
             .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
                 .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
-            .FirstOrDefaultAsync(lp => lp.PathId == pathIdToLoad, cancellationToken);
+            .FirstOrDefaultAsync(lp => lp.PathId == share.PathId, cancellationToken);
 
         if (learningPath == null)
         {
@@ -94,7 +101,9 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
                     g.Weight,
                     g.Goal.DurationInDays,
                     "NotStarted",
-                    null
+                    null,
+                    0m,
+                    g.Weight * 100m
                 )).ToList(),
             learningPath.StartDate,
             learningPath.EndDate,
@@ -104,31 +113,31 @@ public class GetLearningPathSharePreviewQueryHandler : IRequestHandler<GetLearni
             learningPath.CreatedByType,
             learningPath.UserId,
             learningPath.User.Username,
-            learningPath.Chapters.Select(c => new ChapterDto(
+            learningPath.Chapters.OrderBy(c => c.OrderIndex).Select(c => new ChapterDto(
                 c.ChapterId,
                 c.Title,
                 c.Content,
                 c.OrderIndex,
-                c.Lessons.Select(l => new LessonDto(
+                c.Lessons.OrderBy(l => l.LessonDay).Select(l => new LessonDto(
                     l.LessonId,
                     l.Title,
-                    l.Content,
+                    null,           // content hidden in preview
                     l.LessonDay,
                     l.Quizzes.Select(q => new QuizDto(
                         q.QuizId,
                         q.Title,
                         q.Description
+                        // questions intentionally omitted
                     )).ToList()
                 )).ToList(),
                 c.Tasks.Select(t => new TaskDto(
                     t.TaskId,
                     t.Title,
-                    t.Description ?? string.Empty,
+                    string.Empty,   // description hidden in preview
                     t.TaskType,
                     t.Priority,
                     t.Status,
-                    t.DueDate,
-                    t.QuizQuestionsJson
+                    t.DueDate
                 )).ToList()
             )).ToList(),
             learningPath.Chapters.Count(c => !c.IsDeleted),

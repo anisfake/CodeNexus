@@ -203,6 +203,7 @@ public class UploadResourceCommandHandlerTests
 
         // Assert
         Assert.True(result.IsSuccess);
+        Assert.NotNull(result.Value);
         Assert.Null(result.Value.Description);
     }
 }

@@ -10,6 +10,7 @@ namespace CodeNexus.Infrastructure.Services;
 public class SystemRuntimePolicyService : ISystemRuntimePolicyService
 {
     private const string RuntimePolicyKey = "runtime_policy";
+    private const string MentorReviewReminderPolicyKey = "review_reminder_policy";
 
     private const int DefaultFocusSessionAutoPauseAfterMinutes = 10;
     private const int DefaultFocusSessionAutoAbandonAfterMinutes = 720;
@@ -17,6 +18,8 @@ public class SystemRuntimePolicyService : ISystemRuntimePolicyService
     private const int DefaultPendingPaymentTimeoutMinutes = 15;
     private const int DefaultPendingPaymentMonitorIntervalSeconds = 60;
     private const int DefaultOverdueNotificationIntervalMinutes = 15;
+    private const int DefaultMentorReviewReminderAfterDays = 1;
+    private const int DefaultStudentResponseReminderAfterDays = 2;
 
     private readonly IApplicationDbContext _context;
     private readonly IConfiguration _configuration;
@@ -56,7 +59,6 @@ public class SystemRuntimePolicyService : ISystemRuntimePolicyService
         }
         catch
         {
-            // Fallback for environments not yet migrated.
             return null;
         }
     }
@@ -93,6 +95,16 @@ public class SystemRuntimePolicyService : ISystemRuntimePolicyService
                 "SystemRuntimePolicy:ConfigJson:overdueNotificationIntervalMinutes",
                 "SystemRuntimePolicy:OverdueNotificationIntervalMinutes",
                 DefaultOverdueNotificationIntervalMinutes,
+                minValue: 1),
+            MentorReviewReminderAfterDays: GetConfigInt(
+                "SystemRuntimePolicy:ConfigJson:mentorReviewReminderAfterDays",
+                "SystemRuntimePolicy:MentorReviewReminderAfterDays",
+                DefaultMentorReviewReminderAfterDays,
+                minValue: 1),
+            StudentResponseReminderAfterDays: GetConfigInt(
+                "SystemRuntimePolicy:ConfigJson:studentResponseReminderAfterDays",
+                "SystemRuntimePolicy:StudentResponseReminderAfterDays",
+                DefaultStudentResponseReminderAfterDays,
                 minValue: 1));
 
         var dbPolicy = await GetPolicyAsync(RuntimePolicyKey, cancellationToken);
@@ -103,13 +115,20 @@ public class SystemRuntimePolicyService : ISystemRuntimePolicyService
 
         var config = dbPolicy.ConfigJson ?? new Dictionary<string, object>();
 
+        var reminderPolicy = await GetPolicyAsync(MentorReviewReminderPolicyKey, cancellationToken);
+        var reminderConfig = reminderPolicy is { IsActive: true }
+            ? reminderPolicy.ConfigJson ?? new Dictionary<string, object>()
+            : new Dictionary<string, object>();
+
         return new RuntimeOperationalPolicy(
             FocusSessionAutoPauseAfterMinutes: ReadInt(config, "focusSessionAutoPauseAfterMinutes", defaults.FocusSessionAutoPauseAfterMinutes, 1),
             FocusSessionAutoAbandonAfterMinutes: ReadInt(config, "focusSessionAutoAbandonAfterMinutes", defaults.FocusSessionAutoAbandonAfterMinutes, 10),
             FocusSessionMonitorIntervalSeconds: ReadInt(config, "focusSessionMonitorIntervalSeconds", defaults.FocusSessionMonitorIntervalSeconds, 15),
             PendingPaymentTimeoutMinutes: ReadInt(config, "pendingPaymentTimeoutMinutes", defaults.PendingPaymentTimeoutMinutes, 1),
             PendingPaymentMonitorIntervalSeconds: ReadInt(config, "pendingPaymentMonitorIntervalSeconds", defaults.PendingPaymentMonitorIntervalSeconds, 15),
-            OverdueNotificationIntervalMinutes: ReadInt(config, "overdueNotificationIntervalMinutes", defaults.OverdueNotificationIntervalMinutes, 1));
+            OverdueNotificationIntervalMinutes: ReadInt(config, "overdueNotificationIntervalMinutes", defaults.OverdueNotificationIntervalMinutes, 1),
+            MentorReviewReminderAfterDays: ReadInt(reminderConfig, "mentorReviewReminderAfterDays", defaults.MentorReviewReminderAfterDays, 1),
+            StudentResponseReminderAfterDays: ReadInt(reminderConfig, "studentResponseReminderAfterDays", defaults.StudentResponseReminderAfterDays, 1));
     }
 
     private int GetConfigInt(string configJsonPath, string legacyPath, int fallback, int minValue)

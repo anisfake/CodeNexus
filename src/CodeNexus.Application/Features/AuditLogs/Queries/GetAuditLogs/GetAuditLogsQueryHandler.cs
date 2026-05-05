@@ -15,11 +15,19 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Resul
         _context = context;
     }
 
+    private static readonly TimeZoneInfo VietnamTimeZone =
+        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+
     public async Task<Result<PaginationDto<AuditLogResponse>>> Handle(GetAuditLogsQuery request, CancellationToken cancellationToken)
     {
+        var nowVn = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
+        var fromDate = request.FromDate ?? TimeZoneInfo.ConvertTimeToUtc(nowVn.AddDays(-3), VietnamTimeZone);
+        var toDate = request.ToDate ?? TimeZoneInfo.ConvertTimeToUtc(nowVn, VietnamTimeZone);
+
         var query = _context.AuditLogs
             .Include(a => a.User)
             .AsNoTracking()
+            .Where(a => a.Timestamp >= fromDate && a.Timestamp <= toDate)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Action))
@@ -37,16 +45,6 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Resul
         if (request.UserId.HasValue)
         {
             query = query.Where(a => a.UserId == request.UserId.Value);
-        }
-
-        if (request.FromDate.HasValue)
-        {
-            query = query.Where(a => a.Timestamp >= request.FromDate.Value);
-        }
-
-        if (request.ToDate.HasValue)
-        {
-            query = query.Where(a => a.Timestamp <= request.ToDate.Value);
         }
 
         var totalCount = await query.CountAsync(cancellationToken);

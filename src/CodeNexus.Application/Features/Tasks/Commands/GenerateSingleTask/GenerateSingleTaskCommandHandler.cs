@@ -1,12 +1,12 @@
 using System.Text.RegularExpressions;
 using CodeNexus.Application.Common.Interfaces;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Tasks.DTOs;
 using CodeNexus.Domain.Enums;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 
 namespace CodeNexus.Application.Features.Tasks.Commands.GenerateSingleTask;
 
@@ -55,6 +55,9 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 		if (!hasAnyLessonTitle)
 			return Result<TaskItemDto>.Failure("LESSON_TITLE_REQUIRED", "At least one lesson title is required to generate task");
 
+		if (request.TaskType is not TaskType.Practice and not TaskType.Theory)
+			return Result<TaskItemDto>.Failure("TASK_TYPE_NOT_SUPPORTED", "Only Practice and Theory task types are supported for AI generation.");
+
 		try
 		{
 			var prompt = BuildPrompt(chapter, request.Title, request.TaskType);
@@ -67,7 +70,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 
 			if (generatedTask == null)
 			{
-				var strictPrompt = prompt + "\n=== STRICT FILTER ===\nDO NOT include ANY task related to install/setup/download/configure. Return ONLY coding/theory/quiz tasks.";
+				var strictPrompt = prompt + "\n=== STRICT FILTER ===\nDO NOT include ANY task related to install/setup/download/configure. Return ONLY coding/theory tasks.";
 				generated = await _aiGeneratorService.GenerateStructureAsync<GeneratedTasksDto>(strictPrompt, AIUsageType.ContentGeneration);
 				generatedTask = generated?.Tasks?.FirstOrDefault(t => !IsInvalidTask(t.Title));
 
@@ -91,18 +94,6 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 			if (IsDuplicateTask(existingActiveTasks, request.TaskType, finalTitle, finalDescription))
 				return Result<TaskItemDto>.Failure("DUPLICATE_TASK", "Generated task is too similar to an existing task in this chapter.");
 
-			if (request.TaskType == TaskType.Quizz &&
-				generatedTask.QuizQuestions != null &&
-				generatedTask.QuizQuestions.Any() &&
-				HasDuplicateQuizQuestions(existingActiveTasks, generatedTask.QuizQuestions))
-			{
-				return Result<TaskItemDto>.Failure("DUPLICATE_TASK_QUIZ_QUESTION", "Generated quiz questions are duplicated with existing quiz task questions.");
-			}
-
-			var quizQuestionsJson = request.TaskType == TaskType.Quizz && generatedTask.QuizQuestions != null && generatedTask.QuizQuestions.Any()
-				? JsonSerializer.Serialize(generatedTask.QuizQuestions)
-				: null;
-
 			var task = new Domain.Entities.Tasks
 			{
 				TaskId = NewId.NextGuid(),
@@ -116,12 +107,22 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 				CreatedAt = DateTime.UtcNow,
 				TaskType = request.TaskType,
 				VerificationPrompt = generatedTask.VerificationPrompt,
-				MinimumScore = generatedTask.MinimumScore ?? 70,
-				QuizQuestionsJson = quizQuestionsJson
+				MinimumScore = generatedTask.MinimumScore ?? 70
 			};
 
 			await _context.Tasks.AddAsync(task, cancellationToken);
 			await _context.SaveChangesAsync(cancellationToken);
+
+			var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+				_context,
+				_aiGeneratorService,
+				chapter.PathId,
+				chapter.LearningPath.Language,
+				cancellationToken);
+			if (hasGoalItemMappingChanges)
+			{
+				await _context.SaveChangesAsync(cancellationToken);
+			}
 
 			var dto = new TaskItemDto(
 				task.TaskId,
@@ -130,8 +131,7 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 				task.DueDate,
 				task.TaskType,
 				task.Priority,
-				task.Status,
-				task.QuizQuestionsJson
+				task.Status
 			);
 
 			return Result<TaskItemDto>.Success(dto);
@@ -172,37 +172,6 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 			NormalizeText(t.Title) == normalizedTitle ||
 			(NormalizeText(t.Title) == normalizedTitle && NormalizeText(t.Description) == normalizedDescription));
 	}
-
-	private static bool HasDuplicateQuizQuestions(List<Domain.Entities.Tasks> existingTasks, List<QuizQuestionDto> generatedQuestions)
-	{
-		var existingQuestionTexts = new HashSet<string>();
-
-		foreach (var task in existingTasks.Where(t => t.TaskType == TaskType.Quizz && !string.IsNullOrWhiteSpace(t.QuizQuestionsJson)))
-		{
-			try
-			{
-				var questions = JsonSerializer.Deserialize<List<QuizQuestionDto>>(task.QuizQuestionsJson!);
-				if (questions == null)
-					continue;
-
-				foreach (var question in questions)
-				{
-					var normalized = NormalizeText(question.Question);
-					if (!string.IsNullOrWhiteSpace(normalized))
-						existingQuestionTexts.Add(normalized);
-				}
-			}
-			catch
-			{
-				// Bỏ qua task có JSON hỏng
-			}
-		}
-
-		return generatedQuestions
-			.Select(q => NormalizeText(q.Question))
-			.Any(q => !string.IsNullOrWhiteSpace(q) && existingQuestionTexts.Contains(q));
-	}
-
 	private static string NormalizeText(string? text)
 	{
 		if (string.IsNullOrWhiteSpace(text))
@@ -259,7 +228,6 @@ public class GenerateSingleTaskCommandHandler : IRequestHandler<GenerateSingleTa
 		var taskTypeLabel = taskType switch
 		{
 			TaskType.Theory => "Theory",
-			TaskType.Quizz => "Quizz",
 			_ => "Practice"
 		};
 
@@ -303,7 +271,7 @@ Generate EXACTLY 1 task with TaskType = "{{taskTypeLabel}}" based on chapter and
 - MUST NOT duplicate existing tasks with the same TaskType in this chapter.
 - For Practice: include verificationPrompt to check submitted code.
 - For Theory: include verificationPrompt to check learner summary.
-- For Quizz: include 3-5 quizQuestions, each with 4 options and correctAnswer from 0-3.
+- taskType MUST remain "{{taskTypeLabel}}" and never be quiz.
 
 === EXISTING TASKS ===
 {{existingTaskTitlesInstruction}}
@@ -318,8 +286,7 @@ Return ONLY valid JSON:
       "priority": "High|Medium|Low",
       "taskType": "{{taskTypeLabel}}",
       "verificationPrompt": "...",
-      "minimumScore": 70,
-      "quizQuestions": null
+      "minimumScore": 70
     }
   ]
 }
@@ -339,3 +306,4 @@ Return ONLY valid JSON:
 		};
 	}
 }
+

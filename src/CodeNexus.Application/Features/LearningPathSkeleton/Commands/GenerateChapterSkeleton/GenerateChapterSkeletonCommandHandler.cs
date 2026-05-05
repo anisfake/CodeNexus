@@ -1,5 +1,6 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
+using CodeNexus.Application.Common.Helpers;
 using CodeNexus.Application.Features.LearningPathSkeleton.DTOs;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
@@ -77,19 +78,23 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
 
             var complexity = GetComplexityFromLearningPath(chapter.LearningPath);
             var lessonsPerChapter = GetLessonsPerChapter(complexity);
+            var language = chapter.LearningPath.Language;
 
             var chapterData = await GenerateChapterFromAI(
                 chapter.LearningPath.Subject.Name,
-                BuildGoalSummary(chapter.LearningPath),
+                BuildGoalSummary(chapter.LearningPath, chapter.LearningPath.Language),
                 chapter.LearningPath.Title,
                 request.OrderIndex,
                 lessonsPerChapter,
                 chapter.LearningPath.Language);
 
-            if (chapterData == null || !chapterData.LessonTitles.Any())
-            {
-                return Result<ChapterSkeletonDto>.Failure("INVALID_AI_RESPONSE", "AI returned invalid response.");
-            }
+            chapterData = EnsureValidChapterData(
+                chapterData,
+                chapter.LearningPath.Subject.Name,
+                chapter.LearningPath.Title,
+                request.OrderIndex,
+                lessonsPerChapter,
+                chapter.LearningPath.Language);
 
             var lessonSchedules = await _timelineCalculationService.CalculateLessonSchedulesAsync(
                 chapter.StartDate!.Value,
@@ -125,14 +130,21 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
                 ));
 
                 var quizzesPerLesson = _timelineCalculationService.GetQuizzesPerLesson(complexity);
+                var quizTitles = await GenerateQuizTitlesForLessonAsync(
+                    chapter.LearningPath.Subject.Name,
+                    chapter.Title,
+                    lessonTitle,
+                    quizzesPerLesson,
+                    language);
+
                 for (int k = 0; k < quizzesPerLesson; k++)
                 {
                     var quiz = new Quiz
                     {
                         QuizId = NewId.NextGuid(),
                         LessonId = lesson.LessonId,
-                        Title = $"Quiz {k + 1}: {lessonTitle}",
-                        Description = $"Assessment quiz for {lessonTitle}",
+                        Title = quizTitles[k],
+                        Description = QuizNamingHelper.BuildFallbackDescription(lessonTitle, k, language),
                         DueDate = lessonSchedule.LessonDay.AddDays(2),
                         CreatedAt = DateTime.UtcNow
                     };
@@ -142,6 +154,17 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+
+            var hasGoalItemMappingChanges = await LearningPathGoalSemanticMappingHelper.RebuildForPathAsync(
+                _context,
+                _aiGeneratorService,
+                chapter.PathId,
+                chapter.LearningPath.Language,
+                cancellationToken);
+            if (hasGoalItemMappingChanges)
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
 
             return Result<ChapterSkeletonDto>.Success(
                 new ChapterSkeletonDto(
@@ -177,6 +200,80 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
             ComplexityLevel.Advanced => 6,
             _ => 4
         };
+    }
+
+    private async Task<IReadOnlyList<string>> GenerateQuizTitlesForLessonAsync(
+        string subjectName,
+        string chapterTitle,
+        string lessonTitle,
+        int quizCount,
+        LanguageSelection language)
+    {
+        if (quizCount <= 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        List<string>? aiTitles = null;
+        try
+        {
+            var prompt = BuildQuizTitlePrompt(subjectName, chapterTitle, lessonTitle, quizCount, language);
+            var generated = await _aiGeneratorService.GenerateStructureAsync<QuizTitleGenerationData>(prompt, AIUsageType.StructureGeneration);
+            aiTitles = generated?.Titles;
+        }
+        catch
+        {
+            // Fallback handled below.
+        }
+
+        return QuizNamingHelper.BuildFinalTitles(aiTitles, lessonTitle, quizCount, language);
+    }
+
+    private static string BuildQuizTitlePrompt(
+        string subjectName,
+        string chapterTitle,
+        string lessonTitle,
+        int quizCount,
+        LanguageSelection language)
+    {
+        var languageInstruction = language switch
+        {
+            LanguageSelection.VietNamese => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL titles in Vietnamese
+- Keep technical terms in English where needed (API, JSON, Docker, etc.)
+",
+            LanguageSelection.English => @"
+=== LANGUAGE REQUIREMENTS ===
+- Generate ALL titles in English
+",
+            _ => string.Empty
+        };
+
+        return $@"Generate {quizCount} quiz titles for a lesson in JSON format.
+
+=== CONTEXT ===
+Subject: {subjectName}
+Chapter: {chapterTitle}
+Lesson: {lessonTitle}
+
+{languageInstruction}
+
+=== REQUIREMENTS ===
+- Return exactly {quizCount} titles
+- Each title MUST be clearly related to the lesson
+- Titles MUST NOT be identical to the lesson title
+- Titles should be concise, specific, and different from each other
+
+=== JSON FORMAT ===
+{{
+  ""titles"": [
+    ""Quiz title 1"",
+    ""Quiz title 2""
+  ]
+}}
+
+IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
     }
 
     private (int chapters, int lessonsPerChapter, int quizzPercentage, int estimatedDays) CalculateStructureByComplexity(LearningPath learningPath)
@@ -239,7 +336,7 @@ public class GenerateChapterSkeletonCommandHandler : IRequestHandler<GenerateCha
         return $@"Generate lesson titles for a chapter in JSON format.
 
 Subject: {subjectName}
-Goal: {goalSummary}
+Goal Priorities: {goalSummary}
 Learning Path: {learningPathTitle}
 Chapter Position: {orderIndex + 1} ({chapterPosition})
 
@@ -248,6 +345,7 @@ Chapter Position: {orderIndex + 1} ({chapterPosition})
 REQUIREMENTS:
 - Generate {lessonsPerChapter}-5 lesson titles for this chapter
 - Chapter should be appropriate for position {orderIndex + 1}
+- Respect goal priority percentages when choosing lesson emphasis
 - Lessons should progress logically
 
 JSON FORMAT:
@@ -269,18 +367,69 @@ IMPORTANT: Return ONLY valid JSON. No markdown, no extra text.";
         public List<string> LessonTitles { get; set; } = new();
     }
 
-    private static string BuildGoalSummary(LearningPath learningPath)
+    private class QuizTitleGenerationData
+    {
+        public List<string> Titles { get; set; } = new();
+    }
+
+    private static string BuildGoalSummary(LearningPath learningPath, LanguageSelection language)
     {
         if (learningPath.LearningPathGoals == null || learningPath.LearningPathGoals.Count == 0)
         {
-            return "General Programming Goal";
+            return language == LanguageSelection.VietNamese
+                ? "Mục tiêu tổng quát (100%)"
+                : "General Programming Goal (100%)";
         }
 
         var ordered = learningPath.LearningPathGoals
             .OrderByDescending(g => g.Weight)
-            .Select(g => g.Goal.Title)
+            .Select(g => $"{g.Goal.Title} ({(g.Weight * 100m):0.##}%)")
             .ToList();
 
-        return ordered.Count == 1 ? ordered[0] : $"{ordered[0]} and {ordered[1]}";
+        return string.Join(" | ", ordered);
+    }
+
+    private static ChapterGenerationData EnsureValidChapterData(
+        ChapterGenerationData? source,
+        string subjectName,
+        string learningPathTitle,
+        int orderIndex,
+        int lessonsPerChapter,
+        LanguageSelection language)
+    {
+        var title = source?.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = language == LanguageSelection.VietNamese
+                ? $"Chương {orderIndex + 1}: {subjectName}"
+                : $"Chapter {orderIndex + 1}: {subjectName}";
+        }
+
+        var lessonTitles = source?.LessonTitles?
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            ?? new List<string>();
+
+        if (lessonTitles.Count < lessonsPerChapter)
+        {
+            for (var idx = lessonTitles.Count; idx < lessonsPerChapter; idx++)
+            {
+                lessonTitles.Add(language == LanguageSelection.VietNamese
+                    ? $"Bài {idx + 1}: {subjectName} chuyên đề {idx + 1}"
+                    : $"Lesson {idx + 1}: {subjectName} Topic {idx + 1}");
+            }
+        }
+        else if (lessonTitles.Count > lessonsPerChapter)
+        {
+            lessonTitles = lessonTitles.Take(lessonsPerChapter).ToList();
+        }
+
+        return new ChapterGenerationData
+        {
+            Title = title,
+            LessonTitles = lessonTitles
+        };
     }
 }

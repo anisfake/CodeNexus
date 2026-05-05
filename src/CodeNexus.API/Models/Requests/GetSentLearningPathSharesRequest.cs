@@ -4,5 +4,6 @@ namespace CodeNexus.API.Models.Requests;
 
 public record GetSentLearningPathSharesRequest(
     LearningPathShareStatus? Status = null,
-    Guid? StudentId = null
+    Guid? StudentId = null,
+    Guid? PathId = null
 );

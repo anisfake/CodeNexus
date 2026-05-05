@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AIUsageLogs.DTOs;
 using CodeNexus.Application.Features.AIUsageLogs.Queries.GetAIUsageLogs;
+using CodeNexus.Application.Features.AIUsageLogs.Queries.GetAIProfitOverview;
 using CodeNexus.Application.Features.AIUsageLogs.Queries.GetAIUsageSummary;
 using CodeNexus.Application.Features.AIUsageLogs.Queries.GetMentorAiQuotaStatus;
 using MediatR;
@@ -39,6 +40,18 @@ public class AIUsageLogController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetUsageSummary(
         [FromQuery] GetAIUsageSummaryQuery query,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(query, cancellationToken);
+        return ToActionResult(result);
+    }
+
+    [HttpGet("profit-overview")]
+    [ProducesResponseType(typeof(AIProfitOverviewResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetProfitOverview(
+        [FromQuery] GetAIProfitOverviewQuery query,
         CancellationToken cancellationToken = default)
     {
         var result = await _sender.Send(query, cancellationToken);

@@ -1,4 +1,4 @@
-using CodeNexus.Application.Common.Interfaces;
+﻿using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPaths.DTOs;
 using CodeNexus.Domain.Enums;
@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CodeNexus.Application.Features.LearningPathSkeleton.Queries.GetMyLearningPathDrafts;
 
-public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearningPathDraftsQuery, Result<PaginationDto<LearningPathResponse>>>
+public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearningPathDraftsQuery, Result<PaginationDto<LearningPathListItemDto>>>
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUserService _currentUserService;
@@ -18,7 +18,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
         _currentUserService = currentUserService;
     }
 
-    public async Task<Result<PaginationDto<LearningPathResponse>>> Handle(GetMyLearningPathDraftsQuery request, CancellationToken cancellationToken)
+    public async Task<Result<PaginationDto<LearningPathListItemDto>>> Handle(GetMyLearningPathDraftsQuery request, CancellationToken cancellationToken)
     {
         Guid mentorId;
         try
@@ -27,7 +27,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
         }
         catch
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("UNAUTHORIZED", "User not authenticated");
+            return Result<PaginationDto<LearningPathListItemDto>>.Failure("UNAUTHORIZED", "User not authenticated");
         }
 
         var mentor = await _context.Users
@@ -37,12 +37,12 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
 
         if (mentor == null)
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("USER_NOT_FOUND", "User not found.");
+            return Result<PaginationDto<LearningPathListItemDto>>.Failure("USER_NOT_FOUND", "User not found.");
         }
 
         if (!string.Equals(mentor.Role?.RoleName, "Mentor", StringComparison.OrdinalIgnoreCase))
         {
-            return Result<PaginationDto<LearningPathResponse>>.Failure("ACCESS_DENIED", "Access denied.");
+            return Result<PaginationDto<LearningPathListItemDto>>.Failure("ACCESS_DENIED", "Access denied.");
         }
 
         var query = _context.LearningPaths
@@ -51,11 +51,6 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
             .Include(lp => lp.LearningPathGoals)
                 .ThenInclude(lpg => lpg.Goal)
             .Include(lp => lp.User)
-            .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Lessons.Where(l => !l.IsDeleted))
-                .ThenInclude(l => l.Quizzes.Where(q => !q.IsDeleted))
-            .Include(lp => lp.Chapters.Where(c => !c.IsDeleted))
-                .ThenInclude(c => c.Tasks.Where(t => !t.IsDeleted))
             .Where(lp => lp.UserId == mentorId && lp.Status == LearningPathStatus.Draft.ToString())
             .AsQueryable();
 
@@ -81,7 +76,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
         var items = await query
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .Select(lp => new LearningPathResponse(
+            .Select(lp => new LearningPathListItemDto(
                 lp.PathId,
                 lp.SubjectId,
                 lp.Subject.Name,
@@ -93,7 +88,9 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                         g.Weight,
                         g.Goal.DurationInDays,
                         "NotStarted",
-                        null
+                        null,
+                        0m,
+                        g.Weight * 100m
                     )).ToList(),
                 lp.StartDate,
                 lp.EndDate,
@@ -103,40 +100,6 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
                 lp.CreatedByType,
                 lp.UserId,
                 lp.User.Username,
-                lp.Chapters.Select(c => new ChapterDto(
-                    c.ChapterId,
-                    c.Title,
-                    c.Content,
-                    c.OrderIndex,
-                    c.Lessons.Select(l => new LessonDto(
-                        l.LessonId,
-                        l.Title,
-                        l.Content,
-                        l.LessonDay,
-                        l.Quizzes.Select(q => new QuizDto(
-                            q.QuizId,
-                            q.Title,
-                            q.Description,
-                            null,
-                            "Not Attempted"
-                        )).ToList()
-                        ,
-                        "Not Started"
-                    )).ToList(),
-                    c.Tasks
-                        .Where(t => !t.IsDeleted)
-                        .Select(t => new TaskDto(
-                        t.TaskId,
-                        t.Title,
-                        t.Description ?? string.Empty,
-                        t.TaskType,
-                        t.Priority,
-                        t.Status,
-                        t.DueDate,
-                        t.QuizQuestionsJson,
-                        "Pending"
-                    )).ToList()
-                )).ToList(),
                 lp.Chapters.Count(c => !c.IsDeleted),
                 lp.CreatedAt,
                 lp.ComplexityLevel,
@@ -144,7 +107,7 @@ public class GetMyLearningPathDraftsQueryHandler : IRequestHandler<GetMyLearning
             ))
             .ToListAsync(cancellationToken);
 
-        return Result<PaginationDto<LearningPathResponse>>.Success(new PaginationDto<LearningPathResponse>
+        return Result<PaginationDto<LearningPathListItemDto>>.Success(new PaginationDto<LearningPathListItemDto>
         {
             Items = items,
             PageNumber = request.PageNumber,

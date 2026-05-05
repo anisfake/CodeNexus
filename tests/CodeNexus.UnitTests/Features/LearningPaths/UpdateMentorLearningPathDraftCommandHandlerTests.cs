@@ -571,7 +571,7 @@ public class UpdateMentorLearningPathDraftCommandHandlerTests
                     },
                     new List<ManualTaskRequest>
                     {
-                        new(string.Empty, null, TaskType.Practice, null, null, null)
+                        new(string.Empty, null, TaskType.Practice, null, null)
                     })
             });
 

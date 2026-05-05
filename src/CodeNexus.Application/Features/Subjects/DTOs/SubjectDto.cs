@@ -23,12 +23,26 @@ public record SubjectGoalDto(
     int DurationInDays
 );
 
+public record CreateSubjectGoalRequest(
+    string Title,
+    string? Description,
+    GoalDuration Duration
+);
+
+public record UpdateSubjectGoalRequest(
+    Guid? GoalId,
+    string Title,
+    string? Description,
+    GoalDuration Duration
+);
+
 public record CreateSubjectRequest(
     string Name,
     string? Description,
     string? Color,
     string? Icon,
-    SubjectCategory Category
+    SubjectCategory Category,
+    List<CreateSubjectGoalRequest>? Goals
 );
 
 public record UpdateSubjectRequest(
@@ -36,5 +50,6 @@ public record UpdateSubjectRequest(
     string? Description,
     string? Color,
     string? Icon,
-    SubjectCategory Category
+    SubjectCategory Category,
+    List<UpdateSubjectGoalRequest>? Goals
 );

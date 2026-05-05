@@ -23,5 +23,7 @@ public enum AIUsageLogSortBy
     CreatedAt,
     TotalTokens,
     InputTokens,
-    OutputTokens
+    OutputTokens,
+    ChargedTokens,
+    CostUsd
 }

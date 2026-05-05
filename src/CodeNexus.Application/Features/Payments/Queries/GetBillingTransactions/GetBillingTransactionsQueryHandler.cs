@@ -81,6 +81,7 @@ public class GetBillingTransactionsQueryHandler
                 x.ResponseCode,
                 x.TransactionNo,
                 x.BankCode,
+                x.OrderInfo,
                 x.PaidAt,
                 x.CreatedAt,
                 x.UpdatedAt))

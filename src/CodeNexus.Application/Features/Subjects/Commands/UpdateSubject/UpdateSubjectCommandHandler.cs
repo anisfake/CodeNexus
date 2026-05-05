@@ -1,6 +1,8 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.Subjects.DTOs;
+using CodeNexus.Domain.Entities;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,6 +28,8 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
             .FirstOrDefaultAsync(cancellationToken);
 
         var subject = await _context.Subjects
+            .Include(s => s.SubjectGoals)
+                .ThenInclude(sg => sg.Goal)
             .FirstOrDefaultAsync(s => s.SubjectId == request.SubjectId, cancellationToken);
 
         if (subject == null)
@@ -53,6 +57,68 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
         subject.Icon = request.Icon;
         subject.Category = request.Category;
 
+        var goalDtos = new List<SubjectGoalDto>();
+        if (request.Goals != null)
+        {
+            var incomingGoalIds = request.Goals
+                .Where(g => g.GoalId.HasValue)
+                .Select(g => g.GoalId!.Value)
+                .ToHashSet();
+
+            var toRemove = subject.SubjectGoals
+                .Where(sg => !incomingGoalIds.Contains(sg.GoalId))
+                .ToList();
+            foreach (var sg in toRemove)
+                subject.SubjectGoals.Remove(sg);
+
+            foreach (var goalRequest in request.Goals)
+            {
+                if (goalRequest.GoalId.HasValue)
+                {
+                    var existingGoal = subject.SubjectGoals
+                        .FirstOrDefault(sg => sg.GoalId == goalRequest.GoalId.Value)?.Goal;
+
+                    if (existingGoal != null && existingGoal.IsSystemDefined)
+                    {
+                        existingGoal.Title = goalRequest.Title;
+                        existingGoal.Description = goalRequest.Description;
+                        existingGoal.Duration = goalRequest.Duration;
+                        existingGoal.UpdatedAt = DateTime.UtcNow;
+                        goalDtos.Add(new SubjectGoalDto(existingGoal.GoalId, existingGoal.Title, existingGoal.Description, existingGoal.IsSystemDefined, existingGoal.DurationInDays));
+                    }
+                }
+                else
+                {
+                    var newGoal = new CodeNexus.Domain.Entities.Goals
+                    {
+                        GoalId = NewId.NextGuid(),
+                        Title = goalRequest.Title,
+                        Description = goalRequest.Description,
+                        Duration = goalRequest.Duration,
+                        IsSystemDefined = true,
+                        CreatedByUserId = null,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _context.Goals.AddAsync(newGoal, cancellationToken);
+                    subject.SubjectGoals.Add(new SubjectGoal
+                    {
+                        SubjectId = subject.SubjectId,
+                        GoalId = newGoal.GoalId
+                    });
+
+                    goalDtos.Add(new SubjectGoalDto(newGoal.GoalId, newGoal.Title, newGoal.Description, newGoal.IsSystemDefined, newGoal.DurationInDays));
+                }
+            }
+        }
+        else
+        {
+            goalDtos = subject.SubjectGoals
+                .Where(sg => !sg.Goal.IsDeleted)
+                .Select(sg => new SubjectGoalDto(sg.GoalId, sg.Goal.Title, sg.Goal.Description, sg.Goal.IsSystemDefined, sg.Goal.DurationInDays))
+                .ToList();
+        }
+
         try
         {
             await _context.SaveChangesAsync(cancellationToken);
@@ -69,7 +135,7 @@ public class UpdateSubjectCommandHandler : IRequestHandler<UpdateSubjectCommand,
             subject.Color,
             subject.Icon,
             subject.Category,
-            new List<SubjectGoalDto>(),
+            goalDtos,
             user.FirstName + " " + user.LastName,
             subject.CreatedByUserId,
             subject.CreatedAt
