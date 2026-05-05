@@ -25,7 +25,7 @@ public class GetGoalDashboardQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_DefaultStatusFilter_ReturnsPersonalGoalsAndActivePathGoalsOnly()
+    public async Task Handle_DefaultStatusFilter_ReturnsPersonalGoalsAndActiveInProgressCompletedPathGoals()
     {
         var userId = NewId.NextGuid();
         var otherUserId = NewId.NextGuid();
@@ -151,9 +151,11 @@ public class GetGoalDashboardQueryHandlerTests
         result.Value.PersonalGoals[0].ProgressPercent.Should().Be(100m);
         result.Value.PersonalGoals[0].Status.Should().Be(GoalProgressStatus.Completed.ToString());
 
-        result.Value.PathGoals.TotalCount.Should().Be(2);
-        result.Value.PathGoals.Items.Should().HaveCount(2);
-        result.Value.PathGoals.Items.All(x => x.LearningPathId == activePathId).Should().BeTrue();
+        // Default filter includes Active, InProgress, Completed — excludes Draft, Published, Cancelled
+        result.Value.PathGoals.TotalCount.Should().Be(3); // 2 from activePathId + 1 from completedPathId
+        result.Value.PathGoals.Items.Should().HaveCount(3);
+        result.Value.PathGoals.Items.Any(x => x.LearningPathId == activePathId).Should().BeTrue();
+        result.Value.PathGoals.Items.Any(x => x.LearningPathId == completedPathId).Should().BeTrue();
     }
 
     [Fact]

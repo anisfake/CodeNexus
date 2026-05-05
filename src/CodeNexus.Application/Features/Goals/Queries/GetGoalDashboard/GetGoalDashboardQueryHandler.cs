@@ -88,7 +88,12 @@ public class GetGoalDashboardQueryHandler : IRequestHandler<GetGoalDashboardQuer
 
         var learningPathStatuses = request.PathStatus.HasValue
             ? new[] { request.PathStatus.Value.ToString() }
-            : new[] { LearningPathStatus.Active.ToString(), LearningPathStatus.InProgress.ToString() };
+            : new[]
+            {
+                LearningPathStatus.Active.ToString(),
+                LearningPathStatus.InProgress.ToString(),
+                LearningPathStatus.Completed.ToString()
+            };
 
         var pathGoalsQuery =
             from lp in _context.LearningPaths
