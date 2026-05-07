@@ -94,13 +94,7 @@ public record BillingSummaryResponse(
 );
 
 public record MonthlyFinanceOverviewResponse(
-    int Year,
-    int Month,
-    DateTime FromUtc,
-    DateTime ToUtc,
-    decimal PackageRevenueVnd,
-    decimal AiCostUsd,
-    decimal AiCostVnd,
-    decimal TotalProfitVnd
+    decimal PackageProfitVnd,
+    decimal AiProfitUsd
 );
 

@@ -50,9 +50,12 @@ public class GetMonthlyFinanceOverviewQueryHandler
             .Where(x => x.CreatedAt >= fromUtc && x.CreatedAt < toUtcExclusive)
             .Select(x => new
             {
+                x.UserId,
                 x.ConfigId,
+                x.AccessTierUsed,
                 x.InputTokens,
-                x.OutputTokens
+                x.OutputTokens,
+                x.ChargedTokens
             })
             .ToListAsync(cancellationToken);
 
@@ -84,23 +87,45 @@ public class GetMonthlyFinanceOverviewQueryHandler
             return AIUsageCostCalculator.CalculateRawCostUsd(row.InputTokens, row.OutputTokens, rate);
         });
 
-        var vndPerUsd = await ResolveVndPerUsdAsync(cancellationToken);
-        var aiCostVnd = aiCostUsd * vndPerUsd;
-        var totalProfitVnd = packageRevenueVnd - aiCostVnd;
+        var usdPerToken = await ResolveUsdPerTokenAsync(cancellationToken);
+        var roleMap = await LoadRoleMapAsync(usageRows.Select(x => x.UserId), cancellationToken);
+
+        var aiRevenueUsd = usageRows.Sum(row =>
+        {
+            if (row.AccessTierUsed != Domain.Enums.AIAccessTier.Paid)
+            {
+                return 0m;
+            }
+
+            if (!row.UserId.HasValue || !roleMap.TryGetValue(row.UserId.Value, out var roleName))
+            {
+                return 0m;
+            }
+
+            if (!string.Equals(roleName, "Student", StringComparison.OrdinalIgnoreCase))
+            {
+                return 0m;
+            }
+
+            if (row.ChargedTokens <= 0m || usdPerToken <= 0m)
+            {
+                return 0m;
+            }
+
+            return row.ChargedTokens * usdPerToken;
+        });
+
+        var aiProfitUsd = aiRevenueUsd - aiCostUsd;
 
         return Result<MonthlyFinanceOverviewResponse>.Success(new MonthlyFinanceOverviewResponse(
-            year,
-            month,
-            fromUtc,
-            toUtcExclusive.AddTicks(-1),
             Round2(packageRevenueVnd),
-            Round8(aiCostUsd),
-            Round2(aiCostVnd),
-            Round2(totalProfitVnd)));
+            Round8(aiProfitUsd)));
     }
 
-    private async Task<decimal> ResolveVndPerUsdAsync(CancellationToken cancellationToken)
+    private async Task<decimal> ResolveUsdPerTokenAsync(CancellationToken cancellationToken)
     {
+        const decimal fallbackUsdPerToken = 0m;
+
         var policy = await _context.SystemRuntimePolicies
             .AsNoTracking()
             .FirstOrDefaultAsync(
@@ -109,19 +134,39 @@ public class GetMonthlyFinanceOverviewQueryHandler
 
         if (policy == null)
         {
-            return 0m;
+            return fallbackUsdPerToken;
         }
 
         var config = SystemRuntimePolicyJsonHelper.ParseConfigJson(policy.ConfigJson);
-        var vndPerToken = ReadPositiveDecimal(config, TokenPricingConstants.VndPerTokenConfigKey);
-        var usdPerToken = ReadPositiveDecimal(config, "usdPerToken");
+        return ReadPositiveDecimal(config, "usdPerToken");
+    }
 
-        if (vndPerToken <= 0m || usdPerToken <= 0m)
+    private async Task<Dictionary<Guid, string>> LoadRoleMapAsync(
+        IEnumerable<Guid?> userIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = userIds
+            .Where(x => x.HasValue)
+            .Select(x => x!.Value)
+            .Distinct()
+            .ToList();
+
+        if (ids.Count == 0)
         {
-            return 0m;
+            return new Dictionary<Guid, string>();
         }
 
-        return vndPerToken / usdPerToken;
+        var users = await _context.Users
+            .AsNoTracking()
+            .Where(x => ids.Contains(x.UserId))
+            .Select(x => new
+            {
+                x.UserId,
+                RoleName = x.Role != null ? x.Role.RoleName : string.Empty
+            })
+            .ToListAsync(cancellationToken);
+
+        return users.ToDictionary(x => x.UserId, x => x.RoleName ?? string.Empty);
     }
 
     private static decimal ReadPositiveDecimal(IReadOnlyDictionary<string, object> config, string key)
