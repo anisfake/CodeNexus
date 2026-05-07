@@ -3,6 +3,7 @@ using CodeNexus.Application.Features.Payments.DTOs;
 using CodeNexus.Application.Features.Payments.Queries.GetBillingSummary;
 using CodeNexus.Application.Features.Payments.Queries.GetBillingTransactionDetail;
 using CodeNexus.Application.Features.Payments.Queries.GetBillingTransactions;
+using CodeNexus.Application.Features.Payments.Queries.GetMonthlyFinanceOverview;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -52,6 +53,17 @@ public class AdminBillingController : ControllerBase
         return ToActionResult(result);
     }
 
+    [HttpGet("monthly-overview")]
+    [ProducesResponseType(typeof(MonthlyFinanceOverviewResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMonthlyOverview(
+        [FromQuery] int? year,
+        [FromQuery] int? month,
+        CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetMonthlyFinanceOverviewQuery(year, month), cancellationToken);
+        return ToActionResult(result);
+    }
+
     private IActionResult ToActionResult<T>(Result<T> result)
     {
         if (result.IsSuccess)
@@ -64,4 +76,3 @@ public class AdminBillingController : ControllerBase
         };
     }
 }
-

@@ -93,3 +93,14 @@ public record BillingSummaryResponse(
     List<BillingSummaryItemResponse> DailyRevenue
 );
 
+public record MonthlyFinanceOverviewResponse(
+    int Year,
+    int Month,
+    DateTime FromUtc,
+    DateTime ToUtc,
+    decimal PackageRevenueVnd,
+    decimal AiCostUsd,
+    decimal AiCostVnd,
+    decimal TotalProfitVnd
+);
+
