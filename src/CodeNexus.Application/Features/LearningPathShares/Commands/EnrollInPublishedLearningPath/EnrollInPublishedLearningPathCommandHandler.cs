@@ -105,6 +105,7 @@ public class EnrollInPublishedLearningPathCommandHandler : IRequestHandler<Enrol
             Status = LearningPathShareStatus.Accepted,
             AcceptedPathId = enrolledPathId,
             SourceVersionAtAccept = sourcePath.VersionNumber,
+            SourceSnapshotJson = LearningPathShareSourceSnapshotHelper.CreateSnapshotJson(sourcePath),
             IgnoredSourceVersion = null,
             LastNotifiedSourceVersion = null,
             IsTrackingEnabled = true,

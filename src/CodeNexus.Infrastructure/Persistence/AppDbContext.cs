@@ -990,6 +990,8 @@ namespace CodeNexus.Infrastructure.Persistence
                 entity.Property(e => e.SourceVersionAtAccept)
                       .HasPrecision(4, 1);
 
+                entity.Property(e => e.SourceSnapshotJson);
+
                 entity.Property(e => e.IgnoredSourceVersion)
                       .HasPrecision(4, 1);
 

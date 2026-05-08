@@ -95,6 +95,7 @@ public class AcceptLearningPathShareCommandHandlerTests
         share.RespondedAt.Should().Be(fixedUtcNow.AddHours(7));
         share.AcceptedPathId.Should().Be(studentPathId);
         share.SourceVersionAtAccept.Should().Be(sourcePath.VersionNumber);
+        share.SourceSnapshotJson.Should().NotBeNullOrWhiteSpace();
         share.IgnoredSourceVersion.Should().BeNull();
         share.LastNotifiedSourceVersion.Should().BeNull();
         share.IsTrackingEnabled.Should().BeTrue();

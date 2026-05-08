@@ -85,7 +85,15 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
         result.Value.CanRequestValidation.Should().BeTrue();
         studentSub.ValidationRequestsUsed.Should().Be(1);
 
-        _mockPathSyncService.Verify(x => x.RebuildCurrentPathFromSourceAsync(It.IsAny<LearningPath>(), It.IsAny<LearningPath>(), It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockPathSyncService.Verify(
+            x => x.RebuildCurrentPathFromSourceAsync(
+                It.IsAny<LearningPath>(),
+                It.IsAny<LearningPath>(),
+                It.IsAny<Guid>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<IReadOnlySet<string>>()),
+            Times.Never);
     }
 
     [Fact]
@@ -157,7 +165,8 @@ public class RespondLearningPathMentorReviewCommandHandlerTests
                 It.Is<LearningPath>(p => p.PathId == revisedPathId),
                 studentId,
                 It.IsAny<DateTime>(),
-                It.IsAny<CancellationToken>()),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<IReadOnlySet<string>>()),
             Times.Once);
     }
 }

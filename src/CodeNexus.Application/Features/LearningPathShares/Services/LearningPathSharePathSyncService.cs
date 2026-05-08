@@ -150,7 +150,8 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
         LearningPath sourcePath,
         Guid studentId,
         DateTime now,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? contentChangedLessonKeys = null)
     {
         var targetStart = currentPath.StartDate ?? now;
         var sourceAnchor = ResolveTimelineAnchor(sourcePath) ?? targetStart;
@@ -227,7 +228,7 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
                 await _context.Chapters.AddAsync(studentChapter, cancellationToken);
             }
 
-            await SyncStudentLessonsAsync(studentChapter, sourceChapter, studentId, now, Shift, ShiftNullable, cancellationToken);
+            await SyncStudentLessonsAsync(studentChapter, sourceChapter, studentId, now, Shift, ShiftNullable, cancellationToken, contentChangedLessonKeys);
             await SyncStudentTasksAsync(studentChapter, sourceChapter, currentPath.PathId, now, ShiftNullable, cancellationToken);
         }
 
@@ -253,7 +254,8 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
         DateTime now,
         Func<DateTime, DateTime> shift,
         Func<DateTime?, DateTime?> shiftNullable,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? contentChangedLessonKeys)
     {
         var existingLessonsByOrder = studentChapter.Lessons
             .Where(l => !l.IsDeleted)
@@ -274,7 +276,10 @@ public class LearningPathSharePathSyncService : ILearningPathSharePathSyncServic
             {
                 var oldContent = studentLesson.Content?.Trim() ?? string.Empty;
                 var newContent = sourceLesson.Content?.Trim() ?? string.Empty;
-                var contentChanged = !string.Equals(oldContent, newContent, StringComparison.OrdinalIgnoreCase);
+                var lessonKey = LearningPathShareSourceSnapshotHelper.BuildLessonKey(sourceChapter.OrderIndex, sourceLesson.OrderIndex);
+                var contentChanged = contentChangedLessonKeys == null
+                    ? !string.Equals(oldContent, newContent, StringComparison.OrdinalIgnoreCase)
+                    : contentChangedLessonKeys.Contains(lessonKey);
 
                 studentLesson.Title = sourceLesson.Title;
                 studentLesson.LessonDay = shift(sourceLesson.LessonDay);
