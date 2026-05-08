@@ -95,6 +95,6 @@ public record BillingSummaryResponse(
 
 public record MonthlyFinanceOverviewResponse(
     decimal PackageProfitVnd,
-    decimal AiProfitUsd
+    decimal TotalAiCostUsd
 );
 

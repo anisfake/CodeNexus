@@ -761,7 +761,7 @@ public class SendTutorMessageCommandHandler : IRequestHandler<SendTutorMessageCo
         var lessonContent = ClipContent(context.LessonContent, chatPolicy.LessonContentCharLimit);
         var goals = context.Goals.Count == 0
             ? "N/A"
-            : string.Join(", ", context.Goals.Take(5));
+            : string.Join(", ", context.Goals.Take(2));
 
         var olderConversationSummary = string.IsNullOrWhiteSpace(historySnapshot.OlderSummary)
             ? "N/A"
@@ -830,7 +830,6 @@ INSTRUCTIONS:
             .Select(content => CompactMessage(content, recentCharLimit))
             .ToList();
 
-        // After summaries exist, prompt should rely on summary + recent turns.
         var olderDigestSource = archivedSummaries.Count > 0 ? new List<string>() : olderRaw;
         var olderSummary = BuildOlderHistorySummary(
             olderDigestSource,

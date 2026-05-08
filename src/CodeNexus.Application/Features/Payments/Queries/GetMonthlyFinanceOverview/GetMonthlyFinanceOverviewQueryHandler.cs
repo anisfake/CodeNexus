@@ -2,7 +2,6 @@ using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.AIUsageLogs;
 using CodeNexus.Application.Features.Payments.DTOs;
-using CodeNexus.Application.Features.SystemRuntimePolicies;
 using CodeNexus.Domain.Enums;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -50,12 +49,9 @@ public class GetMonthlyFinanceOverviewQueryHandler
             .Where(x => x.CreatedAt >= fromUtc && x.CreatedAt < toUtcExclusive)
             .Select(x => new
             {
-                x.UserId,
                 x.ConfigId,
-                x.AccessTierUsed,
                 x.InputTokens,
-                x.OutputTokens,
-                x.ChargedTokens
+                x.OutputTokens
             })
             .ToListAsync(cancellationToken);
 
@@ -87,105 +83,9 @@ public class GetMonthlyFinanceOverviewQueryHandler
             return AIUsageCostCalculator.CalculateRawCostUsd(row.InputTokens, row.OutputTokens, rate);
         });
 
-        var usdPerToken = await ResolveUsdPerTokenAsync(cancellationToken);
-        var roleMap = await LoadRoleMapAsync(usageRows.Select(x => x.UserId), cancellationToken);
-
-        var aiRevenueUsd = usageRows.Sum(row =>
-        {
-            if (row.AccessTierUsed != Domain.Enums.AIAccessTier.Paid)
-            {
-                return 0m;
-            }
-
-            if (!row.UserId.HasValue || !roleMap.TryGetValue(row.UserId.Value, out var roleName))
-            {
-                return 0m;
-            }
-
-            if (!string.Equals(roleName, "Student", StringComparison.OrdinalIgnoreCase))
-            {
-                return 0m;
-            }
-
-            if (row.ChargedTokens <= 0m || usdPerToken <= 0m)
-            {
-                return 0m;
-            }
-
-            return row.ChargedTokens * usdPerToken;
-        });
-
-        var aiProfitUsd = aiRevenueUsd - aiCostUsd;
-
         return Result<MonthlyFinanceOverviewResponse>.Success(new MonthlyFinanceOverviewResponse(
             Round2(packageRevenueVnd),
-            Round8(aiProfitUsd)));
-    }
-
-    private async Task<decimal> ResolveUsdPerTokenAsync(CancellationToken cancellationToken)
-    {
-        const decimal fallbackUsdPerToken = 0m;
-
-        var policy = await _context.SystemRuntimePolicies
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                x => x.PolicyKey == TokenPricingConstants.TokenPricingPolicyKey && x.IsActive,
-                cancellationToken);
-
-        if (policy == null)
-        {
-            return fallbackUsdPerToken;
-        }
-
-        var config = SystemRuntimePolicyJsonHelper.ParseConfigJson(policy.ConfigJson);
-        return ReadPositiveDecimal(config, "usdPerToken");
-    }
-
-    private async Task<Dictionary<Guid, string>> LoadRoleMapAsync(
-        IEnumerable<Guid?> userIds,
-        CancellationToken cancellationToken)
-    {
-        var ids = userIds
-            .Where(x => x.HasValue)
-            .Select(x => x!.Value)
-            .Distinct()
-            .ToList();
-
-        if (ids.Count == 0)
-        {
-            return new Dictionary<Guid, string>();
-        }
-
-        var users = await _context.Users
-            .AsNoTracking()
-            .Where(x => ids.Contains(x.UserId))
-            .Select(x => new
-            {
-                x.UserId,
-                RoleName = x.Role != null ? x.Role.RoleName : string.Empty
-            })
-            .ToListAsync(cancellationToken);
-
-        return users.ToDictionary(x => x.UserId, x => x.RoleName ?? string.Empty);
-    }
-
-    private static decimal ReadPositiveDecimal(IReadOnlyDictionary<string, object> config, string key)
-    {
-        if (!config.TryGetValue(key, out var rawValue))
-        {
-            return 0m;
-        }
-
-        return rawValue switch
-        {
-            decimal d when d > 0m => d,
-            double d when d > 0d => (decimal)d,
-            float f when f > 0f => (decimal)f,
-            int i when i > 0 => i,
-            long l when l > 0 => l,
-            string s when decimal.TryParse(s, out var value) && value > 0m => value,
-            _ => 0m
-        };
+            Round8(aiCostUsd)));
     }
 
     private static decimal Round2(decimal value)
