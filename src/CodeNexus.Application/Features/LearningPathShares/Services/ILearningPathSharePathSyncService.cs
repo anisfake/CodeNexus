@@ -15,5 +15,6 @@ public interface ILearningPathSharePathSyncService
         LearningPath sourcePath,
         Guid studentId,
         DateTime now,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? contentChangedLessonKeys = null);
 }

@@ -1,6 +1,7 @@
 using CodeNexus.Application.Common.Interfaces;
 using CodeNexus.Application.Common.Models;
 using CodeNexus.Application.Features.LearningPathShares.DTOs;
+using CodeNexus.Application.Features.LearningPathShares.Services;
 using CodeNexus.Domain.Entities;
 using CodeNexus.Domain.Enums;
 using MediatR;
@@ -76,7 +77,10 @@ public class GetLearningPathShareUpdateContextQueryHandler
         var hasNewVersion = latestVersion > currentVersion
             && (!share.IgnoredSourceVersion.HasValue || share.IgnoredSourceVersion.Value < latestVersion);
 
-        var changeSummary = BuildChangeSummary(acceptedPath, sourcePath);
+        var changeSummary = LearningPathShareSourceSnapshotHelper.TryBuildChangeSummary(
+                share.SourceSnapshotJson,
+                sourcePath)
+            ?? BuildChangeSummary(acceptedPath, sourcePath);
 
         return Result<LearningPathShareUpdateContextDto>.Success(new LearningPathShareUpdateContextDto(
             share.ShareId,

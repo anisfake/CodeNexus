@@ -80,6 +80,7 @@ public class EnrollInPublishedLearningPathCommandHandlerTests
                 s.Status == LearningPathShareStatus.Accepted &&
                 s.AcceptedPathId == enrolledPathId &&
                 s.SourceVersionAtAccept == 1.0m &&
+                !string.IsNullOrWhiteSpace(s.SourceSnapshotJson) &&
                 s.IsTrackingEnabled),
             It.IsAny<CancellationToken>()), Times.Once);
     }

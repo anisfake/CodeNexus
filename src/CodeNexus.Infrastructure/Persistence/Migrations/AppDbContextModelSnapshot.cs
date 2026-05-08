@@ -948,6 +948,9 @@ namespace CodeNexus.Infrastructure.Persistence.Migrations
                         .HasPrecision(4, 1)
                         .HasColumnType("decimal(4,1)");
 
+                    b.Property<string>("SourceSnapshotJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");

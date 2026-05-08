@@ -11,6 +11,7 @@ namespace CodeNexus.Domain.Entities
         public string SnapshotTitle { get; set; } = string.Empty;
         public Guid? AcceptedPathId { get; set; }
         public decimal? SourceVersionAtAccept { get; set; }
+        public string? SourceSnapshotJson { get; set; }
         public decimal? IgnoredSourceVersion { get; set; }
         public decimal? LastNotifiedSourceVersion { get; set; }
         public bool IsTrackingEnabled { get; set; } = true;

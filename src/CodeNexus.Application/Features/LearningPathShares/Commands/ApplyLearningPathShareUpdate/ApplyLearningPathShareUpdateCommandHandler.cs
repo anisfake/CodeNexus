@@ -71,6 +71,8 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
         var latestVersion = sourcePath.VersionNumber;
         var currentSourceVersion = share.SourceVersionAtAccept ?? 1.0m;
         var hasNewVersion = latestVersion > currentSourceVersion;
+        var contentChangedLessonKeys = LearningPathShareSourceSnapshotHelper
+            .TryGetContentChangedLessonKeys(share.SourceSnapshotJson, sourcePath);
 
         if (!hasNewVersion)
         {
@@ -85,6 +87,7 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
                 var newPathId = await _pathSyncService.ClonePathForStudentAsync(sourcePath, studentId, now, cancellationToken);
                 share.AcceptedPathId = newPathId;
                 share.SourceVersionAtAccept = latestVersion;
+                share.SourceSnapshotJson = LearningPathShareSourceSnapshotHelper.CreateSnapshotJson(sourcePath);
                 share.IgnoredSourceVersion = null;
                 share.LastNotifiedSourceVersion = latestVersion;
                 share.IsTrackingEnabled = true;
@@ -112,8 +115,15 @@ public class ApplyLearningPathShareUpdateCommandHandler : IRequestHandler<ApplyL
                 }
 
                 var now = _dateTimeProvider.UtcNow.AddHours(7);
-                await _pathSyncService.RebuildCurrentPathFromSourceAsync(acceptedPath, sourcePath, studentId, now, cancellationToken);
+                await _pathSyncService.RebuildCurrentPathFromSourceAsync(
+                    acceptedPath,
+                    sourcePath,
+                    studentId,
+                    now,
+                    cancellationToken,
+                    contentChangedLessonKeys);
                 share.SourceVersionAtAccept = latestVersion;
+                share.SourceSnapshotJson = LearningPathShareSourceSnapshotHelper.CreateSnapshotJson(sourcePath);
                 share.IgnoredSourceVersion = null;
                 share.LastNotifiedSourceVersion = latestVersion;
                 share.IsTrackingEnabled = true;

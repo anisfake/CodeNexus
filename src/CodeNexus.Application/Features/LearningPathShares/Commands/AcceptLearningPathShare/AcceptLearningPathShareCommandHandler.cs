@@ -93,6 +93,7 @@ public class AcceptLearningPathShareCommandHandler : IRequestHandler<AcceptLearn
         share.RespondedAt = acceptedAt;
         share.AcceptedPathId = studentPathId;
         share.SourceVersionAtAccept = sourcePath.VersionNumber;
+        share.SourceSnapshotJson = LearningPathShareSourceSnapshotHelper.CreateSnapshotJson(sourcePath);
         share.IgnoredSourceVersion = null;
         share.LastNotifiedSourceVersion = null;
         share.IsTrackingEnabled = true;
