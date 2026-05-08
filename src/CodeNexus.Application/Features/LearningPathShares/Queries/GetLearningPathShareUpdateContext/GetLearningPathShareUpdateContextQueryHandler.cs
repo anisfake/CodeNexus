@@ -131,7 +131,8 @@ public class GetLearningPathShareUpdateContextQueryHandler
         var updatedChapters = sourceChapterByOrder.Keys
             .Intersect(currentChapterByOrder.Keys)
             .Where(order => !TextEquals(sourceChapterByOrder[order].Title, currentChapterByOrder[order].Title)
-                            || !TextEquals(sourceChapterByOrder[order].Content, currentChapterByOrder[order].Content))
+                            || (!string.IsNullOrWhiteSpace(currentChapterByOrder[order].Content)
+                                && !TextEquals(sourceChapterByOrder[order].Content, currentChapterByOrder[order].Content)))
             .Select(order => sourceChapterByOrder[order].Title)
             .ToList();
 
@@ -177,7 +178,8 @@ public class GetLearningPathShareUpdateContextQueryHandler
         var updatedLessons = sourceLessonMap.Keys
             .Intersect(currentLessonMap.Keys)
             .Where(key => !TextEquals(sourceLessonMap[key].Title, currentLessonMap[key].Title)
-                          || !TextEquals(sourceLessonMap[key].Content, currentLessonMap[key].Content))
+                          || (!string.IsNullOrWhiteSpace(currentLessonMap[key].Content)
+                              && !TextEquals(sourceLessonMap[key].Content, currentLessonMap[key].Content)))
             .Select(key => sourceLessonMap[key].Label)
             .ToList();
 
